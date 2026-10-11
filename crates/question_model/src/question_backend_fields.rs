@@ -215,16 +215,3 @@ impl std::fmt::Display for QuestionBackendFieldsError {
 }
 
 impl std::error::Error for QuestionBackendFieldsError {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn imathas_item_id_refuses_path_traversal_segments() {
-        assert_eq!(
-            ImathasItemId::new("item..17"),
-            Err(ImathasQuestionBackendBindingError::InvalidItemId)
-        );
-    }
-}

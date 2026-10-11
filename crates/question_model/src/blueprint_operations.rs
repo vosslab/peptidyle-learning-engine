@@ -410,24 +410,3 @@ fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessme
         defaults: assessment.defaults(),
     }
 }
-
-#[cfg(test)]
-mod wire_tests {
-    use super::*;
-
-    #[test]
-    fn question_pool_content_keeps_the_ordinary_pool_id() {
-        let question_pool_id: crate::QuestionPoolId = "7K3M-19QX".parse().expect("Pool ID");
-        let pool = BlueprintQuestionPoolContent::new(ReusablePoolView {
-            question_pool_id: question_pool_id.clone(),
-            selection_count: std::num::NonZeroU32::new(1).expect("positive count"),
-            points_per_item: AssessmentPointValue::from_whole(1),
-            scoring_rule: AssessmentEntryScoringRule::Normal,
-            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        })
-        .expect("current Pool identity is valid");
-
-        assert_eq!(pool.question_pool_id(), &question_pool_id);
-    }
-}

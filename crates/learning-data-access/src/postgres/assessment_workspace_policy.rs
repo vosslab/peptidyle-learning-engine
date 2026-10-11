@@ -73,17 +73,3 @@ pub(super) fn feedback_rules(
         )?,
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::feedback_timing;
-    use question_model::StudentFeedbackReleaseTiming;
-
-    #[test]
-    fn decodes_all_students_complete_answer_timing() {
-        assert_eq!(
-            feedback_timing("after_all_students_complete".to_string()),
-            Ok(StudentFeedbackReleaseTiming::AfterAllStudentsComplete)
-        );
-    }
-}

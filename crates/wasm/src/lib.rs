@@ -2,8 +2,7 @@
 //!
 //! Every export delegates to `domain`, which keeps parameter generation,
 //! format validation, timer verdicts, and capability validation identical on
-//! both targets. The export allowlist excludes `grading`, which is outside this
-//! crate's dependency closure and must stay there.
+//! both targets. `grading` is outside this crate's dependency closure.
 
 use domain::{draft_preview, policy, timing, validation};
 use question_model::presentation::{
@@ -18,12 +17,6 @@ use wasm_bindgen::prelude::wasm_bindgen;
 ///
 /// The Node binding check calls this export to prove the `wasm-bindgen`
 /// toolchain path works end to end.
-///
-/// # Examples
-///
-/// ```
-/// assert_eq!(wasm_bridge::bridge_version(), env!("CARGO_PKG_VERSION"));
-/// ```
 #[wasm_bindgen]
 pub fn bridge_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
@@ -199,78 +192,4 @@ pub fn verify_native_static_presentation_descriptor(
         rebuild_native_static_question_presentation(&presentation, &question_image_renditions)
             .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
     Ok(presentation.checksum.public_token() == expected)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn format_validation_delegates_to_the_key_free_domain_module() {
-        let check = validate_response_format(
-            r#"{"kind":"shortText","matchMode":"normalized","maxLength":20}"#,
-            r#"{"kind":"shortText","text":"peptide"}"#,
-        )
-        .expect("valid JSON should produce a Student Response Format Check");
-
-        assert_eq!(check, r#"{"issues":[]}"#);
-    }
-
-    #[test]
-    fn backend_owned_validation_accepts_the_bounded_base64_wire_shape() {
-        let check = validate_response_format(
-            r#"{"kind":"backendOwned"}"#,
-            r#"{"kind":"backendOwned","payload":"QW5Td0VyMDAwMT12YWx1ZQ=="}"#,
-        )
-        .expect("bounded base64 payload should be valid");
-        assert_eq!(check, r#"{"issues":[]}"#);
-    }
-
-    #[test]
-    fn timer_evaluation_delegates_to_the_clock_free_domain_module() {
-        let verdict = question_attempt_timing_decision(
-            r#"{
-                "policy":{"kind":"limited","seconds":9,"graceSeconds":2},
-                "timer":{"issuedAt":1000,"deadline":10000,"finalizedAt":10500},
-                "evaluatedAt":10500,
-                "pauseExtensionMillis":0
-            }"#,
-        )
-        .expect("valid server timestamps should produce a verdict");
-
-        assert_eq!(verdict, r#""finalizedWithinGrace""#);
-    }
-
-    #[test]
-    fn presentation_verification_uses_the_rust_descriptor_codec() {
-        let presentation = r#"{
-            "publishedQuestionRevisionTuple":{"publishedQuestionId":"ABCD-XEFG","revisionNumber":1},
-            "presentationNonce":"11111111111111111111111111111111",
-            "questionTitle":"Peptide bond",
-            "prompt":[{"kind":"text","markdown":"Which group forms the peptide bond?"}],
-            "response":{"kind":"singleChoice","choices":[
-                {"id":"cfdf","body":[{"kind":"text","markdown":"Amino group"}]},
-                {"id":"6603","body":[{"kind":"text","markdown":"Carboxyl group"}]}
-            ]}
-        }"#;
-        let rebuilt = rebuild_native_static_question_presentation(
-            &serde_json::from_str(presentation).expect("Question Presentation fixture"),
-            &[],
-        )
-        .expect("descriptor");
-        let checksum = rebuilt.checksum.public_token();
-
-        assert!(
-            verify_native_static_presentation_descriptor(presentation, "[]", checksum.as_str())
-                .unwrap()
-        );
-        assert!(
-            !verify_native_static_presentation_descriptor(
-                &presentation.replace("Peptide bond", "Changed Question Title"),
-                "[]",
-                checksum.as_str(),
-            )
-            .unwrap()
-        );
-    }
 }

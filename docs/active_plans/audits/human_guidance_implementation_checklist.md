@@ -7,6 +7,10 @@ reviewed. Fresh findings and validation limits are in
 The [reconciliation record](../../archive/reports/hg_compliance_2026_10_04/reconciliation.json)
 preserves removed/reworded bullets and the former open questions.
 
+The test paths below are historical audit receipts. The broad Node, fixture-browser, and component
+checks named in this checklist were retired during test pruning; their presence does not claim
+current coverage.
+
 Source: `docs/HUMAN_GUIDANCE.md`. Deferred behavior overrides other sections and is
 not an implementation requirement. Glossary and usage guidance remain authoritative.
 
@@ -4616,7 +4620,7 @@ not an implementation requirement. Glossary and usage guidance remain authoritat
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Database details and rules for updating statistics are in
-  [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
+  [DESIGN_DECISIONS.md](../../DESIGN_DECISIONS.md) and [FERPA_DATA_POLICY.md](/docs/FERPA_DATA_POLICY.md).
   - Evidence (source): `docs/DESIGN_DECISIONS.md` `Library usage statistics are retained counters` states the stored counts and the submission increment.
   - Evidence (source): `docs/FERPA_DATA_POLICY.md` `Question Library object usage statistics` states those schema and increment rules.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.

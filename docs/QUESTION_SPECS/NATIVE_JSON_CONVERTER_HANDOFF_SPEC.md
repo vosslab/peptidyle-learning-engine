@@ -147,12 +147,11 @@ does not widen script execution.
 
 ## Verification boundary
 
-The permanent [seven-kind browser journey](../../tests/playwright/e2e/question_import.spec.ts)
-imports a fixed BBQ bank and opens every saved Draft preview. It protects the QPM-to-PLE source
-contract across vendor refreshes. A failure calls for correcting the QPM Native JSON engine or
-PLE decoder against [NATIVE_JSON_SPEC.md](NATIVE_JSON_SPEC.md), then rebuilding and re-vendoring
-after engine changes. Publication, media skips, QTI reader limitations, request failures, and
-lazy loading receive focused implementation checks. Inline-image rendering remains separate work.
+The former seven-kind browser journey imported a fixed BBQ bank and opened every saved Draft
+preview. It was retired during test pruning, so it is historical refresh evidence rather than
+current QPM-to-PLE coverage. A discovered conversion failure calls for correcting the QPM Native
+JSON engine or PLE decoder against [NATIVE_JSON_SPEC.md](NATIVE_JSON_SPEC.md), then rebuilding and
+re-vendoring after engine changes. Inline-image rendering remains separate work.
 
 ## Current PLE gaps and evidence
 

@@ -12,15 +12,10 @@
 //! an installation-wide Account is the global product identity.
 
 use serde::{Deserialize, Serialize};
-#[cfg(test)]
-use uuid::Uuid;
 
 mod attempt_evidence;
 mod grading;
 mod source_object_checksum;
-#[cfg(test)]
-#[path = "student_work/source_object_checksum_tests.rs"]
-mod source_object_checksum_tests;
 
 pub use attempt_evidence::{
     AssessmentAttempt, AssessmentAttemptCompletion, AssessmentAttemptEvidence,
@@ -517,7 +512,3 @@ impl AssessmentGrade {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "student_work/model_tests.rs"]
-mod tests;

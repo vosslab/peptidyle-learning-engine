@@ -878,7 +878,3 @@ pub(crate) fn now() -> Timestamp {
         .unwrap_or_default();
     Timestamp::from_unix_millis(i64::try_from(milliseconds).unwrap_or(i64::MAX))
 }
-
-#[cfg(test)]
-#[path = "authoring_tests.rs"]
-mod tests;

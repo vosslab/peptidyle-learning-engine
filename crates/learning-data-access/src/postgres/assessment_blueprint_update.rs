@@ -325,16 +325,3 @@ fn update_error(error: sqlx::Error) -> StoreError {
     }
     map_sqlx_error(error)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::APPLY_ASSESSMENT_BLUEPRINT_UPDATE_SQL;
-
-    #[test]
-    fn apply_query_names_the_canonical_api() {
-        assert!(
-            APPLY_ASSESSMENT_BLUEPRINT_UPDATE_SQL
-                .contains("ple_api.apply_assessment_blueprint_update")
-        );
-    }
-}

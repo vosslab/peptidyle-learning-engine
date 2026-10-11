@@ -115,8 +115,6 @@ def load_manifest(repo_root: pathlib.Path, manifest_path: pathlib.Path) -> Dispo
 		profile = local_stack_control.runtime_manifest.acceptance_runtime_profile(manifest_path.parent)
 		if profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE:
 			runtime = local_stack_control.runtime_manifest.load_database_baseline_runtime(manifest_path.parent)
-		elif profile is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE:
-			runtime = local_stack_control.runtime_manifest.load_course_appearance_cross_store_runtime(manifest_path.parent)
 		else:
 			raise local_stack_control.models.ControllerError("acceptance runtime profile is invalid")
 		return DisposableManifest(

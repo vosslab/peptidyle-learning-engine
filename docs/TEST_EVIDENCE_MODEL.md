@@ -6,9 +6,10 @@ boundaries; real-stack browser journeys protect visible product behavior. A
 passing check in one class does not establish a claim owned by another.
 
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) requires tests to earn their maintenance
-cost. Keep a test only when it protects a durable behavior, authorization
-boundary, evidence-integrity rule, or supported lifecycle operation. When in
-doubt, remove it.
+cost. Compare the actual assertions with their fixture, dependency, runtime,
+flakiness, and coupling costs. Simple deterministic protection of meaningful,
+stable behavior can justify very little maintenance. Inspect uncertain groups
+before deletion; reduce maintenance burden without using test counts as a target.
 
 ## Evidence classes
 
@@ -34,11 +35,10 @@ doubt, remove it.
 
 `./launchers/all_test.sh` is the aggregate repository front door. It runs the
 owned Rust, codebase, Python, and declared service checks. Its `local_stack.py
-acceptance` step currently dispatches the database baseline, installation-data
-replay, and Course Appearance PostgreSQL/MinIO lanes. The four Assessment E2E
-scripts are separate entry points and do not run through that aggregate step.
-Browser and other connected operations remain explicit when their owner
-requires them; a green aggregate result proves only the lanes it actually ran.
+acceptance` step currently dispatches the database-baseline lane. Browser,
+object-store, installation-data, and other connected operations require their
+own explicitly recorded evidence; a green aggregate result proves only the
+lanes it actually ran.
 
 Every bounded work item names the commands necessary for its claim. A result is
 green only when its required commands ran successfully on the material tree.
@@ -48,16 +48,11 @@ assumptions, and one-time results.
 
 ## Database baseline and revision model
 
-The permanent database evidence is intentionally small:
-
-| Protected claim                                                                                                                                                                          | Suitable evidence                                                                     |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Runtime roles cannot change structure; schema ownership, forced RLS, grants, and capability roles are closed.                                                                            | Connected database security acceptance.                                               |
-| Question and Blueprint provenance is exact; Question IDs retain their exact canonical form and validate before resolution; old Student Work remains interpretable.                        | Focused domain tests plus connected evidence where persistence or RLS matters.        |
-| Current Assessment save/release, released edits, future Attempts, Question/Blueprint archive behavior, Blueprint Revision creation/Save, and Assessment Unrelease follow their lifecycle and concurrency contracts. | Narrow owner tests at the lowest layer that proves the behavior. |
-| Two Course Instances can pin one Blueprint Revision; a later changed Save leaves both pinned while a new Instance pins the newer current Revision.                                       | Deterministic Store or service fixture covering creation, Save, and exact provenance. |
-| Fresh base initialization, no-op compatible replay, and application-role verification work through supported commands.                                                                   | Connected lifecycle acceptance.                                                       |
-| Default installation-data provisioning and replay converge through the ordinary Live Demo path.                                                                                         | Connected installation-data acceptance.                                               |
+The retained database baseline checks fresh initialization, compatible replay, application-role
+verification, selected privilege/RLS boundaries, and destructive Assessment Unrelease with a real
+row-lock race. It does not establish Blueprint provenance, the full Assessment lifecycle,
+installation-data replay, or expiry grading. The [pruning report](TEST_PRUNING_REPORT.md) records
+the actual retained assertions and known coverage losses.
 
 Migration-file counts, historical checksums, module layouts, SQL body snippets,
 custom splitter behavior, retired Revision projections, and broad source

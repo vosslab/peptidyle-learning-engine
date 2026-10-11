@@ -7,8 +7,6 @@ rust-version.workspace = true
 
 [features]
 default = []
-# Local/dev server tests only. Production composition must not enable this.
-test-support = []
 # Adapter-owned private iMathAS transport client. Server composition must opt in.
 http-transport = ["dep:reqwest"]
 
@@ -25,6 +23,3 @@ sha2.workspace = true
 uuid.workspace = true
 reqwest = { version = "*", default-features = false, features = ["json", "rustls"], optional = true }
 
-[dev-dependencies]
-tokio.workspace = true
-axum.workspace = true

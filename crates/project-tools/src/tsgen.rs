@@ -186,9 +186,3 @@ fn manually_serialized_public_types(items: &[Item]) -> BTreeSet<String> {
         })
         .collect()
 }
-
-#[cfg(test)]
-mod blueprint_course_tests;
-
-#[cfg(test)]
-mod tests;

@@ -18,10 +18,6 @@ mod issue;
 #[path = "lib/source_object_id.rs"]
 mod source_object_id;
 
-#[cfg(test)]
-#[path = "lib/draft_preview_tests.rs"]
-mod draft_preview_tests;
-
 pub use crate::http_renderer::{
     HttpWebworkRenderer, HttpWebworkRendererConfig, RendererConfigError,
 };

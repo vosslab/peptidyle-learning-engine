@@ -1,5 +1,4 @@
-# Learning data access: Store trait, in-memory backend, PostgreSQL, jobs,
-# migrations, RLS context, and backend conformance tests.
+# Learning data access: Store traits, PostgreSQL, jobs, migrations, and RLS context.
 # This crate owns the database driver; no other member declares `sqlx`.
 [package]
 name = "learning-data-access"
@@ -32,14 +31,4 @@ sqlx = { workspace = true, optional = true }
 [features]
 default = []
 postgres = ["dep:sqlx"]
-# Explicit non-production in-memory backend and test seam for focused conformance
-# and server-boundary tests. Production compositions never enable this feature.
-test-support = ["question_model/generate"]
 
-[dev-dependencies]
-tokio.workspace = true
-uuid.workspace = true
-acceptance-runtime = { path = "../acceptance-runtime" }
-adapter_ple = { path = "../adapters/ple" }
-objects = { path = "../objects", features = ["s3"] }
-image.workspace = true

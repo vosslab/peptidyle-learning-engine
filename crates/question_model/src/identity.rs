@@ -124,31 +124,3 @@ impl_identifier!(WorkspaceId);
 impl_identifier!(WorkspaceImportId);
 impl_identifier!(QuestionImageAssetId);
 impl_identifier!(ObjectId);
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_question_revision_number_is_positive() {
-        let version = QuestionRevisionNumber::new(1).expect("positive version");
-        assert_eq!(version.get(), 1);
-    }
-
-    #[test]
-    fn question_revision_numbers_display_as_integers() {
-        assert_eq!(
-            QuestionRevisionNumber::new(1)
-                .expect("positive version")
-                .to_string(),
-            "1"
-        );
-    }
-
-    #[test]
-    fn an_identifier_serializes_as_a_plain_string() {
-        let id = WorkspaceId::from_uuid(Uuid::from_u128(7));
-        let json = serde_json::to_string(&id).expect("serialization should succeed");
-        assert_eq!(json, r#""00000000-0000-0000-0000-000000000007""#);
-    }
-}

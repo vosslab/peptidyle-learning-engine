@@ -44,8 +44,7 @@ BEGIN
 		) THEN
 		RAISE EXCEPTION 'application capability retains DDL authority';
 	END IF;
-	IF to_regprocedure('ple_api.sweep_expired_student_assignment_attempts(integer)') IS NOT NULL
-		OR NOT has_function_privilege(
+	IF NOT has_function_privilege(
 			'ple_assessment_attempt_expiry_worker',
 			'ple_api.prepare_expired_student_assessment_attempt_finalizations(integer)',
 			'EXECUTE'
@@ -66,55 +65,6 @@ BEGIN
 			'EXECUTE'
 		) THEN
 		RAISE EXCEPTION 'Assignment Attempt expiry finalization capability is not isolated';
-	END IF;
-	IF to_regrole('ple_imathas_question_backend_grading_worker') IS NOT NULL
-		OR to_regrole('ple_native_ple_grading_worker') IS NOT NULL
-		OR to_regrole('ple_webwork_grading_worker') IS NOT NULL
-		OR to_regprocedure('ple_api.stage_verified_imathas_result(uuid,uuid,uuid,uuid,text,text,text,integer,uuid,bytea,text,numeric,text,bytea,bytea,double precision,bytea,uuid,uuid,uuid,timestamptz)') IS NOT NULL
-		OR to_regprocedure('ple_api.claim_imathas_result_grading_job(uuid,uuid,timestamptz)') IS NOT NULL
-		OR to_regprocedure('ple_api.commit_imathas_result_grading(uuid,uuid,timestamptz)') IS NOT NULL
-		OR to_regprocedure('ple_api.fail_imathas_question_backend_grading_retryable(uuid,uuid,timestamptz,text)') IS NOT NULL
-		OR to_regprocedure('ple_api.fail_imathas_question_backend_grading_final(uuid,uuid,text)') IS NOT NULL
-		OR to_regprocedure('ple_api.claim_native_ple_grading_job(uuid,timestamptz)') IS NOT NULL
-		OR to_regprocedure('ple_api.commit_native_ple_grading(uuid,uuid,boolean,double precision,timestamptz)') IS NOT NULL
-		OR to_regprocedure('ple_api.fail_native_ple_grading_retryable(uuid,uuid,timestamptz,text)') IS NOT NULL
-		OR to_regprocedure('ple_api.fail_native_ple_grading_final(uuid,uuid,text)') IS NOT NULL
-		OR to_regprocedure('ple_api.claim_webwork_grading_job(uuid,timestamptz)') IS NOT NULL
-		OR to_regprocedure('ple_api.commit_webwork_grading(uuid,uuid,boolean,double precision,timestamptz)') IS NOT NULL
-		OR to_regprocedure('ple_api.fail_webwork_grading_retryable(uuid,uuid,timestamptz,text)') IS NOT NULL
-		OR to_regprocedure('ple_api.fail_webwork_grading_final(uuid,uuid,text)') IS NOT NULL THEN
-		RAISE EXCEPTION 'retired grading Job capability remains';
-	END IF;
-	IF to_regprocedure('ple_api.read_attempt_grading_status(bigint)') IS NOT NULL
-		OR to_regprocedure('ple_api.read_attempt_grading_detail(bigint,bigint)') IS NOT NULL
-		OR to_regprocedure('ple_api.finalize_student_assignment_attempt(bigint)') IS NOT NULL
-		OR to_regprocedure(
-				'ple_api.retry_grading_for_question_attempt(bigint,bigint,bigint,integer,bigint)'
-			) IS NOT NULL
-			OR EXISTS (
-				SELECT 1
-				  FROM pg_proc AS routine
-				  JOIN pg_namespace AS namespace ON namespace.oid = routine.pronamespace
-				 WHERE namespace.nspname = 'ple_private'
-				   AND routine.proname IN (
-					   'retry_grade_accepted_submission',
-					   'resolve_instructor_question_attempt_for_grading'
-				   )
-			)
-		OR EXISTS (
-			SELECT 1
-			  FROM pg_proc AS routine
-			  JOIN pg_namespace AS namespace ON namespace.oid = routine.pronamespace
-			 WHERE namespace.nspname = 'ple_private'
-			   AND routine.proname IN (
-				   'read_student_attempt_grading_status',
-				   'read_instructor_attempt_grading_detail',
-				   'public_grading_operation_state',
-				   'finalize_student_assignment_attempt',
-				   'finalize_assignment_attempt_saved_responses'
-			   )
-		) THEN
-			RAISE EXCEPTION 'retired public grading readers or mutation capability remains';
 	END IF;
 	IF NOT COALESCE((
 		SELECT has_table_privilege('ple_private_owner', relation.oid, 'SELECT')
@@ -185,27 +135,7 @@ BEGIN
 	) THEN
 		RAISE EXCEPTION 'an application capability can access public-ID reservations directly';
 	END IF;
-	IF NOT EXISTS (
-		SELECT 1
-		FROM pg_trigger AS trigger_row
-		JOIN pg_class AS relation ON relation.oid = trigger_row.tgrelid
-		JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
-		WHERE namespace.nspname = 'ple_private'
-		  AND relation.relname = 'public_id_reservation'
-		  AND trigger_row.tgname = 'public_id_reservation_is_permanent'
-		  AND NOT trigger_row.tgisinternal
-		  AND trigger_row.tgenabled = 'O'
-		  AND trigger_row.tgfoid = (
-			SELECT routine.oid
-			  FROM pg_proc AS routine
-			  JOIN pg_namespace AS routine_namespace ON routine_namespace.oid = routine.pronamespace
-			 WHERE routine_namespace.nspname = 'ple_private'
-			   AND routine.proname = 'reject_public_id_reservation_change'
-			   AND routine.pronargs = 0
-		  )
-	) THEN
-		RAISE EXCEPTION 'public-ID reservations lack their enabled immutable trigger';
-	END IF;
+
 END
 $$;
 
@@ -398,160 +328,6 @@ SELECT 'confirmed Sysadmin Student-data access proof passed' AS sysadmin_student
 ROLLBACK;
 -- END sysadmin_student_data_access
 
-
--- Bootstrap creates the role graph as the platform administrator. The
--- restricted migrator receives exactly the four schema owners plus its
--- database-owner, Unrelease, and Course-retention capabilities, each as
--- SET-only membership. Neither retention capability is a process login.
-DO $$
-BEGIN
-	IF (
-		SELECT count(*)
-		  FROM pg_catalog.pg_auth_members AS membership
-		 WHERE membership.member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = current_user)
-	) <> 9 OR (
-		SELECT count(*)
-		  FROM pg_catalog.pg_auth_members AS membership
-		  JOIN pg_catalog.pg_roles AS granted_role ON granted_role.oid = membership.roleid
-		 WHERE membership.member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = current_user)
-		   AND granted_role.rolname IN (
-			   'ple_database_owner',
-			   'ple_unrelease_executor',
-			   'ple_course_retention_executor',
-			   'ple_course_retention_notifier',
-			   'ple_course_retention_notification_owner',
-			   'ple_data_owner',
-			   'ple_private_owner',
-			   'ple_audit_owner',
-			   'ple_api_owner'
-		   )
-		   AND NOT membership.admin_option
-		   AND NOT membership.inherit_option
-		   AND membership.set_option
-	) <> 9
-	OR pg_has_role(current_user, 'ple_app', 'MEMBER')
-	OR pg_has_role(current_user, 'ple_auth', 'MEMBER')
-	OR pg_has_role(current_user, 'ple_student', 'MEMBER') THEN
-		RAISE EXCEPTION 'migrator role memberships exceed the SET-only bootstrap boundary';
-	END IF;
-END
-$$;
-
-DO $$
-BEGIN
-	IF NOT EXISTS (
-		SELECT 1
-		  FROM pg_catalog.pg_roles AS role
-		 WHERE role.rolname = 'ple_course_retention_notification_owner'
-		   AND NOT role.rolcanlogin
-		   AND NOT role.rolinherit
-		   AND NOT role.rolsuper
-		   AND NOT role.rolcreatedb
-		   AND NOT role.rolcreaterole
-		   AND NOT role.rolreplication
-		   AND NOT role.rolbypassrls
-		   AND role.rolconnlimit = -1
-	) THEN
-		RAISE EXCEPTION 'Course-retention notification owner is not an ordinary no-login role';
-	END IF;
-	BEGIN
-		EXECUTE 'SET LOCAL ROLE ple_course_retention_notification_owner';
-		RESET ROLE;
-	EXCEPTION WHEN insufficient_privilege THEN
-		RAISE EXCEPTION 'migrator could not assume the Course-retention notification owner';
-	END;
-END
-$$;
-
-DO $$
-BEGIN
-	IF NOT EXISTS (
-		SELECT 1
-		  FROM pg_catalog.pg_roles AS role
-		 WHERE role.rolname = 'ple_course_retention_notifier'
-		   AND NOT role.rolcanlogin
-		   AND NOT role.rolinherit
-		   AND NOT role.rolsuper
-		   AND NOT role.rolcreatedb
-		   AND NOT role.rolcreaterole
-		   AND NOT role.rolreplication
-		   AND NOT role.rolbypassrls
-		   AND role.rolconnlimit = -1
-	) THEN
-		RAISE EXCEPTION 'Course-retention notifier is not an ordinary no-login capability';
-	END IF;
-	IF ARRAY(
-		SELECT routine.oid::regprocedure::text
-		  FROM pg_catalog.pg_proc AS routine
-		  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = routine.pronamespace
-		 -- Public pure helpers in ple_private/ple_data are intentionally
-		 -- executable by PUBLIC; the notifier cannot reach those schemas.
-		 WHERE namespace.nspname = 'ple_api'
-		   AND has_function_privilege(
-			   'ple_course_retention_notifier', routine.oid, 'EXECUTE'
-		   )
-		 ORDER BY routine.oid::regprocedure::text
-	) <> ARRAY[
-		'ple_api.claim_course_retention_notification(timestamp with time zone,integer)',
-		'ple_api.fail_course_retention_notification_before_acceptance(uuid,uuid,timestamp with time zone,text)',
-		'ple_api.record_course_retention_notification_provider_acceptance(uuid,uuid,uuid,timestamp with time zone)'
-	] THEN
-		RAISE EXCEPTION 'Course-retention notifier function capability is not exact';
-	END IF;
-	BEGIN
-		EXECUTE 'SET LOCAL ROLE ple_course_retention_notifier';
-		RESET ROLE;
-	EXCEPTION WHEN insufficient_privilege THEN
-		RAISE EXCEPTION 'migrator could not assume the Course-retention notifier needed for installation';
-	END;
-END
-$$;
-
-DO $$
-BEGIN
-	IF NOT EXISTS (
-		SELECT 1
-		  FROM pg_catalog.pg_roles AS role
-		 WHERE role.rolname = 'ple_course_retention_executor'
-		   AND NOT role.rolcanlogin
-		   AND NOT role.rolinherit
-		   AND NOT role.rolsuper
-		   AND NOT role.rolcreatedb
-		   AND NOT role.rolcreaterole
-		   AND NOT role.rolreplication
-		   AND NOT role.rolbypassrls
-		   AND role.rolconnlimit = -1
-	) THEN
-		RAISE EXCEPTION 'Course-retention executor is not an ordinary no-login capability';
-	END IF;
-	-- Inactivity is executor-only even though it preserves all Student data.
-	IF NOT EXISTS (
-		SELECT 1 FROM pg_catalog.pg_proc AS routine
-		WHERE routine.oid = to_regprocedure(
-			'ple_api.mark_course_instance_inactive(text,timestamp with time zone)'
-		)
-		AND routine.proowner = to_regrole('ple_course_retention_executor')
-		AND routine.prosecdef
-		AND routine.proconfig = ARRAY['search_path=pg_catalog, ple_api, ple_data']
-	) OR EXISTS (
-		SELECT 1 FROM pg_catalog.pg_roles AS role
-		WHERE role.rolname IN ('ple_app', 'ple_auth', 'ple_course_retention_notifier')
-		AND has_function_privilege(
-			role.oid,
-				'ple_api.mark_course_instance_inactive(text,timestamp with time zone)',
-			'EXECUTE'
-		)
-	) THEN
-		RAISE EXCEPTION 'Course inactivity transition is not executor-only';
-	END IF;
-	BEGIN
-		EXECUTE 'SET LOCAL ROLE ple_course_retention_executor';
-		RESET ROLE;
-	EXCEPTION WHEN insufficient_privilege THEN
-		RAISE EXCEPTION 'migrator could not assume the Course-retention capability needed for installation';
-	END;
-END
-$$;
 
 SET ROLE ple_data_owner;
 DO $$

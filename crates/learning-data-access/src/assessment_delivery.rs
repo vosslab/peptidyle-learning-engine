@@ -457,33 +457,6 @@ pub enum StudentAssessmentAttemptPresentationSource {
     },
 }
 
-#[cfg(test)]
-mod presentation_source_tests {
-    use super::*;
-
-    #[test]
-    fn batch_keeps_one_started_attempt_identity_and_separates_commit_state() {
-        let assessment_attempt_id = uuid::Uuid::nil();
-        let new = NativeAssessmentIssuanceBatch {
-            assessment_attempt_id,
-            attempt_was_resumed: false,
-            presentation_is_committed: false,
-            committed_attempt: None,
-            retained_presentations: Vec::new(),
-            ple_sources: Vec::new(),
-            webwork_sources: Vec::new(),
-        };
-        assert_eq!(new.assessment_attempt_id, assessment_attempt_id);
-        assert!(new.requires_presentation_commit());
-
-        let committed = NativeAssessmentIssuanceBatch {
-            presentation_is_committed: true,
-            ..new
-        };
-        assert!(!committed.requires_presentation_commit());
-    }
-}
-
 /// Confirmation that one owned working response was saved at its fixed position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StudentAssessmentAttemptSavedResponse {

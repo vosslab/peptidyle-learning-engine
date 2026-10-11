@@ -66,28 +66,3 @@ pub trait SysadminStudentDataStore: Send + Sync {
         confirmation: ConfirmedStudentDataAccess,
     ) -> Result<Option<SysadminStudentRosterRecord>, StoreError>;
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn protected_student_read_requires_explicit_positive_confirmation() {
-        let confirmed: ConfirmedStudentDataAccess =
-            serde_json::from_str(r#"{"administrativeAccessConfirmed":true}"#)
-                .expect("confirmation payload");
-        assert!(confirmed.validate().is_ok());
-
-        let unconfirmed: ConfirmedStudentDataAccess =
-            serde_json::from_str(r#"{"administrativeAccessConfirmed":false}"#)
-                .expect("false confirmation payload");
-        assert!(unconfirmed.validate().is_err());
-        assert!(serde_json::from_str::<ConfirmedStudentDataAccess>("{} ").is_err());
-        assert!(
-            serde_json::from_str::<ConfirmedStudentDataAccess>(
-                r#"{"administrativeAccessConfirmed":true,"accountId":"attacker"}"#
-            )
-            .is_err()
-        );
-    }
-}

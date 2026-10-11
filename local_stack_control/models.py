@@ -76,7 +76,6 @@ class LiveDemoProfile(enum.StrEnum):
 	WEBWORK_RENDER_RPC = "webwork_render_rpc"
 	REPLICA_RESTART = "replica_restart"
 	DATABASE_BASELINE = "database_baseline"
-	COURSE_APPEARANCE_CROSS_STORE = "course_appearance_cross_store"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -139,14 +138,6 @@ LIVE_DEMO_PROFILE_POLICIES = (
 		profile=LiveDemoProfile.DATABASE_BASELINE,
 		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
 		child_capabilities=("database_baseline_oracle",),
-	),
-	LiveDemoProfilePolicy(
-		profile=LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE,
-		compose_relative_paths=(
-			"tests/e2e/compose.database-baseline.yaml",
-			"tests/e2e/compose.course-appearance-cross-store.yaml",
-		),
-		child_capabilities=("course_appearance_cross_store_oracle",),
 	),
 )
 
@@ -213,18 +204,6 @@ class DisposableOwnerPolicy:
 # This is the one registry for an owner's namespace, grammar, and Compose
 # topology. Consumers may add application assertions, never target shape.
 DISPOSABLE_OWNER_POLICIES = (
-	DisposableOwnerPolicy(
-		owner="course-appearance",
-		project_prefix="ple_course_appearance_",
-		project_pattern=re.compile(r"^ple_course_appearance_[A-Za-z0-9]+$"),
-		compose_relative_paths=("tests/e2e/compose.course-appearance.yaml",),
-	),
-	DisposableOwnerPolicy(
-		owner="live-demo-baseline",
-		project_prefix="ple_live_demo_baseline_",
-		project_pattern=re.compile(r"^ple_live_demo_baseline_[A-Za-z0-9]+$"),
-		compose_relative_paths=("tests/e2e/compose.course-appearance.yaml",),
-	),
 	DisposableOwnerPolicy(
 		owner=LIVE_DEMO_BROWSER_OWNER,
 		project_prefix=LIVE_DEMO_BROWSER_PROJECT,

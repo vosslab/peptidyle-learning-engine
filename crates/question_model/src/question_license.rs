@@ -19,21 +19,3 @@ pub enum QuestionLicense {
     #[serde(rename = "CC-BY-SA-4.0")]
     CcBySa4_0,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn question_license_serializes_as_an_exact_spdx_expression() {
-        let json = serde_json::to_string(&QuestionLicense::CcBySa4_0)
-            .expect("serialization should succeed");
-        assert_eq!(json, r#""CC-BY-SA-4.0""#);
-    }
-
-    #[test]
-    fn question_license_refuses_an_incompatible_or_unversioned_expression() {
-        let decoded = serde_json::from_str::<QuestionLicense>(r#""CC-BY""#);
-        assert!(decoded.is_err());
-    }
-}

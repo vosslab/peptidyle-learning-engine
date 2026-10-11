@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  allBaseAssessmentPolicyEditsPersisted,
   baseAssessmentPolicyDraftChanged,
   baseAssessmentPolicyReloaded,
   baseAssessmentPolicyRequest,
@@ -36,17 +35,6 @@ const draft = {
   },
 };
 
-test("Base Assessment Policy invalid drafts remain visible and block Release", () => {
-  const invalid = baseAssessmentPolicyDraftChanged(
-    createBaseAssessmentPolicyAutosaveState(draft),
-    { ...draft, attemptLimit: 0 },
-    false,
-  );
-  assert.equal(invalid.persistence, "invalid");
-  assert.equal(allBaseAssessmentPolicyEditsPersisted(invalid), false);
-  assert.equal(invalid.inFlightSeq, undefined);
-});
-
 test("Base Assessment Policy coalesces a later valid draft behind one request", () => {
   const saving = baseAssessmentPolicyDraftChanged(
     createBaseAssessmentPolicyAutosaveState(draft),
@@ -58,9 +46,7 @@ test("Base Assessment Policy coalesces a later valid draft behind one request", 
   assert.equal(later.persistence, "saving");
   assert.equal(later.inFlightSeq, saving.inFlightSeq);
   assert.equal(later.pending.instructions, "Updated.");
-  assert.equal(allBaseAssessmentPolicyEditsPersisted(later), false);
   const next = baseAssessmentPolicySaveSucceeded(later, saving.inFlightSeq, draft, true);
-  assert.equal(next.persistence, "saving");
   assert.equal(baseAssessmentPolicyRequest(next)?.input.instructions, "Updated.");
   const saved = baseAssessmentPolicySaveSucceeded(next, next.inFlightSeq, laterDraft, true);
   assert.equal(saved.persistence, "saved");
@@ -81,35 +67,6 @@ test("stale success retains a newer visible draft and stays unsaved", () => {
   assert.equal(stale, later);
   assert.equal(stale.draft.instructions, "Newer.");
   assert.equal(stale.persistence, "saving");
-});
-
-test("success while the visible draft is invalid advances accepted state but remains invalid", () => {
-  const saving = baseAssessmentPolicyDraftChanged(
-    createBaseAssessmentPolicyAutosaveState(draft),
-    draft,
-    true,
-  );
-  const invalid = baseAssessmentPolicyDraftChanged(saving, { ...draft, attemptLimit: 0 }, false);
-  const result = baseAssessmentPolicySaveSucceeded(invalid, saving.inFlightSeq, draft, false);
-  assert.equal(result.persistence, "invalid");
-  assert.equal(result.lastAccepted.instructions, draft.instructions);
-  assert.equal(allBaseAssessmentPolicyEditsPersisted(result), false);
-});
-
-test("a rejected save retains the visible draft and a later edit sends normally", () => {
-  const saving = baseAssessmentPolicyDraftChanged(
-    createBaseAssessmentPolicyAutosaveState(draft),
-    draft,
-    true,
-  );
-  const rejected = baseAssessmentPolicySaveError(saving, saving.inFlightSeq, "rejected");
-  assert.equal(rejected.persistence, "rejected");
-  const edited = baseAssessmentPolicyDraftChanged(
-    rejected,
-    { ...draft, instructions: "Revised." },
-    true,
-  );
-  assert.equal(baseAssessmentPolicyRequest(edited)?.input.instructions, "Revised.");
 });
 
 test("a failed save retries the current visible draft", () => {

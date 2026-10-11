@@ -42,11 +42,10 @@ nullable. The Question editor loads their current values before saving, so chang
 the other unchanged. Pool Bloom fields use the ordinary Pool metadata save. See
 [the Question metadata route](../../crates/server/src/question_metadata.rs),
 [the Question editor](../../src/features/question_metadata/question_metadata_editor.tsx),
-[the Pool editor](../../src/components/question_pool_metadata_editor.tsx), and the
-[Question](../../tests/test_question_metadata_client.mjs) and
-[Pool](../../tests/test_question_pool_metadata_client.mjs) client tests. The client tests include a
-set value with the other dimension NULL. These source paths are implementation evidence; connected
-database and browser acceptance remain pending M29.
+[the Pool editor](../../src/components/question_pool_metadata_editor.tsx). The former Question and
+Pool metadata client tests included a set value with the other dimension NULL; they were retired
+during test pruning and are historical evidence rather than current coverage. These source paths
+are implementation evidence; connected database and browser acceptance remain pending M29.
 
 ## Search and Assessment use
 

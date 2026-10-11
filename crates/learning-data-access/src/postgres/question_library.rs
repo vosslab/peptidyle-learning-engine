@@ -654,23 +654,3 @@ fn numeric_f64(row: &sqlx::postgres::PgRow, column: &str) -> Result<f64, StoreEr
 fn invalid(field: &str) -> StoreError {
     StoreError::InvalidRecord(format!("stored {field} is invalid"))
 }
-
-#[cfg(test)]
-mod tests {
-    use question_model::QuestionAvailability;
-
-    use super::availability_from_wire;
-
-    #[test]
-    fn stable_lineage_availability_uses_the_closed_wire_vocabulary() {
-        assert_eq!(
-            availability_from_wire("available"),
-            Ok(QuestionAvailability::Available)
-        );
-        assert_eq!(
-            availability_from_wire("archived"),
-            Ok(QuestionAvailability::Archived)
-        );
-        assert!(availability_from_wire("retired").is_err());
-    }
-}

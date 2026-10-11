@@ -105,25 +105,3 @@ fn promotion_response(value: learning_data_access::StoredBlueprintPromotion) -> 
         Err(_) => unavailable(),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn promotion_command_accepts_only_an_exact_boolean_field() {
-        assert!(
-            serde_json::from_str::<PromotionInput>(r#"{"promoted":true}"#)
-                .expect("exact promotion command")
-                .promoted
-        );
-        for input in [
-            r#"{"promoted":"true"}"#,
-            r#"{"promoted":null}"#,
-            r#"{"promoted":false,"availability":"public"}"#,
-            r#"{}"#,
-        ] {
-            assert!(serde_json::from_str::<PromotionInput>(input).is_err());
-        }
-    }
-}

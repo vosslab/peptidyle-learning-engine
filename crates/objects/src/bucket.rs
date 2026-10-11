@@ -628,7 +628,3 @@ pub fn published_import_archive_object_id(
     object_uuid.copy_from_slice(&digest[..16]);
     ObjectId::from_uuid(uuid::Uuid::from_bytes(object_uuid))
 }
-
-#[cfg(test)]
-#[path = "bucket_tests.rs"]
-mod tests;

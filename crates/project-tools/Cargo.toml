@@ -87,6 +87,3 @@ url = { version = "*", optional = true }
 uuid = { workspace = true, optional = true }
 wasm-bindgen-cli-support = { version = "*", optional = true }
 
-[dev-dependencies]
-# E2E seed tests use the deliberate non-production in-memory backend.
-learning-data-access = { workspace = true, features = ["test-support"] }

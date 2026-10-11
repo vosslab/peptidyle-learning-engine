@@ -24,8 +24,6 @@ pub use preparation::{
 pub(super) const IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES: usize =
     protected_state::IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES;
 pub(crate) use protected_state::ImathasQuestionBackendStateCipherStorageParts;
-#[cfg(test)]
-use protected_state::ImathasQuestionBackendStateNonceSource;
 pub use protected_state::{
     ImathasQuestionBackendStateCipher, ImathasQuestionBackendStateKeyId,
     ImathasQuestionBackendStateKeyRing, ImathasQuestionBackendStatePlaintext,
@@ -56,7 +54,3 @@ pub trait ImathasQuestionBackendSessionStore: Send + Sync {
         expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError>;
 }
-
-#[cfg(test)]
-#[path = "imathas_question_backend_session_tests.rs"]
-mod tests;

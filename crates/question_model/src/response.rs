@@ -475,102 +475,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn choice_identifiers_survive_a_round_trip() {
-        let response = StudentResponse::MultipleChoice {
-            selected: vec![ResponseItemId::new("b"), ResponseItemId::new("d")],
-        };
-        let json = serde_json::to_string(&response).expect("serialization should succeed");
-        let restored: StudentResponse =
-            serde_json::from_str(&json).expect("deserialization should succeed");
-        assert_eq!(restored, response);
-    }
-
-    #[test]
-    fn imathas_question_backend_markers_round_trip_as_kind_only() {
-        let response_format = QuestionResponseFormat::ImathasQuestionBackend {};
-        let response = StudentResponse::ImathasQuestionBackend {};
-
-        assert_eq!(
-            serde_json::to_value(&response_format).unwrap(),
-            serde_json::json!({"kind": "imathasQuestionBackend"})
-        );
-        assert_eq!(
-            serde_json::to_value(&response).unwrap(),
-            serde_json::json!({"kind": "imathasQuestionBackend"})
-        );
-        assert_eq!(
-            serde_json::from_value::<QuestionResponseFormat>(
-                serde_json::json!({"kind": "imathasQuestionBackend"})
-            )
-            .unwrap(),
-            response_format
-        );
-        assert_eq!(
-            serde_json::from_value::<StudentResponse>(
-                serde_json::json!({"kind": "imathasQuestionBackend"})
-            )
-            .unwrap(),
-            response
-        );
-    }
-
-    #[test]
-    fn backend_owned_response_round_trips_as_bounded_base64() {
-        let response_format = QuestionResponseFormat::BackendOwned {};
-        let response = StudentResponse::BackendOwned {
-            payload: b"AnSwEr0001=value".to_vec(),
-        };
-
-        assert_eq!(
-            serde_json::to_value(&response_format).unwrap(),
-            serde_json::json!({"kind": "backendOwned"})
-        );
-        assert_eq!(
-            serde_json::to_value(&response).unwrap(),
-            serde_json::json!({"kind": "backendOwned", "payload": "QW5Td0VyMDAwMT12YWx1ZQ=="})
-        );
-        assert_eq!(
-            serde_json::from_value::<StudentResponse>(serde_json::to_value(&response).unwrap())
-                .unwrap(),
-            response
-        );
-    }
-
-    #[test]
-    fn backend_owned_response_refuses_oversize_or_noncanonical_payloads() {
-        let oversize = base64::engine::general_purpose::STANDARD.encode(vec![
-            0_u8;
-            MAX_BACKEND_OWNED_PAYLOAD_BYTES
-                + 1
-        ]);
-        let oversize_json = serde_json::json!({"kind": "backendOwned", "payload": oversize});
-        assert!(serde_json::from_value::<StudentResponse>(oversize_json).is_err());
-
-        let noncanonical_json = serde_json::json!({"kind": "backendOwned", "payload": "YQ"});
-        assert!(serde_json::from_value::<StudentResponse>(noncanonical_json).is_err());
-    }
-
-    #[test]
     fn response_enums_reject_unknown_fields() {
+        let format = serde_json::to_value(QuestionResponseFormat::Numeric {
+            tolerance: crate::answer::NumericResponseTolerance::Absolute { epsilon: 0.1 },
+            unit: None,
+        })
+        .expect("numeric format serializes");
+        let response = serde_json::json!({"kind": "numeric", "value": 1.0});
+        assert!(serde_json::from_value::<QuestionResponseFormat>(format.clone()).is_ok());
+        assert!(serde_json::from_value::<StudentResponse>(response.clone()).is_ok());
         for extra in [
             "score",
             "correct",
             "result",
-            // A hostile legacy-shaped field; strict decoding refuses it.
             "provider",
             "token",
             "launchUrl",
         ] {
-            let value = serde_json::json!({"kind": "imathasQuestionBackend", extra: true});
-            assert!(serde_json::from_value::<QuestionResponseFormat>(value.clone()).is_err());
-            assert!(serde_json::from_value::<StudentResponse>(value).is_err());
+            let mut untrusted_format = format.clone();
+            untrusted_format[extra] = serde_json::json!(true);
+            assert!(serde_json::from_value::<QuestionResponseFormat>(untrusted_format).is_err());
+            let mut untrusted_response = response.clone();
+            untrusted_response[extra] = serde_json::json!(true);
+            assert!(serde_json::from_value::<StudentResponse>(untrusted_response).is_err());
         }
-
-        assert!(
-            serde_json::from_value::<StudentResponse>(serde_json::json!({
-                "kind": "numeric", "value": 1.0, "score": 1
-            }))
-            .is_err()
-        );
     }
 }

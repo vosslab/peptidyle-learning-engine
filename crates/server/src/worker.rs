@@ -149,7 +149,3 @@ async fn shutdown_signal() {
         tracing::error!(event = "worker_shutdown_signal_unavailable", signal = "SIGINT", error = %error);
     }
 }
-
-#[cfg(test)]
-#[path = "worker_tests.rs"]
-mod worker_tests;

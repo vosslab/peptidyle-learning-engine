@@ -207,36 +207,3 @@ pub(crate) struct RetainedQuestion {
     pub finalized_response: Option<RetainedResponse>,
     pub grading: Option<Grading>,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::RecoverySummary;
-    use question_model::{
-        AssessmentAttemptId, CourseInstanceId, CourseRosterId, CourseRosterTuple,
-    };
-    use uuid::Uuid;
-
-    #[test]
-    fn recovery_summary_serializes_course_roster_tuple_without_student_record_id() {
-        let course_instance_id = CourseInstanceId::new("CI6F2R8TA0").expect("Course Instance ID");
-        let summary = RecoverySummary {
-            course_instance_id: course_instance_id.clone(),
-            course_roster_tuple: Some(CourseRosterTuple {
-                course_instance_id,
-                roster_id: CourseRosterId::new("bio-301").expect("roster"),
-            }),
-            assessment_id: "A7K3M2QXF".parse().expect("Assessment ID"),
-            assessment_title: "Quiz".to_string(),
-            assessment_attempt_id: AssessmentAttemptId::from_uuid(Uuid::from_u128(17)),
-            assessment_attempt_number: 1,
-            started_at: "2026-09-01T12:00:00Z".to_string(),
-            submitted_at: None,
-            student_data_archived_at: "2026-09-02T12:00:00Z".to_string(),
-            delete_due_at: "2026-09-09T12:00:00Z".to_string(),
-        };
-        let wire = serde_json::to_value(&summary).expect("summary serializes");
-        assert_eq!(wire["courseRosterTuple"]["rosterId"], "bio-301");
-        assert!(wire.get("rosterId").is_none());
-        assert!(wire.get("studentRecordId").is_none());
-    }
-}

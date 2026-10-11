@@ -9,6 +9,9 @@
 
 This inventory is the completed M11 retirement record for the superseded course-navigation layers. It records each observed responsibility, its single post-retirement owner, and the evidence used to verify deletion. The Ribbon remains the persistent navigation surface; page content owns its own purpose, heading, and recovery state.
 
+The test names and commands below are historical receipts. The listed fixture, browser, and Node
+checks were retired during test pruning and do not describe current coverage.
+
 ## Scope and rule
 
 The retiring files are `src/components/course_management_frame.tsx`, `src/components/course_management_nav.tsx`, `src/pages/assignment_workspace/assignment_workspace_nav.tsx`, and `src/features/course_appearance/course_theme_route.ts`. M10 has already introduced `src/application_shell.tsx`, `src/ribbon/route_scope_context.tsx`, and `src/features/course_appearance/course_theme_variables.tsx` as their replacement seams.

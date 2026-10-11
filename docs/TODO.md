@@ -47,9 +47,9 @@ finding-by-finding reconciliation is in the
       and the ordinary Edit Number. Pool member display sorting is spreadsheet-style and changes
       only displayed rows; remove the unsupported persisted Assessment Pool order field and all
       `QuestionPoolOrder` user choices. Canonical tuple sorting remains an internal sampling detail.
-      Evidence: [question_pools.sql](../schemas/base_schema/50_functions/question_pools.sql),
-      [question_pool_create_dialog.tsx](../src/components/question_pool_create_dialog.tsx), and
-      [test_question_pool_creation_client.mjs](../tests/test_question_pool_creation_client.mjs).
+      Evidence: [question_pools.sql](../schemas/base_schema/50_functions/question_pools.sql) and
+      [question_pool_create_dialog.tsx](../src/components/question_pool_create_dialog.tsx). The
+      former `test_question_pool_creation_client.mjs` evidence was retired during test pruning.
       Order-correction implementation and evidence: [M09 order correction report](archive/reports/QUESTION_SPEC_M09_ORDER_CORRECTION.md).
       Verify that valid members save without an additional certification input.
       The ordinary Owner/Sysadmin Pool editor now has Add/Remove/Save and local table sorting. Its

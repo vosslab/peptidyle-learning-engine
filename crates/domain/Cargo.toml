@@ -22,8 +22,6 @@ chrono-tz.workspace = true
 # Optional so the WASM bridge can enable it without forcing it on the server.
 wasm-bindgen = { workspace = true, optional = true }
 
-[dev-dependencies]
-
 [features]
 default = []
 wasm = ["dep:wasm-bindgen", "question_model/wasm"]

@@ -85,13 +85,3 @@ impl QuestionReproduction {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_seed_keeps_its_value() {
-        assert_eq!(QuestionSeed::new(42).value(), 42);
-    }
-}

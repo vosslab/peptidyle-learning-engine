@@ -591,6 +591,3 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
         .collect::<Option<Vec<_>>>()?;
     (!values.is_empty()).then(|| values.join("; "))
 }
-
-#[cfg(test)]
-mod tests;

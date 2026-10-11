@@ -17,8 +17,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::AnswerKey;
 
-#[cfg(test)]
-mod fill_in_tests;
 mod multiple_answer;
 mod ordering;
 #[path = "ple_question_json_validate.rs"]
@@ -109,9 +107,10 @@ impl std::error::Error for PleQuestionJsonError {}
 mod tests {
     use super::*;
     use crate::AnswerKey;
-    use question_model::answer::ResponseSelectionRule;
+    use question_model::answer::{ResponseSelectionRule, TextResponseMatchRule};
     use question_model::response::{
         MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice, StudentMatch,
+        StudentTextEntry, TextEntrySlot,
     };
     use std::collections::{BTreeMap, BTreeSet};
 
@@ -149,6 +148,149 @@ mod tests {
             .expect("valid response evaluates")
             .evaluation
             .normalized_credit()
+    }
+
+    fn evaluate_short_text(
+        match_mode: TextResponseMatchRule,
+        accepted: &[&str],
+        response: &str,
+    ) -> Result<f64, PleQuestionJsonError> {
+        Ok(fraction(evaluate(
+            QuestionType::FillInBlank,
+            QuestionResponseFormat::ShortText {
+                match_mode,
+                max_length: 256,
+            },
+            AnswerKey::ShortText {
+                accepted: accepted.iter().map(|value| (*value).to_string()).collect(),
+            },
+            StudentResponse::ShortText {
+                text: response.to_string(),
+            },
+        )))
+    }
+
+    #[test]
+    fn fib_keeps_alternatives_and_literal_matching_modes() {
+        assert_eq!(
+            evaluate_short_text(
+                TextResponseMatchRule::Exact,
+                &["ATP", "adenosine triphosphate"],
+                "adenosine triphosphate"
+            ),
+            Ok(1.0)
+        );
+        assert_eq!(
+            evaluate_short_text(TextResponseMatchRule::CaseInsensitive, &["ATP"], "atp"),
+            Ok(1.0)
+        );
+        assert_eq!(
+            evaluate_short_text(
+                TextResponseMatchRule::Normalized,
+                &["adenosine triphosphate"],
+                " Adenosine   Triphosphate "
+            ),
+            Ok(1.0)
+        );
+    }
+
+    #[test]
+    fn fib_regex_uses_authored_anchors_and_case_and_rejects_blank_input() {
+        assert_eq!(
+            evaluate_short_text(
+                TextResponseMatchRule::Regex,
+                &["DNA"],
+                "double-stranded DNA"
+            ),
+            Ok(1.0)
+        );
+        assert_eq!(
+            evaluate_short_text(TextResponseMatchRule::Regex, &["^ATP$", "^GTP$"], "GTP"),
+            Ok(1.0)
+        );
+        assert_eq!(
+            evaluate_short_text(
+                TextResponseMatchRule::Regex,
+                &["^DNA$"],
+                "double-stranded DNA"
+            ),
+            Ok(0.0)
+        );
+        assert_eq!(
+            evaluate_short_text(TextResponseMatchRule::Regex, &["DNA"], "dna"),
+            Ok(0.0)
+        );
+        assert_eq!(
+            evaluate_short_text(TextResponseMatchRule::Regex, &["(?i)^dna$"], "DNA"),
+            Ok(1.0)
+        );
+        assert_eq!(
+            evaluate_short_text(TextResponseMatchRule::Regex, &[".*"], "  \t"),
+            Ok(0.0)
+        );
+    }
+
+    #[test]
+    fn multi_fib_scores_correct_blanks_over_all_authored_blanks() {
+        let blanks = vec![
+            TextEntrySlot {
+                id: id("first"),
+                label: Vec::new(),
+                match_mode: TextResponseMatchRule::CaseInsensitive,
+                max_length: 64,
+            },
+            TextEntrySlot {
+                id: id("second"),
+                label: Vec::new(),
+                match_mode: TextResponseMatchRule::Regex,
+                max_length: 64,
+            },
+            TextEntrySlot {
+                id: id("third"),
+                label: Vec::new(),
+                match_mode: TextResponseMatchRule::Normalized,
+                max_length: 64,
+            },
+            TextEntrySlot {
+                id: id("fourth"),
+                label: Vec::new(),
+                match_mode: TextResponseMatchRule::Regex,
+                max_length: 64,
+            },
+        ];
+        let accepted = BTreeMap::from([
+            (
+                id("first"),
+                vec!["ATP".to_string(), "adenosine triphosphate".to_string()],
+            ),
+            (id("second"), vec!["^Glu\\d$".to_string()]),
+            (id("third"), vec!["glucose 6 phosphate".to_string()]),
+            (id("fourth"), vec!["citrate".to_string()]),
+        ]);
+        assert_eq!(
+            fraction(evaluate(
+                QuestionType::MultipleFillInBlank,
+                QuestionResponseFormat::MultiBlank { blanks },
+                AnswerKey::MultiBlank { accepted },
+                StudentResponse::MultiBlank {
+                    answers: vec![
+                        StudentTextEntry {
+                            slot: id("first"),
+                            text: "ADENOSINE TRIPHOSPHATE".to_string()
+                        },
+                        StudentTextEntry {
+                            slot: id("second"),
+                            text: "glucose".to_string()
+                        },
+                        StudentTextEntry {
+                            slot: id("third"),
+                            text: " \t".to_string()
+                        },
+                    ],
+                },
+            )),
+            0.25
+        );
     }
 
     #[test]

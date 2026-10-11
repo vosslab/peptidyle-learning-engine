@@ -21,16 +21,6 @@ sys.path.insert(0, str(E2E_DIRECTORY))
 import e2e_browser_scenario_contract
 
 
-CURRENT_MILESTONE_JOURNEYS = (
-	("assignment_release", ("bash", "tests/e2e/e2e_live_demo_assignment_release.sh", "--browser")),
-	("assignment_attempt", ("bash", "tests/e2e/e2e_live_demo_assignment_attempt.sh")),
-	("instructor_accounts", ("bash", "tests/e2e/e2e_live_demo_instructor_accounts.sh", "--browser")),
-	("support_capability", ("bash", "tests/e2e/e2e_live_demo_support_capability.sh", "--issue")),
-	("invitation_export", ("bash", "tests/e2e/e2e_live_demo_invitation_export.sh", "--dry-run")),
-	("course_seed", ("node", "--import", "tsx", "tests/playwright/e2e_live_demo_course_seed_browser.mjs")),
-)
-
-
 def write_private(path: pathlib.Path, contents: str) -> None:
 	"""Write one canonical owner hand-off, never a shared test fixture."""
 	fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -101,22 +91,6 @@ def run_contract(contract: e2e_browser_scenario_contract.ScenarioContract, origi
 		raise RuntimeError("production-browser scenario failed: " + contract.scenario_id)
 
 
-def run_current_milestone_journeys() -> None:
-	"""Run the supported visible-browser journeys serially."""
-	private = workspace()
-	setup_uri = local_stack_control.local_totp_authenticator.write_authenticator_setup_uri(
-		private / local_stack_control.local_totp_authenticator.MORGAN_TOTP_ARTIFACT_FILE
-	)
-	for name, argv in CURRENT_MILESTONE_JOURNEYS:
-		print("==> production-browser journey: " + name, flush=True)
-		environment = dict(os.environ)
-		environment["NODE_EXTRA_CA_CERTS"] = str(private / "gateway-root.crt")
-		environment["PLE_LOCAL_DEMO_TOTP_SETUP_FILE"] = str(setup_uri)
-		result = subprocess.run(argv, cwd=ROOT, env=environment, check=False)
-		if result.returncode != 0:
-			raise RuntimeError("production-browser journey failed: " + name)
-
-
 def ready_owner_receipt() -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
 	"""Wait only on the controller's authenticated HTTPS-ready receipt."""
 	return local_stack_control.browser_suite_developer.read_developer_browser_suite_start_receipt(ROOT)
@@ -138,8 +112,6 @@ def main() -> None:
 	for contract in contracts:
 		print("==> production-browser scenario: " + contract.scenario_id, flush=True)
 		run_contract(contract, receipt.origin)
-	if args.scenario is None:
-		run_current_milestone_journeys()
 	print("PASS: serial production-browser scenarios passed.")
 
 

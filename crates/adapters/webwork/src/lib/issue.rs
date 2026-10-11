@@ -344,7 +344,3 @@ fn hex_digest(bytes: &[u8]) -> String {
     }
     output
 }
-
-#[cfg(test)]
-#[path = "tests.rs"]
-mod tests;

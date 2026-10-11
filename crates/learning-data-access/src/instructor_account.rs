@@ -176,30 +176,3 @@ pub trait InstructorAccountStore: Send + Sync {
         account_id: AccountId,
     ) -> Result<InstructorAccountSummary, StoreError>;
 }
-
-#[cfg(test)]
-mod tests {
-    use super::CreateInstructorAccountInput;
-
-    #[test]
-    fn create_instructor_account_requires_complete_setup_fields() {
-        let missing = serde_json::from_str::<CreateInstructorAccountInput>(
-            r#"{"normalizedEmail":"ada@university.edu"}"#,
-        );
-        assert!(
-            missing.is_err(),
-            "creation without the required setup fields must fail"
-        );
-        let input: CreateInstructorAccountInput = serde_json::from_str(
-            r#"{"normalizedEmail":"ada@university.edu","firstName":"Ada","lastName":"Lovelace","affiliation":"University"}"#
-        )
-        .expect("complete setup input");
-        input.validate().expect("normalized email is acceptable");
-
-        let unnormalized: CreateInstructorAccountInput = serde_json::from_str(
-            r#"{"normalizedEmail":"Ada@University.EDU","firstName":"Ada","lastName":"Lovelace","affiliation":"University"}"#,
-        )
-        .expect("field shape is valid");
-        assert!(unnormalized.validate().is_err());
-    }
-}

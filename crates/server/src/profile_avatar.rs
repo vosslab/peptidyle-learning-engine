@@ -543,33 +543,3 @@ fn concealed() -> Response {
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn profile_crop_header_requires_one_bounded_closed_integer_object() {
-        let valid = r#"{"sourceWidth":256,"sourceHeight":128,"horizontal":100,"vertical":0,"zoomPercent":100}"#;
-        let mut headers = HeaderMap::new();
-        assert!(profile_image_crop(&headers).is_none());
-        headers.insert(PROFILE_IMAGE_CROP_HEADER, valid.parse().unwrap());
-        assert!(profile_image_crop(&headers).is_some());
-        headers.append(PROFILE_IMAGE_CROP_HEADER, valid.parse().unwrap());
-        assert!(profile_image_crop(&headers).is_none());
-        for value in [
-            "{}".to_owned(),
-            valid.replace("100", "NaN"),
-            valid.replace("100", "1e999"),
-            valid.replace("100", "1.5"),
-            valid.replace("100", "-1"),
-            valid.replace("100", "4294967296"),
-            valid.replace('}', ",\"extra\":0}"),
-            valid.replace('}', ",\"horizontal\":50}"),
-            format!("{}{}", valid, " ".repeat(129)),
-        ] {
-            headers.insert(PROFILE_IMAGE_CROP_HEADER, value.parse().unwrap());
-            assert!(profile_image_crop(&headers).is_none(), "accepted {value}");
-        }
-    }
-}

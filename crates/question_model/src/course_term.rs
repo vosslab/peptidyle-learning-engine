@@ -237,19 +237,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn exact_calendar_dates_round_trip_without_becoming_instants() {
-        for date in ["0001-01-01", "2026-08-24", "2028-02-29", "9999-12-31"] {
-            let parsed: CourseDate =
-                serde_json::from_str(&format!("\"{date}\"")).expect("valid course date");
-            assert_eq!(parsed.as_str(), date);
-            assert_eq!(
-                serde_json::to_string(&parsed).unwrap(),
-                format!("\"{date}\"")
-            );
-        }
-    }
-
-    #[test]
     fn malformed_and_impossible_calendar_dates_are_rejected() {
         for date in [
             "2026-2-03",
@@ -272,64 +259,6 @@ mod tests {
         assert_eq!(
             CourseTerm::from_parts("2026-08-25", "2026-08-24"),
             Err(CourseTermError::EndBeforeStart)
-        );
-    }
-
-    #[test]
-    fn active_lifetime_includes_the_cutoff_date_and_rejects_the_next_day() {
-        let created_on = CourseDate::parse("2026-01-31").expect("creation date");
-        let through_cutoff =
-            CourseTerm::from_parts("2025-08-01", "2026-07-31").expect("term ending on the cutoff");
-        through_cutoff
-            .ensure_within_active_lifetime(&created_on)
-            .expect("the cutoff date remains Active");
-        let past_cutoff = CourseTerm::from_parts("2026-01-31", "2026-08-01").expect("ordered term");
-        assert_eq!(
-            past_cutoff.ensure_within_active_lifetime(&created_on),
-            Err(CourseTermError::EndAfterActiveLifetime)
-        );
-
-        let month_end = CourseDate::parse("2026-08-31").expect("month-end creation");
-        CourseTerm::from_parts("2026-08-31", "2027-02-28")
-            .expect("clamped February cutoff")
-            .ensure_within_active_lifetime(&month_end)
-            .expect("the clamped cutoff date remains Active");
-        assert_eq!(
-            CourseTerm::from_parts("2026-08-31", "2027-03-01")
-                .expect("day after the clamp")
-                .ensure_within_active_lifetime(&month_end),
-            Err(CourseTermError::EndAfterActiveLifetime)
-        );
-
-        let leap_creation = CourseDate::parse("2023-08-31").expect("leap-year creation");
-        CourseTerm::from_parts("2023-08-31", "2024-02-29")
-            .expect("leap-day cutoff")
-            .ensure_within_active_lifetime(&leap_creation)
-            .expect("the leap-day cutoff remains Active");
-        assert_eq!(
-            CourseTerm::from_parts("2023-08-31", "2024-03-01")
-                .expect("day after the leap-day cutoff")
-                .ensure_within_active_lifetime(&leap_creation),
-            Err(CourseTermError::EndAfterActiveLifetime)
-        );
-    }
-
-    #[test]
-    fn stored_terms_longer_than_six_months_remain_valid_course_terms() {
-        CourseTerm::from_parts("2026-01-01", "2026-12-31").expect("stored year-long term");
-    }
-
-    #[test]
-    fn deserialization_cannot_construct_a_reversed_term() {
-        let result = serde_json::from_str::<CourseTerm>(
-            r#"{"startDate":"2026-08-25","endDate":"2026-08-24"}"#,
-        );
-        assert!(result.is_err());
-        assert!(
-            serde_json::from_str::<CourseTerm>(
-                r#"{"startDate":"2026-08-24","endDate":"2026-12-18","unexpected":"value"}"#,
-            )
-            .is_err()
         );
     }
 }

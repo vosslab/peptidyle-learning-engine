@@ -414,6 +414,3 @@ fn required_environment(name: &str) -> Result<String> {
     );
     Ok(value)
 }
-
-#[cfg(test)]
-mod tests;

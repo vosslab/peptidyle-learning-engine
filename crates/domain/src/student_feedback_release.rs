@@ -281,4 +281,77 @@ fn timing_released(
 }
 
 #[cfg(test)]
-mod tests;
+mod tests {
+    use question_model::{
+        GradingResult, QuestionAnswer, QuestionAnswerExplanation, QuestionContentBlock,
+        QuestionFeedback,
+    };
+
+    use super::{StudentFeedbackReleaseDecision, project_student_feedback};
+
+    fn question_feedback() -> QuestionFeedback {
+        QuestionFeedback {
+            choice_feedback: Some(vec![QuestionContentBlock::Text {
+                markdown: "Choice feedback".to_string(),
+            }]),
+            correct_feedback: Some(vec![QuestionContentBlock::Text {
+                markdown: "Correct feedback".to_string(),
+            }]),
+            incorrect_feedback: Some(vec![QuestionContentBlock::Text {
+                markdown: "Incorrect feedback".to_string(),
+            }]),
+        }
+    }
+
+    fn question_answer() -> QuestionAnswer {
+        QuestionAnswer::new(vec![QuestionContentBlock::Text {
+            markdown: "Display-ready answer".to_string(),
+        }])
+        .expect("one answer block is non-empty")
+    }
+
+    fn question_answer_explanation() -> QuestionAnswerExplanation {
+        QuestionAnswerExplanation::new(vec![QuestionContentBlock::Text {
+            markdown: "Answer explanation".to_string(),
+        }])
+        .expect("one explanation block is non-empty")
+    }
+
+    fn result() -> GradingResult {
+        GradingResult {
+            correct: true,
+            points_earned: 2.0,
+            points_possible: 2.0,
+        }
+    }
+
+    #[test]
+    fn withheld_question_answer_is_absent_from_student_feedback() {
+        let decision = StudentFeedbackReleaseDecision {
+            score: false,
+            per_item_correctness: false,
+            submitted_response: false,
+            question_answer: false,
+            question_answer_explanation: false,
+            class_statistics: false,
+            hints: false,
+            worked_solutions: false,
+        };
+        let answer = question_answer();
+        let explanation = question_answer_explanation();
+        let disclosed = project_student_feedback(
+            decision,
+            Some(result()),
+            &question_feedback(),
+            Some(&answer),
+            Some(&explanation),
+        )
+        .expect("feedback disclosure produces a Student Feedback view");
+
+        assert!(disclosed.question_answer.is_none());
+        assert!(disclosed.question_answer_explanation.is_none());
+        let public = serde_json::to_value(disclosed).expect("Student Feedback serializes");
+        assert!(public.get("questionAnswer").is_none());
+        assert!(public.get("questionAnswerExplanation").is_none());
+    }
+}

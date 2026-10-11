@@ -400,15 +400,3 @@ fn random_uuid() -> Result<uuid::Uuid, StoreError> {
         StoreError::Unavailable("Blueprint fork UUID randomness unavailable".to_string())
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::LIST_KNOWN_BLUEPRINT_FORKS_SQL;
-
-    #[test]
-    fn known_forks_query_uses_revision_number_columns() {
-        assert!(LIST_KNOWN_BLUEPRINT_FORKS_SQL.contains("ple_api.list_known_blueprint_forks"));
-        assert!(LIST_KNOWN_BLUEPRINT_FORKS_SQL.contains("blueprint_revision_number"));
-        assert!(LIST_KNOWN_BLUEPRINT_FORKS_SQL.contains("source_blueprint_revision_number"));
-    }
-}

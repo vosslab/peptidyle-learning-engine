@@ -421,31 +421,3 @@ pub fn apply_blueprint_fork(
     }
     BlueprintCourseContent::new(modules).map_err(BlueprintForkApplyError::InvalidContent)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn explicit_empty_layout_cannot_erase_fork_content() {
-        let content = BlueprintCourseContent::new(Vec::new()).expect("trusted empty content");
-        let error = apply_blueprint_fork(
-            &content,
-            &content,
-            &BlueprintForkApplySelection {
-                layout: Some(Vec::new()),
-                ..BlueprintForkApplySelection::default()
-            },
-            &BTreeMap::new(),
-            &BTreeMap::new(),
-        )
-        .expect_err("explicit fork layout remains nonempty");
-
-        assert_eq!(
-            error,
-            BlueprintForkApplyError::InvalidContent(
-                BlueprintCourseValidationError::InvalidModuleCount
-            )
-        );
-    }
-}

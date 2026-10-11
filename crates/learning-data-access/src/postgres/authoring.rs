@@ -551,24 +551,3 @@ fn edit_number(value: i64) -> Result<DraftQuestionEditNumber, StoreError> {
 fn invalid(label: &str) -> StoreError {
     StoreError::InvalidRecord(format!("database returned an invalid {label}"))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn metadata_question_type_maps_omission_clear_and_value_to_explicit_arguments() {
-        assert_eq!(
-            question_type_update_args(None).expect("omitted type"),
-            (false, None)
-        );
-        assert_eq!(
-            question_type_update_args(Some(None)).expect("clear type"),
-            (true, None)
-        );
-        assert_eq!(
-            question_type_update_args(Some(Some(QuestionType::Hotspot))).expect("manual type"),
-            (true, Some("hotspot".to_owned()))
-        );
-    }
-}

@@ -27,12 +27,9 @@ const CAPABILITY_BYTES: usize = 32;
 const OWNER: &str = "live-demo-browser";
 const PROJECT: &str = "ple-live-demo-browser";
 const DATABASE_BASELINE_PROFILE: &str = "database_baseline";
-const COURSE_APPEARANCE_CROSS_STORE_PROFILE: &str = "course_appearance_cross_store";
 const MIGRATION_ROLE: &str = "ple_migrator";
 const DATABASE_NAME: &str = "ple_e2e_baseline";
 const PASSWORD_LENGTH: usize = 32;
-const MINIO_REGION: &str = "us-east-1";
-const MINIO_CREDENTIAL_LENGTH: usize = 32;
 
 /// A redacted failure from the runtime boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,71 +89,6 @@ pub struct AcceptanceRuntime {
     migration_url: PostgresUrl,
 }
 
-/// Validated object-store inputs for the disposable course-appearance lane.
-#[derive(Clone, PartialEq, Eq)]
-pub struct MinioRuntime {
-    endpoint_url: String,
-    region: String,
-    access_key_id: String,
-    secret_access_key: String,
-}
-
-impl MinioRuntime {
-    pub fn endpoint_url(&self) -> &str {
-        &self.endpoint_url
-    }
-
-    pub fn region(&self) -> &str {
-        &self.region
-    }
-
-    pub fn access_key_id(&self) -> &str {
-        &self.access_key_id
-    }
-
-    /// Reveals the validated secret only to the object-store client constructor.
-    pub fn secret_access_key(&self) -> &str {
-        &self.secret_access_key
-    }
-}
-
-impl fmt::Debug for MinioRuntime {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("MinioRuntime(REDACTED)")
-    }
-}
-
-/// Validated private runtime for the PostgreSQL and MinIO course-appearance lane.
-#[derive(Debug)]
-pub struct CourseAppearanceRuntime {
-    runtime: AcceptanceRuntime,
-    minio: MinioRuntime,
-}
-
-impl CourseAppearanceRuntime {
-    /// Loads the generated cross-store runtime selected by its non-secret manifest locator.
-    pub fn load() -> Result<Self, RuntimeError> {
-        #[cfg(not(unix))]
-        {
-            return Err(RuntimeError::UnsupportedPlatform);
-        }
-        #[cfg(unix)]
-        {
-            let locator = std::env::var("PLE_ACCEPTANCE_RUNTIME_MANIFEST")
-                .map_err(|_| RuntimeError::Locator)?;
-            load_course_appearance_from_locator_unix(Path::new(&locator))
-        }
-    }
-
-    pub fn migration_url(&self) -> &PostgresUrl {
-        self.runtime.migration_url()
-    }
-
-    pub fn minio(&self) -> &MinioRuntime {
-        &self.minio
-    }
-}
-
 impl AcceptanceRuntime {
     /// Loads the generated runtime selected by its non-secret manifest locator.
     pub fn load() -> Result<Self, RuntimeError> {
@@ -177,34 +109,11 @@ impl AcceptanceRuntime {
     }
 }
 
-#[cfg(all(test, unix))]
-fn load_from_workspace_unix(workspace: &Path) -> Result<AcceptanceRuntime, RuntimeError> {
-    let workspace = open_private_directory(workspace, RuntimeError::Workspace)?;
-    load_from_workspace_descriptor(&workspace, Some(RuntimeProfile::DatabaseBaseline))
-        .map(|runtime| runtime.acceptance)
-}
-
 #[cfg(unix)]
 fn load_from_locator_unix(locator: &Path) -> Result<AcceptanceRuntime, RuntimeError> {
     let workspace_path = validate_locator(locator)?;
     let workspace = open_private_directory(workspace_path, RuntimeError::Workspace)?;
-    load_from_workspace_descriptor(&workspace, None).map(|runtime| runtime.acceptance)
-}
-
-#[cfg(unix)]
-fn load_course_appearance_from_locator_unix(
-    locator: &Path,
-) -> Result<CourseAppearanceRuntime, RuntimeError> {
-    let workspace_path = validate_locator(locator)?;
-    let workspace = open_private_directory(workspace_path, RuntimeError::Workspace)?;
-    let runtime = load_from_workspace_descriptor(
-        &workspace,
-        Some(RuntimeProfile::CourseAppearanceCrossStore),
-    )?;
-    Ok(CourseAppearanceRuntime {
-        runtime: runtime.acceptance,
-        minio: runtime.minio.ok_or(RuntimeError::SecretContent)?,
-    })
+    load_from_workspace_descriptor(&workspace)
 }
 
 #[cfg(unix)]
@@ -216,22 +125,7 @@ fn validate_locator(locator: &Path) -> Result<&Path, RuntimeError> {
 }
 
 #[cfg(unix)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum RuntimeProfile {
-    DatabaseBaseline,
-    CourseAppearanceCrossStore,
-}
-
-struct LoadedRuntime {
-    acceptance: AcceptanceRuntime,
-    minio: Option<MinioRuntime>,
-}
-
-#[cfg(unix)]
-fn load_from_workspace_descriptor(
-    workspace: &File,
-    expected_profile: Option<RuntimeProfile>,
-) -> Result<LoadedRuntime, RuntimeError> {
+fn load_from_workspace_descriptor(workspace: &File) -> Result<AcceptanceRuntime, RuntimeError> {
     let manifest = read_private_file_at(
         workspace,
         MANIFEST_NAME,
@@ -241,10 +135,9 @@ fn load_from_workspace_descriptor(
     reject_yaml_extensions(&manifest)?;
     let manifest: RuntimeManifest =
         serde_yaml_ng::from_slice(&manifest).map_err(|_| RuntimeError::Schema)?;
-    let profile = validate_manifest(&manifest, expected_profile)?;
+    validate_manifest(&manifest)?;
 
     let secrets = open_private_directory_at(workspace, "secrets", RuntimeError::SecretPath)?;
-    invoke_test_hook_after_secrets_open();
     let _ = read_private_file_at(
         &secrets,
         "compose.env",
@@ -269,13 +162,7 @@ fn load_from_workspace_descriptor(
         )?,
         MIGRATION_ROLE,
     )?;
-    let minio = matches!(profile, RuntimeProfile::CourseAppearanceCrossStore)
-        .then(|| load_minio_runtime(&secrets))
-        .transpose()?;
-    Ok(LoadedRuntime {
-        acceptance: AcceptanceRuntime { migration_url },
-        minio,
-    })
+    Ok(AcceptanceRuntime { migration_url })
 }
 
 #[derive(Deserialize)]
@@ -303,32 +190,21 @@ struct Secrets {
     postgres_admin_url: String,
     postgres_migrator_url: String,
     postgres_admin_password: String,
-    minio_endpoint: Option<String>,
-    minio_region: Option<String>,
-    minio_access_key_id: Option<String>,
-    minio_secret_access_key: Option<String>,
 }
 
-fn validate_manifest(
-    manifest: &RuntimeManifest,
-    expected_profile: Option<RuntimeProfile>,
-) -> Result<RuntimeProfile, RuntimeError> {
+fn validate_manifest(manifest: &RuntimeManifest) -> Result<(), RuntimeError> {
     if manifest.schema_version != 1 {
         return Err(RuntimeError::Schema);
     }
     if manifest.identity.owner != OWNER || manifest.identity.project != PROJECT {
         return Err(RuntimeError::Identity);
     }
-    let profile = match (manifest.kind.as_str(), manifest.identity.profile.as_str()) {
-        ("ple.disposable_postgres_acceptance", DATABASE_BASELINE_PROFILE) => {
-            RuntimeProfile::DatabaseBaseline
-        }
-        ("ple.disposable_postgres_minio_acceptance", COURSE_APPEARANCE_CROSS_STORE_PROFILE) => {
-            RuntimeProfile::CourseAppearanceCrossStore
-        }
-        _ => return Err(RuntimeError::Identity),
-    };
-    if expected_profile.is_some_and(|expected| expected != profile) {
+    if (manifest.kind.as_str(), manifest.identity.profile.as_str())
+        != (
+            "ple.disposable_postgres_acceptance",
+            DATABASE_BASELINE_PROFILE,
+        )
+    {
         return Err(RuntimeError::Identity);
     }
     let shared_paths_are_exact = manifest.secrets.compose_environment == "secrets/compose.env"
@@ -336,58 +212,10 @@ fn validate_manifest(
         && manifest.secrets.postgres_admin_url == "secrets/postgres-admin.url"
         && manifest.secrets.postgres_migrator_url == "secrets/postgres-migrator.url"
         && manifest.secrets.postgres_admin_password == "secrets/postgres-admin.password";
-    let cross_store_paths_are_exact = manifest.secrets.minio_endpoint.as_deref()
-        == Some("secrets/minio-endpoint.url")
-        && manifest.secrets.minio_region.as_deref() == Some("secrets/minio-region")
-        && manifest.secrets.minio_access_key_id.as_deref() == Some("secrets/minio-access-key-id")
-        && manifest.secrets.minio_secret_access_key.as_deref()
-            == Some("secrets/minio-secret-access-key");
-    if !shared_paths_are_exact
-        || match profile {
-            RuntimeProfile::DatabaseBaseline => {
-                manifest.secrets.minio_endpoint.is_some()
-                    || manifest.secrets.minio_region.is_some()
-                    || manifest.secrets.minio_access_key_id.is_some()
-                    || manifest.secrets.minio_secret_access_key.is_some()
-            }
-            RuntimeProfile::CourseAppearanceCrossStore => !cross_store_paths_are_exact,
-        }
-    {
+    if !shared_paths_are_exact {
         return Err(RuntimeError::SecretPath);
     }
-    Ok(profile)
-}
-
-#[cfg(unix)]
-fn load_minio_runtime(secrets: &File) -> Result<MinioRuntime, RuntimeError> {
-    let endpoint_url = parse_minio_endpoint(read_private_file_at(
-        secrets,
-        "minio-endpoint.url",
-        MAX_URL_BYTES,
-        RuntimeError::SecretFile,
-    )?)?;
-    let region = parse_exact_line(
-        read_private_file_at(secrets, "minio-region", 32, RuntimeError::SecretFile)?,
-        MINIO_REGION,
-    )?;
-    let access_key_id = parse_minio_access_key(read_private_file_at(
-        secrets,
-        "minio-access-key-id",
-        MINIO_CREDENTIAL_LENGTH + 1,
-        RuntimeError::SecretFile,
-    )?)?;
-    let secret_access_key = parse_minio_secret_key(read_private_file_at(
-        secrets,
-        "minio-secret-access-key",
-        MINIO_CREDENTIAL_LENGTH + 1,
-        RuntimeError::SecretFile,
-    )?)?;
-    Ok(MinioRuntime {
-        endpoint_url,
-        region,
-        access_key_id,
-        secret_access_key,
-    })
+    Ok(())
 }
 
 fn reject_yaml_extensions(bytes: &[u8]) -> Result<(), RuntimeError> {
@@ -474,22 +302,6 @@ fn openat(
     Ok(unsafe { File::from_raw_fd(descriptor) })
 }
 
-#[cfg(all(test, unix))]
-std::thread_local! {
-    static TEST_HOOK: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
-        const { std::cell::RefCell::new(None) };
-}
-
-#[cfg(all(test, unix))]
-fn invoke_test_hook_after_secrets_open() {
-    if let Some(hook) = TEST_HOOK.with(|hook| hook.borrow_mut().take()) {
-        hook();
-    }
-}
-
-#[cfg(all(not(test), unix))]
-fn invoke_test_hook_after_secrets_open() {}
-
 #[cfg(unix)]
 fn read_bounded(file: &mut File, maximum: usize) -> io::Result<Vec<u8>> {
     let mut bytes = Vec::with_capacity(maximum.min(1024));
@@ -533,64 +345,6 @@ fn parse_database_url(bytes: Vec<u8>, role: &str) -> Result<(PostgresUrl, String
     Ok((PostgresUrl(text.to_owned()), password.unwrap().to_owned()))
 }
 
-fn parse_exact_line(bytes: Vec<u8>, expected: &str) -> Result<String, RuntimeError> {
-    let value = parse_secret_line(bytes)?;
-    if value != expected {
-        return Err(RuntimeError::SecretContent);
-    }
-    Ok(value)
-}
-
-fn parse_minio_endpoint(bytes: Vec<u8>) -> Result<String, RuntimeError> {
-    let value = parse_secret_line(bytes)?;
-    let parsed = Url::parse(&value).map_err(|_| RuntimeError::SecretContent)?;
-    let loopback = matches!(
-        parsed.host_str(),
-        Some("127.0.0.1") | Some("::1") | Some("[::1]")
-    );
-    if parsed.scheme() != "http"
-        || !loopback
-        || parsed.port().filter(|port| *port != 0).is_none()
-        || !parsed.username().is_empty()
-        || parsed.password().is_some()
-        || !matches!(parsed.path(), "" | "/")
-        || parsed.query().is_some()
-        || parsed.fragment().is_some()
-    {
-        return Err(RuntimeError::SecretContent);
-    }
-    Ok(value)
-}
-
-fn parse_minio_access_key(bytes: Vec<u8>) -> Result<String, RuntimeError> {
-    parse_minio_credential(bytes)
-}
-
-fn parse_minio_secret_key(bytes: Vec<u8>) -> Result<String, RuntimeError> {
-    parse_minio_credential(bytes)
-}
-
-fn parse_minio_credential(bytes: Vec<u8>) -> Result<String, RuntimeError> {
-    let value = parse_secret_line(bytes)?;
-    if value.len() != MINIO_CREDENTIAL_LENGTH
-        || !value
-            .bytes()
-            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
-    {
-        return Err(RuntimeError::SecretContent);
-    }
-    Ok(value)
-}
-
-fn parse_secret_line(bytes: Vec<u8>) -> Result<String, RuntimeError> {
-    if !bytes.is_ascii() || !bytes.ends_with(b"\n") || bytes[..bytes.len() - 1].contains(&b'\n') {
-        return Err(RuntimeError::SecretContent);
-    }
-    std::str::from_utf8(&bytes[..bytes.len() - 1])
-        .map(str::to_owned)
-        .map_err(|_| RuntimeError::SecretContent)
-}
-
 fn valid_password(password: &str) -> bool {
     password.len() == PASSWORD_LENGTH
         && password
@@ -602,256 +356,4 @@ fn valid_password(password: &str) -> bool {
 fn current_uid() -> Result<u32, RuntimeError> {
     // ASVS 1.5/2.2: the checked descriptor, owner, and exact mode form one boundary.
     Ok(unsafe { libc::geteuid() })
-}
-
-#[cfg(all(test, unix))]
-mod course_appearance_tests;
-
-#[cfg(all(test, unix))]
-mod tests {
-    use super::*;
-    use std::os::unix::fs::{PermissionsExt, symlink};
-    use std::path::PathBuf;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    static WORKSPACE_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    pub(super) fn temp_workspace() -> PathBuf {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let counter = WORKSPACE_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("acceptance-runtime-{timestamp}-{counter}"));
-        fs::create_dir(&path).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
-        fs::create_dir(path.join("secrets")).unwrap();
-        fs::set_permissions(path.join("secrets"), fs::Permissions::from_mode(0o700)).unwrap();
-        fs::write(
-            path.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
-        )
-        .unwrap();
-        fs::set_permissions(path.join("runtime.yaml"), fs::Permissions::from_mode(0o600)).unwrap();
-        for (name, contents) in [
-            ("compose.env", b"POSTGRES_PASSWORD_FILE=/run/ple-runtime/postgres-password\n".as_slice()),
-            ("cleanup.capability", b"12345678901234567890123456789012".as_slice()),
-            ("postgres-admin.url", b"postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n".as_slice()),
-            ("postgres-migrator.url", b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n".as_slice()),
-            ("postgres-admin.password", b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n".as_slice()),
-        ] {
-            fs::write(path.join("secrets").join(name), contents).unwrap();
-            fs::set_permissions(
-                path.join("secrets").join(name),
-                fs::Permissions::from_mode(0o600),
-            )
-            .unwrap();
-        }
-        path
-    }
-
-    fn install_after_secrets_open_hook(hook: impl FnOnce() + 'static) {
-        TEST_HOOK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
-    }
-
-    #[test]
-    fn loads_inline_runtime_and_redacts_debug() {
-        let workspace = temp_workspace();
-        let runtime = load_from_workspace_unix(&workspace).unwrap();
-        assert_eq!(
-            runtime.migration_url().expose(),
-            "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
-        );
-        assert!(format!("{:?}", runtime.migration_url()).contains("REDACTED"));
-        assert!(!format!("{:?}", runtime.migration_url()).contains("aaaaaaaa"));
-        fs::remove_dir_all(workspace).unwrap();
-    }
-
-    #[test]
-    fn manifest_locator_is_absolute_and_names_exactly_runtime_yaml() {
-        let workspace = temp_workspace();
-        assert_eq!(
-            validate_locator(Path::new("runtime.yaml")).unwrap_err(),
-            RuntimeError::Locator
-        );
-        assert_eq!(
-            validate_locator(&workspace.join("other.yaml")).unwrap_err(),
-            RuntimeError::Locator
-        );
-        assert_eq!(
-            validate_locator(&workspace.join(MANIFEST_NAME)).unwrap(),
-            workspace.as_path()
-        );
-        fs::remove_dir_all(workspace).unwrap();
-    }
-
-    #[test]
-    fn retained_secrets_descriptor_ignores_a_swapped_secrets_pathname() {
-        let workspace = temp_workspace();
-        let original = workspace.join("original-secrets");
-        let replacement = workspace.join("secrets");
-        let replacement_for_hook = replacement.clone();
-        install_after_secrets_open_hook(move || {
-            fs::rename(&replacement_for_hook, &original).unwrap();
-            fs::create_dir(&replacement_for_hook).unwrap();
-            fs::set_permissions(&replacement_for_hook, fs::Permissions::from_mode(0o700)).unwrap();
-            fs::write(
-                replacement_for_hook.join("postgres-migrator.url"),
-                b"postgres://ple_migrator:replacement@127.0.0.1:15432/replacement\n",
-            )
-            .unwrap();
-            fs::set_permissions(
-                replacement_for_hook.join("postgres-migrator.url"),
-                fs::Permissions::from_mode(0o600),
-            )
-            .unwrap();
-        });
-        let runtime = load_from_workspace_unix(&workspace).unwrap();
-        assert_eq!(
-            runtime.migration_url().expose(),
-            "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
-        );
-        fs::remove_dir_all(workspace).unwrap();
-    }
-
-    #[test]
-    fn rejects_secret_symlink_wrong_mode_oversize_and_path_escape() {
-        let workspace = temp_workspace();
-        let secret = workspace.join("secrets/postgres-migrator.url");
-        fs::remove_file(&secret).unwrap();
-        symlink(workspace.join("secrets/postgres-admin.password"), &secret).unwrap();
-        assert_eq!(
-            load_from_workspace_unix(&workspace).unwrap_err(),
-            RuntimeError::SecretFile
-        );
-        fs::remove_file(&secret).unwrap();
-        fs::write(
-            &secret,
-            b"postgres://ple_migrator:synthetic@127.0.0.1:15432/db\n",
-        )
-        .unwrap();
-        fs::set_permissions(&secret, fs::Permissions::from_mode(0o644)).unwrap();
-        assert_eq!(
-            load_from_workspace_unix(&workspace).unwrap_err(),
-            RuntimeError::SecretFile
-        );
-        fs::set_permissions(&secret, fs::Permissions::from_mode(0o600)).unwrap();
-        fs::write(&secret, vec![b'x'; MAX_URL_BYTES + 1]).unwrap();
-        assert_eq!(
-            load_from_workspace_unix(&workspace).unwrap_err(),
-            RuntimeError::SecretFile
-        );
-        fs::write(
-            workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: ../compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
-        )
-        .unwrap();
-        assert_eq!(
-            load_from_workspace_unix(&workspace).unwrap_err(),
-            RuntimeError::SecretPath
-        );
-        fs::remove_dir_all(workspace).unwrap();
-    }
-
-    #[test]
-    fn rejects_schema_extensions_and_role_mismatch_without_url_disclosure() {
-        let workspace = temp_workspace();
-        fs::write(
-            workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity: &identity\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
-        )
-        .unwrap();
-        let error = load_from_workspace_unix(&workspace).unwrap_err();
-        assert_eq!(error, RuntimeError::Schema);
-        assert!(!error.to_string().contains("aaaaaaaa"));
-        fs::write(
-            workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
-        )
-        .unwrap();
-        fs::set_permissions(
-            workspace.join("runtime.yaml"),
-            fs::Permissions::from_mode(0o600),
-        )
-        .unwrap();
-        fs::write(
-            workspace.join("secrets/postgres-migrator.url"),
-            b"postgres://unexpected_login:synthetic-grader@127.0.0.1:15432/ple_e2e_baseline\n",
-        )
-        .unwrap();
-        assert_eq!(
-            load_from_workspace_unix(&workspace).unwrap_err(),
-            RuntimeError::DatabaseUrl
-        );
-        fs::remove_dir_all(workspace).unwrap();
-    }
-
-    #[test]
-    fn rejects_empty_password_fragment_query_and_extra_database_path() {
-        let workspace = temp_workspace();
-        let admin = workspace.join("secrets/postgres-migrator.url");
-        for value in [
-            "postgres://ple_migrator:@127.0.0.1:15432/ple_e2e_baseline\n",
-            "postgres://ple_migrator:synthetic@127.0.0.1:15432/ple_e2e_baseline#fragment\n",
-            "postgres://ple_migrator:synthetic@127.0.0.1:15432/ple_e2e_baseline?sslmode=disable\n",
-            "postgres://ple_migrator:synthetic@127.0.0.1:15432/one/two\n",
-            "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%61@127.0.0.1:15432/ple_e2e_baseline\n",
-        ] {
-            fs::write(&admin, value).unwrap();
-            assert_eq!(
-                load_from_workspace_unix(&workspace).unwrap_err(),
-                if value.contains('%') {
-                    RuntimeError::SecretContent
-                } else {
-                    RuntimeError::DatabaseUrl
-                }
-            );
-        }
-        fs::remove_dir_all(workspace).unwrap();
-    }
-
-    #[test]
-    fn rejects_invalid_migration_url_cases() {
-        let workspace = temp_workspace();
-        let admin = workspace.join("secrets/postgres-migrator.url");
-        for value in [
-            b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:0/ple_e2e_baseline\n".as_slice(),
-            b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/not_ple_e2e_baseline\n".as_slice(),
-        ] {
-            fs::write(&admin, value).unwrap();
-            assert_eq!(
-                load_from_workspace_unix(&workspace).unwrap_err(),
-                RuntimeError::DatabaseUrl
-            );
-        }
-        fs::write(
-            &admin,
-            b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n",
-        )
-        .unwrap();
-        fs::write(&admin, vec![b'x'; MAX_URL_BYTES + 1]).unwrap();
-        assert_eq!(
-            load_from_workspace_unix(&workspace).unwrap_err(),
-            RuntimeError::SecretFile
-        );
-        fs::remove_dir_all(workspace).unwrap();
-    }
-
-    #[test]
-    fn rejects_unknown_and_duplicate_schema_keys() {
-        let workspace = temp_workspace();
-        for manifest in [
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\nextra: rejected\n".as_slice(),
-            b"schema_version: 1\nschema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n".as_slice(),
-            b"schema_version: true\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n".as_slice(),
-        ] {
-            fs::write(workspace.join("runtime.yaml"), manifest).unwrap();
-            assert_eq!(
-                load_from_workspace_unix(&workspace).unwrap_err(),
-                RuntimeError::Schema
-            );
-        }
-        fs::remove_dir_all(workspace).unwrap();
-    }
 }

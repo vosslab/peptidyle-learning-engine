@@ -1,7 +1,8 @@
 # Course Appearance accessibility audit
 
-Status: component-harness evidence recorded on 2026-09-09; production-route accessibility remains
-open in the [Course Appearance audit](../archive/audits/course_appearance_six_pass_review.md).
+Status: component-harness evidence recorded on 2026-09-09; the focused browser check was retired
+during test pruning. Production-route accessibility remains open in the
+[Course Appearance audit](../archive/audits/course_appearance_six_pass_review.md).
 
 This record covers the restored Instructor Course Appearance page: independent Theme and Banner
 forms rendered from the current authorized Course Appearance view. It is page-scoped evidence, not
@@ -9,11 +10,10 @@ a claim that the whole application or every assistive-technology/browser combina
 
 ## Page-owned task evidence
 
-The explicitly invoked focused browser check builds the Solid page and support harness with esbuild,
-serves the bundle over loopback HTTP, and drives Chromium with visible native controls. It uses
-`@axe-core/playwright` against the page surface. This retained browser behavior check is outside
-fast pytest and the aggregate service gate. Its original reconstruction probes were one-time
-evidence and have been removed under [PYTEST_STYLE.md](../PYTEST_STYLE.md).
+The former focused browser check built the Solid page and support harness with esbuild, served the
+bundle over loopback HTTP, and drove Chromium with visible native controls. It used
+`@axe-core/playwright` against the page surface. It and its reconstruction probes were retired
+during test pruning; the table records historical evidence rather than current coverage.
 
 | Instructor task                                | Accessible behavior proved                                                                                                                                  | Evidence            |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
@@ -46,12 +46,5 @@ accessibility stylesheet, the production-build browser gate, and Ribbon responsi
 does not repeat them for this page. The focused test instead keeps durable coverage for the
 controls, content, and reflow introduced by Course Appearance.
 
-## Run
-
-```bash
-node --import tsx tests/playwright/course_appearance_m9_accessibility_evidence.mjs
-```
-
-The check must run where headless Chromium can create its macOS browser process. Its result is
-automated component accessibility evidence. It does not close production-route accessibility,
-and any later attended usability review remains optional.
+The former component check did not close production-route accessibility, and any later attended
+usability review remains optional.

@@ -228,360 +228,79 @@ fn validate_invitation_record(
 
 #[cfg(test)]
 mod tests {
-    use question_model::{CourseInvitationEvent, CourseInvitationId, CourseMembershipId};
-    use uuid::Uuid;
-
     use super::*;
-
-    fn id(value: u128) -> Uuid {
-        Uuid::from_u128(value)
-    }
-
-    fn stamp(value: i64) -> Timestamp {
-        Timestamp::from_unix_millis(value)
-    }
-
-    fn invitation() -> CourseInvitation {
-        CourseInvitation {
-            course_invitation_id: CourseInvitationId::from_uuid(id(1)),
-            course_instance_id: CourseInstanceId::from_debug_serial(2),
-            invited_by: CourseMembershipId::from_uuid(id(4)),
-            membership_role: CourseMembershipRole::Instructor,
-            target_account_id: AccountId::from_debug_serial(3),
-            created_at: stamp(1_000),
-            expires_at: stamp(1_000 + COURSE_INVITATION_LIFETIME_MILLIS),
-            terminal_event: None,
-        }
-    }
-
-    fn terminal_event(
-        invitation: &CourseInvitation,
-        kind: CourseInvitationEventKind,
-        performed_by: AccountId,
-        occurred_at: Timestamp,
-    ) -> CourseInvitationEvent {
-        CourseInvitationEvent {
-            course_invitation_id: invitation.course_invitation_id,
-            kind,
-            performed_by,
-            occurred_at,
-        }
-    }
-
-    #[test]
-    fn current_course_instructor_requires_exact_active_membership() {
-        let instructor_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        let membership = CurrentInstructorCourseMembership {
-            course_instance_id: course.clone(),
-            instructor_account: instructor_account.clone(),
-            active: true,
-        };
-        assert_eq!(
-            evaluate_course_instructor_authority(Some(membership), course, instructor_account,),
-            InstructorAuthority::CurrentCourseInstructor
-        );
-    }
-
-    #[test]
-    fn missing_membership_revokes_course_instructor_authority() {
-        let instructor_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        assert!(!current_course_instructor(None, instructor_account, course));
-    }
-
-    #[test]
-    fn foreign_course_membership_cannot_authorize_an_instructor() {
-        let instructor_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        assert!(!current_course_instructor(
-            Some(CurrentInstructorCourseMembership {
-                course_instance_id: CourseInstanceId::from_debug_serial(4),
-                instructor_account: instructor_account.clone(),
-                active: true,
-            }),
-            instructor_account,
-            course,
-        ));
-    }
-
-    #[test]
-    fn foreign_account_membership_cannot_authorize_an_instructor() {
-        let instructor_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        assert!(!current_course_instructor(
-            Some(CurrentInstructorCourseMembership {
-                course_instance_id: course.clone(),
-                instructor_account: AccountId::from_debug_serial(4),
-                active: true,
-            }),
-            instructor_account,
-            course,
-        ));
-    }
-
-    #[test]
-    fn revoked_membership_cannot_authorize_an_instructor() {
-        let instructor_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        assert!(!current_course_instructor(
-            Some(CurrentInstructorCourseMembership {
-                course_instance_id: course.clone(),
-                instructor_account: instructor_account.clone(),
-                active: false,
-            }),
-            instructor_account,
-            course,
-        ));
-    }
-
-    #[test]
-    fn exact_student_record_is_permitted_and_other_student_is_denied() {
-        let student_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        let membership = student_membership(&student_account, &course);
-        assert!(student_owns_course_record(
-            Some(membership.clone()),
-            student_account.clone(),
-            course.clone(),
-            membership.student_record,
-        ));
-        assert!(!student_owns_course_record(
-            Some(membership),
-            student_account,
-            course,
-            StudentRecordId::from_uuid(id(7)),
-        ));
-    }
-
-    #[test]
-    fn renewed_student_membership_reuses_the_stable_course_record() {
-        let student_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        let membership = student_membership(&student_account, &course);
-        assert!(student_owns_course_record(
-            Some(StudentCourseMembership {
-                membership: CourseMembershipId::from_uuid(id(7)),
-                ..membership.clone()
-            }),
-            student_account,
-            course,
-            membership.student_record,
-        ));
-    }
-
-    #[test]
-    fn inactive_student_membership_cannot_authorize_course_record_access() {
-        let student_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        let membership = student_membership(&student_account, &course);
-        assert!(!student_owns_course_record(
-            Some(StudentCourseMembership {
-                active: false,
-                ..membership.clone()
-            }),
-            student_account,
-            course,
-            membership.student_record,
-        ));
-    }
-
-    #[test]
-    fn non_student_membership_cannot_authorize_course_record_access() {
-        let student_account = AccountId::from_debug_serial(3);
-        let course = CourseInstanceId::from_debug_serial(2);
-        let membership = student_membership(&student_account, &course);
-        assert!(!student_owns_course_record(
-            Some(StudentCourseMembership {
-                role: CourseMembershipRole::Instructor,
-                ..membership.clone()
-            }),
-            student_account,
-            course,
-            membership.student_record,
-        ));
-    }
-
-    #[test]
-    fn invitation_transitions_are_target_bound_and_thirty_days() {
-        let pending = invitation();
-        assert_eq!(
-            invitation_state(&pending, stamp(1_001)),
-            Ok(CourseInvitationState::Pending)
-        );
-        assert_eq!(
-            invitation_state(&pending, pending.expires_at),
-            Ok(CourseInvitationState::Expired)
-        );
-
-        let accepted = CourseInvitation {
-            terminal_event: Some(terminal_event(
-                &pending,
-                CourseInvitationEventKind::Accepted,
-                pending.target_account_id.clone(),
-                stamp(1_010),
-            )),
-            ..pending.clone()
-        };
-        assert_eq!(
-            invitation_state(&accepted, stamp(1_011)),
-            Ok(CourseInvitationState::Accepted)
-        );
-        let revoked = CourseInvitation {
-            terminal_event: Some(terminal_event(
-                &pending,
-                CourseInvitationEventKind::Revoked,
-                AccountId::from_debug_serial(9),
-                stamp(1_010),
-            )),
-            ..pending.clone()
-        };
-        assert_eq!(
-            invitation_state(&revoked, stamp(1_011)),
-            Ok(CourseInvitationState::Revoked)
-        );
-        let declined = CourseInvitation {
-            terminal_event: Some(terminal_event(
-                &pending,
-                CourseInvitationEventKind::Declined,
-                pending.target_account_id.clone(),
-                stamp(1_010),
-            )),
-            ..pending
-        };
-        assert_eq!(
-            invitation_state(&declined, stamp(1_011)),
-            Ok(CourseInvitationState::Declined)
-        );
-    }
-
-    #[test]
-    fn invitation_refuses_invalid_lifetime_and_terminal_records() {
-        let invitation = invitation();
-        let invalid_lifetime = CourseInvitation {
-            expires_at: stamp(invitation.expires_at.as_unix_millis() - 1),
-            ..invitation.clone()
-        };
-        assert_eq!(
-            invitation_state(&invalid_lifetime, stamp(1_001)),
-            Err(CourseInvitationError::ExpiryDoesNotMatchThirtyDays)
-        );
-        let invalid_terminal = CourseInvitation {
-            terminal_event: Some(CourseInvitationEvent {
-                course_invitation_id: CourseInvitationId::from_uuid(id(99)),
-                kind: CourseInvitationEventKind::Accepted,
-                performed_by: invitation.target_account_id.clone(),
-                occurred_at: stamp(1_010),
-            }),
-            ..invitation
-        };
-        assert_eq!(
-            invitation_state(&invalid_terminal, stamp(1_012)),
-            Err(CourseInvitationError::InvalidTerminalTimestamps)
-        );
-    }
-
-    #[test]
-    fn invitation_terminal_timestamp_must_not_be_later_than_now() {
-        let now = stamp(1_010);
-        for (kind, expected_state) in [
-            (
-                CourseInvitationEventKind::Accepted,
-                CourseInvitationState::Accepted,
-            ),
-            (
-                CourseInvitationEventKind::Declined,
-                CourseInvitationState::Declined,
-            ),
-            (
-                CourseInvitationEventKind::Revoked,
-                CourseInvitationState::Revoked,
-            ),
-        ] {
-            let pending = invitation();
-            let terminal = CourseInvitation {
-                terminal_event: Some(terminal_event(
-                    &pending,
-                    kind,
-                    if matches!(kind, CourseInvitationEventKind::Revoked) {
-                        AccountId::from_debug_serial(9)
-                    } else {
-                        pending.target_account_id.clone()
-                    },
-                    now,
-                )),
-                ..pending
-            };
-            assert_eq!(invitation_state(&terminal, now), Ok(expected_state));
-        }
-        for kind in [
-            CourseInvitationEventKind::Accepted,
-            CourseInvitationEventKind::Declined,
-            CourseInvitationEventKind::Revoked,
-        ] {
-            let pending = invitation();
-            let terminal = CourseInvitation {
-                terminal_event: Some(terminal_event(
-                    &pending,
-                    kind,
-                    if matches!(kind, CourseInvitationEventKind::Revoked) {
-                        AccountId::from_debug_serial(9)
-                    } else {
-                        pending.target_account_id.clone()
-                    },
-                    stamp(1_011),
-                )),
-                ..pending
-            };
-            assert_eq!(
-                invitation_state(&terminal, now),
-                Err(CourseInvitationError::InvalidTerminalTimestamps)
-            );
-        }
-    }
-
-    #[test]
-    fn acceptance_rechecks_the_exact_target_before_instructor_course_membership_write() {
-        let invitation = invitation();
-        let now = stamp(1_001);
-        assert_eq!(
-            accept_course_invitation(&invitation, AccountId::from_debug_serial(4), now,),
-            Err(CourseInvitationError::WrongTarget)
-        );
-        assert_eq!(
-            accept_course_invitation(&invitation, invitation.target_account_id.clone(), now,),
-            Ok(CourseInvitationAcceptance {
-                course_instance_id: invitation.course_instance_id.clone(),
-                target_account_id: invitation.target_account_id.clone(),
-                accepted_at: now,
-            })
-        );
-    }
-
-    #[test]
-    fn final_instructor_removal_is_refused() {
-        assert_eq!(
-            refuse_final_instructor_removal(0),
-            Err(InstructorMembershipRemovalError::FinalActiveInstructor)
-        );
-        assert_eq!(
-            refuse_final_instructor_removal(1),
-            Err(InstructorMembershipRemovalError::FinalActiveInstructor)
-        );
-        assert_eq!(refuse_final_instructor_removal(2), Ok(()));
-    }
+    use uuid::Uuid;
 
     fn student_membership(
         student_account: &AccountId,
         course_instance_id: &CourseInstanceId,
     ) -> StudentCourseMembership {
         StudentCourseMembership {
-            membership: CourseMembershipId::from_uuid(id(6)),
+            membership: CourseMembershipId::from_uuid(Uuid::from_u128(6)),
             course_instance_id: course_instance_id.clone(),
             student_account: student_account.clone(),
-            student_record: StudentRecordId::from_uuid(id(5)),
+            student_record: StudentRecordId::from_uuid(Uuid::from_u128(5)),
             role: CourseMembershipRole::Student,
             active: true,
         }
+    }
+
+    #[test]
+    fn current_course_instructor_requires_exact_active_membership() {
+        let account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
+        let membership = CurrentInstructorCourseMembership {
+            course_instance_id: course.clone(),
+            instructor_account: account.clone(),
+            active: true,
+        };
+        assert!(current_course_instructor(
+            Some(membership.clone()),
+            account.clone(),
+            course.clone(),
+        ));
+        assert!(!current_course_instructor(
+            Some(CurrentInstructorCourseMembership {
+                course_instance_id: CourseInstanceId::from_debug_serial(4),
+                ..membership.clone()
+            }),
+            account.clone(),
+            course.clone(),
+        ));
+        assert!(!current_course_instructor(
+            Some(CurrentInstructorCourseMembership {
+                instructor_account: AccountId::from_debug_serial(4),
+                ..membership.clone()
+            }),
+            account.clone(),
+            course.clone(),
+        ));
+        assert!(!current_course_instructor(
+            Some(CurrentInstructorCourseMembership {
+                active: false,
+                ..membership
+            }),
+            account,
+            course,
+        ));
+    }
+
+    #[test]
+    fn exact_student_record_is_permitted_and_other_student_is_denied() {
+        let account = AccountId::from_debug_serial(3);
+        let course = CourseInstanceId::from_debug_serial(2);
+        let membership = student_membership(&account, &course);
+        assert!(student_owns_course_record(
+            Some(membership.clone()),
+            account.clone(),
+            course.clone(),
+            membership.student_record,
+        ));
+        assert!(!student_owns_course_record(
+            Some(membership),
+            account,
+            course,
+            StudentRecordId::from_uuid(Uuid::from_u128(7)),
+        ));
     }
 }

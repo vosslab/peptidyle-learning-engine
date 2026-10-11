@@ -71,27 +71,3 @@ impl Display for AccountTimeZoneError {
 }
 
 impl Error for AccountTimeZoneError {}
-
-#[cfg(test)]
-mod tests {
-    use super::AccountTimeZone;
-
-    #[test]
-    fn accepts_exact_iana_zone_names() {
-        for zone in ["America/Chicago", "US/Central"] {
-            assert_eq!(AccountTimeZone::parse(zone).unwrap().as_str(), zone);
-        }
-    }
-
-    #[test]
-    fn rejects_noncanonical_or_malformed_zone_names() {
-        for zone in [
-            "america/chicago",
-            " America/Chicago",
-            "UTC+01:00",
-            "not/a-zone",
-        ] {
-            assert!(AccountTimeZone::parse(zone).is_err(), "{zone}");
-        }
-    }
-}

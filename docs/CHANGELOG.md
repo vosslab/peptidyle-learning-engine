@@ -21,6 +21,8 @@
 
 ### Fixes and Maintenance
 
+- Removed 1,664 named tests and 231 test-bearing files after restoring 36 low-cost behavior checks; conftest remains unchanged.
+  The [pruning report](TEST_PRUNING_REPORT.md) records the clean rebuild, PostgreSQL/browser acceptance, and regeneration of all 257 screenshots.
 - Pruned temporary and duplicate duration, Student presentation, Ribbon, and RecordList fixture
   checks. Retained Student wording/privacy tests, MATCH pointer/keyboard/touch behavior, real App
   workflows with a stub API, and RecordList selection, metadata retention, and reorder outcomes.

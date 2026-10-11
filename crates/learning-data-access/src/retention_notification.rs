@@ -30,15 +30,6 @@ impl VerifiedCourseRetentionNotificationDestination {
     pub fn as_str(&self) -> &str {
         &self.0
     }
-
-    /// Constructs a verified destination solely for black-box adapter tests.
-    ///
-    /// Production code receives this value exclusively from C847's claim
-    /// procedure, preserving the no-arbitrary-recipient boundary.
-    #[cfg(feature = "test-support")]
-    pub fn for_test_verified_destination(value: String) -> Result<Self, StoreError> {
-        Self::from_verified(value)
-    }
 }
 
 /// One database-selected recipient and receipt lease for a retention notice.

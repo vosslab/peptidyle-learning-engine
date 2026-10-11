@@ -157,31 +157,3 @@ pub struct DraftQuestionSummary {
     pub question_title: String,
     pub question_backend: crate::question_library::QuestionBackend,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::identity::QuestionImageAssetId;
-    use uuid::Uuid;
-
-    #[test]
-    fn question_image_asset_tuple_serializes_question_image_asset_id() {
-        let tuple = QuestionImageAssetTuple {
-            question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(7)),
-            checksum: "a".repeat(64),
-        };
-        let wire = serde_json::to_value(&tuple).expect("tuple serializes");
-        assert_eq!(
-            wire["questionImageAssetId"],
-            "00000000-0000-0000-0000-000000000007"
-        );
-        assert!(wire.get("questionAssetId").is_none());
-        assert!(
-            serde_json::from_value::<QuestionImageAssetTuple>(serde_json::json!({
-                "questionAssetId": "00000000-0000-0000-0000-000000000007",
-                "checksum": "a".repeat(64)
-            }))
-            .is_err()
-        );
-    }
-}

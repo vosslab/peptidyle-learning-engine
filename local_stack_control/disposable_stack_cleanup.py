@@ -371,32 +371,6 @@ def compose_command(
 				local_stack_control.runtime_manifest.require_database_baseline_compose_password(
 					disposable.acceptance_runtime_workspace
 				)
-		elif profile.profile is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE:
-			if "course_appearance_cross_store_oracle" not in profile.child_capabilities:
-				raise local_stack_control.models.ControllerError("live-demo profile capability is invalid")
-			is_postgres_ready = arguments[:4] == ["exec", "-T", "postgres", "pg_isready"]
-			is_minio_ready = arguments == ["exec", "-T", "minio", "mc", "ready", "local"]
-			is_postgres_psql = len(arguments) >= 5 and arguments[:4] == ["exec", "-T", "postgres", "psql"]
-			is_bucket_initialization = arguments == [
-				"--profile", "course-appearance-initialization",
-				"run", "--rm", "-T", "createbuckets",
-			]
-			is_migrator_build = arguments == ["--profile", "migration", "build", "database-migrator"]
-			is_migrator_initialize = arguments == [
-				"--profile", "migration", "run", "--rm", "--no-deps",
-				"database-migrator", "database", "initialize",
-			]
-			if arguments != ["up", "-d", "postgres", "minio"] and not (
-				is_postgres_ready or is_minio_ready or is_postgres_psql or is_bucket_initialization
-				or is_migrator_build or is_migrator_initialize
-			):
-				raise local_stack_control.models.ControllerError(
-					"cross-store Compose commands are limited to startup, readiness, bucket creation, PostgreSQL psql, and canonical initialization"
-				)
-			if disposable.acceptance_runtime_workspace is not None:
-				local_stack_control.runtime_manifest.require_course_appearance_cross_store_compose_credentials(
-					disposable.acceptance_runtime_workspace
-				)
 		else:
 			raise local_stack_control.models.ControllerError(
 				"this fixed live-demo profile cannot use generic Compose commands"

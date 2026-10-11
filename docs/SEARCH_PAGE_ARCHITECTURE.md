@@ -114,15 +114,11 @@ children slot for content actions. `SearchPage` accepts toolbar, results, and ex
 
 ## Focused tests
 
-`tests/test_search_session.mjs` protects the framework-neutral contract: late responses, reset,
-retry, paging, page size, and selection. Extend it when session behavior changes.
-
-The existing live Library browser journey in
-`tests/playwright/e2e_live_demo_question_library_browser.mjs` protects explicit submit,
-local display changes with visible descriptions, mixed membership, protected new-tab detail
-navigation, and the leave warning. The connected database tests own filtering and global paging.
-A failure means one of these contracts changed; repair the behavior or confirm a deliberate
-product change before updating its assertion.
+The former `test_search_session.mjs` and live Library browser journey protected late responses,
+reset, retry, paging, page size, selection, explicit submit, display changes, protected detail
+navigation, and the leave warning. They were retired during test pruning, so this is historical
+evidence rather than current Search coverage. The database-baseline lane does not replace that
+browser coverage.
 
 Use the permanent-test checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md) before adding coverage.
 A new consumer does not automatically need another harness or a copy of the shared tests.

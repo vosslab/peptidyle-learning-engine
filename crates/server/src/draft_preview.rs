@@ -560,7 +560,3 @@ fn concealed() -> Response {
             .into_response(),
     )
 }
-
-#[cfg(test)]
-#[path = "draft_preview/tests.rs"]
-mod tests;

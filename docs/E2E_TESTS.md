@@ -49,8 +49,6 @@ verification when the check only proves the current implementation or rollout.
 - Name shell runners `tests/e2e/e2e_<name>.sh`.
 - Name Python runners `tests/e2e/e2e_<name>.py`.
 - Make each runner self-contained with clear pass, failure, and diagnostic output.
-- Add `tests/e2e/run_all.sh` when a repository has several permanent runners worth executing
-  together.
 
 TypeScript repositories enforce these names through `tests/test_test_naming_conventions.py`.
 
@@ -59,11 +57,10 @@ TypeScript repositories enforce these names through `tests/test_test_naming_conv
 ```bash
 bash tests/e2e/e2e_<name>.sh
 source source_me.sh && python3 tests/e2e/e2e_<name>.py
-bash tests/e2e/run_all.sh
 ```
 
-Use the repository's Playwright runner for browser tests. Run temporary non-pytest checks from
-`tests/_temp/` explicitly with their native tool.
+Use the repository's aggregate or Playwright runner when the named behavior belongs to that lane.
+Run temporary non-pytest checks from `tests/_temp/` explicitly with their native tool.
 
 ## Design failures
 

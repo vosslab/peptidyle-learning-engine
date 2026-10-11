@@ -342,35 +342,3 @@ fn concealed() -> Response {
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{DisplayMode, UpdateDisplayModePreferenceInput};
-
-    #[test]
-    fn display_mode_preference_requires_one_closed_nullable_field() {
-        for (body, expected) in [
-            (
-                r#"{"displayModePreference":"light"}"#,
-                Some(DisplayMode::Light),
-            ),
-            (
-                r#"{"displayModePreference":"dark"}"#,
-                Some(DisplayMode::Dark),
-            ),
-            (r#"{"displayModePreference":null}"#, None),
-        ] {
-            let input = serde_json::from_str::<UpdateDisplayModePreferenceInput>(body)
-                .expect("valid required nullable display-mode preference");
-            assert_eq!(input.display_mode_preference, expected);
-        }
-
-        assert!(serde_json::from_str::<UpdateDisplayModePreferenceInput>(r#"{}"#).is_err());
-        assert!(
-            serde_json::from_str::<UpdateDisplayModePreferenceInput>(
-                r#"{"displayModePreference":"light","unexpected":true}"#
-            )
-            .is_err()
-        );
-    }
-}

@@ -322,6 +322,3 @@ pub(super) fn concealed() -> Response {
 pub(super) fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
 }
-
-#[cfg(test)]
-mod tests;

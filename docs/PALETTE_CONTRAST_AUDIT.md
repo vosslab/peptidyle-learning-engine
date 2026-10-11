@@ -67,17 +67,10 @@ anchor is silently remapped or reported as a text-pair pass.
 
 Contrast for the former Course themes was measured from browser-computed colors because
 the relevant foreground/background pairs were composed from registry tokens,
-Course-scope CSS, and component styles. The current behavior gate is:
-
-- [`tests/test_course_theme_scope.mjs`](../tests/test_course_theme_scope.mjs)
-  is retained as the current Theme contrast behavior test. Its contract is described by
-  [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md), not this historical audit.
-
-Run the durable behavior gates:
-
-```bash
-node --import tsx --test tests/test_course_theme_scope.mjs
-```
+Course-scope CSS, and component styles. The former `test_course_theme_scope.mjs`
+check was retired during test pruning. This audit is historical evidence, not current
+Theme contrast coverage; [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md) remains
+the current palette authority.
 
 The earlier 15-theme rendered comparison remains historical evidence.
 

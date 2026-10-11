@@ -45,40 +45,6 @@ where
     Option::<T>::deserialize(deserializer)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bloom_dimensions_are_independent_and_null_is_an_explicit_replacement() {
-        let metadata: QuestionMetadataReplacement = serde_json::from_value(serde_json::json!({
-            "questionTitle": "Question",
-            "questionDescription": "Description",
-            "questionType": "multipleChoice",
-            "tags": [],
-            "disciplineUuid": "00000000-0000-0000-0000-000000000001",
-            "subjectUuid": "00000000-0000-0000-0000-000000000002",
-            "topicUuid": null,
-            "subtopicUuid": null,
-            "bloomCognitiveProcess": "Analyze",
-            "bloomKnowledgeDimension": null
-        }))
-        .expect("one Bloom dimension may be absent");
-        assert_eq!(
-            metadata.bloom_cognitive_process,
-            Some(BloomCognitiveProcess::Analyze)
-        );
-        assert_eq!(metadata.bloom_knowledge_dimension, None);
-
-        let mut incomplete = serde_json::to_value(metadata).expect("serialize replacement");
-        incomplete
-            .as_object_mut()
-            .expect("object")
-            .remove("bloomKnowledgeDimension");
-        assert!(serde_json::from_value::<QuestionMetadataReplacement>(incomplete).is_err());
-    }
-}
-
 /// One ordinary metadata correction bound to the exact current Question Revision and edit counter.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

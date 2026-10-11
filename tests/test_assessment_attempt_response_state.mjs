@@ -1,5 +1,3 @@
-// test_assessment_attempt_response_state.mjs - exact-position save eligibility regressions.
-
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -28,7 +26,6 @@ test("a rejected format retains raw input but keeps it ineligible for save", () 
   const revision = state.edit(1, rawBlankNumeric);
 
   assert.equal(state.validate(1, rawBlankNumeric, revision, false), true);
-  const current = state.current(1);
-  assert.equal(current?.response, rawBlankNumeric);
-  assert.equal(current?.valid, false);
+  assert.equal(state.current(1)?.response, rawBlankNumeric);
+  assert.equal(state.current(1)?.valid, false);
 });

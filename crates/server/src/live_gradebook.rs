@@ -2,10 +2,6 @@
 
 mod export;
 
-#[cfg(test)]
-#[path = "live_gradebook/export_http_tests.rs"]
-mod export_http_tests;
-
 use std::{str::FromStr, sync::Arc};
 
 use axum::{

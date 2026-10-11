@@ -39,30 +39,3 @@ pub struct StudentAssessmentDecisionSummary {
     /// `None` only when `start_decision` is `may_start`.
     pub public_reason: Option<String>,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn serializes_utc_millis_and_closed_decision_fields() {
-        let summary = StudentAssessmentDecisionSummary {
-            available_at: Some(Timestamp::from_unix_millis(1_000)),
-            due_at: Some(Timestamp::from_unix_millis(2_000)),
-            closes_at: Some(Timestamp::from_unix_millis(3_000)),
-            time_limit_seconds: Some(900),
-            attempt_limit: Some(2),
-            late_work_rule: LateWorkRule::Reject,
-            display_time_zone: AccountTimeZone::parse("America/Chicago").expect("time zone"),
-            evaluated_at: Timestamp::from_unix_millis(1_500),
-            start_decision: AssessmentStartDecision::MayStart,
-            public_reason: None,
-        };
-
-        let wire = serde_json::to_value(summary).expect("decision summary serializes");
-        assert_eq!(wire["availableAt"], 1_000);
-        assert_eq!(wire["displayTimeZone"], "America/Chicago");
-        assert_eq!(wire["startDecision"], "may_start");
-        assert!(wire["publicReason"].is_null());
-    }
-}

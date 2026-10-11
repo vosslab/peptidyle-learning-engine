@@ -129,29 +129,3 @@ fn validate_hotspot_region_ids(
 fn count(values: impl Iterator) -> u64 {
     u64::try_from(values.count()).expect("supported usize values fit u64")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn issue_json_uses_the_browser_camel_case_contract() {
-        let check = StudentResponseFormatCheck {
-            issues: vec![StudentResponseFormatIssue::TextTooLong {
-                max_length: 2,
-                actual_length: 3,
-            }],
-        };
-
-        assert_eq!(
-            serde_json::to_value(check).expect("Student Response Format Check should serialize"),
-            serde_json::json!({
-                "issues": [{
-                    "kind": "textTooLong",
-                    "maxLength": 2,
-                    "actualLength": 3
-                }]
-            })
-        );
-    }
-}

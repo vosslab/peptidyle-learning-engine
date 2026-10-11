@@ -76,18 +76,17 @@ package media. HOTSPOT stays in PLE's existing GUI and is outside QPM import. Se
 
 The ordinary private Draft API and browser creation page currently support Native JSON, WebWork PG,
 and PGML. The API stores the selected Backend, format, source, and registered PG path as the Draft
-binding. The creation client test covers all three formats. First publication returns a Question ID;
-the importer obtains its exact Revision before using it elsewhere. See
-[Draft creation](../../crates/server/src/authoring/create.rs),
-[the creation page](../../src/pages/question_drafts_page.tsx), and
-[the creation client test](../../tests/test_question_draft_creation.mjs).
+binding. First publication returns a Question ID; the importer obtains its exact Revision before
+using it elsewhere. See [Draft creation](../../crates/server/src/authoring/create.rs) and
+[the creation page](../../src/pages/question_drafts_page.tsx). The former creation client test was
+retired during test pruning and is historical evidence rather than current coverage.
 
 The current content-loading tools call Draft storage and the shared Question publisher with
 generated IDs. That exercises supported loader paths, not the browser creation route or the
 browser converter handoff. Keep those facts separate when assessing import coverage. Source saves,
-preview, and testing use the stored Backend and format binding; focused client and server evidence
-is in [Draft source tests](../../tests/test_draft_source_client.mjs) and
-[the preview routes](../../crates/server/src/draft_preview.rs).
+preview, and testing use the stored Backend and format binding; the former Draft source tests were
+retired during test pruning. [The preview routes](../../crates/server/src/draft_preview.rs) remain
+implementation evidence rather than replacement coverage.
 
 The accepted M01-M29 implementation and runtime status is recorded in the
 [implementation ledger](../archive/reports/question_spec_implementation_ledger.md). That

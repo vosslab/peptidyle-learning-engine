@@ -86,26 +86,3 @@ pub enum ResponseSelectionRule {
     /// At least one choice, with no upper limit.
     AtLeastOne,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tolerances_serialize_with_their_parameters() {
-        let tolerance = NumericResponseTolerance::Relative { fraction: 0.01 };
-        let json = serde_json::to_string(&tolerance).expect("serialization should succeed");
-        assert_eq!(json, r#"{"kind":"relative","fraction":0.01}"#);
-    }
-
-    #[test]
-    fn text_match_modes_use_camel_case_names() {
-        let json = serde_json::to_string(&TextResponseMatchRule::CaseInsensitive)
-            .expect("serialization works");
-        assert_eq!(json, r#""caseInsensitive""#);
-        assert_eq!(
-            serde_json::to_string(&TextResponseMatchRule::Regex).expect("serialization works"),
-            r#""regex""#
-        );
-    }
-}

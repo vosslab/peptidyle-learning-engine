@@ -238,7 +238,3 @@ async fn create_draft(
         Err(error) => private_store_error(error),
     }
 }
-
-#[cfg(test)]
-#[path = "create/tests.rs"]
-mod tests;

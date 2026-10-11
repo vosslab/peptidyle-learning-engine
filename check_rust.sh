@@ -16,14 +16,13 @@ Runs the complete offline Rust gate:
   3. default-feature workspace check
   4. all-target, all-feature workspace check
   5. production library and binary Clippy with warnings denied
-  6. test-support all-target Clippy with warnings denied
-  7. all-target, all-feature Clippy with warnings denied
-  8. test-support workspace tests and doctests
-  9. all-feature workspace tests and doctests
- 10. wasm_bridge check for wasm32-unknown-unknown
+  6. all-target, all-feature Clippy with warnings denied
+  7. workspace tests and doctests
+  8. all-feature workspace tests and doctests
+  9. wasm_bridge check for wasm32-unknown-unknown
 
-Live PostgreSQL, MinIO, container, and deployment tests remain in their named
-E2E gates and are not made trustworthy by this offline script.
+Live PostgreSQL and production-browser tests run through their own entrypoints.
+This offline script does not establish connected acceptance.
 
   -h, --help  Print this help and exit 0.
 USAGE
@@ -77,13 +76,10 @@ run_step "All-target, all-feature workspace check" \
 	cargo check --workspace --all-targets --all-features --locked
 run_step "Production library and binary strict Clippy" \
 	cargo clippy --workspace --lib --bins --locked -- -D warnings
-run_step "Workspace strict Clippy with test support" \
-	cargo clippy --workspace --all-targets \
-		--features learning-data-access/test-support --locked -- -D warnings
 run_step "All-target, all-feature strict Clippy" \
 	cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-run_step "Workspace tests and doctests with test support" \
-	cargo test --workspace --features learning-data-access/test-support --locked --no-fail-fast
+run_step "Workspace tests and doctests" \
+	cargo test --workspace --locked --no-fail-fast
 run_step "All-feature workspace tests and doctests" \
 	cargo test --workspace --all-features --locked --no-fail-fast
 run_step "Browser WebAssembly target check" \

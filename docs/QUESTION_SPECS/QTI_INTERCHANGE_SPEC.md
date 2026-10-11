@@ -73,11 +73,10 @@ tuple, while the publication image path handles a single HOTSPOT surface. Arbitr
 and choice images are not yet bound or rendered; those limitations remain in
 [TODO.md](../TODO.md#future-product-capabilities).
 
-The permanent [import journey](../../tests/playwright/e2e/question_import.spec.ts) loads a fixed
-seven-kind BBQ bank and opens every saved Draft preview. Focused checks separately cover
-Blackboard export ZIP, image skips, shared images, individual HTTP and network failures,
-publication, and lazy loading. A writer-only QTI engine is a reported limitation, not a passing
-import result. See [NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md](NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md)
+The former import journey loaded a fixed seven-kind BBQ bank and opened every saved Draft preview.
+It and its focused implementation checks were retired during test pruning. They are historical
+evidence, not current import coverage. A writer-only QTI engine is a reported limitation, not a
+passing import result. See [NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md](NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md)
 for transport, acceptance, and refresh details.
 
 Archives are bounded and structurally checked by QPM before conversion. PLE reuses QPM's package

@@ -59,17 +59,10 @@ the broader HTML-rendering and inline-image-binding gaps remain in [TODO.md](TOD
 Create HOTSPOT questions with PLE's existing image upload, region editor, and correct-region
 selection; HOTSPOT is outside QPM import.
 
-For a maintainer refresh, follow [INSTALL.md](INSTALL.md#refresh-the-qpm-distribution), then run
-the permanent browser journey against the running Live Demo:
-
-```bash
-source source_me.sh && python3 tests/e2e/e2e_live_demo_production_browser.py \
-  --running --scenario question_import
-```
-
-It imports a fixed BBQ bank covering MC, MA, FIB, MULTI-FIB, NUM, MATCH, and ORDER and opens every
-saved Draft preview. A failure requires correcting the QPM Native JSON engine or PLE decoder
-against the [Native JSON specification](QUESTION_SPECS/NATIVE_JSON_SPEC.md).
+For a maintainer refresh, follow [INSTALL.md](INSTALL.md#refresh-the-qpm-distribution). The former
+seven-kind browser import journey was retired during test pruning. Record any refresh-specific
+import check as one-time evidence; it does not have permanent browser coverage. Correct a discovered
+conversion failure against the [Native JSON specification](QUESTION_SPECS/NATIVE_JSON_SPEC.md).
 
 ## Work with Blueprint Courses
 

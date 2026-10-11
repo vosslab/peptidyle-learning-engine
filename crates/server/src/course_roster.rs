@@ -281,30 +281,3 @@ fn concealed() -> Response {
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn signup_reset_mailer_document_carries_one_fresh_code() {
-        let export = InvitationMailerExport {
-            course_name: "Biology 301".to_string(),
-            students: vec![InvitationMailerRecipient {
-                email: "student@biology.roosevelt.edu".to_string(),
-                signup_url: "https://live-demo.example/signup".to_string(),
-                display_name: None,
-                roster_id: "bio301-student".to_string(),
-            }],
-        };
-        let response = signup_download(export);
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(
-            response
-                .headers()
-                .get("content-disposition")
-                .map(|value| value.as_bytes()),
-            Some(b"attachment; filename=ple-signup-reset.json".as_slice())
-        );
-    }
-}

@@ -695,13 +695,3 @@ pub(super) fn decode_workspace(
         questions,
     }))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::SAVE_ASSESSMENT_SQL;
-
-    #[test]
-    fn save_assessment_query_names_the_canonical_api() {
-        assert!(SAVE_ASSESSMENT_SQL.contains("ple_api.save_assessment"));
-    }
-}

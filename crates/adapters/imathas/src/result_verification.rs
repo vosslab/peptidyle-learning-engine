@@ -174,26 +174,6 @@ impl std::fmt::Debug for ImathasRenderCacheEntry {
     }
 }
 
-impl ImathasRenderCacheEntry {
-    #[cfg(test)]
-    #[allow(dead_code)]
-    pub(crate) fn new(
-        published_question_revision_tuple: PublishedQuestionRevisionTuple,
-        imathas_seed: u16,
-        profile: String,
-        payload_digest: String,
-        expires_at: Timestamp,
-    ) -> Self {
-        Self {
-            published_question_revision_tuple,
-            imathas_seed,
-            profile,
-            payload_digest,
-            expires_at,
-        }
-    }
-}
-
 /// Server-private iMathAS Result Verifier. The credential is accepted at
 /// composition time and has no getter or serializable representation.
 pub struct ImathasResultVerifier {

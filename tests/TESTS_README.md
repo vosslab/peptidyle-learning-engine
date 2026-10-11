@@ -1,239 +1,38 @@
 # Tests
 
-This folder holds three test tiers, each with its own execution model. Permanent
-pytest tests are individually subsecond and stay in the fast lane; the other
-two tiers run directly and may take longer.
+The permanent suite keeps focused checks whose assertions protect important, stable behavior.
+Vendored hygiene tests are maintained by the shared propagation script and are outside the
+repository-owned test-pruning scope. See [../docs/TEST_PRUNING_REPORT.md](../docs/TEST_PRUNING_REPORT.md)
+for the inventory and retention decisions.
 
-## Layout
+## Run the checks
 
-```
-tests/
-  test_*.py              fast pytest unit/integration (collected by pytest)
-  test_*.mjs             pure Node tests, no browser (rare)
-  conftest.py            pytest config; declares collect_ignore
-  conftest.py includes:  collect_ignore = ["e2e", "playwright", "_temp"]
-  playwright/            browser-driven evidence, excluded from pytest and the aggregate
-    record_list_*.mjs    focused production RecordList component contracts
-    fast_ui_*.mjs        stack-free production-route composition and optional headed fixtures
-    ribbon_*.mjs         focused shell, navigation, and responsive browser checks
-    e2e/*.spec.ts        scenario-registry-owned production browser scenarios
-  e2e/                   non-browser whole-system E2E (shell/Python/Node)
-    e2e_*.sh             shell orchestration
-    e2e_*.py             Python orchestration
-    e2e_*.mjs            Node/build orchestration
-    e2e_run_all.sh       run its selected non-browser E2E checks
-```
+| Command | Evidence |
+| --- | --- |
+| `source source_me.sh && ./launchers/run_fast_checks.sh` | Schema checks, Rust checks, TypeScript checks, Node tests, and pytest. |
+| `source source_me.sh && ./launchers/all_test.sh` | Offline checks followed by the disposable PostgreSQL baseline. |
+| `source source_me.sh && python3 -m pytest tests/` | Invitation safety and vendored hygiene. |
+| `node --import tsx --test 'tests/test_*.mjs'` | Autosave, validation, privacy, calculation, and response-integrity checks. |
+| `source source_me.sh && ./devel/run_playwright_tests.sh` | Real-stack authentication/authorization and confirmed Student-data disclosure. |
+| `source source_me.sh && bash tests/e2e/e2e_database_baseline.sh` | Database initialization/replay, role isolation, and Unrelease concurrency. |
+| `node tests/e2e/e2e_wasm_bridge.mjs` | Existing built WebAssembly bridge checks. |
 
-## How to run
+Browser tests need the controller-managed HTTPS Live Demo and its private runtime inputs.
+The database baseline owns a disposable PostgreSQL instance. Passing offline checks does not
+establish either connected result.
 
-- Fast pytest lane: `source source_me.sh && python3 -m pytest tests/`
-- Single non-browser E2E: `bash tests/e2e/e2e_<name>.sh`,
-  `source source_me.sh && python3 tests/e2e/e2e_<name>.py`, or
-  `node tests/e2e/e2e_<name>.mjs` (see [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md))
-- Bulk non-browser E2E: `bash tests/e2e/e2e_run_all.sh`
-- Stack-free UI lane: `source source_me.sh && ./launchers/run_fast_ui_checks.sh`
-- Open one registered UI fixture: `source source_me.sh && ./launchers/run_fast_ui_checks.sh --headed --case <name>`
-- Focused Ribbon fixture evidence: `node --import tsx tests/playwright/ribbon_<name>.mjs`
+## Test locations
 
-The stack-free UI lane compiles real production components, styles, and selected
-route compositions into Chromium with deterministic fixture data. It does not
-start backend services and is outside `./launchers/all_test.sh`; the focused
-real-stack parity scenario and screenshot publication remain separate evidence.
-Other focused Ribbon scripts inspect production-source fixtures in Chromium and
-do not establish production-browser acceptance. The `tests/playwright/e2e/*.spec.ts` scenarios
-are selected by the fresh Store-backed M19 browser owner, which accepted its serial
-production-bundle run on 2026-09-07. The aggregate remains limited to its named
-database/object service lanes.
+- `test_*.py`: repo-owned behavior tests and unchanged vendored hygiene tests.
+- `test_*.mjs`: Node tests that exercise focused TypeScript behavior without shared mock infrastructure.
+- `playwright/e2e/`: two production-browser scenarios and their shared helper.
+- `e2e/`: connected SQL oracles, their runners, browser orchestration, and runtime Compose profiles.
+- `../crates/`: Rust unit tests beside their owning implementation.
+- `_temp/`: ignored one-time verification, removed after the work it supports.
 
-## Why two folders for E2E
+The screenshot publisher under `playwright/screenshot_corpus/` remains operational tooling.
+It produces review artifacts and is separate from permanent behavioral tests. Run it through
+`source source_me.sh && ./devel/capture_screenshots.sh`.
 
-Playwright is a tool; E2E is a scope. Not every Playwright test is end-to-end (a layout check or single-interaction smoke test is browser-driven but not E2E). One folder per execution model:
-
-- `tests/playwright/` -- browser-driven tests (Playwright; future tools like Cypress would get their own tool-named folder)
-- `tests/e2e/` -- non-browser whole-system orchestration (CLIs, build pipelines, multi-suite runners)
-
-The `tests/playwright/e2e/` subfolder is the scenario-registry-owned set of
-full-path browser journeys. Its fresh owner selects registered scenarios, serves
-the production bundle through the local HTTPS stack, creates product state through
-visible controls, and owns the disposable stack. It accepted M19 on 2026-09-07;
-neither its selected scenarios nor the focused Ribbon fixtures replace the
-separate human assistive-technology acceptance boundary.
-
-## Disposable stack ownership
-
-The Podman-backed adapter E2Es do not select Compose projects from shell
-arguments. Their runner creates a private mode-0600 manifest with a declared
-owner, isolated project, private environment path, and runner-held cleanup
-capability. The private `python3 -m local_stack_control.disposable_stack_command` adapter
-then enforces a closed owner policy:
-
-- Browser-free data and security oracles use closed fixed-owner profiles and never launch
-  Playwright. `database_baseline` owns PostgreSQL schema and authority; the
-  `course_appearance_cross_store` successor owns the distinct PostgreSQL-to-MinIO cleanup seam.
-- `live-demo-browser` is the one fixed connected-browser owner. Its closed
-  profiles run the production-browser suite, screenshot capture, and WebWork
-  browser scenario serially against a
-  freshly regenerated stack. Its successor selects registered
-  `tests/playwright/e2e/*.spec.ts` scenarios and performs typed cleanup.
-  Developer Browser Suite operations use the same fixed owner and lease.
-
-The shared adapter controls provider selection, environment sanitization,
-label discovery, scoped diagnostics, and cleanup. It also allocates and later
-identity-verifies repository-target private state for the Node replica owner, so
-JavaScript does not implement a second cleanup authority. Runners keep their test data,
-ports, secrets, application assertions, and failure receipts. A failed cleanup
-is a failed E2E: retain the private manifest/evidence and inspect the exact
-label-resolved target instead of deleting the receipt or broadening cleanup.
-
-## How pytest stays fast
-
-`tests/conftest.py` excludes `tests/e2e/`, `tests/playwright/`, and the temporary
-`tests/_temp/` workspace, and omits the checkout disk budget check from permanent pytest
-collection. Keep `tests/_temp/` untracked; run a one-time pytest check explicitly by its
-path instead of relying on the permanent suite to collect it. The disk budget is an
-operational, one-time developer-volume cleanup check rather than product behavior or
-release acceptance. Pytest never collects functions from these excluded subtrees,
-regardless of filename inside them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `*.spec.ts`
-for scenario-registry-owned Playwright scenarios) are a readability layer on top of this active guard.
-
-Important: `collect_ignore` only affects pytest test collection. The repo's lint tests (ASCII compliance, whitespace, pyflakes, indentation, shebangs, etc.) enumerate files via `git ls-files` and still scan files inside `tests/playwright/` and `tests/e2e/`. A non-ASCII character in `tests/playwright/foo.mjs` will still fail the ASCII check - only execution as a pytest test is suppressed. The sole current scoped exception is `bash_script_line_limit` for `tests/e2e/**`: documented executable E2E runners may exceed the small-script limit, while their shebang, ASCII, whitespace, and other hygiene scans remain active.
-
-Repository-specific pytest must also follow the permanent-test checklist in
-[PYTEST_STYLE.md](../docs/PYTEST_STYLE.md). In particular, do not add a pytest
-that slices shell/Compose/Containerfile source, inventories current module or
-route names, invokes a real CLI, scans the whole Rust/SQL tree, or freezes a
-dated acceptance report. Those are implementation reviews or E2E concerns,
-not fast permanent behavior tests.
-
-## Hygiene file discovery
-
-Enumerating hygiene tests (ascii, whitespace, pyflakes, shebangs, and similar) get their file
-list from one shared helper, `file_utils.discover_files`. It is the canonical discovery API
-and owns git scope selection, absolute-path join, dedupe, built-in scratch/directory filtering,
-extension filtering, the `isfile` check, and the sort. Use `file_utils.discover_files` as the
-single source of file discovery; the shared `SKIP_DIRS` and `path_has_skip_dir` live only in
-`file_utils.py`.
-
-Tracked paths that are absent from the working tree are discarded before repo-local or per-test
-filters inspect their contents. This lets hygiene checks run while a tracked file is deleted or
-renamed in an unstaged change.
-
-Signature:
-
-```python
-discover_files(extensions=None, extra_filter=None, *, test_key=None, repo_root=None) -> list[str]
-```
-
-`test_key` and `repo_root` are keyword-only (note the bare `*`). The module-level discovered list
-in a hygiene test is named `FILES` (not `_FILES`).
-
-Three contracts:
-
-- Returns ABSOLUTE paths, sorted ascending.
-- `extra_filter` receives a REPO-RELATIVE POSIX path (for example `tests/foo.py`) and returns
-  `True` to keep the file. `None` keeps all files.
-- `extensions=None` means all files; otherwise extension match is case-insensitive (pass
-  lowercase suffixes like `(".py",)`).
-
-Normal hygiene tests call `discover_files(extensions=..., test_key="<stem>")`; `discover_files`
-resolves the repo root itself via `get_repo_root()` (a negligible extra call). Pass `repo_root=`
-only in `file_utils` regression tests that point discovery at a temporary directory.
-
-Exclusions come from three layers, in order:
-
-- Layer 1, universal exclusions (vendored, `file_utils.py`): built-in skipped directories,
-  `_temp*` scratch files/directories, `dist_*/` scratch build directories, and root
-  `report_*.txt` hygiene outputs, handled by `path_has_skip_dir`.
-- Layer 2, `REPO_HYGIENE_FILTERS` (repo-local, `conftest.py`): per-test repo-local file/glob
-  exclusions, keyed by `"all"` or a vendored test key, as lists of repo-relative POSIX glob
-  patterns matched with `fnmatch.fnmatchcase`. This is the only home for repo-specific exclusions,
-  because `conftest.py` survives propagation while vendored files do not. A test key is the test
-  filename stem without the `test_` prefix; recursive subtrees need an explicit `/**`.
-- Layer 3, `extra_filter` (vendored call site): a universal per-test SELECTION mechanism only.
-  Keep all repo-specific exclusions in `conftest.py REPO_HYGIENE_FILTERS`; vendored files hold
-  only universal logic.
-
-A normal hygiene test calls `discover_files` with its `test_key`:
-
-```python
-# Normal hygiene test:
-FILES = file_utils.discover_files(extensions=(".py",), test_key="ascii_compliance")
-
-# Repo-local conftest.py declaring repo-specific exclusions:
-REPO_HYGIENE_FILTERS = {
-	"all": ["temp_scripts/**", "TEMPLATE.py"],
-	"ascii_compliance": ["human_readable-*.html"],
-}
-```
-
-Pass `repo_root=` in `file_utils` regression tests that point discovery at a temporary
-directory:
-
-```python
-# Regression test: point discovery at a controlled temporary root.
-result = file_utils.discover_files(extensions=(".py",), repo_root=tmp_root)
-```
-
-### Additional helpers in file_utils.py
-
-Shared helpers that complement `discover_files`:
-
-- `iter_imports(tree: ast.Module)` -- yields every `ast.Import` and `ast.ImportFrom` node from
-  a parsed module tree. Use in import-checking tests instead of local AST-walk loops.
-- `rel_to_root(path, repo_root=None)` -- returns a repo-relative POSIX string suitable for
-  parametrize ids and assertion messages (for example `tests/foo.py`).
-- `rel_id(abs_path: str) -> str` -- thin wrapper around `rel_to_root` for use as
-  `ids=file_utils.rel_id` in `@pytest.mark.parametrize`.
-- `run_fixer_script(script_name, target)` -- shared subprocess wrapper: runs
-  `tests/<script_name> -i target` and returns `(returncode: int, stderr: str)` for every
-  subprocess completion. Never raises on a non-zero exit code; callers inspect the return
-  value and decide what each exit code means. Raises `RuntimeError` only for environment
-  preconditions: script file not found (checked via `os.path.isfile` before launch), or
-  `FileNotFoundError` from a missing Python interpreter (re-raised as `RuntimeError`
-  stating the test environment is broken). Exit-code contracts for shipped fixer scripts:
-  `fix_ascii_compliance.py` exits 0 = clean, 1 = issues remain, 2 = auto-fixed;
-  `fix_whitespace.py` exits 0 = clean or fixed, 1 = missing or no input. Used by the
-  ASCII and whitespace auto-fix tests.
-- `collect_file_violations(files, check)` -- iterate `files`, call `check(rel)` per file,
-  return `dict[str, list[str]]` of violations keyed by repo-relative POSIX path. Use when
-  the checker handles its own parsing (for example pyflakes).
-- `collect_python_violations(files, check)` -- like `collect_file_violations` but parses each
-  `.py` file into an AST once; calls `check(rel, tree)`; records one `SyntaxError` entry when
-  parsing fails and skips that file's rule checks.
-- `format_violation_report(header, violations_by_file)` -- return a `list[str]` summary lines
-  for a report file; returns `[]` when `violations_by_file` is empty (clean run).
-- `format_violation_assert_message(rel, lines, report_name)` -- return a
-  human-readable assertion failure message for the per-file violation lines (`lines: list[str]`);
-  evaluated only on failure so no overhead on passing cases.
-- `write_report_lines(report_name: str, lines: list[str]) -> str` -- write the full report when
-  `lines` is non-empty (truncate-write, one `\n` per line, one trailing `\n`). Called only when
-  violations exist; `clear_stale_reports` owns removal of stale clean-run reports.
-- `clear_stale_reports() -> None` -- delete all `report_*.txt` files at the repo root; guarded
-  once per process so multiple hygiene modules running in the same pytest session each trigger
-  it but only the first invocation does the filesystem work.
-- `report_name(test_file: str) -> str` -- derive the canonical report filename from a test module
-  path. Pass `__file__` and get back the matching `report_<stem>.txt` name (for example
-  `report_name(__file__)` in `test_bandit_security.py` returns `"report_bandit_security.txt"`).
-  Every hygiene test sets `REPORT_NAME = file_utils.report_name(__file__)` so the name is always
-  derived from the filename, never hardcoded.
-
-See [../docs/PYTEST_STYLE.md](../docs/PYTEST_STYLE.md) "Hygiene report files" for the canonical
-module shape and report lifecycle.
-
-### Hygiene guard tests
-
-Two vendored hygiene tests keep the discovery scaffold clean:
-
-- `tests/test_function_typing.py` -- AST-based guard that enforces the typing rule repo-wide:
-  the `typing` module is not used, and every `def` carries param and return type annotations.
-  Use builtin generics (`list`, `dict`, `tuple`, `set`) and PEP 604 unions (`X | None`).
-  Use `collections.abc` (for example `collections.abc.Callable`) for callable and iterable params.
-- `tests/test_pytest_hygiene.py` -- AST guard ensuring hygiene tests keep all file-discovery
-  logic in `file_utils` (the shared scratch/directory filter, `SKIP_DIRS`, `path_has_skip_dir`,
-  and `gather_*` discovery live there). See the "discovery lives in file_utils" guidance above.
-
-## See also
-
-- [../docs/PYTEST_STYLE.md](../docs/PYTEST_STYLE.md) -- pytest test-writing rules and fast-lane discipline
-- [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md) -- non-browser whole-system E2E conventions
-- Browser-driven test conventions: TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder
+The old isolated UI fixture lane, broad client/decoder Node suite, and legacy E2E umbrella
+runner were deleted. Their old reports are historical evidence, not current test coverage.

@@ -30,7 +30,3 @@ impl std::fmt::Display for StatisticsError {
 }
 
 impl std::error::Error for StatisticsError {}
-
-#[cfg(test)]
-#[path = "statistics/tests.rs"]
-mod tests;

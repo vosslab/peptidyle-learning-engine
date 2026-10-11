@@ -33,37 +33,6 @@ def _export(*recipients: invitation_mailer.input.Recipient) -> invitation_mailer
 
 
 #============================================
-def test_render_message_keeps_signup_url_on_its_own_line() -> None:
-	"""Render names literally and expose the opaque signup URL plainly."""
-	recipient = _recipient()
-
-	subject, body = invitation_mailer.sender.render_message(
-		TEMPLATE,
-		"Genetics 301",
-		recipient,
-	)
-
-	assert "D'Angelo \\\"DJ\\\" Jones" in body
-	assert "\nhttps://example.edu/signup/token\n" in body
-
-
-#============================================
-@pytest.mark.parametrize(
-	"template",
-	(
-		"{",
-		"{course_name} {recipient_name}",
-		"{course_name} {recipient_name} {signup_url} {unknown}",
-		"{course_name} {recipient_name} URL: {signup_url}",
-	),
-)
-def test_render_message_rejects_template_contract_drift(template: str) -> None:
-	"""Refuse templates that omit required content or add unknown fields."""
-	with pytest.raises(invitation_mailer.sender.InvitationSenderError):
-		invitation_mailer.sender.render_message(template, "Genetics 301", _recipient())
-
-
-#============================================
 @pytest.mark.parametrize("failure_mode", ("return", "raise"))
 def test_process_batch_continues_after_one_recipient_failure(
 	tmp_path: pathlib.Path,

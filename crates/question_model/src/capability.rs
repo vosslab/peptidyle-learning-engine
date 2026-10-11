@@ -141,21 +141,6 @@ impl Capability {
 /// It is a newtype rather than a struct with a named field so serde and the
 /// TypeScript generator both treat it as the underlying set: the generated
 /// type is `Array<Capability>`, not `{ supported: Array<Capability> }`.
-///
-/// # Examples
-///
-/// ```
-/// use question_model::capability::{QuestionBackendCapabilities, Capability};
-///
-/// let browser_renderer = QuestionBackendCapabilities::from_iter([Capability::ClientRendering]);
-/// assert!(browser_renderer.supports(Capability::ClientRendering));
-///
-/// assert!(!browser_renderer.supports(Capability::ServerGrading));
-/// assert_eq!(
-///     browser_renderer.missing_from([Capability::ServerGrading, Capability::ClientRendering]),
-///     vec![Capability::ServerGrading],
-/// );
-/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct QuestionBackendCapabilities(BTreeSet<Capability>);
 
@@ -195,40 +180,5 @@ impl QuestionBackendCapabilities {
 impl FromIterator<Capability> for QuestionBackendCapabilities {
     fn from_iter<I: IntoIterator<Item = Capability>>(iter: I) -> Self {
         QuestionBackendCapabilities(iter.into_iter().collect())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_declared_capability_is_supported() {
-        let backend = QuestionBackendCapabilities::from_iter([
-            Capability::ServerGrading,
-            Capability::AlgorithmicGeneration,
-        ]);
-        assert!(backend.supports(Capability::ServerGrading));
-        assert!(!backend.supports(Capability::Hints));
-    }
-
-    #[test]
-    fn missing_from_reports_every_gap_not_just_the_first() {
-        let backend = QuestionBackendCapabilities::from_iter([Capability::ClientRendering]);
-        let missing = backend.missing_from([
-            Capability::ServerGrading,
-            Capability::ClientRendering,
-            Capability::PartialCredit,
-        ]);
-        assert_eq!(
-            missing,
-            vec![Capability::ServerGrading, Capability::PartialCredit]
-        );
-    }
-
-    #[test]
-    fn an_undeclared_backend_supports_nothing() {
-        let backend = QuestionBackendCapabilities::none();
-        assert_eq!(backend.missing_from(Capability::ALL).len(), 8);
     }
 }

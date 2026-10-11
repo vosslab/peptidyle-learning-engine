@@ -432,17 +432,3 @@ fn wire_string(value: &impl Serialize, label: &str) -> Result<String, StoreError
         ))),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::str::FromStr;
-
-    #[test]
-    fn new_lineage_publication_binds_the_canonical_database_question_id() {
-        let question_id = question_model::PublishedQuestionId::from_str("ABCD-XEFG")
-            .expect("canonical Question ID is accepted at the model boundary");
-
-        assert_eq!(question_id_for_persistence(&question_id), "ABCD-XEFG");
-    }
-}

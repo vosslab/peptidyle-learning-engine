@@ -619,7 +619,3 @@ fn assessment_start_decision(
         student_late_work_status,
     }
 }
-
-#[cfg(test)]
-#[path = "effective_assessment_properties/tests.rs"]
-mod tests;

@@ -37,11 +37,11 @@ operational work without claiming that local tests prove them.
    restoration, and preservation of exact Revision references. Use current specs rather than the
    old plan's superseded blanket discovery restrictions. Repair observed failures and repeat
    focused SQL/API/browser checks; do not introduce a new lifecycle or permission model.
-4. **Verify local readiness and recovery.** Run existing local startup, readiness, and cross-store
-   acceptance with disposable database/object storage and renderer services. Exercise setup email
-   with an agent-owned local SMTP receiver and the unconfigured delivery path. Verify failures
-   retain saved work and report useful redacted errors. Repair demonstrated current-scope defects;
-   daemon scheduling and real-provider delivery remain explicitly deferred.
+4. **Verify local readiness and recovery.** Run existing local startup, readiness, and
+   database-baseline acceptance. Exercise setup email with an agent-owned local SMTP receiver and
+   the unconfigured delivery path. Verify failures retain saved work and report useful redacted
+   errors. Repair demonstrated current-scope defects; daemon scheduling and real-provider delivery
+   remain explicitly deferred.
 5. **Close with independent evidence.** A fresh review agent checks every current-scope row and
    its failure recovery. Run applicable focused checks and `source source_me.sh && ./launchers/all_test.sh`;
    capture changed UI with `./devel/capture_screenshots.sh` if implementation changes it. Fix

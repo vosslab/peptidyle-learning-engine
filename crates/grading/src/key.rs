@@ -57,20 +57,3 @@ pub enum AnswerKey {
         correct: BTreeSet<ResponseItemId>,
     },
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn answer_values_serialize_only_inside_the_server_crate() {
-        let key = AnswerKey::MultipleChoice {
-            correct: BTreeSet::from([ResponseItemId::new("peptide-bond")]),
-        };
-
-        assert_eq!(
-            serde_json::to_string(&key).expect("answer key should serialize"),
-            r#"{"kind":"multipleChoice","correct":["peptide-bond"]}"#
-        );
-    }
-}

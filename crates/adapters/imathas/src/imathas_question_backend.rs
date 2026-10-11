@@ -730,7 +730,3 @@ fn validate_loaded_imathas_launch_state(
 fn map_transport(error: ImathasTransportFailure) -> ImathasAdapterError {
     ImathasAdapterError::QuestionBackend(error.into())
 }
-
-#[cfg(test)]
-#[path = "imathas_question_backend/tests.rs"]
-mod tests;

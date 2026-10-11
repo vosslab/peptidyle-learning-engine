@@ -17,8 +17,6 @@ pub mod imathas_question_backend;
 #[path = "lib/question_backend.rs"]
 mod question_backend;
 pub mod result_verification;
-#[cfg(feature = "test-support")]
-pub mod test_support;
 
 /// Stable adapter identity persisted in Question Attempt Reproduction Details, independent of CalVer.
 pub const ADAPTER_ID: &str = "imathas-adapter";
@@ -43,26 +41,3 @@ pub use question_model::{
 
 pub(crate) use cache::{constant_time_eq, hex, verify_binding};
 pub(crate) use question_backend::sealed;
-
-#[cfg(test)]
-use cache::render_key;
-
-#[cfg(test)]
-#[path = "lib/tests.rs"]
-mod tests;
-
-#[cfg(test)]
-use async_trait::async_trait;
-#[cfg(test)]
-use objects::{ObjectAddress, ObjectStore, PutObject};
-#[cfg(test)]
-use question_model::QuestionContentBlock;
-#[cfg(test)]
-use question_model::generation::QuestionSeed;
-#[cfg(test)]
-use question_model::{
-    ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionAttemptId,
-    QuestionRevisionNumber, SourceObjectChecksum, Timestamp,
-};
-#[cfg(test)]
-use uuid::Uuid;

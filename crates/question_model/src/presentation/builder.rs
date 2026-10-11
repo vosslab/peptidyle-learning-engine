@@ -386,24 +386,6 @@ pub fn rebind_durable_response_item_bindings(
     }
     Ok(presentation)
 }
-#[cfg(test)]
-pub(super) fn build_question_presentation_with_hasher<N, H>(
-    presentation: &QuestionVariationPresentation,
-    question_image_renditions: &[QuestionImageRendition],
-    nonce_source: &mut N,
-    hasher: H,
-) -> Result<IssuedQuestionPresentation, PresentationBuildError>
-where
-    N: QuestionPresentationNonceSource,
-    H: FnMut(&[u8]) -> u16,
-{
-    build_with_hasher(
-        presentation,
-        question_image_renditions,
-        nonce_source,
-        hasher,
-    )
-}
 fn build_with_hasher<N, H>(
     presentation: &QuestionVariationPresentation,
     question_image_renditions: &[QuestionImageRendition],

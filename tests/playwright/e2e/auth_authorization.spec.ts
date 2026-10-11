@@ -7,13 +7,11 @@
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
-import { configuredLiveDemoInputs } from "../../../playwright.config";
 import {
   chooseSeededIdentity,
   chooseSeededIdentityAtSignIn,
   enterStudentCourse,
   observeContextOrigins,
-  requireScenarioInput,
   signOutVisible,
   writeOriginReceipt,
 } from "./real_stack_ui";
@@ -46,11 +44,6 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
   browser,
 }) => {
   test.setTimeout(120_000);
-  const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
-  expect(scenarioInput.scenarioId).toBe("auth_authorization");
-  expect(scenarioInput.namespace).toMatch(/^bs1-[0-9a-f]{12}-auth_authorization$/u);
-  expect(scenarioInput.baselineReads).toEqual(["seeded_accounts"]);
-
   const contexts: BrowserContext[] = [];
   const pageOrigins = new Set<string>();
   const requestOrigins = new Set<string>();

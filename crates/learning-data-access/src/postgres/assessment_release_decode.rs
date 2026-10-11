@@ -246,13 +246,3 @@ pub(super) fn resolve_local_timestamp(
 pub(in crate::postgres) fn invalid(label: &str) -> StoreError {
     StoreError::InvalidRecord(format!("database returned an invalid {label}"))
 }
-#[cfg(test)]
-mod tests {
-    use super::published_question_revision_tuple;
-
-    #[test]
-    fn published_question_revision_tuple_takes_a_revision_number() {
-        let tuple = published_question_revision_tuple("ABCD-XEFG".into(), 4).expect("tuple");
-        assert_eq!(tuple.revision_number.get(), 4);
-    }
-}

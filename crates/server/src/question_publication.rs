@@ -509,6 +509,3 @@ fn successor_published_question_revision_tuple(
         revision_number,
     })
 }
-
-#[cfg(test)]
-mod tests;

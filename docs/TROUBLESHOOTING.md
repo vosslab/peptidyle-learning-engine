@@ -233,7 +233,6 @@ source source_me.sh && python3 local_stack.py acceptance
 ```
 
 This acceptance command currently runs the disposable PostgreSQL schema,
-authority, and persistence oracle, followed by the Course Appearance
-PostgreSQL and MinIO coherence oracle. Those are real-service boundaries, not
-browser or visible-workflow acceptance; permanent offline tests remain
-separate. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).
+authority, and persistence oracle. It does not establish object-store, browser,
+or visible-workflow behavior; permanent offline tests remain separate. See
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).

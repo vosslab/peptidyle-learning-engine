@@ -76,8 +76,8 @@ Run the aggregate only when its full material-tree scope is required:
 source source_me.sh && ./launchers/all_test.sh
 ```
 
-The current acceptance lanes prove named Rust, TypeScript, Python, PostgreSQL, and object-store
-boundaries. They do not prove a current visible teaching workflow; see
+The current acceptance lanes prove named Rust, TypeScript, Python, and PostgreSQL
+boundaries. They do not prove object-store behavior or a current visible teaching workflow; see
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 ## Review launch readiness

@@ -16,12 +16,4 @@ pub fn png_is_supported(bytes: &[u8]) -> bool {
     assets::png_is_supported(bytes)
 }
 
-#[cfg(test)]
-use assets::{MAX_PNG_DECODED_PIXELS, decode_png, png_crc32};
-#[cfg(test)]
-use layout::{PAGE_WIDTH, RIGHT_MARGIN, RenderBlock, TEXT_SIZE, TEXT_WIDTH, paginate, wrap};
-#[cfg(test)]
-use render::{DEJAVU_SANS_FONT, EmbeddedFont, deflate, objects_for_pages, pdf};
 
-#[cfg(test)]
-mod tests;

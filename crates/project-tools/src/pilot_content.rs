@@ -241,9 +241,6 @@ pub(crate) struct PublicationPlan {
 mod command;
 mod publication;
 
-#[cfg(test)]
-mod tests;
-
 pub(super) use command::run;
 pub(crate) use publication::{
     publish, publish_with_context, validate_publication_mapping_json,

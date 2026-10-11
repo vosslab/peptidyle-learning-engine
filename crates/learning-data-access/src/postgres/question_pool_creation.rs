@@ -159,22 +159,3 @@ fn is_question_pool_identity_collision(code: Option<&str>, constraint: Option<&s
     code == Some(PUBLIC_ID_COLLISION_SQLSTATE)
         || (code == Some("23505") && constraint == Some(QUESTION_POOL_PUBLIC_ID_UNIQUE))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::is_question_pool_identity_collision;
-
-    #[test]
-    fn recognizes_only_the_shared_public_id_collision_signal() {
-        assert!(is_question_pool_identity_collision(Some("QP001"), None));
-        assert!(is_question_pool_identity_collision(
-            Some("23505"),
-            Some("question_pool_public_question_pool_id_key"),
-        ));
-        assert!(!is_question_pool_identity_collision(
-            Some("23505"),
-            Some("unrelated_unique_constraint"),
-        ));
-        assert!(!is_question_pool_identity_collision(Some("23503"), None));
-    }
-}

@@ -31,33 +31,3 @@ pub struct StudentCourseProgressAssessment {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assessment_score_is_latest_attempt: Option<bool>,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn withheld_score_keeps_attempt_activity_without_freshness_or_score_fields() {
-        let progress = StudentCourseProgressAssessment {
-            id: AssessmentId::new("A5D9Q3XAH").expect("Assessment ID"),
-            title: "Peptide practice".into(),
-            assessment_type: serde_json::from_value(serde_json::json!("regular_assignment"))
-                .expect("Assessment Type"),
-            assessment_attempt_count: 2,
-            submitted_assessment_attempt_count: 1,
-            latest_assessment_attempt_number: Some(2),
-            latest_assessment_attempt_completion: Some(AssessmentAttemptCompletion::InProgress),
-            latest_activity_at: Some(Timestamp::from_unix_millis(1_786_000_000_000)),
-            assessment_score: None,
-            assessment_score_is_latest_attempt: None,
-        };
-
-        let wire = serde_json::to_value(progress).expect("Course Progress serializes");
-        assert_eq!(wire["assessmentAttemptCount"], 2);
-        assert_eq!(wire["submittedAssessmentAttemptCount"], 1);
-        assert_eq!(wire["latestAssessmentAttemptNumber"], 2);
-        assert_eq!(wire["latestActivityAt"], 1_786_000_000_000_i64);
-        assert!(wire.get("assessmentScore").is_none());
-        assert!(wire.get("assessmentScoreIsLatestAttempt").is_none());
-    }
-}

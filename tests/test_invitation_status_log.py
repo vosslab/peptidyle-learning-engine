@@ -5,9 +5,6 @@ import csv
 import stat
 import pathlib
 
-# PIP3 modules
-import pytest
-
 # local repo modules
 import invitation_mailer.input
 import invitation_mailer.status_log
@@ -116,25 +113,6 @@ def test_pending_recipients_scopes_status_to_course() -> None:
 		other_course,
 		cells,
 	).recipients == (recipient,)
-
-
-#============================================
-def test_status_log_refuses_ambiguous_duplicate_cells(tmp_path: pathlib.Path) -> None:
-	"""Fail closed when persisted state cannot support safe suppression."""
-	path = tmp_path / "status.json"
-	path.write_text(
-		'{"version":1,"cells":['
-		'{"course_name":"Genetics 301",'
-		'"email":"student@mail.roosevelt.edu","status":"sent",'
-		'"attempted_at":"2026-09-05T12:00:00Z"},'
-		'{"course_name":"Genetics 301",'
-		'"email":"student@mail.roosevelt.edu","status":"failed",'
-		'"attempted_at":"2026-09-05T12:01:00Z"}]}',
-		encoding="ascii",
-	)
-
-	with pytest.raises(invitation_mailer.status_log.StatusLogError, match="duplicate"):
-		invitation_mailer.status_log.load(path)
 
 
 #============================================

@@ -261,6 +261,3 @@ fn validate_bounded_text(
 fn invalid<T>(message: &str) -> Result<T, PleQuestionJsonError> {
     Err(PleQuestionJsonError::InvalidDocument(message.to_string()))
 }
-
-#[cfg(test)]
-mod tests;

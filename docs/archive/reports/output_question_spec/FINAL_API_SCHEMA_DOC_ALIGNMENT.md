@@ -98,7 +98,7 @@ not reported as connected runtime acceptance.
 - `git diff --check -- docs/API_CONTRACTS.md docs/SCHEMA_TABLES.md` passed;
   the report has no trailing whitespace. All seven report links resolve.
 
-[plan]: ../../active/question_spec_implementation_plan.md
+[plan]: ../../question_spec_implementation_plan.md
 [human-guidance]: ../../../HUMAN_GUIDANCE.md
 [api-contracts]: ../../../API_CONTRACTS.md
 [schema-tables]: ../../../SCHEMA_TABLES.md

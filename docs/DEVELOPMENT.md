@@ -45,7 +45,6 @@ helpers; the root build and validation scripts are repository-owned front doors:
 source source_me.sh && python3 -m pip install --requirement pip_requirements.txt --requirement pip_requirements-dev.txt
 ./devel/setup_typescript.sh
 ./devel/setup_playwright.sh       # once, before browser tests
-./devel/setup_wasm_tests.sh       # only when running wasm-bindgen tests
 ./build.sh
 ./check_rust.sh
 ./check_codebase.sh
@@ -58,7 +57,7 @@ reset that also removes `node_modules`, generated outputs, and Cargo's `target/`
 `devel/reset_podman.sh --dry-run` to preview the fixed disposable Podman resources; its unqualified
 form is destructive and follows the explicit fixed-project confirmation owned by `local_stack.py`.
 
-Before a local-stack start, database-baseline, or course-appearance cross-store image cycle, the controller runs
+Before a local-stack start or database-baseline image cycle, the controller runs
 `podman image prune -a -f` once. This removes all images not referenced by any running or stopped
 container, including unused named images, base images, renderer images, and build-cache images;
 they can be rebuilt or pulled again. One checkout-directory lease covers pruning, the complete
@@ -154,29 +153,6 @@ Course, roster, and released Assessment. See
 
 ## Choose the right gate
 
-### Fast UI lane
-
-Use the stack-free Chromium lane while changing current-source UI composition:
-
-```bash
-./launchers/run_fast_ui_checks.sh
-./launchers/run_fast_ui_checks.sh --headed --case record-list-ready
-./launchers/run_fast_ui_checks.sh --headed --case provided-avatar-picker
-./launchers/run_fast_ui_checks.sh --headed --case page-frame-reading
-./launchers/run_fast_ui_checks.sh --headed --case student-coursework
-```
-
-The normal command runs the registered isolated checks headlessly. The headed form opens one named
-fixture directly. The Avatar Picker case lets you switch interactively between Gallery and List.
-`page-frame-reading` and `student-coursework` open the production Student course page with a
-synthetic current-Course projection; the regular headless lane also checks this fixture through the
-Student course entry evidence script. Primitive `RecordList` cases use synthetic rows only to prove
-the primitive API. Route-composition cases render production page markup with only narrow providers
-or data substituted. Neither establishes Live Demo behavior or full-stack parity. The restricted
-same-data parity matrix remains in the existing full-stack Playwright lane; run it only after its
-named seed is available. Live Demo integration, workflows, and screenshots remain separate
-primary-plan evidence.
-
 Run the narrowest gate that proves the changed behavior, then the broader gate required by the
 bounded work item.
 
@@ -187,7 +163,6 @@ bounded work item.
 | Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`          | Fast Python hygiene and repository-rule checks.                      |
 | Connected current acceptance               | `source source_me.sh && python3 local_stack.py acceptance` | Current database/object service receipts under the typed controller. |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                             | The named disposable whole-system oracle.                            |
-| All named non-browser E2E checks           | `bash tests/e2e/e2e_run_all.sh`                            | The current build, CLI, contract, and named-service E2E collection.  |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`  | The scoped controller contract.                                      |
 | Current application screenshots            | `./devel/capture_screenshots.sh [--verify] [--headed]`     | Warm loop: rebuild only what changed, then publish or verify the corpus. |
 | Application-only stack rebuild             | `python3 local_stack.py rebuild-application`               | New api image; recreate api, worker, publisher; keep data services. |
@@ -232,13 +207,10 @@ renderer, or a browser and do not prove those external boundaries.
 
 Connected and one-time evidence is opt-in and remains separate from the permanent fast lane:
 
-- `source source_me.sh && python3 local_stack.py acceptance` runs exactly two connected,
-  browser-free service oracles: the disposable PostgreSQL schema, authority, and persistence
-  oracle; and the Course Appearance PostgreSQL-and-MinIO coherence oracle.
+- `source source_me.sh && python3 local_stack.py acceptance` runs the disposable PostgreSQL
+  database-baseline oracle. It does not establish browser or object-store behavior.
 - Named `tests/e2e/` runners, migration probes, rendered captures, manual inspections, and load or
   query-plan observations prove only their stated disposable or one-time claim.
-- `bash tests/e2e/e2e_run_all.sh` is the bulk owner for the current non-browser E2E collection.
-  It is not a browser suite and does not substitute for visible-workflow evidence.
 
 Do not promote a probe, inventory, screenshot, count, or live diagnostic to a permanent test unless
 it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and the

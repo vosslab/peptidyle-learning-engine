@@ -32,13 +32,8 @@ def is_teaching_profile(
 	"""Return whether a closed disposable owner selected teaching seed state."""
 	return (
 		isinstance(target, local_stack_control.models.DisposableComposeTarget)
-		and (
-			target.owner_policy == "live-demo-baseline"
-			or (
-				target.owner_policy == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
-				and target.live_demo_profile is not None
-			)
-		)
+		and target.owner_policy == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
+		and target.live_demo_profile is not None
 	)
 
 

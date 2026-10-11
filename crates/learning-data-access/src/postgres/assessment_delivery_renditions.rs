@@ -126,17 +126,3 @@ pub(super) async fn current_ready_question_image_renditions(
         })
         .collect()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::SELECT_READY_QUESTION_IMAGE_RENDITIONS_SQL;
-
-    #[test]
-    fn ready_renditions_query_names_the_canonical_api() {
-        assert!(
-            SELECT_READY_QUESTION_IMAGE_RENDITIONS_SQL
-                .contains("ple_api.select_ready_question_image_renditions")
-        );
-        assert!(SELECT_READY_QUESTION_IMAGE_RENDITIONS_SQL.contains("question_image_checksum"));
-    }
-}

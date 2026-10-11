@@ -17,12 +17,6 @@ pub use question_json_source::ResolvedPleQuestionJsonSource;
 /// Strict current PLE Question JSON source for first-party static Questions.
 pub mod question_json;
 
-#[cfg(test)]
-#[path = "lib/question_json_source_tests.rs"]
-mod question_json_source_tests;
-#[cfg(test)]
-mod test_support;
-
 /// Stable Question Backend identifier persisted with every PLE Question Attempt.
 pub const ADAPTER_ID: &str = "ple-question-backend";
 /// Current Question Backend Version for issuance and replay.

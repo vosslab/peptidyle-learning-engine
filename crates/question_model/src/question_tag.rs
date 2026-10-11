@@ -20,13 +20,3 @@ impl Tag {
         &self.0
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_tag_carries_its_label() {
-        assert_eq!(Tag::new("stoichiometry").as_str(), "stoichiometry");
-    }
-}

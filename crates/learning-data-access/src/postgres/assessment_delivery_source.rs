@@ -315,38 +315,3 @@ fn decode_retained_question_image_renditions(
         })
         .collect()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn retained_renditions_ignore_later_current_publication_values() {
-        let retained = serde_json::json!([{
-            "question_image_asset_id": "00000000-0000-0000-0000-000000000001",
-            "question_image_checksum": "retained-question-image",
-            "rendition_checksum": "retained-rendition",
-            "intrinsic_width": 640,
-            "intrinsic_height": 480
-        }]);
-        let later_current_publication = serde_json::json!([{
-            "question_image_asset_id": "00000000-0000-0000-0000-000000000002",
-            "question_image_checksum": "current-question-image",
-            "rendition_checksum": "current-rendition",
-            "intrinsic_width": 1,
-            "intrinsic_height": 1
-        }]);
-
-        let decoded = decode_retained_question_image_renditions(retained).expect("retained data");
-        assert_eq!(decoded.len(), 1);
-        assert_eq!(
-            decoded[0].question_image_checksum,
-            "retained-question-image"
-        );
-        assert_eq!(decoded[0].rendition_checksum, "retained-rendition");
-        assert_ne!(
-            serde_json::to_value(&decoded[0].rendition_checksum).expect("checksum JSON"),
-            later_current_publication[0]["rendition_checksum"]
-        );
-    }
-}

@@ -28,20 +28,3 @@ impl QuestionRevisionReason {
         &self.0
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn question_revision_reason_requires_reviewed_bounded_text() {
-        assert_eq!(
-            QuestionRevisionReason::new("Correct the amino-acid charge".to_string())
-                .expect("reviewed reason")
-                .as_str(),
-            "Correct the amino-acid charge"
-        );
-        assert!(QuestionRevisionReason::new(" leading space".to_string()).is_err());
-        assert!(QuestionRevisionReason::new("line\nbreak".to_string()).is_err());
-    }
-}

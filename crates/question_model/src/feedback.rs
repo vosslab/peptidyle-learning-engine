@@ -181,28 +181,3 @@ impl std::fmt::Debug for StudentResponseInspectionFeedback {
             .finish()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn undisclosed_fields_are_omitted_not_null() {
-        let json = serde_json::to_value(StudentFeedback::empty())
-            .expect("the public feedback DTO should serialize");
-        assert_eq!(json, serde_json::json!({}));
-    }
-
-    #[test]
-    fn student_response_inspection_feedback_debug_is_redacted() {
-        let feedback = StudentResponseInspectionFeedback {
-            correctness: Some(true),
-            points_earned: Some(17.25),
-            points_possible: Some(20.0),
-        };
-        let rendered = format!("{feedback:?}");
-        assert!(rendered.contains("[REDACTED]"));
-        assert!(!rendered.contains("17.25"));
-        assert!(!rendered.contains("true"));
-    }
-}

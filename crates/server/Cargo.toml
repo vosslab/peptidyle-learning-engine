@@ -58,10 +58,3 @@ objects = { workspace = true, features = ["s3"] }
 learning-data-access = { workspace = true, features = ["postgres"] }
 browser-api-contract.workspace = true
 
-[dev-dependencies]
-tower.workspace = true
-futures-core = "*"
-acceptance-runtime = { path = "../acceptance-runtime" }
-zip = { version = "*", default-features = false, features = ["deflate"] }
-learning-data-access = { workspace = true, features = ["test-support"] }
-adapter_imathas = { workspace = true, features = ["test-support"] }

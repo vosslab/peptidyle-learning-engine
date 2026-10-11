@@ -38,8 +38,6 @@ pub(crate) use browser_boundary::{
     AcceptedBrowserOrigin, ProductionBrowserBoundary, document_parent_origin,
     production_cookie_boundary,
 };
-#[cfg(test)]
-use browser_boundary::{normalize_production_cookies, origin_matches};
 pub use email_code::email_code_router;
 pub use live_demo::{
     SeededDemoAccount, SeededDemoConfig, SeededDemoPersona, live_demo_mfa_router, live_demo_router,
@@ -494,5 +492,77 @@ pub(crate) fn no_store(mut response: Response) -> Response {
 }
 
 #[cfg(test)]
-#[path = "auth/tests.rs"]
-mod tests;
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cookie_attributes_match_first_party_https() {
+        let token = SessionToken([7; SESSION_TOKEN_BYTES]);
+        let config = SessionConfig::new(
+            SessionLifetime::from_seconds(3_600).expect("positive lifetime"),
+            CookieTransport::FirstPartyHttps,
+        );
+        let first_party = session_cookie(&token, config);
+        assert_eq!(first_party.http_only(), Some(true));
+        assert_eq!(first_party.secure(), Some(true));
+        assert_eq!(first_party.same_site(), Some(SameSite::Lax));
+        assert_eq!(first_party.path(), Some("/"));
+        assert_eq!(first_party.domain(), None);
+        assert_eq!(first_party.max_age(), None);
+        assert_eq!(first_party.expires(), None);
+        assert!(!first_party.value().contains('='));
+        assert_eq!(first_party.name(), "__Host-ple_session");
+    }
+
+    #[test]
+    fn production_cookie_normalization_ignores_unprefixed_sensitive_injection() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            COOKIE,
+            HeaderValue::from_static(
+                "ple_session=attacker; __Host-ple_session=trusted; theme=contrast",
+            ),
+        );
+        assert!(browser_boundary::normalize_production_cookies(&mut headers));
+        assert_eq!(
+            headers.get(COOKIE).and_then(|value| value.to_str().ok()),
+            Some("ple_session=trusted; theme=contrast")
+        );
+    }
+
+    #[test]
+    fn production_origin_must_be_one_exact_value() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "origin",
+            HeaderValue::from_static("https://learn.example.edu"),
+        );
+        assert!(browser_boundary::origin_matches(
+            &headers,
+            "https://learn.example.edu"
+        ));
+        assert!(!browser_boundary::origin_matches(
+            &headers,
+            "https://other.example.edu"
+        ));
+        headers.append(
+            "origin",
+            HeaderValue::from_static("https://learn.example.edu"),
+        );
+        assert!(!browser_boundary::origin_matches(
+            &headers,
+            "https://learn.example.edu"
+        ));
+    }
+
+    #[test]
+    fn production_browser_boundary_normalizes_a_serialized_origin() {
+        let boundary = ProductionBrowserBoundary::new(Arc::from("https://learn.example.edu/"))
+            .expect("a root HTTPS URL is an origin");
+        assert_eq!(boundary.origin.as_ref(), "https://learn.example.edu");
+        assert_eq!(boundary.authority.as_ref(), "learn.example.edu");
+        assert!(
+            ProductionBrowserBoundary::new(Arc::from("https://user@learn.example.edu/")).is_err()
+        );
+    }
+}

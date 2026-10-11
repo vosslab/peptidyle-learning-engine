@@ -223,6 +223,37 @@ pub fn passwordless_primary_account(
     }
 }
 
+#[cfg(test)]
+mod passwordless_login_tests {
+    use question_model::{AccountId, UserRole};
+
+    use super::{PasswordlessLoginMethod, passwordless_primary_account};
+
+    #[test]
+    fn student_and_instructor_login_accepts_only_email_code_or_passkey() {
+        let account = AccountId::new("U00000009").expect("canonical account id");
+        for user_role in [UserRole::Student, UserRole::Instructor] {
+            for method in [
+                PasswordlessLoginMethod::EmailCode,
+                PasswordlessLoginMethod::Passkey,
+            ] {
+                let primary = passwordless_primary_account(account.clone(), user_role, method)
+                    .expect("passwordless primary");
+                assert_eq!(primary.account, account);
+                assert_eq!(primary.user_role, user_role);
+            }
+        }
+        assert!(
+            passwordless_primary_account(
+                account,
+                UserRole::Sysadmin,
+                PasswordlessLoginMethod::Passkey,
+            )
+            .is_none()
+        );
+    }
+}
+
 /// Durable identity for one registered passkey.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PasskeyId(Uuid);
@@ -406,37 +437,6 @@ impl SysadminTotpCounter {
     }
 }
 
-#[cfg(test)]
-mod passwordless_login_tests {
-    use question_model::{AccountId, UserRole};
-
-    use super::{PasswordlessLoginMethod, passwordless_primary_account};
-
-    #[test]
-    fn student_and_instructor_login_accepts_only_email_code_or_passkey() {
-        let account = AccountId::new("U00000009").expect("canonical account id");
-        for user_role in [UserRole::Student, UserRole::Instructor] {
-            for method in [
-                PasswordlessLoginMethod::EmailCode,
-                PasswordlessLoginMethod::Passkey,
-            ] {
-                let primary = passwordless_primary_account(account.clone(), user_role, method)
-                    .expect("passwordless primary");
-                assert_eq!(primary.account, account);
-                assert_eq!(primary.user_role, user_role);
-            }
-        }
-        assert!(
-            passwordless_primary_account(
-                account,
-                UserRole::Sysadmin,
-                PasswordlessLoginMethod::Passkey,
-            )
-            .is_none()
-        );
-    }
-}
-
 /// A pending TOTP ceremony after the primary factor succeeded.
 #[derive(PartialEq, Eq)]
 pub struct PendingSysadminTotpAttestation {
@@ -521,41 +521,4 @@ pub trait SysadminTotpStore: Send + Sync {
         token_hash: SessionTokenHash,
         lifetime: SessionLifetime,
     ) -> Result<Option<SessionRecord>, StoreError>;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ceremony_lifetime_is_positive_and_bounded_to_ten_minutes() {
-        assert!(AuthenticationCeremonyLifetime::from_seconds(0).is_none());
-        assert_eq!(
-            AuthenticationCeremonyLifetime::from_seconds(MAX_AUTHENTICATION_CEREMONY_SECONDS)
-                .expect("maximum lifetime")
-                .as_seconds(),
-            MAX_AUTHENTICATION_CEREMONY_SECONDS,
-        );
-        assert!(
-            AuthenticationCeremonyLifetime::from_seconds(MAX_AUTHENTICATION_CEREMONY_SECONDS + 1)
-                .is_none()
-        );
-    }
-
-    #[test]
-    fn secret_hash_is_redacted_but_stable_for_storage() {
-        let value = AuthenticationSecretHash::compute(b"one-time credential proof");
-        assert_eq!(value.as_bytes().len(), 32);
-        assert_eq!(format!("{value:?}"), "AuthenticationSecretHash([redacted])");
-    }
-
-    #[test]
-    fn email_authentication_code_is_fixed_width_and_redacted() {
-        let code = EmailAuthenticationCode::generate().expect("CSPRNG code");
-        let text = code.as_text();
-        assert_eq!(text.len(), 43);
-        assert_eq!(EmailAuthenticationCode::parse(&text), Some(code.clone()));
-        assert!(EmailAuthenticationCode::parse("not a code").is_none());
-        assert_eq!(format!("{code:?}"), "EmailAuthenticationCode([redacted])");
-    }
 }

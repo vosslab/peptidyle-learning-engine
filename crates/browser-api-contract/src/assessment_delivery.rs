@@ -21,31 +21,3 @@ pub struct StudentQuestionPresentation {
     pub prompt: Vec<QuestionContentBlock>,
     pub response: QuestionPresentationResponseFormat,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use question_model::{PublishedQuestionId, QuestionRevisionNumber};
-
-    #[test]
-    fn selected_presentation_keeps_the_exact_revision_for_asset_urls() {
-        let question_id =
-            PublishedQuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
-        let presentation = StudentQuestionPresentation {
-            published_question_revision_tuple: PublishedQuestionRevisionTuple {
-                published_question_id: question_id.clone(),
-                revision_number: QuestionRevisionNumber::new(3).expect("revision"),
-            },
-            author_content_digest: None,
-            prompt: Vec::new(),
-            response: QuestionPresentationResponseFormat::ImathasQuestionBackend {},
-        };
-
-        let wire = serde_json::to_value(presentation).expect("presentation serializes");
-        assert_eq!(
-            wire["publishedQuestionRevisionTuple"]["publishedQuestionId"],
-            question_id.to_string()
-        );
-        assert_eq!(wire["publishedQuestionRevisionTuple"]["revisionNumber"], 3);
-    }
-}

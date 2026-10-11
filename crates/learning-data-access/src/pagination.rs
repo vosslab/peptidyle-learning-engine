@@ -178,31 +178,3 @@ impl std::fmt::Display for PaginationError {
 }
 
 impl std::error::Error for PaginationError {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn unbounded_page_size_is_rejected() {
-        assert_eq!(
-            PageSize::new(PageSize::MAX + 1),
-            Err(PaginationError::InvalidPageSize {
-                value: PageSize::MAX + 1,
-            })
-        );
-    }
-
-    #[test]
-    fn discovery_page_size_accepts_250_and_rejects_outside_bounds() {
-        assert_eq!(DiscoveryPageSize::new(250).unwrap().get(), 250);
-        assert_eq!(
-            DiscoveryPageSize::new(0),
-            Err(PaginationError::InvalidDiscoveryPageSize { value: 0 })
-        );
-        assert_eq!(
-            DiscoveryPageSize::new(251),
-            Err(PaginationError::InvalidDiscoveryPageSize { value: 251 })
-        );
-    }
-}

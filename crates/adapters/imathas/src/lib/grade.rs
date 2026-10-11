@@ -44,23 +44,6 @@ impl VerifiedImathasResult {
         self.imathas_result_token_checksum
     }
 
-    /// iMathAS Question Backend implementations use this only after their signature/audience/
-    /// expiry/challenge verification succeeds.
-    #[cfg(test)]
-    pub(crate) fn verified(
-        imathas_result: learning_data_access::ImathasResult,
-        grading_context: learning_data_access::ImathasGradingContext,
-        launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
-        imathas_result_token_checksum: learning_data_access::ImathasResultTokenChecksum,
-    ) -> Self {
-        Self {
-            imathas_result,
-            grading_context,
-            launch_session_authentication: launch_session_authentication.clone(),
-            imathas_result_token_checksum,
-        }
-    }
-
     /// The iMathAS Question Backend verifier is the only production constructor. Its
     /// result token has already passed signature, expiry, exact question, and
     /// exact iMathAS-binding checks before this sealed grade exists. The
@@ -68,21 +51,6 @@ impl VerifiedImathasResult {
     /// after protocol verification succeeds.
     pub(crate) fn from_result_verification(
         _seal: crate::result_verification::ImathasResultVerificationSeal,
-        imathas_result: learning_data_access::ImathasResult,
-        grading_context: learning_data_access::ImathasGradingContext,
-        launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
-        imathas_result_token_checksum: learning_data_access::ImathasResultTokenChecksum,
-    ) -> Self {
-        Self {
-            imathas_result,
-            grading_context,
-            launch_session_authentication: launch_session_authentication.clone(),
-            imathas_result_token_checksum,
-        }
-    }
-
-    #[cfg(feature = "test-support")]
-    pub(crate) fn from_test_support(
         imathas_result: learning_data_access::ImathasResult,
         grading_context: learning_data_access::ImathasGradingContext,
         launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,

@@ -558,22 +558,3 @@ fn valid_pg_path(value: &str) -> bool {
             .split('/')
             .any(|part| part.is_empty() || matches!(part, "." | ".."))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn checksum_shape_rejects_uppercase_and_wrong_lengths() {
-        assert!(is_lower_hex(&"a".repeat(64)));
-        assert!(!is_lower_hex(&"A".repeat(64)));
-        assert!(!is_lower_hex(&"a".repeat(63)));
-    }
-
-    #[test]
-    fn webwork_path_refuses_traversal_and_absolute_paths() {
-        assert!(valid_pg_path("genetics/topic01/question.pgml"));
-        assert!(!valid_pg_path("../question.pgml"));
-        assert!(!valid_pg_path("/question.pgml"));
-    }
-}

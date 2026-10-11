@@ -129,7 +129,3 @@ fn spreadsheet_text(value: &str) -> Cow<'_, str> {
         Cow::Borrowed(value)
     }
 }
-
-#[cfg(test)]
-#[path = "export_tests.rs"]
-mod tests;

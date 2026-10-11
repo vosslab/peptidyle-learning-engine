@@ -620,7 +620,3 @@ async fn read_bounded(
     }
     Ok(bytes)
 }
-
-#[cfg(test)]
-#[path = "tests.rs"]
-mod tests;

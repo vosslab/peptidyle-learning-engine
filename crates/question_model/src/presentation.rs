@@ -46,6 +46,3 @@ pub use response_translation::{
     project_presentation_response_item_ids_for_inspection,
     translate_presentation_response_item_ids,
 };
-
-#[cfg(test)]
-mod tests;

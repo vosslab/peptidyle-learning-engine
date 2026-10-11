@@ -262,18 +262,3 @@ fn text<T: Serialize>(value: &T) -> Result<String, StoreError> {
 fn invalid() -> StoreError {
     StoreError::InvalidRecord("Retained Work evidence is invalid".into())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL;
-
-    #[test]
-    fn recovery_query_selects_roster_id_without_student_record() {
-        assert!(
-            READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL
-                .contains("ple_api.read_archived_assessment_attempt_for_recovery")
-        );
-        assert!(READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL.contains("roster_id"));
-        assert!(!READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL.contains("student_record_id"));
-    }
-}

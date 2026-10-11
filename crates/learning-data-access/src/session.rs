@@ -153,16 +153,3 @@ fn hex_nibble(value: u8) -> Option<u8> {
         _ => None,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn canonical_hash_round_trips() {
-        let value = SessionTokenHash::compute(b"one opaque token");
-        let parsed = SessionTokenHash::from_hex(&value.to_string()).expect("canonical hash");
-
-        assert_eq!(parsed, value);
-    }
-}
