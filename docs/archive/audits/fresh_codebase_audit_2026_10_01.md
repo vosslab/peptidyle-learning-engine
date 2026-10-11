@@ -87,13 +87,13 @@ tests that preserve a particular interpretation rather than a product outcome.
 
 Concrete examples include:
 
-- [ribbon_profile_menu_contract.mjs](../../../tests/playwright/ribbon_profile_menu_contract.mjs):
+- `ribbon_profile_menu_contract.mjs`:
   recursive CSS/source inventories and exact radii/borders on constructed examples.
 - `tests/playwright/fast_ui_route_composition.mjs` (removed by the current audit repairs): exact
   alignment/inset comparisons derived from broad consistency guidance.
-- [run_fast_ui_checks.sh](../../../launchers/run_fast_ui_checks.sh): many separate permanent
+- `run_fast_ui_checks.sh`: many separate permanent
   visual probes for spacing, screen space, cards, density, consistency, and teaching-task layout.
-- [test_ribbon_route_contract.mjs](../../../tests/test_ribbon_route_contract.mjs): an exact
+- `test_ribbon_route_contract.mjs`: an exact
   source-file inventory for upload controls rather than their role/behavior boundary.
 - `tests/test_course_retention_ferpa.py` (removed by the current audit repairs) and
   `tests/test_blueprint_instructor_browse.py` (removed by the current audit repairs): SQL

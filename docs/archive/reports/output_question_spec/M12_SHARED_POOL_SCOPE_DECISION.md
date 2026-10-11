@@ -46,7 +46,7 @@ fairness rule.
   available Assessment referencing the shared Pool also prevents removal (line 409). Those
   historical assertions are no longer durable test evidence. Existing Attempt tuple retention
   remains asserted by the current fairness oracle at
-  [07_assessment_fairness.sql](../../../../tests/e2e/assessment_saved_response/07_assessment_fairness.sql#L287).
+  `07_assessment_fairness.sql`.
 
 This is a source-and-guidance scope decision. The retired one-time oracle source described above
 was inspected while present, not run here; the current fairness oracle was inspected but not run.

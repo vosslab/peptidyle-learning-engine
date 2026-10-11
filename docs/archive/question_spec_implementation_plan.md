@@ -190,7 +190,7 @@ inside the random sampler for input-permutation independence. Check: ordinary Sa
 Edit Number without certification or order input; sorting affects display. M09 owns the ordinary
 Owner/Sysadmin Pool Add/Remove/Save editor and its display-only row sorting. M10/M11 retain
 ownership of direct Pool references and forced-copy removal; see the [M09 order correction
-report](../reports/QUESTION_SPEC_M09_ORDER_CORRECTION.md).
+report](reports/QUESTION_SPEC_M09_ORDER_CORRECTION.md).
 
 ### M10: Reference Pools directly
 

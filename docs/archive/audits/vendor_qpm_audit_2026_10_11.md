@@ -50,7 +50,7 @@ dependency-snapshot refresh remain separate work; neither waits for human approv
 
 5. **Low: proposed removal of the selector comment was declined.**
    Comment proposed deleting the source-path header in
-   [question_import.spec.ts](../../../tests/playwright/e2e/question_import.spec.ts) because it
+   `question_import.spec.ts` because it
    could become stale. [PLAYWRIGHT_TEST_STYLE.md](../../PLAYWRIGHT_TEST_STYLE.md#selectors)
    explicitly requires selector source references. Retained the comment and added missing line
    references. The test's behavior and contract/failure-plan comments are unchanged.

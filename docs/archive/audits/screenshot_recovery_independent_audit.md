@@ -171,7 +171,7 @@ After failure it accepts absent local receipt files as proof that the fixed-suit
 Receipt absence is not authoritative evidence that labelled containers and networks are gone, and
 the suppressed failure removes the diagnostic that tells a maintainer why cleanup failed.
 
-- Evidence: [e2e_installation_data.sh](../../../tests/e2e/e2e_installation_data.sh):30-45.
+- Evidence: `e2e_installation_data.sh`:30-45.
 - Impact: a failed cleanup can appear successful, leaving the next Live Demo lane to fail with an
   unrelated ownership or port symptom.
 - Smallest durable correction: preserve the controller's failure output and use its owned-resource

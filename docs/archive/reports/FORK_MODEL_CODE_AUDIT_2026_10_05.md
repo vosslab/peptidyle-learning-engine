@@ -67,7 +67,7 @@ The API and editor follow that model:
   and [assessment_pool_fork.ts](https://github.com/vosslab/peptidyle-learning-engine/blob/a0269209a7703837984c29b3deb18919c807e347/src/api/assessment_pool_fork.ts).
 
 Existing tests reinforce the old rule. For example,
-[03_course_pool_forks.sql](../../../tests/e2e/assessment_saved_response/03_course_pool_forks.sql)
+`03_course_pool_forks.sql`
 expects attachment without a fork to fail. Updating names alone would leave the model wrong.
 
 ## Blueprint and Course Pool copies
@@ -148,9 +148,9 @@ Additional concrete evidence:
 - The browser imports generated `AssessmentQuestionPoolForkView` definitions. Generated API
   files are absent from this checkout; their Rust definition and TypeScript consumers were
   inspected. Regenerate the API types when correcting those definitions.
-- [support.rs](../../../crates/learning-data-access/tests/blueprint_course_postgres/support.rs),
-  [adoption.rs](../../../crates/learning-data-access/tests/blueprint_course_postgres/adoption.rs),
-  [04_blueprint_pool_forks.sql](../../../tests/e2e/assessment_saved_response/04_blueprint_pool_forks.sql),
+- `support.rs`,
+  `adoption.rs`,
+  `04_blueprint_pool_forks.sql`,
   and [test_assessment_pool_fork_import_client.mjs](https://github.com/vosslab/peptidyle-learning-engine/blob/a0269209a7703837984c29b3deb18919c807e347/tests/test_assessment_pool_fork_import_client.mjs)
   are part of the affected test and fixture setup.
 - [bloom_classification_workflow_harness.tsx](https://github.com/vosslab/peptidyle-learning-engine/blob/a0269209a7703837984c29b3deb18919c807e347/tests/support/bloom_classification_workflow_harness.tsx)

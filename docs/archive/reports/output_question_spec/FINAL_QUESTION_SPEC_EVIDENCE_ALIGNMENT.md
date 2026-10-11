@@ -23,9 +23,9 @@ saves remain pending. It also removes the claims that serialized source still du
 metadata and that the decoder requires record metadata fields.
 
 Evidence: [draft_preview.rs](../../../../crates/server/src/draft_preview.rs),
-[preview tests](../../../../crates/server/src/draft_preview/tests.rs),
-[Native adapter tests](../../../../crates/adapters/ple/src/question_json/tests.rs), and
-[WebWork preview tests](../../../../crates/adapters/webwork/src/lib/draft_preview_tests.rs).
+`tests.rs`,
+`tests.rs`, and
+`draft_preview_tests.rs`.
 
 ### Draft creation and imports
 
@@ -35,8 +35,8 @@ handoff remains deferred; authoring support does not establish it.
 
 Evidence: [create.rs](../../../../crates/server/src/authoring/create.rs),
 [question_drafts_page.tsx](../../../../src/pages/question_drafts_page.tsx),
-[creation client test](../../../../tests/test_question_draft_creation.mjs), and
-[Draft source client test](../../../../tests/test_draft_source_client.mjs).
+`test_question_draft_creation.mjs`, and
+`test_draft_source_client.mjs`.
 
 ### Bloom metadata
 
@@ -47,8 +47,8 @@ Question metadata replacement sends both values and can preserve the unchanged o
 Evidence: [question_metadata.rs](../../../../crates/server/src/question_metadata.rs),
 [Question metadata editor](../../../../src/features/question_metadata/question_metadata_editor.tsx),
 [Pool metadata editor](../../../../src/components/question_pool_metadata_editor.tsx),
-[Question metadata test](../../../../tests/test_question_metadata_client.mjs), and
-[Pool metadata test](../../../../tests/test_question_pool_metadata_client.mjs).
+`test_question_metadata_client.mjs`, and
+`test_question_pool_metadata_client.mjs`.
 
 ### Optional Question language
 
@@ -59,7 +59,7 @@ value is present.
 Evidence:
 [published_question.sql](../../../../schemas/base_schema/20_tables/published_question.sql),
 [question_content.rs](../../../../crates/question_model/src/question_content.rs), and
-[authoring tests](../../../../crates/server/src/authoring_tests.rs).
+`authoring_tests.rs`.
 
 ## Settled behavior retained
 

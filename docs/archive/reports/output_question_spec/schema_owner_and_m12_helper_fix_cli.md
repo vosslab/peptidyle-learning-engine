@@ -15,9 +15,9 @@ a representable unavailable member and does not suppress a genuine backend misma
 Revision would yield a NULL backend, but `question_pool_member` has non-null exact Revision fields
 and a composite foreign key to `question_revision`; that invalid state is prevented by the schema.
 See [m12_backend_diagnosis_review_cli.md](m12_backend_diagnosis_review_cli.md),
-[50_functions/assessment_release_validation.sql](../../../../schemas/base_schema/50_functions/assessment_release_validation.sql#L62),
-[20_tables/question_pool.sql](../../../../schemas/base_schema/20_tables/question_pool.sql#L79), and
-[20_tables/published_question.sql](../../../../schemas/base_schema/20_tables/published_question.sql#L28).
+[assessment_release_validation.sql](../../../../schemas/base_schema/50_functions/assessment_release_validation.sql#L62),
+[question_pool.sql](../../../../schemas/base_schema/20_tables/question_pool.sql#L79), and
+[published_question.sql](../../../../schemas/base_schema/20_tables/published_question.sql#L28).
 
 The retired one-time Oracle 08 source
 `tests/e2e/assessment_saved_response/08_m12_release_validation.sql` (line 141) exercised missing
@@ -34,7 +34,7 @@ is no longer durable test evidence and does not establish a source defect.
   creating public-ID domains.
 - The helper grant file revokes PUBLIC execution and grants the helper to `ple_api_owner`; no
   `ple_app` grant was added. See
-  [70_grants/assessment_release_validation.sql](../../../../schemas/base_schema/70_grants/assessment_release_validation.sql#L12).
+  [assessment_release_validation.sql](../../../../schemas/base_schema/70_grants/assessment_release_validation.sql#L12).
 - The helper, oracle 08, metadata-correction assertions, and fairness work remain owned by the first
   M12 manager. Other managers retain their source, oracle, and main M12 report edits.
 

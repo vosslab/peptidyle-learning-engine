@@ -6,7 +6,7 @@ The M15/M16 backend source correction owner released the ordinary save seam. Thi
 `PostgresAuthoringDraftStore::save_authoring_draft` and
 `PostgresAuthoringDraftStore::save_authoring_draft_general_feedback_with_question_type` in
 [`authoring.rs`](../../../crates/learning-data-access/src/postgres/authoring.rs), plus the focused
-[`authoring_draft_source_postgres.rs`](../../../crates/learning-data-access/tests/authoring_draft_source_postgres.rs)
+`authoring_draft_source_postgres.rs`
 oracle. The ordinary SQL functions are `ple_private.save_authoring_draft`,
 `ple_api.save_authoring_draft`, `ple_private.save_authoring_draft_general_feedback`, and
 `ple_api.save_authoring_draft_general_feedback` in

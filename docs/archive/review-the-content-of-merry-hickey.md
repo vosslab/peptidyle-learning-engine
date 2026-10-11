@@ -809,7 +809,7 @@ component is deliberately learning from real consumers; then the check is correc
 recorded. A check is a constraint that has to keep earning its place, not a fact.
 
 Fixtures already exist and are reused rather than rebuilt:
-[ribbon_harness_server.mjs](../../tests/playwright/ribbon_harness_server.mjs),
+`ribbon_harness_server.mjs`,
 `tests/support/ribbon_shell_harness.tsx`, `ribbon_responsive_harness.tsx`, and the seeded Live Demo
 behind
 [capture_screenshots.sh](../../devel/capture_screenshots.sh).

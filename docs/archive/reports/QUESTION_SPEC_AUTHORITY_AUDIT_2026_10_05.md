@@ -8,7 +8,7 @@ instructions left after the refactor; others are restrictions or workflow choice
 human decision. Finding a rule in an agent-written contract or decision log does not establish
 that Neil approved it. Recent changes to HG also require checking against his actual reply.
 
-The review covered the 33 documents in [QUESTION_SPECS/README.md](../../QUESTION_SPECS/README.md),
+The review covered the 33 documents in [README.md](../../QUESTION_SPECS/README.md),
 the BiologyProblems.org specification set, the Blueprint import specification, and relevant
 sections of their linked lifecycle, API, terminology, concurrency, and design documents.
 Authority was checked against current [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md),

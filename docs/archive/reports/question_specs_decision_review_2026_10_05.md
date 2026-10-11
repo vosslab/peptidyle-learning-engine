@@ -184,7 +184,7 @@ All changes in this pass are documentation changes. Further application work bel
   and [publication.rs](../../../crates/project-tools/src/pilot_content/publication.rs): existing
   loaders create Drafts and use `NewQuestionLineagePublisher` for WeBWorK Questions.
 - [grade.rs](../../../crates/adapters/webwork/src/lib/grade.rs) and
-  [tests.rs](../../../crates/adapters/webwork/src/http_renderer/tests.rs): grading implementation
+  `tests.rs`: grading implementation
   and render/grade test coverage exist. No tests of that runtime were rerun in this docs pass.
 - [question_library.rs](../../../crates/server/src/question_library.rs): the WeBWorK Library
   preview loads an exact Published Question Revision. It is not an unpublished Draft preview.

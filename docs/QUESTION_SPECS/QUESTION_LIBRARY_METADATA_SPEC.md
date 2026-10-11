@@ -105,7 +105,7 @@ The current schema stores `language` as nullable text and checks its trimmed len
 The Question model represents its absence as `Option<String>`. See
 [published_question.sql](../../schemas/base_schema/20_tables/published_question.sql),
 [question_content.rs](../../crates/question_model/src/question_content.rs), and
-[authoring tests](../../crates/server/src/authoring_tests.rs). This implementation evidence does
+`authoring_tests.rs`. This implementation evidence does
 not make language a required Instructor input.
 
 ## Ownership of detailed rules

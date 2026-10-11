@@ -131,7 +131,7 @@ complexity around the wrong ownership boundary.
 This is the strongest example of the newly emphasized failure mode. The problem is the asserted
 contract, not merely the number of tests.
 
-- [ribbon_profile_menu_contract.mjs](../../../tests/playwright/ribbon_profile_menu_contract.mjs)
+- `ribbon_profile_menu_contract.mjs`
   recursively inventories CSS/TS source and constructs artificial DOM samples. Added assertions freeze
   exact corner radii, border widths, padding, shadows, and geometry under test names copied from HG.
   A profile-menu contract has become a broad style enforcement mechanism.
@@ -142,7 +142,7 @@ contract, not merely the number of tests.
   actions in consistent locations" became a two-pixel comparison of Course and Library action
   insets, then a completed checklist row. Consistent action placement is useful guidance; that
   particular geometric equality does not follow from it.
-- [test_ribbon_route_contract.mjs](../../../tests/test_ribbon_route_contract.mjs) requires an exact
+- `test_ribbon_route_contract.mjs` requires an exact
   inventory of three upload source files and specific textarea markup. Source placement is not the
   authorization or usability invariant.
 - `tests/test_blueprint_instructor_browse.py` (removed by the current audit repairs) and

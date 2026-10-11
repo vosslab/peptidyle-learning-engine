@@ -443,7 +443,7 @@
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Apply the contrast requirements for text, controls, and other semantic uses in
-  [BIOME_THEME_PALETTES.md](/docs/BIOME_THEME_PALETTES.md) to rendered components in both Light
+  [BIOME_THEME_PALETTES.md](../../../BIOME_THEME_PALETTES.md) to rendered components in both Light
   and Dark modes, including gradients and state backgrounds.
   - Evidence (source): `src/style.css` `brand-mark` paints its label on an accent gradient whose stops stay readable.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.

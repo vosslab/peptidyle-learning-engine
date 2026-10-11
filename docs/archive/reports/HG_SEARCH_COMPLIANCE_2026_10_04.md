@@ -32,9 +32,9 @@ as do Question list items ([HG:600-603](../../HUMAN_GUIDANCE.md#L600-L603)).
   and persist a snapshot in `history.state` for reload/Back
   ([`blueprint_course_search_return_state.ts:56-118`](../../../src/pages/blueprint_course_search_return_state.ts#L56-L118)).
 - **Test:** Current tests protect that restoration:
-  [`test_blueprint_search_return.mjs:34-93`](../../../tests/test_blueprint_search_return.mjs#L34-L93),
-  [`test_library_classification_search.mjs:427-483`](../../../tests/test_library_classification_search.mjs#L427-L483),
-  and [`e2e_live_demo_question_library_browser.mjs:79-103`](../../../tests/playwright/e2e_live_demo_question_library_browser.mjs#L79-L103).
+  `test_blueprint_search_return.mjs`,
+  `test_library_classification_search.mjs`,
+  and `e2e_live_demo_question_library_browser.mjs`.
 
 Question Library state is document-local and neither flow creates a database search record. They
 still restore old search results, which conflicts with HG. Change list-result links to open a
@@ -101,7 +101,7 @@ summary has no institution, Stars, or Watches
 The implementation explicitly keeps Institution out
 ([`blueprint_course_search_result.ts:10-45`](../../../src/pages/blueprint_course_search_result.ts#L10-L45)),
 and its client test requires no Institution row
-([`test_blueprint_course_client.mjs:31-55`](../../../tests/test_blueprint_course_client.mjs#L31-L55)).
+(`test_blueprint_course_client.mjs`).
 
 The owner display name is correctly supplied and shown as Author. Add the required Institution
 field and useful stewardship signals to the summary, list row, and focused test.

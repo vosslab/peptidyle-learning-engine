@@ -27,7 +27,7 @@ and [M09_ORDINARY_POOL_EDITOR_BOUNDARY.md](output_question_spec/M09_ORDINARY_POO
 
 ## Oracle coverage
 
-[`09_pool_save_permissions.sql`](../../../tests/e2e/assessment_saved_response/09_pool_save_permissions.sql)
+`09_pool_save_permissions.sql`
 asserts the explicit `ple_app` EXECUTE grant on the exact API wrapper, its owner, `SECURITY DEFINER`
 property, and exact fixed search path. It also checks `PUBLIC` denial on both functions, no direct
 or effective app EXECUTE on the data function, and no app `ple_data` USAGE. It invokes the wrapper
@@ -35,7 +35,7 @@ for a no-op Save while `SET LOCAL ROLE ple_app`, then checks owner Save/no-op,
 non-owner Instructor and Student denial with unchanged members and Edit Number, Sysadmin Save, and
 stale Edit Number rejection on the protected data function under the SQL permission lane. The
 oracle is registered in
-[`assessment_saved_response_oracle.sql`](../../../tests/e2e/assessment_saved_response_oracle.sql).
+`assessment_saved_response_oracle.sql`.
 Its Pool fixture uses the persistent psql variable `:'created_pool_id'` from the earlier `\gset`
 fixture.
 

@@ -62,7 +62,7 @@ requires expired uploads to enter the persisted cleanup path.
 
 ### Medium: production accessibility evidence
 
-[course_appearance_m9_accessibility_evidence.mjs](../../../tests/playwright/course_appearance_m9_accessibility_evidence.mjs)
+`course_appearance_m9_accessibility_evidence.mjs`
 builds and serves a component harness with source CSS. It provides useful keyboard, axe, and
 reflow evidence for the mounted component, but does not exercise the shipped application bundle
 and route composition required by the Playwright load model. The existing production-browser

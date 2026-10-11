@@ -81,7 +81,7 @@ and Student Work evidence. Published Question forks remain in
 | [QTI_INTERCHANGE_SPEC.md](QTI_INTERCHANGE_SPEC.md) | Format mapping and reuse of Rust QTI Package Maker |
 | [NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md](NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md) | Concrete qti-package-maker-rs writer handoff against existing Native JSON and asset contracts |
 
-[BIOLOGY_PROBLEMS_SPECS/README.md](../BIOLOGY_PROBLEMS_SPECS/README.md) owns source inventory and
+[README.md](../BIOLOGY_PROBLEMS_SPECS/README.md) owns source inventory and
 base Course mappings. [BLUEPRINT_COURSE_IMPORT_API_SPEC.md](../BLUEPRINT_COURSE_IMPORT_API_SPEC.md)
 owns reusable Course assembly through normal APIs. Imported content supplies source data and
 relationships; PLE assigns PLE identities. QTI Package Maker is reused, not rebuilt here.

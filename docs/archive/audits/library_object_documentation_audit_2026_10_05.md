@@ -75,7 +75,7 @@ concurrency checks, and membership constraints. Do not make shared fields imply 
 
 ## Documentation problems
 
-[QUESTION_SPECS/README.md](../../QUESTION_SPECS/README.md) combines the domain model, detailed Bloom API behavior,
+[README.md](../../QUESTION_SPECS/README.md) combines the domain model, detailed Bloom API behavior,
 implementation status, and pending verification. Its opening does not establish the common Library
 Object model. Readers must reconstruct that model from later sections and other files.
 

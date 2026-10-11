@@ -2,10 +2,10 @@
 
 The baseline owner selects
 `webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation` exactly in
-[local_stack_control/database_baseline_owner.py](../../../local_stack_control/database_baseline_owner.py#L294-L305).
+[database_baseline_owner.py](../../../local_stack_control/database_baseline_owner.py#L294-L305).
 That selector invokes the ignored connected PostgreSQL test in
-[crates/learning-data-access/tests/authoring_draft_source_postgres.rs](../../../crates/learning-data-access/tests/authoring_draft_source_postgres.rs#L87).
-Within that test, the [metadata replacement assertions](../../../crates/learning-data-access/tests/authoring_draft_source_postgres.rs#L307-L388)
+`authoring_draft_source_postgres.rs`.
+Within that test, the `authoring_draft_source_postgres.rs`
 replace all six fields (title, description, Tags, license, citation, and language), reload and
 compare the full metadata value, confirm omitted Hint and Worked Solution remain intact, and compare
 the complete source-binding tuple before and after replacement, including source object ID and

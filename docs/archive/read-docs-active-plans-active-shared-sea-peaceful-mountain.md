@@ -37,7 +37,7 @@ loading and error states. The schematic asks for one shared version, proven firs
 Library and Public Blueprint Course search.
 
 Question Library is the harder of the two. HG and
-[QUESTION_SPECS/README.md](../QUESTION_SPECS/README.md) require one search over Published Questions
+[README.md](../QUESTION_SPECS/README.md) require one search over Published Questions
 and Question Pools, with filters for result kind and Pool membership, and a preferred default
 of Questions in no Pool plus Pools. That needs a combined server query and some Pool data
 fixes. That work supports the Library; the shared search page is the main goal.

@@ -203,7 +203,7 @@ incorrect ones should be withdrawn rather than protected to preserve the audit's
 ## Gate and maintenance refinements with concrete owners
 
 - **Fast decoder test launches a browser:**
-  [test_instructor_account_decoder.mjs](../../../tests/test_instructor_account_decoder.mjs),
+  `test_instructor_account_decoder.mjs`,
   50-77, first tests a local rejected request, then spawns a named Playwright case. That case builds
   a real page harness and launches Chromium. Keep local decoder/client validation in the Node lane
   and the approval interaction in its browser lane; a missing browser should not masquerade as a

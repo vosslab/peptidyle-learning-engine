@@ -90,9 +90,9 @@ testing is a separate operation: it compiles Native source and evaluates a trans
 the Native evaluator. The WebWork path uses the saved PG or PGML binding and its configured
 renderer and evaluator. Draft testing has no Published Question Revision, Attempt, or Student Work
 identity. See [the server preview routes](../../crates/server/src/draft_preview.rs),
-[their focused tests](../../crates/server/src/draft_preview/tests.rs),
-[Native adapter tests](../../crates/adapters/ple/src/question_json/tests.rs), and
-[WebWork preview tests](../../crates/adapters/webwork/src/lib/draft_preview_tests.rs).
+`tests.rs`,
+`tests.rs`, and
+`draft_preview_tests.rs`.
 
 These source and test paths are implementation evidence. Connected database and browser acceptance
 for M01-M29 passed in the [October 7 final ledger closeout](../archive/reports/question_spec_implementation_ledger.md).

@@ -358,7 +358,7 @@
   - Evidence (test): `tests/playwright/test_profile_account_id_copy.mjs` `Profile displays and copies only the canonical Account ID` showed and copied U0000035E and showed nothing for that UUID. No Live Demo stack was started.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Table shape and clocks follow [DATABASE_STYLE.md](/docs/DATABASE_STYLE.md).
+- [ ] Table shape and clocks follow [DATABASE_STYLE.md](../../../DATABASE_STYLE.md).
   - Evidence (source): `schemas/base_schema/10_types.sql` `support_repair_resource_class` is the enum for student, course, and content.
   - Evidence (source): `schemas/base_schema/20_tables/support_repair.sql` `ple_data.support_repair_resource_class` types both resource_class columns.
   - Evidence (test): `tests/test_schema_table_shape.py` `test_table_shape_and_clocks_follow_database_style` loaded schemas/base_schema from source, required the clock rules to run, and reported no findings. Both resource_class columns are ple_data.support_repair_resource_class.

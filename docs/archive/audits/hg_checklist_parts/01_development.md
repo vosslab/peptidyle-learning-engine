@@ -115,7 +115,7 @@
   - Evidence (source): `local_stack_control/lifecycle_migrations.py` `database_operation_for` selects `migrate` after initial installation.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
-- [ ] Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
+- [ ] Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](../../../NAMING_CONVENTIONS.md) for details.
   - Evidence (source): `devel/development_conformance_audit.py` `current_source_paths` inventories tracked and untracked current-worktree source files without opening deleted paths; `source_name_violations` enforces readable snake_case names.
   - Evidence (source): `devel/development_conformance_audit.py` `load_allowlist` permits only exact documented external-name exceptions owned by approved authority sections.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
@@ -165,7 +165,7 @@
 - N/A Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed and
   has provided the script `./devel/prune_podman.sh` for doing the pruning
   - Reason: human authorization statement, not implemented PLE behavior.
-- N/A The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
+- N/A The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](../../../LIVE_DEMO_SPEC.md).
   - Reason: human-owned project priority, not implemented PLE behavior.
 - [ ] PLE should use one global installation with no institution boundaries.
   - Evidence (source): `schemas/base_schema/50_functions/accounts.sql` `ple_private.account` has no institution column or foreign key; user roles are global account data.

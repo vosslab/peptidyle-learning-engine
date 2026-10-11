@@ -169,7 +169,7 @@ script or test runner.
    `tests/e2e/` documentation when ownership changes. This
    package depends on packages 2 and 4 and is not deferred to a later cleanup project.
 6. **Durable proof, live evidence, and release handoff.** Add only permanent pure behavior tests to
-   [test_local_stack_control.py](../../tests/test_local_stack_control.py). Run the
+   `test_local_stack_control.py`. Run the
    real Podman stop-retain, confirmed reset-rebuild, stateless restart, disposable walkthrough, and
    full no-skip acceptance checks as one-time/opt-in evidence, not regular networked pytest. Record
    evidence and unresolved findings here, complete independent safety and repository-rule reviews,

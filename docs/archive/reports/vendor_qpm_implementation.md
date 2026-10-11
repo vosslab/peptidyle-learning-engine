@@ -60,7 +60,7 @@ scope correction; the approved single browser journey remains the durable contra
   `devel/vendor_qpm_wasm.py`. All 18 upstream artifact hashes remain unchanged. Rebuilding produces
   the same `999e2216` browser bundle used for the live journey, focused checks, and screenshots.
 
-The permanent test is [question_import.spec.ts](../../../tests/playwright/e2e/question_import.spec.ts).
+The permanent test is `question_import.spec.ts`.
 All other plan-specific probes and the temporary capture registration were removed after use.
 
 ## Discovered limitations

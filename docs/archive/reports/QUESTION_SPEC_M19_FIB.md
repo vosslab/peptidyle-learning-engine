@@ -18,10 +18,10 @@ publication requires valid complete source. Parsing remains separate from compil
   `TextResponseMatchRule`.
 - Native adapter: [`source_document.rs`](../../../crates/adapters/ple/src/question_json/source_document.rs)
   parses source; [`source_compile.rs`](../../../crates/adapters/ple/src/question_json/source_compile.rs)
-  maps it to response and grading models; [`tests.rs`](../../../crates/adapters/ple/src/question_json/tests.rs)
+  maps it to response and grading models; `tests.rs`
   covers regex compilation and invalid syntax.
 - Grading and domain: [`ple_question_json.rs`](../../../crates/grading/src/ple_question_json.rs)
-  evaluates answers; [`fill_in_tests.rs`](../../../crates/grading/src/ple_question_json/fill_in_tests.rs)
+  evaluates answers; `fill_in_tests.rs`
   covers regex and all-authored-blank scoring; [`validation.rs`](../../../crates/domain/src/validation.rs)
   validates partial and empty MULTI-FIB responses.
 - Browser and API: [`question_json_source.ts`](../../../src/features/ple_question_json_authoring/question_json_source.ts),

@@ -14,8 +14,8 @@ changed by this task.
 Primary authorities are [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) and
 [FALL_2026_PILOT.md](../../FALL_2026_PILOT.md). The approved documentation plan supplies file
 ownership and Neil's additional source/import/color decisions. The new entry points are
-[QUESTION_SPECS/README.md](../../QUESTION_SPECS/README.md) and
-[BIOLOGY_PROBLEMS_SPECS/README.md](../../BIOLOGY_PROBLEMS_SPECS/README.md).
+[README.md](../../QUESTION_SPECS/README.md) and
+[README.md](../../BIOLOGY_PROBLEMS_SPECS/README.md).
 
 ## Later human corrections
 
@@ -91,7 +91,7 @@ of files inspected at the time. The old QTI page remains a navigation page.
 | Native source shape, validation, eight Types, grading, images and scripts | [NATIVE_JSON_SPEC.md](../../QUESTION_SPECS/NATIVE_JSON_SPEC.md), [QUESTION_TYPE_SPEC.md](../../QUESTION_SPECS/QUESTION_TYPE_SPEC.md) |
 | QTI mappings and native-versus-interchange boundary | [QTI_INTERCHANGE_SPEC.md](../../QUESTION_SPECS/QTI_INTERCHANGE_SPEC.md) |
 | Import/export workflow and generated-ID creation | [QUESTION_IMPORT_SPEC.md](../../QUESTION_SPECS/QUESTION_IMPORT_SPEC.md), [QUESTION_EXPORT_SPEC.md](../../QUESTION_SPECS/QUESTION_EXPORT_SPEC.md) |
-| BiologyProblems.org source, exclusions, complete/partial Course inventory | [BIOLOGY_PROBLEMS_SPECS/README.md](../../BIOLOGY_PROBLEMS_SPECS/README.md) and its source/Course specifications |
+| BiologyProblems.org source, exclusions, complete/partial Course inventory | [README.md](../../BIOLOGY_PROBLEMS_SPECS/README.md) and its source/Course specifications |
 | General Blueprint import and returned Course/Assessment IDs | [BLUEPRINT_COURSE_IMPORT_API_SPEC.md](../../BLUEPRINT_COURSE_IMPORT_API_SPEC.md) |
 
 Detailed supporting evidence is in [question_backend_spec_handoff.md](question_backend_spec_handoff.md),

@@ -136,11 +136,11 @@ completed. The six connected selectors above passed again. The broad direct Asse
 finalization selector then stopped in the M17 test
 `partial_credit_toggle_reorders_highest_submitted_attempt_from_retained_fractions` during fixture
 setup. The run log shows a bare UUID assertion in the fixture's
-[started Attempt ID check](../../../crates/learning-data-access/tests/grading_lifecycle_postgres/partial_credit_policy.rs#L155-L156): it expected Attempt 2
+`partial_credit_policy.rs`: it expected Attempt 2
 (`f5710000-0000-0000-0000-000000000002`), but `start_assessment_attempt` resumed the still-open
 Attempt 1 (`f5710000-0000-0000-0000-000000000001`). This is the `started_attempt_id` check in the
 fixture setup, before the test's partial-credit policy loop and its three-value
-[highest-Attempt assertion](../../../crates/learning-data-access/tests/grading_lifecycle_postgres/partial_credit_policy.rs#L457-L461);
+`partial_credit_policy.rs`;
 it does not show a grading SQL failure. The exact
 redacted run log is `output_question_spec/fresh_database_gate/checkpoint_diagnostics_20261006.log`.
 The grading selector registers five ignored tests, including this M17 case. The bounded panic
@@ -149,7 +149,7 @@ are not reported as passes.
 
 After this run, the test owner corrected the fixture to submit Attempt 1 before requesting Attempt
 2. The current test source records that sequential lifecycle at
-[`crates/learning-data-access/tests/grading_lifecycle_postgres/partial_credit_policy.rs`](../../../crates/learning-data-access/tests/grading_lifecycle_postgres/partial_credit_policy.rs#L195-L200).
+`partial_credit_policy.rs`.
 The owner reports compile, rustfmt, and diff checks passed for the correction; no connected runtime
 rerun has exercised it yet, so M17 policy behavior remains pending.
 

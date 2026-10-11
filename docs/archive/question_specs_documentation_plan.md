@@ -425,7 +425,7 @@ terminology rather than carrying it into the new set.
 Create the 31 documents under `docs/QUESTION_SPECS/`, ten documents under
 `docs/BIOLOGY_PROBLEMS_SPECS/`, and `docs/BLUEPRINT_COURSE_IMPORT_API_SPEC.md`
 during the later writing task. Redistribute
-material from [QUESTION_SPECS/README.md](../QUESTION_SPECS/README.md),
+material from [README.md](../QUESTION_SPECS/README.md),
 [QUESTION_ID_SPEC.md](../QUESTION_SPECS/QUESTION_ID_SPEC.md),
 [QUESTION_BACKEND_SPEC.md](../QUESTION_SPECS/QUESTION_BACKEND_SPEC.md), and
 [QTI-JSON_OBJECT_FORMAT.md](../QTI-JSON_OBJECT_FORMAT.md). Retire their duplicated ownership

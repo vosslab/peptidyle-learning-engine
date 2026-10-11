@@ -26,7 +26,7 @@ Architect review approved this cross-cutting approach with the corrections recor
 ## Design philosophy
 
 Follow **Fix the design, not the symptom** and **Ground requirements in actual needs** from
-[docs/REPO_STYLE.md](../REPO_STYLE.md). The fast lane earns its cost by rendering real production
+[REPO_STYLE.md](../REPO_STYLE.md). The fast lane earns its cost by rendering real production
 components and styles cheaply, while narrowly substituting unavailable services and data. Shared
 production ownership is the main drift prevention: the harness imports production page composition
 and styles, and the compact parity sample checks only the relationships that cross the application
