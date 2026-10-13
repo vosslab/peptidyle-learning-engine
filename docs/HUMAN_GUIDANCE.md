@@ -1103,6 +1103,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Question formats and type specifications
 
 - PLE flat-question JSON is the canonical machine format for simple static Questions.
+- QPM owns project integration names. QTI names identify the assessment interoperability standard.
+- QPM integration uses direct build arguments and browser asset metadata rather than custom environment configuration.
 - QTI is for import, export, and archival interchange rather than the internal source model.
 - QTI ZIP files, retained QTI archives, and images extracted from QTI packages are import/export
   files, separate from Question Image Assets.

@@ -18,8 +18,8 @@ def vendor_wasm(repo: pathlib.Path, source_repo: pathlib.Path) -> None:
 		repo: PLE repository root.
 		source_repo: QPM source repository root.
 	"""
-	dist = source_repo / "packages" / "qti-wasm" / "dist"
-	if not (dist / "generated" / "qti_wasm_bg.wasm").is_file():
+	dist = source_repo / "packages" / "qpm-wasm" / "dist"
+	if not (dist / "generated" / "qpm_wasm_bg.wasm").is_file():
 		raise FileNotFoundError(f"Build the WASM package first: {dist}")
 	destination = repo / "assets" / "qpm_wasm"
 	if destination.exists():
@@ -39,7 +39,7 @@ def vendor_wasm(repo: pathlib.Path, source_repo: pathlib.Path) -> None:
 	).strip()
 	provenance = {
 		"sourceCommit": commit,
-		"sourcePath": "packages/qti-wasm/dist",
+		"sourcePath": "packages/qpm-wasm/dist",
 		"provenanceNote": (
 			"Local built artifacts; sourceCommit records the checkout HEAD. "
 			"Artifact hashes identify consumed bytes."
@@ -62,7 +62,7 @@ def main() -> None:
 	args = parser.parse_args()
 	repo = pathlib.Path(__file__).resolve().parents[1]
 	source_repo = (repo / pathlib.Path(args.qpm_root).expanduser()).resolve()
-	package = source_repo / "packages" / "qti-wasm"
+	package = source_repo / "packages" / "qpm-wasm"
 	print(f"Building QPM WASM from {package}", flush=True)
 	# ASVS 1.2.5: fixed argument lists, without shell interpolation.
 	# check=True stops before vendoring if dependency installation or compilation fails.

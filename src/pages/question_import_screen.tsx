@@ -20,7 +20,7 @@ async function loadQpm(): Promise<Qpm> {
   const base = `/wasm/qpm-${__QPM_WASM_ASSET_VERSION__}`;
   const wrapper = `${base}/src/index.js`;
   const qpm = (await import(wrapper)) as Qpm;
-  const response = await fetch(`${base}/generated/qti_wasm_bg.wasm`);
+  const response = await fetch(`${base}/generated/qpm_wasm_bg.wasm`);
   if (!response.ok) throw new Error("The question importer could not be loaded.");
   await qpm.initialize(new Uint8Array(await response.arrayBuffer()));
   return qpm;

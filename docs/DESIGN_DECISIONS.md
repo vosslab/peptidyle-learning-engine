@@ -37,8 +37,10 @@ Native JSON decoder validates content for preview and publication; a created Dra
 independent and avoiding server-side conversion work.
 
 Use QPM for software and integration names: `assets/qpm_wasm/`,
-`devel/vendor_qpm_wasm.py`, and `dist/wasm/qpm-<hash>/`. Reserve QTI for the assessment standard
-and QTI-specific functionality. Preserve upstream-generated filenames inside the vendored package.
+`devel/vendor_qpm_wasm.py`, `qpm_wasm.js`, `qpm_wasm_bg.wasm`, and
+`dist/wasm/qpm-<hash>/`. Reserve QTI for the assessment standard and QTI-specific functionality.
+The vendor command takes its QPM checkout as an explicit argument; the browser build derives its
+asset version from the vendored bytes, without QPM-specific environment configuration.
 Vendor the wrapper, generated runtime, type declarations, and license; exclude upstream demo apps.
 
 **Consequence.** Show conversion warnings and one result per emitted item. Inspect images in each

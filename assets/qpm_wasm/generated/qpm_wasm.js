@@ -1,4 +1,4 @@
-/* @ts-self-types="./qti_wasm.d.ts" */
+/* @ts-self-types="./qpm_wasm.d.ts" */
 
 /**
  * Inspects owned ZIP or entry bytes and returns invalid transport as `CheckPackageResult::Error`.
@@ -236,7 +236,7 @@ function __wbg_get_imports() {
             const ret = Symbol.iterator;
             return ret;
         },
-        __wbg_keys_1d8e673dd1cc5f73: function() { return handleError(function (arg0) {
+        __wbg_keys_38a80e7de109fbd5: function() { return handleError(function (arg0) {
             const ret = Object.keys(arg0);
             return ret;
         }, arguments); },
@@ -330,7 +330,7 @@ function __wbg_get_imports() {
     };
     return {
         __proto__: null,
-        "./qti_wasm_bg.js": import0,
+        "./qpm_wasm_bg.js": import0,
     };
 }
 
@@ -598,7 +598,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        module_or_path = new URL('qti_wasm_bg.wasm', import.meta.url);
+        module_or_path = new URL('qpm_wasm_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 
