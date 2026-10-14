@@ -92,8 +92,6 @@ function defaultDefaults(assessmentType: AssessmentType): BlueprintAssessmentDef
       assessmentQuestionOrderRule: "shuffled",
     },
     student_feedback_release_rule: {
-      per_item_correctness: "after_submit",
-      submitted_response: "after_submit",
       question_answer:
         assessmentType === "practice_question_assignment"
           ? "after_submit"

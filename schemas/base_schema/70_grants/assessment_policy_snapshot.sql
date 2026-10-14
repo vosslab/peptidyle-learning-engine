@@ -15,7 +15,6 @@ REVOKE ALL ON FUNCTION ple_private.ensure_assessment_policy_snapshot(
     text, text, timestamptz, timestamptz, timestamptz, integer, integer,
     ple_data.late_work_rule, ple_data.question_variation_rule, ple_data.question_order_rule,
     ple_data.feedback_release, ple_data.feedback_release, ple_data.feedback_release,
-    ple_data.feedback_release, ple_data.feedback_release,
     ple_data.assessment_type, ple_data.feedback_release, ple_data.feedback_release, boolean
 ) FROM PUBLIC;
 
@@ -23,6 +22,5 @@ GRANT EXECUTE ON FUNCTION ple_private.ensure_assessment_policy_snapshot(
     text, text, timestamptz, timestamptz, timestamptz, integer, integer,
     ple_data.late_work_rule, ple_data.question_variation_rule, ple_data.question_order_rule,
     ple_data.feedback_release, ple_data.feedback_release, ple_data.feedback_release,
-    ple_data.feedback_release, ple_data.feedback_release,
     ple_data.assessment_type, ple_data.feedback_release, ple_data.feedback_release, boolean
 ) TO ple_data_owner, ple_api_owner;

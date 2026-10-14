@@ -9,7 +9,8 @@ use crate::{
     StudentAssessmentAttemptFinalizationPreparation,
     StudentAssessmentAttemptFinalizationPreparationOutcome,
     StudentAssessmentAttemptHistoryEvidence, StudentAssessmentAttemptHistoryResponseSource,
-    StudentAssessmentAttemptPresentationEvidence, StudentAssessmentAttemptSavedResponse,
+    StudentAssessmentAttemptPresentationEvidence, StudentAssessmentAttemptResponseSaveResult,
+    StudentAssessmentAttemptSavedResponse, StudentAssessmentAttemptSavedResponseSnapshot,
 };
 use async_trait::async_trait;
 use question_model::{
@@ -190,7 +191,8 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         assessment_attempt: AssessmentAttemptId,
         position: u32,
         response: StudentResponse,
-    ) -> Result<StudentAssessmentAttemptSavedResponse, StoreError> {
+        expected_saved_response_revision: u64,
+    ) -> Result<StudentAssessmentAttemptResponseSaveResult, StoreError> {
         let position = positive_position(position)?;
         let position_u32 = u32::try_from(position).map_err(|_| {
             StoreError::InvalidRecord("Issued Question position is invalid".to_string())
@@ -200,12 +202,15 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         })?;
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT assessment_attempt_id, issued_position, response_state \
-             FROM ple_api.save_student_assessment_attempt_response($1, $2, $3)",
+            "SELECT assessment_attempt_id, issued_position, response_state, saved_response_revision \
+             FROM ple_api.save_student_assessment_attempt_response($1, $2, $3, $4)",
         )
         .bind(assessment_attempt.as_uuid())
         .bind(position)
         .bind(response)
+        .bind(i64::try_from(expected_saved_response_revision).map_err(|_| {
+            StoreError::InvalidRecord("Saved response revision is invalid".to_string())
+        })?)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -226,16 +231,46 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
             tx.commit().await.map_err(map_sqlx_error)?;
             return Err(StoreError::Forbidden);
         }
+        if response_state == "conflict" {
+            let saved_response_revision = row
+                .try_get::<i64, _>("saved_response_revision")
+                .map_err(map_sqlx_error)
+                .and_then(|value| {
+                    u64::try_from(value).map_err(|_| {
+                        StoreError::InvalidRecord("Saved response revision is invalid".to_string())
+                    })
+                })?;
+            tx.commit().await.map_err(map_sqlx_error)?;
+            return Ok(StudentAssessmentAttemptResponseSaveResult::Conflict {
+                saved_response_revision,
+            });
+        }
         if response_state != "saved" {
             return Err(StoreError::InvalidRecord(
                 "Student response save result is invalid".to_string(),
             ));
         }
+        let saved_response_revision = row
+            .try_get::<i64, _>("saved_response_revision")
+            .map_err(map_sqlx_error)
+            .and_then(|value| {
+                u64::try_from(value).map_err(|_| {
+                    StoreError::InvalidRecord("Saved response revision is invalid".to_string())
+                })
+            })?;
+        if saved_response_revision == 0 {
+            return Err(StoreError::InvalidRecord(
+                "Saved response revision is invalid".to_string(),
+            ));
+        }
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(StudentAssessmentAttemptSavedResponse {
-            assessment_attempt_id: assessment_attempt,
-            position: position_u32,
-        })
+        Ok(StudentAssessmentAttemptResponseSaveResult::Saved(
+            StudentAssessmentAttemptSavedResponse {
+                assessment_attempt_id: assessment_attempt,
+                position: position_u32,
+                saved_response_revision,
+            },
+        ))
     }
 
     async fn checkpoint_student_question_display_duration(
@@ -278,14 +313,14 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         token: SessionTokenHash,
         assessment_attempt: AssessmentAttemptId,
         position: u32,
-    ) -> Result<Option<StudentResponse>, StoreError> {
+    ) -> Result<Option<StudentAssessmentAttemptSavedResponseSnapshot>, StoreError> {
         let position = positive_position(position)?;
         let position_u32 = u32::try_from(position).map_err(|_| {
             StoreError::InvalidRecord("Issued Question position is invalid".to_string())
         })?;
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT issued_position, student_response \
+            "SELECT issued_position, student_response, saved_response_revision \
              FROM ple_api.read_student_assessment_attempt_saved_response($1, $2)",
         )
         .bind(assessment_attempt.as_uuid())
@@ -308,6 +343,28 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 })
             })
             .transpose()?;
+        let saved_response_revision = row
+            .try_get::<i64, _>("saved_response_revision")
+            .map_err(map_sqlx_error)
+            .and_then(|value| {
+                u64::try_from(value).map_err(|_| {
+                    StoreError::InvalidRecord("Saved response revision is invalid".to_string())
+                })
+            })?;
+        let response = match response {
+            Some(response) if saved_response_revision > 0 => {
+                Some(StudentAssessmentAttemptSavedResponseSnapshot {
+                    response,
+                    saved_response_revision,
+                })
+            }
+            None if saved_response_revision == 0 => None,
+            _ => {
+                return Err(StoreError::InvalidRecord(
+                    "Saved response revision is invalid".to_string(),
+                ));
+            }
+        };
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(response)
     }

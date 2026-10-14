@@ -41,8 +41,6 @@ BEGIN
         'reject'::ple_data.late_work_rule,
         'new_variation'::ple_data.question_variation_rule,
         'shuffled'::ple_data.question_order_rule,
-        'after_submit'::ple_data.feedback_release,
-        'after_submit'::ple_data.feedback_release,
         CASE WHEN p_assessment_type IN ('practice_question_assignment', 'quiz', 'exam')
              THEN CASE WHEN p_assessment_type IN ('quiz', 'exam')
                        THEN 'after_all_students_complete' ELSE 'after_submit' END

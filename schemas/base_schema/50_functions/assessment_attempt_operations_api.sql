@@ -133,11 +133,14 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
     SELECT * FROM ple_private.read_started_student_assessment_attempt($1)
 $$;
 
-CREATE FUNCTION ple_api.save_student_assessment_attempt_response(uuid, integer, jsonb)
-RETURNS TABLE (assessment_attempt_id uuid, issued_position integer, response_state text)
+CREATE FUNCTION ple_api.save_student_assessment_attempt_response(uuid, integer, jsonb, bigint)
+RETURNS TABLE (
+    assessment_attempt_id uuid, issued_position integer, response_state text,
+    saved_response_revision bigint
+)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assessment_attempt_id, issued_position + 1, response_state
-      FROM ple_private.save_student_assessment_attempt_response($1, $2 - 1, $3)
+    SELECT assessment_attempt_id, issued_position + 1, response_state, saved_response_revision
+      FROM ple_private.save_student_assessment_attempt_response($1, $2 - 1, $3, $4)
 $$;
 
 CREATE FUNCTION ple_api.prepare_student_assessment_attempt_finalization(uuid)
@@ -194,9 +197,11 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
 $$;
 
 CREATE FUNCTION ple_api.read_student_assessment_attempt_saved_response(uuid, integer)
-RETURNS TABLE (issued_position integer, student_response jsonb)
+RETURNS TABLE (
+    issued_position integer, student_response jsonb, saved_response_revision bigint
+)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT issued_position + 1, student_response
+    SELECT issued_position + 1, student_response, saved_response_revision
       FROM ple_private.read_student_assessment_attempt_saved_response($1, $2 - 1)
 $$;
 

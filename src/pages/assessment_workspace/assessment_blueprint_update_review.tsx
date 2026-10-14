@@ -104,8 +104,6 @@ const ACTIVITY_LABELS = [
   ["assessmentQuestionOrderRule", "Question order"],
 ] as const;
 const FEEDBACK_LABELS = [
-  ["per_item_correctness", "Per-item correctness"],
-  ["submitted_response", "Previous-attempt response"],
   ["question_answer", "Correct answer"],
   ["question_answer_explanation", "Question answer explanation"],
   ["class_statistics", "Class statistics"],

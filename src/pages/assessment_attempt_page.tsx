@@ -5,6 +5,7 @@ import {
   createEffect,
   createSignal,
   ErrorBoundary,
+  on,
   onCleanup,
   onMount,
   Show,
@@ -17,12 +18,12 @@ import type {
   StudentAssessmentAttemptResponseState,
 } from "../api/assessment_attempt_navigation";
 import type { StudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
-import { ApiRequestError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
 import { AuthorContentFrame } from "../components/author_content_frame";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { PageFrame } from "../components/page_frame";
 import { StudentAssessmentAttemptNavigation } from "../components/student_assessment_attempt_navigation";
+import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
 import type { StudentAssessmentAttemptQuestionState } from "../components/student_assessment_attempt_navigation";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { formatAssessmentDeliveryTime } from "../components/student_assessment_presentation";
@@ -79,6 +80,7 @@ function AttemptExperience(props: {
     >();
   const [loadError, setLoadError] = createSignal<string | null>(null);
   const [response, setResponse] = createSignal<StudentResponse | null>(null);
+  const [savedResponse, setSavedResponse] = createSignal<StudentResponse | null>(null);
   const [responseValid, setResponseValid] = createSignal(false);
   const [saveState, setSaveState] = createSignal<SaveState>("idle");
   const [saveError, setSaveError] = createSignal<string | null>(null);
@@ -98,9 +100,13 @@ function AttemptExperience(props: {
   const responseState = new AssessmentAttemptResponseState();
   let saveTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   let activeSave: Promise<boolean> | undefined;
+  let activeSaveGeneration: number | undefined;
   let expiryRefresh: Promise<void> | undefined;
   let finishAssessmentButton: HTMLButtonElement | undefined;
   let backendOwnedCapture: BackendOwnedCapture | undefined;
+  let savedResponseRevision = 0;
+  let navigating = false;
+  let disposed = false;
   const questionDisplayClocks = new Map<number, QuestionDisplayDurationClock>();
 
   function questionDisplayClock(selectedPosition: number): QuestionDisplayDurationClock {
@@ -156,8 +162,18 @@ function AttemptExperience(props: {
       saveState() === "saved" &&
       currentPresentation !== undefined &&
       currentPresentation.position === currentPosition() &&
-      currentPresentation.savedResponse !== null
+      savedResponse() !== null &&
+      JSON.stringify(response()) === JSON.stringify(savedResponse())
     );
+  }
+
+  function clearSaveTimer(): void {
+    if (saveTimer !== undefined) globalThis.clearTimeout(saveTimer);
+    saveTimer = undefined;
+  }
+
+  function hasUnsavedResponse(): boolean {
+    return !isSubmitted() && !isExpired() && response() !== null && !currentResponseIsSaved();
   }
 
   async function loadProgress(): Promise<void> {
@@ -194,6 +210,7 @@ function AttemptExperience(props: {
   }
 
   async function loadPresentation(nextPosition: number): Promise<void> {
+    clearSaveTimer();
     void checkpointQuestionDisplayDuration(true);
     presentationRequest += 1;
     const request = presentationRequest;
@@ -201,6 +218,8 @@ function AttemptExperience(props: {
     responseState.clear();
     responseEditGeneration += 1;
     setResponse(null);
+    setSavedResponse(null);
+    savedResponseRevision = 0;
     setResponseValid(false);
     setSaveState("idle");
     setSaveError(null);
@@ -211,6 +230,8 @@ function AttemptExperience(props: {
         nextPosition,
       );
       if (request !== presentationRequest) return;
+      savedResponseRevision = next.savedResponseRevision;
+      setSavedResponse(next.savedResponse);
       setPresentation(next);
       if (next.savedResponse !== null) {
         responseEditGeneration = responseState.restore(nextPosition, next.savedResponse);
@@ -226,15 +247,19 @@ function AttemptExperience(props: {
   }
 
   async function saveCurrentResponse(): Promise<boolean> {
+    clearSaveTimer();
+    if (disposed || isSubmitted() || isExpired()) return false;
     const priorSave = activeSave;
     if (priorSave !== undefined) {
-      await priorSave;
+      const priorGeneration = activeSaveGeneration;
+      if (!(await priorSave) && priorGeneration === responseEditGeneration) return false;
       return saveCurrentResponse();
     }
     const selected = currentPosition();
     if (selected === null || presentation()?.position !== selected) return false;
     const active = responseState.current(selected);
     if (active === undefined) return response() === null;
+    if (currentResponseIsSaved()) return true;
     const current = active.response;
     if (!active.valid || !responseValid()) {
       setSaveState("error");
@@ -247,21 +272,29 @@ function AttemptExperience(props: {
       setSaveError(null);
       try {
         await checkpointQuestionDisplayDuration(false);
-        await runtime.client.saveStudentAssessmentAttemptResponse(
+        const acknowledgement = await runtime.client.saveStudentAssessmentAttemptResponse(
           props.context.assessmentAttemptId,
           selected,
           current,
+          savedResponseRevision,
         );
-        setPresentation((existing) =>
-          existing === undefined || existing.position !== selected
-            ? existing
-            : { ...existing, savedResponse: current },
-        );
+        if (disposed || selected !== currentPosition()) return false;
+        savedResponseRevision = acknowledgement.savedResponseRevision;
+        if (acknowledgement.responseState === "conflict") {
+          setSaveState("error");
+          setSaveError(
+            "The saved response changed. Your latest input is still here. Retry Save to keep it.",
+          );
+          return false;
+        }
+        // Keep the keyed Question mounted while recording persistence metadata.
+        // Replacing presentation here would destroy edits made during this save.
+        setSavedResponse(current);
         if (editGeneration === responseEditGeneration) setSaveState("saved");
         await loadProgress();
         return true;
       } catch (error: unknown) {
-        if (editGeneration === responseEditGeneration) {
+        if (!disposed && selected === currentPosition()) {
           setSaveState("error");
           setSaveError(
             `Your response is still here. Save did not finish: ${errorMessage(error, "Please try again.")}`,
@@ -271,17 +304,73 @@ function AttemptExperience(props: {
       }
     })();
     activeSave = save;
+    activeSaveGeneration = editGeneration;
     const saved = await save;
-    if (activeSave === save) activeSave = undefined;
-    if (editGeneration !== responseEditGeneration && saved) return saveCurrentResponse();
+    if (activeSave === save) {
+      activeSave = undefined;
+      activeSaveGeneration = undefined;
+    }
+    if (editGeneration !== responseEditGeneration) return saveCurrentResponse();
     return saved;
   }
 
   async function activatePosition(nextPosition: number): Promise<void> {
-    if (nextPosition === currentPosition() || isSubmitted() || isExpired()) return;
-    void checkpointQuestionDisplayDuration(true);
-    if (!currentResponseIsSaved() && !(await saveCurrentResponse())) return;
-    setPosition(nextPosition);
+    if (
+      navigating ||
+      submissionState() === "submitting" ||
+      nextPosition === currentPosition() ||
+      isSubmitted() ||
+      isExpired()
+    )
+      return;
+    navigating = true;
+    try {
+      if (!(await saveBeforeLeaving()) || disposed || isSubmitted() || isExpired()) return;
+      void checkpointQuestionDisplayDuration(true);
+      setPosition(nextPosition);
+    } finally {
+      navigating = false;
+    }
+  }
+
+  /** Await the latest native format check when navigation follows the final keystroke. */
+  async function validateCurrentResponse(): Promise<void> {
+    const selected = currentPosition();
+    if (selected === null) return;
+    const active = responseState.current(selected);
+    const format = presentation()?.presentation.response;
+    if (active === undefined || active.valid || format === undefined) return;
+    const check = await validator.validateResponseFormat(format, active.response);
+    if (disposed || selected !== currentPosition()) return;
+    responseValidated(selected, active.response, check, active.editGeneration);
+    if (active.editGeneration !== responseEditGeneration) await validateCurrentResponse();
+  }
+
+  async function captureCurrentResponse(): Promise<boolean> {
+    clearSaveTimer();
+    if (backendOwnedCapture !== undefined && !(await backendOwnedCapture())) {
+      setSaveError(
+        "The Question did not return your response. Your input is still here. Try Save again.",
+      );
+      setSaveState("error");
+      return false;
+    }
+    try {
+      await validateCurrentResponse();
+    } catch {
+      setSaveState("error");
+      setSaveError("Your input is still here. Response checking is unavailable. Try Save again.");
+      return false;
+    }
+    clearSaveTimer();
+    return true;
+  }
+
+  async function saveBeforeLeaving(): Promise<boolean> {
+    if (isSubmitted() || isExpired()) return true;
+    return saveCapturedBackendOwnedResponse(captureCurrentResponse, saveCurrentResponse, () =>
+      Promise.resolve(true),
+    );
   }
 
   /**
@@ -296,14 +385,14 @@ function AttemptExperience(props: {
     const active = responseState.current(selected);
     const responseIsComplete = active !== undefined && active.valid && responseValid();
     if (!responseIsComplete) {
-      if (saveTimer !== undefined) globalThis.clearTimeout(saveTimer);
+      clearSaveTimer();
       const priorSave = activeSave;
       if (
         !(await saveCompleteResponseBeforeAttemptSubmission(false, saveCurrentResponse, priorSave))
       ) {
         return false;
       }
-      setSaveState(presentation()?.savedResponse === null ? "idle" : "saved");
+      setSaveState(savedResponse() === null ? "idle" : "saved");
       setSaveError(null);
       return true;
     }
@@ -311,13 +400,13 @@ function AttemptExperience(props: {
   }
 
   async function submitAttempt(): Promise<void> {
-    if (submissionState() === "submitting" || isSubmitted()) return;
+    if (navigating || submissionState() === "submitting" || isSubmitted()) return;
     await checkpointQuestionDisplayDuration(true);
     setSubmissionState("submitting");
     setSubmissionError(null);
     try {
       const result = await saveCapturedBackendOwnedResponse(
-        backendOwnedCapture,
+        captureCurrentResponse,
         saveCurrentResponseBeforeAttemptSubmission,
         () => runtime.client.submitStudentAssessmentAttempt(props.context.assessmentAttemptId),
       );
@@ -333,23 +422,35 @@ function AttemptExperience(props: {
         replace: true,
         state: assessmentAttemptRouteState(assessmentAttemptRouteId(result.assessmentAttemptId)),
       });
-    } catch (error: unknown) {
-      setSubmissionState("error");
-      if (error instanceof ApiRequestError && error.status === 503) {
-        // ASVS 16.5.1-16.5.2: do not expose transport details; saved work remains available.
-        setSubmissionError(
-          "This Attempt was not submitted. Submission is temporarily unavailable. Your saved responses are still here. Try again while time remains.",
-        );
+    } catch {
+      // A lost acknowledgement can follow a committed submission. Consult the
+      // server before describing the outcome; retry remains idempotent.
+      setSubmissionError("Checking whether your Attempt was submitted...");
+      await loadProgress();
+      if (isSubmitted()) {
+        navigate(assessmentAttemptPath("review", props.context.course.id), {
+          replace: true,
+          state: assessmentAttemptRouteState(
+            assessmentAttemptRouteId(props.context.assessmentAttemptId),
+          ),
+        });
         return;
       }
+      setSubmissionState("error");
       setSubmissionError(
-        `This Attempt was not submitted: ${errorMessage(error, "Please review your saved responses and try again.")}`,
+        "Submission could not be confirmed. Your saved responses are recorded. Retry Submit Attempt to check and finish.",
       );
     }
   }
 
   function responseEdited(position: number, next: StudentResponse): number | undefined {
-    if (position !== currentPosition()) return undefined;
+    if (disposed || isSubmitted() || isExpired() || position !== currentPosition())
+      return undefined;
+    const existing = responseState.current(position);
+    if (existing !== undefined && JSON.stringify(existing.response) === JSON.stringify(next)) {
+      return existing.editGeneration;
+    }
+    clearSaveTimer();
     responseEditGeneration = responseState.edit(position, next);
     setResponse(next);
     setResponseValid(false);
@@ -368,7 +469,7 @@ function AttemptExperience(props: {
       return;
     if (position !== currentPosition()) return;
     setResponseValid(validation.issues.length === 0);
-    if (validation.issues.length === 0) {
+    if (validation.issues.length === 0 && !currentResponseIsSaved()) {
       const selected = currentPosition();
       if (selected !== null) {
         const generation = responseEditGeneration;
@@ -432,10 +533,13 @@ function AttemptExperience(props: {
     if (expiryRefresh === refresh) expiryRefresh = undefined;
   }
 
-  createEffect(() => {
-    const selected = position();
-    if (selected !== null) void loadPresentation(selected);
-  });
+  // Loading reads progress while checkpointing the display clock. Those reads
+  // must not make a save acknowledgement reload the mounted Question.
+  createEffect(
+    on(position, (selected) => {
+      if (selected !== null) void loadPresentation(selected);
+    }),
+  );
 
   onMount(() => {
     timerStartedAt = performance.now();
@@ -453,12 +557,16 @@ function AttemptExperience(props: {
     document.addEventListener("visibilitychange", visibilityChanged);
     window.addEventListener("pagehide", pageHidden);
     onCleanup(() => {
+      disposed = true;
+      presentationRequest += 1;
+      progressRequest += 1;
+      timerRequest += 1;
       globalThis.clearInterval(interval);
       globalThis.clearInterval(durationInterval);
       document.removeEventListener("visibilitychange", visibilityChanged);
       window.removeEventListener("pagehide", pageHidden);
       void checkpointQuestionDisplayDuration(true);
-      if (saveTimer !== undefined) globalThis.clearTimeout(saveTimer);
+      clearSaveTimer();
     });
   });
 
@@ -493,6 +601,19 @@ function AttemptExperience(props: {
       eyebrow={`${assessmentTypePresentation(props.context.assessment.assessmentType).label} · Attempt ${props.context.attemptNumber}`}
       title={props.context.assessment.title}
     >
+      <UnsavedChangesGuard
+        dirty={hasUnsavedResponse}
+        save={saveBeforeLeaving}
+        autoSaveOnLeave
+        copy={{
+          heading: "Your response has not been saved",
+          description:
+            "Stay to keep working, retry saving, or discard unsaved changes and keep the last saved response.",
+          saveActionLabel: "Retry save and continue",
+          savingActionLabel: "Saving response...",
+          saveFailureMessage: "Your input is still here. The response could not be saved yet.",
+        }}
+      />
       <div class="assessment-attempt-header">
         <Show when={!isSubmitted()}>
           <div>

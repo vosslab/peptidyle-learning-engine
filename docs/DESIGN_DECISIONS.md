@@ -1882,6 +1882,38 @@ Unrelease audit counts finalized `assessment_attempt_saved_response` rows as
 `finalized_saved_response_count`. JSON may still project
 `question_attempt_state` from remaining facts.
 
+### Working-response saves use an observed revision
+
+**Decision.** Each active saved response has a monotone revision. A browser
+save includes the revision it last observed; the database accepts it only when
+it remains current. A stale request returns the current revision without
+changing saved work.
+
+**Why.** Independent request completion order must not let an earlier response
+replace later Student input.
+
+**Consequence.** The Student Attempt page owns one save sequence and retains
+local input when a conflict occurs. The selected-presentation read supplies the
+authoritative saved revision. This is an active working-state rule, not a
+multi-device merge system or a browser-crash recovery feature.
+
+### Completed review separates Student work from teaching disclosures
+
+**Decision.** A submitted Student always receives the Question, recorded
+response, correctness, and points in completed history. Native Questions use
+their retained presentation. WeBWorK uses a separately authorized read-only
+renderer replay from the retained source, seed, and opaque response. Correct
+answers and optional feedback retain their independent disclosure decisions.
+
+**Why.** Students need to revisit their own work even when an Instructor keeps
+answers and teaching material withheld.
+
+**Consequence.** Renderer replay neither grades nor writes Student Work. If it
+cannot reproduce the response, a retained original prompt may still be shown
+with an explicit unavailable-response notice; the history projection remains
+the source for score and correctness. The review route reauthorizes after
+renderer I/O and exposes no caller-selected renderer input.
+
 ### Saving changes to Question Pools
 
 **Decision.** Pools are not a Revision family. A Pool contains an unordered set of Question

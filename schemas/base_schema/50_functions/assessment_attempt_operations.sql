@@ -204,13 +204,18 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_private.save_student_assessment_attempt_response(
-    p_assessment_attempt_id uuid, p_issued_position integer, p_student_response jsonb
-) RETURNS TABLE (assessment_attempt_id uuid, issued_position integer, response_state text)
+    p_assessment_attempt_id uuid, p_issued_position integer, p_student_response jsonb,
+    p_expected_saved_response_revision bigint
+) RETURNS TABLE (
+    assessment_attempt_id uuid, issued_position integer, response_state text,
+    saved_response_revision bigint
+)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
 DECLARE question_attempt_id_value uuid;
 DECLARE now_value timestamptz;
+DECLARE current_saved_response_revision bigint;
 BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(
         p_assessment_attempt_id
@@ -233,10 +238,13 @@ BEGIN
         assessment_attempt_id := assessment_attempt_row.assessment_attempt_id;
         issued_position := p_issued_position;
         response_state := 'expired';
+        saved_response_revision := NULL;
         RETURN NEXT;
         RETURN;
     END IF;
-    IF p_issued_position < 0 OR jsonb_typeof(p_student_response) <> 'object' THEN
+    IF p_issued_position < 0 OR jsonb_typeof(p_student_response) <> 'object'
+       OR p_expected_saved_response_revision IS NULL
+       OR p_expected_saved_response_revision < 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student response arguments are invalid';
     END IF;
     SELECT question_attempt.question_attempt_id INTO question_attempt_id_value
@@ -261,14 +269,36 @@ BEGIN
         assessment_attempt_id := assessment_attempt_row.assessment_attempt_id;
         issued_position := p_issued_position;
         response_state := 'expired';
+        saved_response_revision := NULL;
+        RETURN NEXT;
+        RETURN;
+    END IF;
+    SELECT response.saved_response_revision INTO current_saved_response_revision
+      FROM ple_private.assessment_attempt_saved_response AS response
+     WHERE response.course_instance_id = assessment_attempt_row.course_instance_id
+       AND response.question_attempt_id = question_attempt_id_value
+     FOR UPDATE;
+    current_saved_response_revision := COALESCE(current_saved_response_revision, 0);
+    IF current_saved_response_revision <> p_expected_saved_response_revision THEN
+        assessment_attempt_id := assessment_attempt_row.assessment_attempt_id;
+        issued_position := p_issued_position;
+        response_state := 'conflict';
+        saved_response_revision := current_saved_response_revision;
         RETURN NEXT;
         RETURN;
     END IF;
     INSERT INTO ple_private.assessment_attempt_saved_response(
-        course_instance_id, question_attempt_id, student_response, saved_at)
-    VALUES (assessment_attempt_row.course_instance_id, question_attempt_id_value, p_student_response, now_value)
+        course_instance_id, question_attempt_id, student_response, saved_response_revision, saved_at)
+    VALUES (
+        assessment_attempt_row.course_instance_id, question_attempt_id_value, p_student_response,
+        current_saved_response_revision + 1, now_value
+    )
     ON CONFLICT (course_instance_id, question_attempt_id) DO UPDATE
-       SET student_response = EXCLUDED.student_response, saved_at = EXCLUDED.saved_at;
+       SET student_response = EXCLUDED.student_response,
+           saved_response_revision = assessment_attempt_saved_response.saved_response_revision + 1,
+           saved_at = EXCLUDED.saved_at
+    RETURNING assessment_attempt_saved_response.saved_response_revision
+      INTO saved_response_revision;
     assessment_attempt_id := assessment_attempt_row.assessment_attempt_id;
     issued_position := p_issued_position;
     response_state := 'saved';
@@ -380,7 +410,9 @@ END $$;
 CREATE FUNCTION ple_private.read_student_assessment_attempt_saved_response(
     p_assessment_attempt_id uuid,
     p_issued_position integer
-) RETURNS TABLE (issued_position integer, student_response jsonb)
+) RETURNS TABLE (
+    issued_position integer, student_response jsonb, saved_response_revision bigint
+)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
@@ -395,7 +427,8 @@ BEGIN
     );
     RETURN QUERY
     SELECT issued.issued_position,
-           response.student_response
+           response.student_response,
+           COALESCE(response.saved_response_revision, 0)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id

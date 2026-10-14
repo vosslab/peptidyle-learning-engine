@@ -11,6 +11,7 @@ use browser_api_contract::student_question_display_duration::{
 };
 use learning_data_access::{
     StudentAssessmentAttemptFinalization, StudentAssessmentAttemptFinalizationPreparationOutcome,
+    StudentAssessmentAttemptResponseSaveResult,
 };
 use question_model::{
     AssessmentAttemptId, StudentResponse,
@@ -31,9 +32,10 @@ use question_model::response::{
 };
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct SavedResponseRequest {
     response: StudentResponse,
+    expected_saved_response_revision: u64,
 }
 
 /// Stores the cumulative milliseconds this Question has been shown while visible.
@@ -128,10 +130,16 @@ pub(super) async fn save_selected_response(
     };
     match state
         .delivery
-        .save_student_assessment_attempt_response(token, assessment_attempt, position, response)
+        .save_student_assessment_attempt_response(
+            token,
+            assessment_attempt,
+            position,
+            response,
+            request.expected_saved_response_revision,
+        )
         .await
     {
-        Ok(saved)
+        Ok(StudentAssessmentAttemptResponseSaveResult::Saved(saved))
             if saved.assessment_attempt_id == assessment_attempt && saved.position == position =>
         {
             crate::auth::no_store(
@@ -139,11 +147,23 @@ pub(super) async fn save_selected_response(
                     assessment_attempt_id: assessment_attempt,
                     position,
                     response_state: "saved",
+                    saved_response_revision: saved.saved_response_revision,
                 })
                 .into_response(),
             )
         }
-        Ok(_) => error(
+        Ok(StudentAssessmentAttemptResponseSaveResult::Conflict {
+            saved_response_revision,
+        }) => crate::auth::no_store(
+            (
+                StatusCode::PRECONDITION_FAILED,
+                Json(SavedResponseConflict {
+                    saved_response_revision,
+                }),
+            )
+                .into_response(),
+        ),
+        Ok(StudentAssessmentAttemptResponseSaveResult::Saved(_)) => error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Student Response save unavailable",
         ),
@@ -157,6 +177,13 @@ struct SavedResponseAcknowledgement {
     assessment_attempt_id: AssessmentAttemptId,
     position: u32,
     response_state: &'static str,
+    saved_response_revision: u64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SavedResponseConflict {
+    saved_response_revision: u64,
 }
 
 #[derive(Serialize)]
@@ -291,4 +318,24 @@ fn invalid_response() -> Response {
         StatusCode::UNPROCESSABLE_ENTITY,
         "Student Response is invalid",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SavedResponseRequest;
+    use serde_json::json;
+
+    #[test]
+    fn response_save_accepts_the_browser_revision_contract() {
+        let response = json!({"kind": "shortText", "text": "replication"});
+        let request: SavedResponseRequest = serde_json::from_value(json!({
+            "response": response,
+            "expectedSavedResponseRevision": 2,
+        }))
+        .expect("the browser's revision-bearing response must be accepted");
+        assert_eq!(request.expected_saved_response_revision, 2);
+        assert!(
+            serde_json::from_value::<SavedResponseRequest>(json!({"response": response})).is_err()
+        );
+    }
 }

@@ -13,21 +13,21 @@ SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Unrelease target', '',
     NULL, pg_catalog.transaction_timestamp() + INTERVAL '2 days', NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
-    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
+    'after_submit', 'after_submit', 'after_submit',
     'regular_assignment', 'never', 'never', false
 ), 'hex') AS target_snapshot_id \gset
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Statistics survivor', '',
     NULL, pg_catalog.transaction_timestamp() + INTERVAL '2 days', NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
-    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
+    'after_submit', 'after_submit', 'after_submit',
     'regular_assignment'
 ), 'hex') AS survivor_snapshot_id \gset
 SELECT encode(ple_private.ensure_assessment_policy_snapshot(
     'Unrelease lock race', '',
     NULL, pg_catalog.transaction_timestamp() + INTERVAL '2 days', NULL, 5400, NULL,
     'accept', 'reuse_variation', 'authored_order',
-    'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
+    'after_submit', 'after_submit', 'after_submit',
     'regular_assignment'
 ), 'hex') AS race_snapshot_id \gset
 
@@ -407,6 +407,36 @@ BEGIN
         RAISE EXCEPTION 'Pool delivery evidence did not retain its originating Pool and Edit Number';
     END IF;
 END $$;
+-- A delayed request carries the revision read before a newer save. It must
+-- report the current revision and leave that newer response intact.
+SET LOCAL ROLE ple_app;
+SELECT set_config('ple.session_account_id', :'student_id', true);
+SELECT response_state, saved_response_revision
+  FROM ple_api.save_student_assessment_attempt_response(
+      '50000000-0000-0000-0000-000000000001', 1, '{"delayed":true}'::jsonb, 0
+  );
+SELECT response_state, saved_response_revision
+  FROM ple_api.save_student_assessment_attempt_response(
+      '50000000-0000-0000-0000-000000000001', 1, '{}'::jsonb, 1
+  );
+SELECT response_state, saved_response_revision
+  FROM ple_api.save_student_assessment_attempt_response(
+      '50000000-0000-0000-0000-000000000001', 1, '{"delayed":true}'::jsonb, 1
+  );
+RESET ROLE;
+SET LOCAL ROLE ple_private_owner;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM ple_private.assessment_attempt_saved_response AS response
+         WHERE response.question_attempt_id = '50000000-0000-0000-0000-000000000021'
+           AND response.student_response = '{}'::jsonb
+           AND response.saved_response_revision = 2
+    ) THEN
+        RAISE EXCEPTION 'Delayed response save overwrote the newer response';
+    END IF;
+END $$;
 INSERT INTO ple_private.assessment_attempt_saved_response (
     course_instance_id, question_attempt_id, student_response, saved_at
 )
@@ -418,7 +448,7 @@ SELECT attempt.course_instance_id,
  WHERE attempt.question_attempt_id IN (
      '50000000-0000-0000-0000-000000000021',
      '50000000-0000-0000-0000-000000000022'
- );
+ ) ON CONFLICT (course_instance_id, question_attempt_id) DO NOTHING;
 SELECT floor(extract(epoch FROM saved_at) * 1000)::bigint AS target_saved_at_millis
   FROM ple_private.assessment_attempt_saved_response
  WHERE question_attempt_id = '50000000-0000-0000-0000-000000000021' \gset
@@ -488,8 +518,6 @@ SELECT jsonb_build_object(
         'partial_credit_enabled', snapshot.partial_credit_enabled,
         'question_variation_rule', snapshot.question_variation_rule::text,
         'assessment_question_order_rule', snapshot.assessment_question_order_rule::text,
-        'feedback_per_item_correctness', snapshot.feedback_per_item_correctness::text,
-        'feedback_submitted_response', snapshot.feedback_submitted_response::text,
         'feedback_question_answer', snapshot.feedback_question_answer::text,
         'feedback_question_answer_explanation', snapshot.feedback_question_answer_explanation::text,
         'feedback_class_statistics', snapshot.feedback_class_statistics::text,

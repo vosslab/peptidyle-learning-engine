@@ -8,12 +8,6 @@ import type { StudentFeedbackReleaseTiming } from "../../../generated/api/Studen
 import { updateReusableDefaults } from "./blueprint_course_model";
 
 const FEEDBACK_FIELDS = [
-  ["per_item_correctness", "Per-item correctness", ""],
-  [
-    "submitted_response",
-    "Previous-attempt response",
-    "Controls the Student's recorded response in previous attempts. Never leaves correctness visible when Per-item correctness permits it.",
-  ],
   ["question_answer", "Correct answer", ""],
   ["question_answer_explanation", "Question answer explanation", ""],
   [

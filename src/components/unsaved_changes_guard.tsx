@@ -101,7 +101,12 @@ export function UnsavedChangesGuard(props: UnsavedChangesGuardProps): JSX.Elemen
   }
 
   return (
-    <Show when={pendingLeave() !== undefined || props.manualLeave?.requested() === true}>
+    <Show
+      when={
+        (pendingLeave() !== undefined && (props.autoSaveOnLeave !== true || saveFailed())) ||
+        props.manualLeave?.requested() === true
+      }
+    >
       <dialog
         class="confirmation-dialog"
         aria-labelledby={headingId}

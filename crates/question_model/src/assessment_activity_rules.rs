@@ -36,7 +36,7 @@ pub enum StudentFeedbackReleaseTiming {
     Never,
 }
 
-/// Assessment-owned Student Feedback Release Rule.
+/// Assessment-owned optional Student Feedback Release Rule.
 ///
 /// These independently configured fields are evaluated server-side against
 /// the effective assessment policy. They are intentionally separate from
@@ -45,10 +45,6 @@ pub enum StudentFeedbackReleaseTiming {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StudentFeedbackReleaseRule {
-    /// When the Student may see per-item correctness.
-    pub per_item_correctness: StudentFeedbackReleaseTiming,
-    /// When the Student may see their recorded response in a previous attempt.
-    pub submitted_response: StudentFeedbackReleaseTiming,
     /// When the Student may see the display-ready Question Answer.
     pub question_answer: StudentFeedbackReleaseTiming,
     /// When the Student may see the Question Answer Explanation.
@@ -83,8 +79,6 @@ impl StudentFeedbackReleaseRule {
     /// default to current-Course completion, which an Instructor can replace.
     pub fn for_assessment_type(assessment_type: AssessmentType) -> Self {
         Self {
-            per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
-            submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
             question_answer: match assessment_type {
                 AssessmentType::PracticeQuestionAssignment => {
                     StudentFeedbackReleaseTiming::AfterSubmit

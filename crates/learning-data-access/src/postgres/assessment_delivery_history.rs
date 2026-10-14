@@ -191,6 +191,8 @@ fn decode_question(
         },
         response_state: question.response_state,
         response: None,
+        presentation: None,
+        backend_review: None,
         backend_answer_review: None,
         feedback: StudentFeedback::empty(),
         hints: None,

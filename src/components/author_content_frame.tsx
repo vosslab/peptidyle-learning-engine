@@ -12,6 +12,9 @@ import "./author_content_frame.css";
 export function AuthorContentFrame(props: {
   readonly assessmentAttemptId: AssessmentAttemptId;
   readonly position: number;
+  /** Completed review supplies its separately authorized retained-document route. */
+  readonly documentUrl?: string;
+  readonly title?: string;
 }): JSX.Element {
   const runtime = useApplicationApi();
   const appearance = useContext(AppearanceContext);
@@ -29,11 +32,11 @@ export function AuthorContentFrame(props: {
     <iframe
       ref={(element) => (frame = element)}
       class="author-content-frame"
-      src={runtime.client.studentAuthorContentDocumentUrl(
-        props.assessmentAttemptId,
-        props.position,
-      )}
-      title={`Interactive content for Question ${props.position}`}
+      src={
+        props.documentUrl ??
+        runtime.client.studentAuthorContentDocumentUrl(props.assessmentAttemptId, props.position)
+      }
+      title={props.title ?? `Interactive content for Question ${props.position}`}
       sandbox="allow-scripts"
       referrerpolicy="no-referrer"
       allow=""

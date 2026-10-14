@@ -95,10 +95,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Prefer more small, independently verifiable milestones over a few large milestones.
 - Fix the design that causes a problem rather than adding a workaround for its symptom.
 - Prefer durable long-term fixes when the additional cost is justified.
-- Prefer adaptable boundaries and simple domain concepts over speculative edge-case machinery.
+- Prefer adaptability over speculative edge-case handling. Keep boundaries clear and domain
+  concepts simple.
 - Add product states, workflows, background processing, and recovery mechanisms only for a
   demonstrated product or Question Backend need.
 - Stay focused on the requested work. Complete the required work and avoid adding unplanned functionality.
+
+### Verification requirements
+
+- Keep requirements and gates grounded in actual needs. Avoid arbitrary thresholds, byte/pixel
+  equivalence, and exhaustive matrices unless the product actually depends on them.
+- Avoid version-based gates without a demonstrated compatibility need. A different tool version
+  alone should not stop working software.
 
 ### Codebase development rules
 
@@ -814,6 +822,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Student Coursework review interface
 
 - Question scores and the Assessment total are visible once the Attempt is submitted and graded; optional Question Feedback timing remains deferred.
+- After submission and grading, Students can see the Question, their recorded response, and whether
+  it is correct or incorrect even when Instructors hide correct answers.
+- Reconstruct WeBWorK Questions from their retained source and seed for review. Screenshots are a
+  last resort.
 - Completed Coursework should remain easy to find and review.
 - Group each reviewed Question's number, result, points, recorded response, and permitted feedback
   into a compact, clearly separated unit.
@@ -1186,6 +1198,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - iMathAS and H5P are desired secondary Question Backends governed by Deferred product behavior.
 - PLE-native Questions use the PLE Question Backend.
 - WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
+- Keep WeBWorK MC/MA choice order and MATCH positions consistent for the same seed throughout an
+  Attempt, including reload and review. Students receive a new seed only on a new Assessment Attempt.
 - H5P owns its runtime, interactions, state, and scoring.
 - iMathAS owns its rendering and evaluation.
 
@@ -1866,6 +1880,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Student submission action submits the whole Assessment Attempt.
 - A Question either has a complete saved response or has no saved response.
 - PLE saves complete Question responses as the **Student** works.
+- Use autosave while working and save before navigation. Preserving unsaved work after a browser
+  crash is an edge case outside the current scope.
 - The Student can change a saved response while the Assessment Attempt remains open.
 - Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
 - Questions without a saved response remain visibly unanswered when the Attempt is submitted.

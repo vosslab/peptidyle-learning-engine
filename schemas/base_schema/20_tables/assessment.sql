@@ -30,8 +30,6 @@ CREATE TABLE ple_data.assessment_policy_snapshot (
     partial_credit_enabled boolean NOT NULL,
     question_variation_rule ple_data.question_variation_rule NOT NULL,
     assessment_question_order_rule ple_data.question_order_rule NOT NULL,
-    feedback_per_item_correctness ple_data.feedback_release NOT NULL,
-    feedback_submitted_response ple_data.feedback_release NOT NULL,
     feedback_question_answer ple_data.feedback_release NOT NULL,
     feedback_question_answer_explanation ple_data.feedback_release NOT NULL,
     feedback_class_statistics ple_data.feedback_release NOT NULL,

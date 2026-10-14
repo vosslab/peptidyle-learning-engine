@@ -16,8 +16,6 @@ CREATE FUNCTION ple_private.ensure_assessment_policy_snapshot(
     p_late_work_rule ple_data.late_work_rule,
     p_question_variation_rule ple_data.question_variation_rule,
     p_assessment_question_order_rule ple_data.question_order_rule,
-    p_feedback_per_item_correctness ple_data.feedback_release,
-    p_feedback_submitted_response ple_data.feedback_release,
     p_feedback_question_answer ple_data.feedback_release,
     p_feedback_question_answer_explanation ple_data.feedback_release,
     p_feedback_class_statistics ple_data.feedback_release,
@@ -39,9 +37,7 @@ BEGIN
     END IF;
     -- ASVS 2.2.1/2.2.2: the browser limits this timing to answer material,
     -- and the trusted policy boundary enforces the same rule.
-    IF p_feedback_per_item_correctness = 'after_all_students_complete'
-       OR p_feedback_submitted_response = 'after_all_students_complete'
-       OR p_feedback_class_statistics = 'after_all_students_complete'
+    IF p_feedback_class_statistics = 'after_all_students_complete'
        OR p_feedback_hints = 'after_all_students_complete'
        OR p_feedback_worked_solutions = 'after_all_students_complete' THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -59,8 +55,6 @@ BEGIN
         'partial_credit_enabled', p_partial_credit_enabled,
         'question_variation_rule', p_question_variation_rule,
         'assessment_question_order_rule', p_assessment_question_order_rule,
-        'feedback_per_item_correctness', p_feedback_per_item_correctness,
-        'feedback_submitted_response', p_feedback_submitted_response,
         'feedback_question_answer', p_feedback_question_answer,
         'feedback_question_answer_explanation', p_feedback_question_answer_explanation,
         'feedback_class_statistics', p_feedback_class_statistics,
@@ -81,8 +75,6 @@ BEGIN
         partial_credit_enabled,
         question_variation_rule,
         assessment_question_order_rule,
-        feedback_per_item_correctness,
-        feedback_submitted_response,
         feedback_question_answer,
         feedback_question_answer_explanation,
         feedback_class_statistics,
@@ -102,8 +94,6 @@ BEGIN
         p_partial_credit_enabled,
         p_question_variation_rule,
         p_assessment_question_order_rule,
-        p_feedback_per_item_correctness,
-        p_feedback_submitted_response,
         p_feedback_question_answer,
         p_feedback_question_answer_explanation,
         p_feedback_class_statistics,

@@ -157,6 +157,7 @@ async fn project_released_content(
             worked_solution,
             presentation_evidence,
             presentation_source,
+            ..
         } = source;
         let Some(question_index) = history
             .questions
@@ -171,6 +172,29 @@ async fn project_released_content(
             .cloned()
             .flatten();
         let question = &mut history.questions[question_index];
+        let presentation =
+            reproduce_selected_issued_presentation(presentation_evidence.clone()).ok();
+        match presentation_source.as_ref() {
+            Some(learning_data_access::StudentAssessmentAttemptPresentationSource::Ple {
+                ..
+            }) => {
+                // The retained native presentation contains the prompt and its
+                // original option arrangement. It is Student Work, not an
+                // answer or feedback disclosure.
+                question.presentation = presentation
+                    .as_ref()
+                    .map(|value| value.presentation.clone());
+            }
+            Some(learning_data_access::StudentAssessmentAttemptPresentationSource::Webwork {
+                ..
+            }) => {
+                // The WeBWorK renderer owns its own read-only review document.
+                // Availability is independent of correct-answer disclosure.
+                question.backend_review =
+                    Some(learning_data_access::BackendReviewAvailability::Available);
+            }
+            None => {}
+        }
         if decision.question_answer
             && matches!(
                 presentation_source,
@@ -185,10 +209,9 @@ async fn project_released_content(
         // ASVS 8.2.3: Question Feedback follows its own rule, not answer disclosure.
         question.feedback.general_feedback = released_general_feedback(general_feedback);
         if decision.submitted_response
-            && let Ok(presentation) =
-                reproduce_selected_issued_presentation(presentation_evidence.clone())
+            && let Some(presentation) = presentation.as_ref()
         {
-            project_response(question, response.clone(), &presentation);
+            project_response(question, response.clone(), presentation);
         }
         let mut native_hint = None;
         let ple_resolved = match presentation_source.as_ref() {

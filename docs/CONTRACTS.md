@@ -298,7 +298,11 @@ implementation. Private normalized response-item bindings map
 each presentation-scoped four-hex reference to the durable authored
 response-item identity, so evidence readers interpret saved work without a
 mutable source lookup. Saved responses are private mutable input while the
-Attempt is active.
+Attempt is active. Each saved response carries a monotone saved-response
+revision. A working save names the revision it observed; the database accepts
+only that revision and reports a conflict without overwriting newer Student
+work. This ordering fact belongs to the active Attempt and does not alter
+finalized Student Work.
 
 Each Question Attempt may also retain one nullable cumulative millisecond value
 for the approximate time its Question was shown while the Student's browser
@@ -345,6 +349,16 @@ co-Instructor downloads the same authorized Gradebook projection through the fix
 attachment contract in [API_CONTRACTS.md](API_CONTRACTS.md#gradebook-point-export). Exports preserve
 missing versus zero scores, protect spreadsheet text cells, and leave Course weighting to the home
 LMS.
+
+After committed submission, completed history exposes the Student's recorded
+response, correctness, and points for every issued Question. The native
+history projection includes the immutable presentation originally shown.
+WeBWorK history instead grants a separately authorized read-only replay of the
+retained source, seed, and opaque response. Correct answers, explanations,
+Hints, Worked Solutions, and optional feedback remain independently controlled
+teaching disclosures. A replay failure may show the retained original prompt
+with an explicit unavailable-response notice; it cannot change recorded score
+or correctness.
 
 | Boundary                                             | Owner and evidence                                                                                                                                                                                                                                                                |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -33,8 +33,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
           JOIN ple_private.assessment_submission AS submission
             ON submission.course_instance_id = attempt.course_instance_id
            AND submission.assessment_attempt_id = attempt.assessment_attempt_id
-          JOIN ple_data.assessment_policy_snapshot AS policy
-            ON policy.assessment_policy_snapshot_id = attempt.assessment_policy_snapshot_id
           JOIN ple_private.issued_question AS issued
             ON issued.course_instance_id = attempt.course_instance_id
            AND issued.assessment_attempt_id = attempt.assessment_attempt_id
@@ -50,10 +48,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
          WHERE attempt.course_instance_id = p_course_instance_id
            AND attempt.student_record_id = p_student_record_id
            AND ple_api.course_student_work_is_ordinarily_visible(attempt.course_instance_id)
-           AND ple_private.student_assessment_feedback_is_released(
-               policy.feedback_per_item_correctness, submission.submitted_at,
-               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
-           )
            AND (
                (saved.question_attempt_id IS NULL
                     AND question_attempt.finalized_at IS NOT NULL)

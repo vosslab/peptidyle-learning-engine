@@ -449,8 +449,7 @@ DECLARE
         'assessment_title', 'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
         'partial_credit_enabled', 'question_variation_rule',
-        'assessment_question_order_rule', 'feedback_per_item_correctness',
-        'feedback_submitted_response', 'feedback_question_answer',
+        'assessment_question_order_rule', 'feedback_question_answer',
         'feedback_question_answer_explanation', 'feedback_class_statistics',
         'feedback_hints', 'feedback_worked_solutions'
     ];
@@ -498,8 +497,7 @@ BEGIN
         candidate.available_at, candidate.due_at, candidate.closes_at,
         candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
         candidate.late_work_rule, candidate.question_variation_rule,
-        candidate.assessment_question_order_rule, candidate.feedback_per_item_correctness,
-        candidate.feedback_submitted_response,
+        candidate.assessment_question_order_rule,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
         candidate.feedback_class_statistics, current_assessment.assessment_type,
         candidate.feedback_hints, candidate.feedback_worked_solutions,
@@ -590,8 +588,6 @@ BEGIN
             current_snapshot.assessment_attempt_limit,
             current_snapshot.late_work_rule, current_snapshot.question_variation_rule,
             current_snapshot.assessment_question_order_rule,
-            current_snapshot.feedback_per_item_correctness,
-            current_snapshot.feedback_submitted_response,
             current_snapshot.feedback_question_answer,
             current_snapshot.feedback_question_answer_explanation,
             current_snapshot.feedback_class_statistics, assessment_row.assessment_type,
@@ -650,9 +646,8 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
         'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
         'partial_credit_enabled', 'question_variation_rule',
-        'assessment_question_order_rule', 'feedback_per_item_correctness',
-        'feedback_submitted_response',
-        'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics',
+        'assessment_question_order_rule', 'feedback_question_answer',
+        'feedback_question_answer_explanation', 'feedback_class_statistics',
         'feedback_hints', 'feedback_worked_solutions'];
 BEGIN
     IF p_course_instance_id IS NULL
@@ -693,8 +688,7 @@ BEGIN
         candidate.available_at, candidate.due_at, candidate.closes_at,
         candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
         candidate.late_work_rule, candidate.question_variation_rule,
-        candidate.assessment_question_order_rule, candidate.feedback_per_item_correctness,
-        candidate.feedback_submitted_response,
+        candidate.assessment_question_order_rule,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
         candidate.feedback_class_statistics, current_assessment.assessment_type,
         candidate.feedback_hints, candidate.feedback_worked_solutions,

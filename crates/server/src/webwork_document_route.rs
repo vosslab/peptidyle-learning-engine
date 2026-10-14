@@ -20,6 +20,130 @@ const PREVIEW_DOCUMENT_CSP: &str = "sandbox allow-scripts; default-src 'self'; s
 const PARENT_TELEMETRY_SCRIPT_PATH: &str =
     "/api/webwork-assets/webwork2_files/js/apps/Problem/problem.";
 
+/// Re-renders one Student's recorded WeBWorK Question and response without
+/// grading or correct-answer disclosure.
+pub(crate) async fn recorded_review(
+    State(state): State<StateData>,
+    Path((assessment_attempt, position)): Path<(String, String)>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    // This fixed GET route has no caller-selected renderer inputs.
+    if parts.method != axum::http::Method::GET
+        || parts.uri.query().is_some()
+        || axum::body::to_bytes(body, 0).await.is_err()
+    {
+        return concealed();
+    }
+    let (assessment_attempt, position) = match (
+        AssessmentAttemptId::from_str(&assessment_attempt),
+        position.parse::<u32>(),
+    ) {
+        (Ok(assessment_attempt_id), Ok(position)) if position > 0 => {
+            (assessment_attempt_id, position)
+        }
+        _ => return concealed(),
+    };
+    let token = match student(&state, &parts.headers).await {
+        Ok(value) => value,
+        Err(value) => return *value,
+    };
+    let history = match state
+        .delivery
+        .student_assessment_attempt_history(token, assessment_attempt)
+        .await
+    {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let Some(revision) = permitted_recorded_review_revision_tuple(&history, position) else {
+        return concealed();
+    };
+    let sources = match state
+        .delivery
+        .student_assessment_attempt_history_response_sources(token, assessment_attempt)
+        .await
+    {
+        Ok(value) => value,
+        Err(
+            learning_data_access::StoreError::NotFound
+            | learning_data_access::StoreError::Forbidden
+            | learning_data_access::StoreError::OwnershipMismatch,
+        ) => return concealed(),
+        Err(_) => return recorded_review_unavailable(),
+    };
+    let Some(source) = sources
+        .into_iter()
+        .find(|source| source.position == position)
+    else {
+        return concealed();
+    };
+    let learning_data_access::StudentAssessmentAttemptHistoryResponseSource {
+        response,
+        backend_document,
+        presentation_source,
+        ..
+    } = source;
+    let Some(StudentAssessmentAttemptPresentationSource::Webwork { source, .. }) =
+        presentation_source
+    else {
+        return concealed();
+    };
+    if source.question_id != revision.published_question_id
+        || source.revision_number != revision.revision_number.get()
+    {
+        return recorded_review_unavailable();
+    }
+    let (document, response_available) = match response {
+        None => (backend_document, true),
+        Some(response) => {
+            let replay = async {
+                let seed = match &source.reproduction {
+                    QuestionIssuanceReproductionInput::Seeded { question_seed } => *question_seed,
+                    QuestionIssuanceReproductionInput::Static => return None,
+                };
+                let source =
+                    crate::assessment_delivery::resolve_webwork_source(&state.objects, &source)
+                        .await
+                        .ok()?;
+                let document = state
+                    .webwork
+                    .resume_document(seed, &source, &response)
+                    .await
+                    .ok()?;
+                String::from_utf8(document).ok()
+            }
+            .await;
+            match replay {
+                Some(document) => (Some(document), true),
+                None => (backend_document, false),
+            }
+        }
+    };
+    let Some(document) = document else {
+        return recorded_review_unavailable();
+    };
+    // The final history read is the release instant. Renderer I/O never holds
+    // a transaction or turns a revoked review permission into a document.
+    let final_history = match state
+        .delivery
+        .student_assessment_attempt_history(token, assessment_attempt)
+        .await
+    {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    if permitted_recorded_review_revision_tuple(&final_history, position) != Some(revision) {
+        return concealed();
+    }
+    let response = recorded_review_document_response(document, response_available);
+    if response.status() == StatusCode::OK {
+        response
+    } else {
+        recorded_review_unavailable()
+    }
+}
+
 /// Renders one correct answer only while completed-history disclosure remains authorized.
 pub(crate) async fn answer_review(
     State(state): State<StateData>,
@@ -138,10 +262,36 @@ fn permitted_answer_revision_tuple(
         .map(|question| &question.published_question_revision_tuple)
 }
 
+fn permitted_recorded_review_revision_tuple(
+    evidence: &StudentAssessmentAttemptHistoryEvidence,
+    position: u32,
+) -> Option<&PublishedQuestionRevisionTuple> {
+    evidence
+        .submitted_at
+        .is_some()
+        .then(|| {
+            evidence
+                .history
+                .questions
+                .iter()
+                .find(|question| question.position == position)
+                .map(|question| &question.published_question_revision_tuple)
+        })
+        .flatten()
+}
+
 fn answer_review_unavailable() -> Response {
     // ASVS 16.5.1-16.5.3: no partial answer, backend diagnostics, or source on failure.
     let mut response = preview_backend_document_response(
         "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Correct answer unavailable</title><p>The correct answer could not be loaded. Use Retry correct answer to try again.</p></html>".into(),
+    );
+    *response.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
+    response
+}
+
+fn recorded_review_unavailable() -> Response {
+    let mut response = preview_backend_document_response(
+        "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Recorded question unavailable</title><p>Your recorded Question could not be loaded. Use Retry recorded Question to try again.</p></html>".into(),
     );
     *response.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
     response
@@ -223,6 +373,30 @@ pub(crate) fn preview_backend_document_response(document: String) -> Response {
     }
 }
 
+/// Gives the isolated renderer document one narrow, server-owned review mode.
+/// The shared bridge recognizes this marker and prevents form editing or
+/// submission; the opaque response sandbox remains the enforcement boundary.
+fn recorded_review_document_response(document: String, response_available: bool) -> Response {
+    let Some(document) = without_preview_parent_telemetry(document).and_then(|document| {
+        document.find("<head>").map(|index| {
+            let marker = if response_available {
+                "<meta name=\"ple-review\" content=\"recorded\">"
+            } else {
+                "<meta name=\"ple-review\" content=\"prompt\">"
+            };
+            format!(
+                "{}{}{}",
+                &document[..index + "<head>".len()],
+                marker,
+                &document[index + "<head>".len()..]
+            )
+        })
+    }) else {
+        return concealed();
+    };
+    document_response(document, PREVIEW_DOCUMENT_CSP)
+}
+
 fn without_preview_parent_telemetry(mut document: String) -> Option<String> {
     // The renderer always includes this parent-frame telemetry/result-popover
     // loader. Its frameElement access cannot run in an opaque preview, which has
@@ -286,4 +460,30 @@ fn document_response(document: String, content_security_policy: &'static str) ->
         HeaderValue::from_static("nosniff"),
     );
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::{body::to_bytes, http::header};
+
+    use super::{PREVIEW_DOCUMENT_CSP, recorded_review_document_response};
+
+    #[tokio::test]
+    async fn recorded_review_marks_the_renderer_document_for_read_only_bridge_behavior() {
+        let response = recorded_review_document_response(
+            "<!doctype html><html><head></head><body><form><input value=\"saved\"></form></body></html>"
+                .to_string(),
+            true,
+        );
+        assert!(response.status().is_success());
+        assert_eq!(
+            response.headers().get(header::CONTENT_SECURITY_POLICY),
+            Some(&header::HeaderValue::from_static(PREVIEW_DOCUMENT_CSP))
+        );
+        let body = to_bytes(response.into_body(), 4096)
+            .await
+            .expect("review document body");
+        let body = std::str::from_utf8(&body).expect("UTF-8 review document");
+        assert!(body.contains("<meta name=\"ple-review\" content=\"recorded\">"));
+    }
 }

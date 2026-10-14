@@ -26,6 +26,7 @@ import { parseAssessmentAttemptId } from "../../navigation/public_route";
 import { decodeQuestionContentBlock } from "./question_response_format";
 import { decodeStudentFeedback } from "./question_delivery";
 import { decodeClassStatistics } from "./assessment_attempt";
+import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
 
 function state(value: unknown, path: string): "submitted" | "closed" {
   const decoded = decodeString(value, path);
@@ -115,6 +116,8 @@ export function decodeStudentAssessmentAttemptHistory(
           "publishedQuestionRevisionTuple",
           "responseState",
           "response",
+          "presentation",
+          "backendReview",
           "backendAnswerReview",
           "correctness",
           "pointsEarned",
@@ -158,6 +161,16 @@ export function decodeStudentAssessmentAttemptHistory(
             : decodeStringEnum(item.backendAnswerReview, `${questionPath}.backendAnswerReview`, [
                 "available",
               ] as const);
+        const backendReview =
+          item.backendReview === undefined
+            ? undefined
+            : decodeStringEnum(item.backendReview, `${questionPath}.backendReview`, [
+                "available",
+              ] as const);
+        const presentation =
+          item.presentation === undefined
+            ? undefined
+            : decodeIssuedQuestionPresentation(item.presentation, `${questionPath}.presentation`);
         return {
           position: decodePositiveInteger(
             field(item, "position", questionPath),
@@ -190,6 +203,8 @@ export function decodeStudentAssessmentAttemptHistory(
                 ),
               }),
           ...(backendAnswerReview === undefined ? {} : { backendAnswerReview }),
+          ...(backendReview === undefined ? {} : { backendReview }),
+          ...(presentation === undefined ? {} : { presentation }),
           ...(response === undefined
             ? {}
             : {

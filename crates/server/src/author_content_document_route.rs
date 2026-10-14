@@ -7,12 +7,13 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Request, State},
     http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use question_model::{AssessmentAttemptId, AuthorContentLibraryId};
+use learning_data_access::StudentAssessmentAttemptPresentationSource;
+use question_model::{AssessmentAttemptId, AuthorContentLibraryId, PublishedQuestionRevisionTuple};
 
 use crate::{
     assessment_delivery::{StateData, concealed, reproduce_selected_issued_presentation, student},
@@ -58,6 +59,96 @@ pub(crate) async fn document(
     };
     let browser_origin = crate::auth::document_parent_origin(&state.browser_origin, accepted);
     author_content_document_response(&author_content, browser_origin.as_ref())
+}
+
+/// Serves retained native author content during completed Student review.
+///
+/// This has its own fixed route because the ordinary document route is for an
+/// active Attempt only.  The completed-history reader proves ownership and
+/// completion, while the retained presentation provides the exact source that
+/// was issued for this position.  No response, grading, or author-content
+/// source leaves this document boundary.
+pub(crate) async fn recorded_review_document(
+    State(state): State<StateData>,
+    Path((assessment_attempt, position)): Path<(String, u32)>,
+    accepted: Option<axum::extract::Extension<crate::auth::AcceptedBrowserOrigin>>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    // The route has no caller-selected document input.
+    if parts.method != axum::http::Method::GET
+        || parts.uri.query().is_some()
+        || axum::body::to_bytes(body, 0).await.is_err()
+    {
+        return concealed();
+    }
+    let assessment_attempt = match AssessmentAttemptId::from_str(&assessment_attempt) {
+        Ok(value) if position > 0 => value,
+        _ => return concealed(),
+    };
+    let token = match student(&state, &parts.headers).await {
+        Ok(value) => value,
+        Err(value) => return *value,
+    };
+    let history = match state
+        .delivery
+        .student_assessment_attempt_history(token, assessment_attempt)
+        .await
+    {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let Some(revision) = permitted_recorded_author_content_revision(&history, position) else {
+        return concealed();
+    };
+    let sources = match state
+        .delivery
+        .student_assessment_attempt_history_response_sources(token, assessment_attempt)
+        .await
+    {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let Some(source) = sources
+        .into_iter()
+        .find(|source| source.position == position)
+    else {
+        return concealed();
+    };
+    let Some(StudentAssessmentAttemptPresentationSource::Ple {
+        source: native_source,
+        ..
+    }) = source.presentation_source
+    else {
+        return concealed();
+    };
+    if native_source.question_id != revision.published_question_id
+        || native_source.revision_number != revision.revision_number.get()
+    {
+        return concealed();
+    }
+    let issued = match reproduce_selected_issued_presentation(source.presentation_evidence) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let Some(author_content) = issued.author_content else {
+        return concealed();
+    };
+    let browser_origin = crate::auth::document_parent_origin(&state.browser_origin, accepted);
+    author_content_document_response(&author_content, browser_origin.as_ref())
+}
+
+fn permitted_recorded_author_content_revision(
+    evidence: &learning_data_access::StudentAssessmentAttemptHistoryEvidence,
+    position: u32,
+) -> Option<&PublishedQuestionRevisionTuple> {
+    evidence.submitted_at.as_ref()?;
+    evidence
+        .history
+        .questions
+        .iter()
+        .find(|question| question.position == position)
+        .map(|question| &question.published_question_revision_tuple)
 }
 
 /// Builds one isolated author-content document after the caller has authorized

@@ -263,8 +263,6 @@ Columns:
 | partial_credit_enabled | boolean | NOT NULL |
 | question_variation_rule | ple_data.question_variation_rule | NOT NULL |
 | assessment_question_order_rule | ple_data.question_order_rule | NOT NULL |
-| feedback_per_item_correctness | ple_data.feedback_release | NOT NULL |
-| feedback_submitted_response | ple_data.feedback_release | NOT NULL |
 | feedback_question_answer | ple_data.feedback_release | NOT NULL |
 | feedback_question_answer_explanation | ple_data.feedback_release | NOT NULL |
 | feedback_class_statistics | ple_data.feedback_release | NOT NULL |
@@ -833,6 +831,7 @@ Columns:
 | course_instance_id | ple_data.course_instance_id | NOT NULL |
 | question_attempt_id | uuid | NOT NULL |
 | student_response | jsonb | NOT NULL |
+| saved_response_revision | bigint | NOT NULL |
 | saved_at | timestamptz | NOT NULL |
 | finalized_at | timestamptz | NULL |
 | assessment_submission_id | uuid | NULL |
@@ -841,6 +840,7 @@ Constraints:
 
 - PRIMARY KEY (course_instance_id, question_attempt_id)
 - CHECK student_response: `(jsonb_typeof(student_response) = 'object')`
+- CHECK saved_response_revision: `(saved_response_revision > 0)`
 
 Foreign keys:
 

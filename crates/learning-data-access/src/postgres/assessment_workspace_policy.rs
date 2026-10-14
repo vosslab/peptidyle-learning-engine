@@ -46,14 +46,6 @@ pub(super) fn feedback_rules(
     row: &sqlx::postgres::PgRow,
 ) -> Result<StudentFeedbackReleaseRule, StoreError> {
     Ok(StudentFeedbackReleaseRule {
-        per_item_correctness: feedback_timing(
-            row.try_get("feedback_per_item_correctness")
-                .map_err(map_sqlx_error)?,
-        )?,
-        submitted_response: feedback_timing(
-            row.try_get("feedback_submitted_response")
-                .map_err(map_sqlx_error)?,
-        )?,
         question_answer: feedback_timing(
             row.try_get("feedback_question_answer")
                 .map_err(map_sqlx_error)?,

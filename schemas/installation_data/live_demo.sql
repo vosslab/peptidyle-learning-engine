@@ -439,8 +439,6 @@ BEGIN
               WHERE course_instance_id = v_course_instance_id),
             NULL,
             1800, NULL, 'accept', 'new_variation', 'authored_order',
-            p_feedback_per_item_correctness => 'after_submit',
-            p_feedback_submitted_response => 'after_submit',
             p_feedback_question_answer => 'never',
             p_feedback_question_answer_explanation => 'never',
             p_feedback_class_statistics => 'never',

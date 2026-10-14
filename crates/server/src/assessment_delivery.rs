@@ -151,8 +151,16 @@ pub fn assessment_delivery_router(
             get(crate::webwork_document_route::answer_review),
         )
         .route(
+            "/api/assessment-attempts/{assessment_attempt}/questions/{position}/recorded-review-document",
+            get(crate::webwork_document_route::recorded_review),
+        )
+        .route(
             "/api/assessment-attempts/{assessment_attempt}/questions/{position}/author-content-document",
             get(crate::author_content_document_route::document),
+        )
+        .route(
+            "/api/assessment-attempts/{assessment_attempt}/questions/{position}/recorded-author-content-document",
+            get(crate::author_content_document_route::recorded_review_document),
         )
         .route(
             "/api/assessment-attempts/{assessment_attempt}/responses/{position}",
@@ -240,8 +248,8 @@ async fn student_question(
         .student_assessment_attempt_saved_response(token, assessment_attempt, query.position)
         .await
     {
-        Ok(Some(value)) => match submission::restore_saved_response(&value, &issued) {
-            Ok(value) => Some(value),
+        Ok(Some(value)) => match submission::restore_saved_response(&value.response, &issued) {
+            Ok(response) => Some((response, value.saved_response_revision)),
             Err(()) => return concealed(),
         },
         Ok(None) => None,
@@ -259,7 +267,10 @@ async fn student_question(
                 prompt: issued.presentation.prompt,
                 response: issued.presentation.response,
             },
-            saved_response,
+            saved_response: saved_response
+                .as_ref()
+                .map(|(response, _)| response.clone()),
+            saved_response_revision: saved_response.map_or(0, |(_, revision)| revision),
         })
         .into_response(),
     )
@@ -271,6 +282,7 @@ struct SelectedPresentationResponse {
     position: u32,
     presentation: StudentQuestionPresentation,
     saved_response: Option<StudentResponse>,
+    saved_response_revision: u64,
 }
 
 pub(super) fn reproduce_selected_issued_presentation(

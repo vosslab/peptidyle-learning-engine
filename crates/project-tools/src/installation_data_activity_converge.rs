@@ -356,15 +356,18 @@ async fn save_responses(
     count: u64,
 ) -> Result<()> {
     for position in 1..=count {
-        let presentation = selected_presentation(api, student, attempt, position).await?;
-        let response = response_from_presentation(&presentation)?;
+        let selected_presentation = selected_presentation(api, student, attempt, position).await?;
+        let response = response_from_presentation(&selected_presentation.response)?;
         let receipt = expect_status(
             api.request(
                 student,
                 "Student response save",
                 Method::PUT,
                 &format!("/api/assessment-attempts/{attempt}/responses/{position}"),
-                Some(json!({"response": response})),
+                Some(json!({
+                    "response": response,
+                    "expectedSavedResponseRevision": selected_presentation.saved_response_revision,
+                })),
             )
             .await?,
             StatusCode::OK,
@@ -375,7 +378,8 @@ async fn save_responses(
                 == json!({
                     "assessmentAttemptId": attempt,
                     "position": position,
-                    "responseState": "saved"
+                    "responseState": "saved",
+                    "savedResponseRevision": selected_presentation.saved_response_revision + 1,
                 }),
             "Live Demo Student response save receipt is invalid"
         );
@@ -388,7 +392,7 @@ async fn selected_presentation(
     student: &TemporarySession,
     attempt: &str,
     position: u64,
-) -> Result<Value> {
+) -> Result<SelectedPresentation> {
     let value = expect_status(
         api.request(
             student,
@@ -403,12 +407,24 @@ async fn selected_presentation(
     )?;
     let object = closed_object(
         &value,
-        &["position", "presentation", "savedResponse"],
+        &[
+            "position",
+            "presentation",
+            "savedResponse",
+            "savedResponseRevision",
+        ],
         "Student presentation",
     )?;
+    let saved_response = object
+        .get("savedResponse")
+        .context("Live Demo Student presentation is invalid")?;
+    let saved_response_revision = object
+        .get("savedResponseRevision")
+        .and_then(Value::as_u64)
+        .context("Live Demo Student presentation is invalid")?;
     ensure!(
         object.get("position").and_then(Value::as_u64) == Some(position)
-            && object.contains_key("savedResponse"),
+            && (saved_response.is_null() == (saved_response_revision == 0)),
         "Live Demo Student presentation is invalid"
     );
     let presentation = object
@@ -419,10 +435,19 @@ async fn selected_presentation(
         &["publishedQuestionRevisionTuple", "prompt", "response"],
         "Student presentation",
     )?;
-    presentation
+    let response = presentation
         .get("response")
         .cloned()
-        .context("Live Demo Student presentation is invalid")
+        .context("Live Demo Student presentation is invalid")?;
+    Ok(SelectedPresentation {
+        response,
+        saved_response_revision,
+    })
+}
+
+struct SelectedPresentation {
+    response: Value,
+    saved_response_revision: u64,
 }
 
 async fn submit_attempt(api: &ProductApi, student: &TemporarySession, attempt: &str) -> Result<()> {

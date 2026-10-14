@@ -253,6 +253,9 @@ CREATE TABLE ple_private.assessment_attempt_saved_response (
     course_instance_id ple_data.course_instance_id NOT NULL,
     question_attempt_id uuid NOT NULL,
     student_response jsonb NOT NULL CHECK (jsonb_typeof(student_response) = 'object'),
+    -- Monotone working-state revision. The Student supplies the version it
+    -- last observed so a delayed request cannot replace a later response.
+    saved_response_revision bigint NOT NULL DEFAULT 1 CHECK (saved_response_revision > 0),
     saved_at timestamptz NOT NULL,
     finalized_at timestamptz,
     assessment_submission_id uuid,

@@ -9,6 +9,7 @@ import type { QuestionContentBlock } from "../../generated/api/QuestionContentBl
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
 import type { ClassStatistics } from "../../generated/api/ClassStatistics";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import { parseAssessmentAttemptId } from "../navigation/public_route";
 
 export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback {
@@ -18,6 +19,10 @@ export interface StudentAssessmentAttemptHistoryQuestion extends StudentFeedback
   readonly responseState: "submitted" | "closed";
   /** Readable recorded response, independently released from grading. */
   readonly response?: ReadonlyArray<QuestionContentBlock>;
+  /** Immutable native Question presentation shown in this Attempt. */
+  readonly presentation?: QuestionPresentation;
+  /** Permission to fetch the independently authorized recorded backend document. */
+  readonly backendReview?: "available";
   /** Permission to fetch the independently authorized correct-answer document. */
   readonly backendAnswerReview?: "available";
   /** PLE-managed Hints released by the Hints disclosure timing. */
@@ -36,6 +41,30 @@ export function backendAnswerReviewDocumentUrl(
     throw new Error("Invalid completed Assessment Attempt position");
   }
   return `/api/assessment-attempts/${parsedAssessmentAttemptId}/questions/${position}/answer-review-document`;
+}
+
+/** Derives the read-only recorded backend Question route from existing public IDs. */
+export function backendRecordedReviewDocumentUrl(
+  assessmentAttemptId: AssessmentAttemptId,
+  position: number,
+): string {
+  const parsedAssessmentAttemptId = parseAssessmentAttemptId(assessmentAttemptId);
+  if (parsedAssessmentAttemptId === null || !Number.isSafeInteger(position) || position < 1) {
+    throw new Error("Invalid completed Assessment Attempt position");
+  }
+  return `/api/assessment-attempts/${parsedAssessmentAttemptId}/questions/${position}/recorded-review-document`;
+}
+
+/** Derives the retained native Author Content route for completed review. */
+export function recordedAuthorContentDocumentUrl(
+  assessmentAttemptId: AssessmentAttemptId,
+  position: number,
+): string {
+  const parsedAssessmentAttemptId = parseAssessmentAttemptId(assessmentAttemptId);
+  if (parsedAssessmentAttemptId === null || !Number.isSafeInteger(position) || position < 1) {
+    throw new Error("Invalid completed Assessment Attempt position");
+  }
+  return `/api/assessment-attempts/${parsedAssessmentAttemptId}/questions/${position}/recorded-author-content-document`;
 }
 
 /** A no-store selected-history projection with protected fields omitted. */

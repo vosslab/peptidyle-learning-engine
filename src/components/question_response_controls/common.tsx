@@ -137,7 +137,7 @@ export interface QuestionResponseControlBaseProps {
   readonly position?: number;
   /**
    * The active backend document registers its one generic form capture with
-   * Assessment Attempt delivery so Finish can save that same opaque response.
+   * Assessment Attempt delivery so saving, navigation, and Submit capture the latest response.
    */
   readonly registerBackendOwnedCapture?: (capture: () => Promise<boolean>) => () => void;
 }

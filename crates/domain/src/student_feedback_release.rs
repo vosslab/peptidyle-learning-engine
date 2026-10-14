@@ -184,20 +184,11 @@ pub fn evaluate_allowed_student_feedback_release(
         // Automated scores have no Instructor timing control. A submitted,
         // current grading result is disclosed by the caller.
         score: submitted_at.is_some(),
-        per_item_correctness: timing_released(
-            rule.per_item_correctness,
-            now,
-            submitted_at,
-            policy.due_at.value,
-            policy.closes_at.value,
-        ),
-        submitted_response: timing_released(
-            rule.submitted_response,
-            now,
-            submitted_at,
-            policy.due_at.value,
-            policy.closes_at.value,
-        ),
+        // Completed review always includes the Student's own recorded work and
+        // correctness. Correct answers and all optional teaching content retain
+        // their independent Instructor-controlled disclosure timings.
+        per_item_correctness: submitted_at.is_some(),
+        submitted_response: submitted_at.is_some(),
         question_answer: timing_released(
             rule.question_answer,
             now,
@@ -283,11 +274,37 @@ fn timing_released(
 #[cfg(test)]
 mod tests {
     use question_model::{
-        GradingResult, QuestionAnswer, QuestionAnswerExplanation, QuestionContentBlock,
-        QuestionFeedback,
+        GradingResult, LateWorkRule, QuestionAnswer, QuestionAnswerExplanation,
+        QuestionContentBlock, QuestionFeedback, StudentFeedbackReleaseRule,
+        StudentFeedbackReleaseTiming, Timestamp,
     };
 
-    use super::{StudentFeedbackReleaseDecision, project_student_feedback};
+    use crate::effective_assessment_properties::{
+        AssessmentPolicySource, EffectiveAssessmentPolicy, EffectiveAssessmentPolicyValue,
+    };
+
+    use super::{
+        StudentFeedbackReleaseDecision, evaluate_allowed_student_feedback_release,
+        project_student_feedback,
+    };
+
+    fn resolved<T>(value: T) -> EffectiveAssessmentPolicyValue<T> {
+        EffectiveAssessmentPolicyValue {
+            value,
+            source: AssessmentPolicySource::Base,
+        }
+    }
+
+    fn policy() -> EffectiveAssessmentPolicy {
+        EffectiveAssessmentPolicy {
+            available_at: resolved(None),
+            due_at: resolved(None),
+            closes_at: resolved(None),
+            assessment_attempt_time_limit_seconds: resolved(None),
+            attempt_limit: resolved(None),
+            late_work_rule: resolved(LateWorkRule::Reject),
+        }
+    }
 
     fn question_feedback() -> QuestionFeedback {
         QuestionFeedback {
@@ -353,5 +370,34 @@ mod tests {
         let public = serde_json::to_value(disclosed).expect("Student Feedback serializes");
         assert!(public.get("questionAnswer").is_none());
         assert!(public.get("questionAnswerExplanation").is_none());
+    }
+
+    #[test]
+    fn completed_review_releases_own_work_while_optional_content_remains_hidden() {
+        let rule = StudentFeedbackReleaseRule {
+            question_answer: StudentFeedbackReleaseTiming::Never,
+            question_answer_explanation: StudentFeedbackReleaseTiming::Never,
+            class_statistics: StudentFeedbackReleaseTiming::Never,
+            hints: StudentFeedbackReleaseTiming::Never,
+            worked_solutions: StudentFeedbackReleaseTiming::Never,
+        };
+        let now = Timestamp::from_unix_millis(1_000);
+
+        let active = evaluate_allowed_student_feedback_release(&policy(), rule, now, None);
+        assert!(!active.score);
+        assert!(!active.per_item_correctness);
+        assert!(!active.submitted_response);
+        assert!(!active.question_answer);
+        assert!(!active.question_answer_explanation);
+
+        let completed = evaluate_allowed_student_feedback_release(&policy(), rule, now, Some(now));
+        assert!(completed.score);
+        assert!(completed.per_item_correctness);
+        assert!(completed.submitted_response);
+        assert!(!completed.question_answer);
+        assert!(!completed.question_answer_explanation);
+        assert!(!completed.class_statistics);
+        assert!(!completed.hints);
+        assert!(!completed.worked_solutions);
     }
 }

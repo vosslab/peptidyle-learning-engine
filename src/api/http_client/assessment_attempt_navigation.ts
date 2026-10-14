@@ -5,7 +5,7 @@ import type {
   StudentAssessmentAttemptContext,
   StudentAssessmentAttemptNavigationClient,
   StudentAssessmentAttemptPresentation,
-  StudentAssessmentAttemptResponseSaveAcknowledgement,
+  StudentAssessmentAttemptResponseSaveResult,
   StudentAssessmentAttemptSubmissionResult,
 } from "../assessment_attempt_navigation";
 import {
@@ -13,6 +13,7 @@ import {
   decodeStudentAssessmentAttemptPresentation,
   decodeStudentAssessmentAttemptProgress,
   decodeStudentAssessmentAttemptResponseSaveAcknowledgement,
+  decodeStudentAssessmentAttemptResponseSaveConflict,
   decodeStudentAssessmentAttemptSubmissionResult,
 } from "../decoders/assessment_attempt_navigation";
 import { decodeStudentResponse } from "../decoders/question_delivery";
@@ -104,14 +105,24 @@ export function createStudentAssessmentAttemptNavigationClient(
       assessmentAttemptId,
       position,
       response,
-    ): Promise<StudentAssessmentAttemptResponseSaveAcknowledgement> => {
+      expectedSavedResponseRevision,
+    ): Promise<StudentAssessmentAttemptResponseSaveResult> => {
       const path = `${attemptPath(assessmentAttemptId)}/responses/${positionPathSegment(position)}`;
       const request = decodeStudentResponse(response, "request.response");
+      if (!Number.isSafeInteger(expectedSavedResponseRevision) || expectedSavedResponseRevision < 0)
+        throw new ApiProtocolError(
+          "Expected saved response revision must be a nonnegative integer",
+        );
       const result = await requestSameOrigin(fetcher, basePath, path, {
         method: "PUT",
-        body: { response: request },
+        body: { response: request, expectedSavedResponseRevision },
       });
       requireNoStore(result, path);
+      if (result.status === 412)
+        return decodeStudentAssessmentAttemptResponseSaveConflict(
+          await boundedResponseJson(result, path),
+          "response",
+        );
       if (!result.ok) throw new ApiRequestError(result.status, path);
       if (result.status !== 200)
         throw new ApiProtocolError(`API response ${path} must use status 200`);

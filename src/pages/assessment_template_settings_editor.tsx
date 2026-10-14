@@ -11,8 +11,6 @@ import type {
 import { assessmentTypeHasOneAttempt } from "./assessment_template_settings_model";
 
 const FEEDBACK_FIELDS = [
-  ["per_item_correctness", "Per-item correctness"],
-  ["submitted_response", "Submitted response"],
   ["question_answer", "Question Answer"],
   ["question_answer_explanation", "Question Answer Explanation"],
   ["class_statistics", "Class statistics"],

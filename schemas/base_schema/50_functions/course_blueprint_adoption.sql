@@ -101,8 +101,6 @@ BEGIN
                 WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END,
             'assessment_question_order_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentQuestionOrderRule}')
                 WHEN 'authoredOrder' THEN 'authored_order' WHEN 'shuffled' THEN 'shuffled' END,
-            'feedback_per_item_correctness', source_content #> '{defaults,student_feedback_release_rule,per_item_correctness}',
-            'feedback_submitted_response', source_content #> '{defaults,student_feedback_release_rule,submitted_response}',
             'feedback_question_answer', source_content #> '{defaults,student_feedback_release_rule,question_answer}',
             'feedback_question_answer_explanation', source_content #> '{defaults,student_feedback_release_rule,question_answer_explanation}',
             'feedback_class_statistics', source_content #> '{defaults,student_feedback_release_rule,class_statistics}',
@@ -215,8 +213,7 @@ BEGIN
             NULL, NULL, NULL,
             candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
             candidate.late_work_rule, candidate.question_variation_rule,
-            candidate.assessment_question_order_rule, candidate.feedback_per_item_correctness,
-            candidate.feedback_submitted_response,
+            candidate.assessment_question_order_rule,
             candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
             candidate.feedback_class_statistics, assessment_type_value,
             candidate.feedback_hints, candidate.feedback_worked_solutions,

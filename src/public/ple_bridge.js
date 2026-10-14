@@ -192,6 +192,27 @@
   }
 
   if (opaquePreview) {
+    const review = document.querySelector('meta[name="ple-review"]')?.getAttribute("content");
+    if (review === "recorded" || review === "prompt") {
+      // The server's no-write review route owns this mode. Keep recorded values
+      // visible while the opaque sandbox separately prevents submission.
+      const makeReadOnly = () => {
+        if (review === "prompt" && document.getElementById("ple-review-status") === null) {
+          const notice = document.createElement("p");
+          notice.id = "ple-review-status";
+          notice.setAttribute("role", "status");
+          notice.textContent =
+            "This is the original Question. Your recorded response could not be displayed. Retry recorded Question to load it.";
+          document.body?.prepend(notice);
+        }
+        for (const control of document.querySelectorAll("input, select, textarea, button")) {
+          control.disabled = true;
+        }
+      };
+      makeReadOnly();
+      window.addEventListener("load", makeReadOnly);
+      document.addEventListener("submit", (event) => event.preventDefault(), true);
+    }
     reportOpaquePreviewHeight();
     if (new URLSearchParams(window.location.search).get("draftTest") === "true") {
       window.addEventListener("message", captureOpaqueDraftTestResponse);
@@ -204,7 +225,16 @@
   }
 
   function send(form, captureId) {
-    const message = { kind: responseKind, pairs: formPairs(form) };
+    const pairs = formPairs(form);
+    const snapshot = JSON.stringify(pairs);
+    if (snapshot !== lastSnapshot) edited = true;
+    if (captureId !== undefined && !edited) {
+      window.parent.postMessage({ kind: "ple.backendOwned.unchanged", captureId }, parentOrigin);
+      return;
+    }
+    if (captureId === undefined && snapshot === lastSnapshot) return;
+    lastSnapshot = snapshot;
+    const message = { kind: responseKind, pairs };
     if (captureId !== undefined) message.captureId = captureId;
     window.parent.postMessage(message, parentOrigin);
   }
@@ -212,6 +242,20 @@
   function firstForm() {
     return document.querySelector("form");
   }
+
+  let lastSnapshot;
+  let edited = false;
+  let editTimer;
+  function reportEdit(event) {
+    const form = event.target?.form;
+    if (!(form instanceof HTMLFormElement)) return;
+    // Widget handlers may synchronize hidden answer fields later in this event.
+    // One queued read coalesces input/change while preserving all form pairs.
+    window.clearTimeout(editTimer);
+    editTimer = window.setTimeout(() => send(form), 0);
+  }
+  document.addEventListener("input", reportEdit);
+  document.addEventListener("change", reportEdit);
 
   document.addEventListener("submit", (event) => {
     const form = event.target;
@@ -229,5 +273,12 @@
     if (form !== null) send(form, match[1]);
   });
 
-  window.parent.postMessage({ kind: "ple.backendOwned.ready" }, parentOrigin);
+  function ready() {
+    const form = firstForm();
+    if (!(form instanceof HTMLFormElement)) return;
+    lastSnapshot = JSON.stringify(formPairs(form));
+    window.parent.postMessage({ kind: "ple.backendOwned.ready" }, parentOrigin);
+  }
+  if (document.readyState === "complete") ready();
+  else window.addEventListener("load", ready, { once: true });
 })();

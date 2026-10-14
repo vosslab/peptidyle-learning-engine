@@ -10,4 +10,15 @@ def contracts() -> tuple[ScenarioContract, ...]:
 	return (
 		auth.contracts()
 		+ sysadmin_student_data_access.contracts()
+		+ (
+			ScenarioContract(
+				scenario_id="student_work",
+				spec_path="tests/playwright/e2e/student_work.spec.ts",
+				personas=("elena_instructor", "avery_student"),
+				baseline_reads=("seeded_accounts", "base_course"),
+				ui_creates=("assessment", "response"),
+				visible_observation="student_preserves_backend_and_native_work_before_navigation_and_review",
+				service_receipt="renderer_delivery",
+			),
+		)
 	)

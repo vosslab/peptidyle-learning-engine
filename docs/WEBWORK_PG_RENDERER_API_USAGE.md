@@ -109,9 +109,11 @@ browser never selects an upstream URL.
 The PLE bridge is loaded only inside the backend-owned document. It serializes
 the first form with `new FormData(form)` into a canonical JSON array of
 `[name, value]` pairs. This preserves form order and duplicate names, including
-repeated checkboxes and legitimate PG hidden fields. The bridge sends the pair
-array to the parent for ordinary submit events and for a parent-requested
-capture; the capture reply carries a per-request identifier.
+repeated checkboxes and legitimate PG hidden fields. For Student delivery, it
+queues this opaque snapshot after ordinary form `input` and `change` events,
+then sends it to the parent. A parent-requested capture carries a per-request
+identifier; an untouched document still returns its current form state. The
+bridge does not interpret a control type or synthesize WeBWorK semantics.
 
 PLE stores the opaque bounded pair array as the shared `BackendOwned` Student
 Response. It does not inspect a field name to determine control behavior or
@@ -126,6 +128,22 @@ immutable source, seed, and submitted pair array. It stores no WeBWorK state
 row and passes `None` through the shared backend-state slot. The renderer's
 normalized score is validated and recorded as the PLE grading outcome; answer
 keys and renderer-private state never enter the Student response or document.
+
+## Completed-Attempt recorded work
+
+The recorded-work renderer path reuses the immutable source, exact Revision,
+Attempt seed, and saved opaque pair array to produce a read-only resume
+document. It does not add `submitAnswers`, request grading, or disclose correct
+answers. PLE authorizes completed-history access before source or renderer I/O
+and again after it, without holding a database transaction over renderer work.
+
+The completed-history marker `backendReview: "available"` means the owning
+Student may request that document; it does not assert that rendering will
+succeed. When a saved response cannot be replayed, PLE can use the retained
+original backend document with an explicit unavailable-response notice. Score
+and correctness remain outside this renderer document. The frame uses the
+existing opaque script-only review sandbox and carries no save, submission, or
+grading operation.
 
 ## Completed-Attempt correct answers
 

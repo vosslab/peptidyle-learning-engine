@@ -40,6 +40,7 @@ pub(super) async fn read(
             Ok(StudentAssessmentAttemptHistoryResponseSource {
                 position,
                 response,
+                backend_document: row.try_get("backend_document").map_err(map_sqlx_error)?,
                 general_feedback: row.try_get("general_feedback").map_err(map_sqlx_error)?,
                 hint: row.try_get("hint").map_err(map_sqlx_error)?,
                 worked_solution: row.try_get("worked_solution").map_err(map_sqlx_error)?,

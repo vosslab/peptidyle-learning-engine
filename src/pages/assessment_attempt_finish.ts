@@ -1,4 +1,4 @@
-// assessment_attempt_finish.ts - ordered backend document capture for Assessment Attempt finish.
+// assessment_attempt_finish.ts - ordered response saving for navigation and Attempt submission.
 
 export type BackendOwnedCapture = () => Promise<boolean>;
 
@@ -19,7 +19,7 @@ export async function saveCompleteResponseBeforeAttemptSubmission(
   return responseIsComplete ? save() : true;
 }
 
-/** Runs the active backend-document capture before the ordinary save/finalize lifecycle. */
+/** Reads the latest response, saves it, and only then continues navigation or submission. */
 export async function saveCapturedBackendOwnedResponse<T>(
   capture: BackendOwnedCapture | undefined,
   save: () => Promise<boolean>,

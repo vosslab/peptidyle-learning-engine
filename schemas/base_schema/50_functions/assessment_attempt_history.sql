@@ -79,8 +79,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                -- Disclosure settings remain current so an Instructor can release
                -- Quiz/Exam answers when a Student never completes the Assessment.
                jsonb_build_object(
-                   'per_item_correctness', disclosure_policy.feedback_per_item_correctness,
-                   'submitted_response', disclosure_policy.feedback_submitted_response,
                    'question_answer', disclosure_policy.feedback_question_answer,
                    'question_answer_explanation', disclosure_policy.feedback_question_answer_explanation,
                    'class_statistics', disclosure_policy.feedback_class_statistics,
@@ -228,8 +226,9 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
       JOIN ple_data.course_instance AS course ON course.course_instance_id = history.course_instance_id
 $$;
 
--- Return only the newest submitted Attempt that has at least one released
--- feedback category. The Attempt review rechecks every disclosure rule.
+-- Return the newest submitted Attempt. Completed review always includes the
+-- Student's own recorded work and current grading outcome; the Attempt review
+-- separately rechecks optional teaching-content disclosure.
 -- ASVS 2.3.1/14.2.6: the API owner resolves active Course membership; this
 -- private read rechecks exact Student ownership and returns only a disclosed Attempt.
 SET LOCAL ROLE ple_private_owner;
@@ -250,36 +249,11 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        AND attempt.student_record_id = p_student_record_id
       JOIN ple_private.assessment_submission AS submission
         ON submission.assessment_attempt_id = attempt.assessment_attempt_id
-      JOIN ple_data.assessment_policy_snapshot AS policy
-        ON policy.assessment_policy_snapshot_id = attempt.assessment_policy_snapshot_id
      WHERE assessment.course_instance_id = p_course_instance_id
        AND ple_api.current_session_account_owns_student_record(
            p_course_instance_id, p_student_record_id
        )
        AND ple_api.course_student_work_is_ordinarily_visible(p_course_instance_id)
-       AND (
-           submission.submitted_at IS NOT NULL
-           OR ple_private.student_assessment_feedback_is_released(
-               policy.feedback_per_item_correctness, submission.submitted_at,
-               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
-           )
-           OR ple_private.student_assessment_feedback_is_released(
-               policy.feedback_submitted_response, submission.submitted_at,
-               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
-           )
-           OR ple_private.student_assessment_feedback_is_released(
-               policy.feedback_question_answer, submission.submitted_at,
-               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
-           )
-           OR ple_private.student_assessment_feedback_is_released(
-               policy.feedback_question_answer_explanation, submission.submitted_at,
-               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
-           )
-           OR ple_private.student_assessment_feedback_is_released(
-               policy.feedback_class_statistics, submission.submitted_at,
-               policy.due_at, policy.closes_at, pg_catalog.statement_timestamp()
-           )
-       )
      ORDER BY submission.submitted_at DESC, attempt.assessment_attempt_id DESC
      LIMIT 1
 $$;
@@ -326,7 +300,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history_response_sources(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
+    "position" integer, assessment_attempt_id uuid, student_response jsonb, backend_document text, backend text, question_attempt_id uuid,
     published_question_id text, revision_number integer, question_title text, general_feedback text, hint text, worked_solution text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
@@ -356,6 +330,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT issued.issued_position,
            owned.assessment_attempt_id,
            submission.student_response,
+           presentation.backend_document,
            binding.backend,
            question_attempt.question_attempt_id,
            issued.published_question_id,
@@ -426,7 +401,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
-    "position" integer, assessment_attempt_id uuid, student_response jsonb, backend text, question_attempt_id uuid,
+    "position" integer, assessment_attempt_id uuid, student_response jsonb, backend_document text, backend text, question_attempt_id uuid,
     published_question_id text, revision_number integer, question_title text, general_feedback text, hint text, worked_solution text, source_object_record_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
@@ -434,7 +409,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
     question_image_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT "position" + 1, assessment_attempt_id, student_response, backend, question_attempt_id,
+    SELECT "position" + 1, assessment_attempt_id, student_response, backend_document, backend, question_attempt_id,
            published_question_id, revision_number, question_title, general_feedback, hint, worked_solution, source_object_record_id, source_object_address,
            source_object_checksum, webwork_pg_path, question_seed,
            generated_parameter_sha256,

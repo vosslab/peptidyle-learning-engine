@@ -23,7 +23,7 @@ const READY_KIND = "ple.backendOwned.ready";
 const RESPONSE_KIND = "ple.backendOwned.response";
 const MAX_RESPONSE_BYTES = 65_536;
 
-type BackendOwnedPhase = "loading" | "ready" | "capturing" | "saved" | "failed";
+type BackendOwnedPhase = "loading" | "ready" | "capturing";
 
 interface BackendOwnedResponseMessage {
   readonly kind: typeof RESPONSE_KIND;
@@ -104,15 +104,17 @@ export function backendOwnedResponseFromPairs(
 
 /**
  * A captured form is working state. "Response saved." appears only after this
- * Attempt accepts that response, or after the local phase records that acceptance.
+ * Attempt accepts that response. Document readiness never represents persistence.
  */
 export function backendOwnedStatusMessage(
   phase: BackendOwnedPhase,
   localMessage: string,
   persistenceNotice?: ResponsePersistenceNotice,
   persistenceDetail?: string,
+  captureError?: string,
 ): string {
-  if (phase === "loading" || phase === "capturing" || phase === "failed") return localMessage;
+  if (captureError !== undefined) return captureError;
+  if (phase === "loading" || phase === "capturing") return localMessage;
   if (persistenceNotice === "error") return persistenceDetail ?? "Response was not saved.";
   if (persistenceNotice === "saving") return "Saving response...";
   if (persistenceNotice === "saved") return "Response saved.";
@@ -142,11 +144,15 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
   const appearance = useContext(AppearanceContext);
   const [phase, setPhase] = createSignal<BackendOwnedPhase>("loading");
   const [message, setMessage] = createSignal("Loading Question...");
+  const [captureError, setCaptureError] = createSignal<string>();
   let frame: HTMLIFrameElement | undefined;
   let saveButton: HTMLButtonElement | undefined;
-  let pendingCapture: Promise<StudentResponse | null> | undefined;
-  let resolvePendingCapture: ((response: StudentResponse | null) => void) | undefined;
+  let pendingCapture: Promise<boolean> | undefined;
+  let resolvePendingCapture: ((captured: boolean) => void) | undefined;
   let pendingCaptureId: string | undefined;
+  let captureTimeout: ReturnType<typeof setTimeout> | undefined;
+  let latestResponse: StudentResponse | undefined;
+  let documentReady = false;
   const documentPath = backendOwnedDocumentPath(props.assessmentAttemptId, props.position);
   const sendAppearance = (): void =>
     appearance === undefined
@@ -158,12 +164,14 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
     return event.origin === window.location.origin && event.source === frame?.contentWindow;
   }
 
-  function clearPendingCapture(response: StudentResponse | null): void {
+  function clearPendingCapture(captured: boolean): void {
     const resolve = resolvePendingCapture;
+    if (captureTimeout !== undefined) globalThis.clearTimeout(captureTimeout);
+    captureTimeout = undefined;
     pendingCapture = undefined;
     resolvePendingCapture = undefined;
     pendingCaptureId = undefined;
-    resolve?.(response);
+    resolve?.(captured);
   }
 
   function responseReceived(
@@ -172,68 +180,98 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
   ): void {
     const response = backendOwnedResponseFromPairs(pairs);
     if (response === null) {
-      setPhase("failed");
-      setMessage("This response is too large to save.");
-      if (resolvesCapture) clearPendingCapture(null);
+      setPhase("ready");
+      setCaptureError("This response is too large to save.");
+      if (resolvesCapture) clearPendingCapture(false);
       return;
     }
     const editGeneration = props.onResponseEdit?.(response);
     if (props.onResponseEdit !== undefined && editGeneration === undefined) {
-      if (resolvesCapture) clearPendingCapture(null);
+      if (resolvesCapture) clearPendingCapture(false);
       return;
     }
+    latestResponse = response;
+    setCaptureError(undefined);
     props.onResponseChange?.(response, { issues: [] }, editGeneration);
-    if (phase() === "capturing") {
+    if (resolvesCapture) {
       setPhase("ready");
-      setMessage("Saving response...");
+      clearPendingCapture(true);
     }
-    if (resolvesCapture) clearPendingCapture(response);
+    setMessage("Response ready to save.");
   }
 
   function handleMessage(event: MessageEvent<unknown>): void {
     if (!isFrameMessage(event) || !isRecord(event.data)) return;
     if (Object.keys(event.data).length === 1 && event.data.kind === READY_KIND) {
+      documentReady = true;
+      setCaptureError(undefined);
+      if (pendingCaptureId !== undefined) {
+        frame?.contentWindow?.postMessage(
+          backendOwnedCaptureRequest(pendingCaptureId),
+          window.location.origin,
+        );
+        return;
+      }
       setPhase("ready");
       setMessage("Question ready.");
       queueMicrotask(() => frame?.focus());
+      return;
+    }
+    // ASVS 3.5.5: an unchanged reply advances only its exact pending capture.
+    if (
+      Object.keys(event.data).length === 2 &&
+      event.data.kind === "ple.backendOwned.unchanged" &&
+      isCaptureId(event.data.captureId) &&
+      event.data.captureId === pendingCaptureId
+    ) {
+      setCaptureError(undefined);
+      setPhase("ready");
+      setMessage("Question ready.");
+      clearPendingCapture(true);
       return;
     }
     const disposition = classifyBackendOwnedResponseMessage(event.data, pendingCaptureId);
     if (disposition !== null) responseReceived(disposition.pairs, disposition.kind === "capture");
   }
 
-  function capture(): Promise<StudentResponse | null> {
+  function capture(): Promise<boolean> {
     if (pendingCapture !== undefined) return pendingCapture;
-    if (phase() !== "ready" && phase() !== "saved") return Promise.resolve(null);
     if (frame?.contentWindow === null || frame?.contentWindow === undefined) {
-      setPhase("failed");
-      setMessage("This Question document is not ready.");
-      return Promise.resolve(null);
+      setCaptureError("This Question document is not ready.");
+      return Promise.resolve(false);
     }
     setPhase("capturing");
+    setCaptureError(undefined);
     setMessage("Saving response...");
     const captureId = newCaptureId();
-    const capturePromise = new Promise<StudentResponse | null>((resolve) => {
+    const capturePromise = new Promise<boolean>((resolve) => {
       resolvePendingCapture = resolve;
     });
     pendingCapture = capturePromise;
     pendingCaptureId = captureId;
-    frame.contentWindow.postMessage(backendOwnedCaptureRequest(captureId), window.location.origin);
+    // Match the existing Draft deadline for a missing bridge readiness or
+    // capture reply. Retry retains input when either message is unavailable.
+    captureTimeout = globalThis.setTimeout(() => {
+      setPhase("ready");
+      setCaptureError(
+        "The Question did not return your response. Your input is still here. Try Save again.",
+      );
+      clearPendingCapture(false);
+    }, 5000);
+    // READY establishes the untouched form baseline before any capture reads it.
+    if (documentReady)
+      frame.contentWindow.postMessage(
+        backendOwnedCaptureRequest(captureId),
+        window.location.origin,
+      );
     return capturePromise;
   }
 
   async function captureAndSave(): Promise<void> {
-    const response = await capture();
-    if (response === null || props.onSave === undefined) return;
-    const outcome = await props.onSave(response);
-    if (outcome.kind === "accepted") {
-      setPhase("saved");
-      setMessage("Response saved.");
-      queueMicrotask(() => saveButton?.focus());
-      return;
-    }
-    setPhase("failed");
-    setMessage(outcome.message);
+    if (!(await capture()) || latestResponse === undefined || props.onSave === undefined) return;
+    const outcome = await props.onSave(latestResponse);
+    if (outcome.kind === "rejected") setMessage(outcome.message);
+    queueMicrotask(() => saveButton?.focus());
   }
 
   function handleKeyDown(event: KeyboardEvent): void {
@@ -241,16 +279,16 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
       event,
       props.onEscape,
       () => void captureAndSave(),
-      () => phase() === "ready" || phase() === "saved",
+      () => phase() === "ready",
     );
   }
 
   onMount(() => {
     window.addEventListener("message", handleMessage);
-    const unregister = props.registerBackendOwnedCapture?.(async () => (await capture()) !== null);
+    const unregister = props.registerBackendOwnedCapture?.(capture);
     onCleanup(() => {
       unregister?.();
-      clearPendingCapture(null);
+      clearPendingCapture(false);
       window.removeEventListener("message", handleMessage);
     });
   });
@@ -283,13 +321,14 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
           message(),
           props.persistenceNotice,
           props.persistenceDetail,
+          captureError(),
         )}
       </p>
       <button
         ref={(element) => (saveButton = element)}
         class="primary-action"
         type="button"
-        disabled={phase() !== "ready" && phase() !== "saved"}
+        disabled={phase() !== "ready"}
         onClick={() => void captureAndSave()}
       >
         {phase() === "capturing" ? "Saving response..." : (props.saveLabel ?? "Save response")}

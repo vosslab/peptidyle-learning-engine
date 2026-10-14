@@ -29,6 +29,7 @@ export const ASSESSMENT_ATTEMPT_SUMMARY_STYLES = `
     overflow-wrap: anywhere;
   }
   .attempt-summary .attempt-history__response,
+  .attempt-summary .attempt-history__question-presentation,
   .attempt-summary .attempt-summary__disclosure {
     display: grid;
     gap: var(--ple-space-1);
@@ -37,6 +38,25 @@ export const ASSESSMENT_ATTEMPT_SUMMARY_STYLES = `
   .attempt-summary h4,
   .attempt-summary .attempt-history__response > p {
     margin: 0;
+  }
+  .attempt-summary .attempt-history__response-format {
+    min-inline-size: 0;
+    margin: 0;
+    padding: var(--ple-space-2);
+    border: 1px solid var(--ple-border);
+  }
+  .attempt-summary .attempt-history__response-format > h5 { margin: 0; }
+  .attempt-summary .attempt-history__format-items {
+    display: grid;
+    gap: var(--ple-space-2);
+    margin: 0;
+    padding-inline-start: var(--ple-space-4);
+  }
+  .attempt-summary .attempt-history__format-items > li { padding-inline-start: var(--ple-space-1); }
+  .attempt-summary .attempt-history__hotspot-image {
+    display: block;
+    max-inline-size: 100%;
+    block-size: auto;
   }
   .attempt-summary .student-feedback-panel__blocks {
     display: grid;

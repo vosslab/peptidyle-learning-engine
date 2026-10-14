@@ -5,11 +5,17 @@ import { Show, type JSX } from "solid-js";
 
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentAssessmentAttemptHistory } from "../api/assessment_attempt_history";
-import { backendAnswerReviewDocumentUrl } from "../api/assessment_attempt_history";
+import {
+  backendAnswerReviewDocumentUrl,
+  backendRecordedReviewDocumentUrl,
+  recordedAuthorContentDocumentUrl,
+} from "../api/assessment_attempt_history";
+import { AuthorContentFrame } from "../components/author_content_frame";
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { RecordDetailList } from "../components/record_list/record_detail_list";
 import { ContentBlockList } from "../components/student_feedback_panel";
 import { PageFrame } from "../components/page_frame";
+import { NativeRecordedQuestionPresentation } from "../components/native_recorded_question_presentation";
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { parseCourseInstanceId } from "../navigation/public_route";
@@ -38,6 +44,39 @@ function ReleasedBlocks(props: {
             questionImageUrl={props.questionImageUrl}
           />
         </section>
+      )}
+    </Show>
+  );
+}
+
+function NativeRecordedQuestion(props: {
+  readonly assessmentAttemptId: StudentAssessmentAttemptHistory["assessmentAttemptId"];
+  readonly question: StudentAssessmentAttemptHistory["questions"][number];
+  readonly questionImageUrl: Parameters<typeof ContentBlockList>[0]["questionImageUrl"];
+}): JSX.Element {
+  const presentation = (): StudentAssessmentAttemptHistory["questions"][number]["presentation"] =>
+    props.question.presentation;
+  return (
+    <Show when={presentation()}>
+      {(issued) => (
+        <>
+          <NativeRecordedQuestionPresentation
+            questionPosition={props.question.position}
+            presentation={issued()}
+            questionImageUrl={props.questionImageUrl}
+          />
+          <Show when={issued().authorContentDigest !== undefined}>
+            <AuthorContentFrame
+              assessmentAttemptId={props.assessmentAttemptId}
+              position={props.question.position}
+              documentUrl={recordedAuthorContentDocumentUrl(
+                props.assessmentAttemptId,
+                props.question.position,
+              )}
+              title={`Interactive content for Question ${props.question.position}`}
+            />
+          </Show>
+        </>
       )}
     </Show>
   );
@@ -106,7 +145,34 @@ export function AssessmentAttemptHistoryContent(props: {
                   </Show>
                 </p>
               </header>
-              <Show when={question.responseState === "submitted"}>
+              <NativeRecordedQuestion
+                assessmentAttemptId={props.history.assessmentAttemptId}
+                question={question}
+                questionImageUrl={questionImageUrlForQuestion(
+                  question.publishedQuestionRevisionTuple,
+                )}
+              />
+              <Show when={question.backendReview === "available"}>
+                <section class="attempt-summary__disclosure">
+                  <h4>Question and your recorded response</h4>
+                  <OpaqueWebworkPreviewFrame
+                    class="attempt-history__answer-review"
+                    src={backendRecordedReviewDocumentUrl(
+                      props.history.assessmentAttemptId,
+                      question.position,
+                    )}
+                    title="Question and your recorded response"
+                  />
+                  <button class="quiet-action" type="button" onClick={retry}>
+                    Retry recorded Question
+                  </button>
+                </section>
+              </Show>
+              <Show
+                when={
+                  question.responseState === "submitted" && question.backendReview === undefined
+                }
+              >
                 <section class="attempt-history__response">
                   <h4>Recorded response</h4>
                   <Show when={question.response} fallback={<p>Your response is not available.</p>}>

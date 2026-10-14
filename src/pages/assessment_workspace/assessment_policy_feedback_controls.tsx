@@ -3,12 +3,6 @@ import { For, Show, type JSX } from "solid-js";
 import type { LiveAssessmentWorkspace } from "../../api/assessment_release";
 
 const FEEDBACK_FIELDS = [
-  ["per_item_correctness", "Per-item correctness"],
-  [
-    "submitted_response",
-    "Previous-attempt response",
-    "Controls the Student's recorded response in previous attempts. Never leaves correctness visible when Per-item correctness permits it.",
-  ],
   ["question_answer", "Correct answer"],
   ["question_answer_explanation", "Question answer explanation"],
   [

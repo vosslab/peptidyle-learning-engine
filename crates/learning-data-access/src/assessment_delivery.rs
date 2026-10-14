@@ -127,10 +127,18 @@ pub struct StudentAssessmentAttemptHistoryQuestion {
     /// evidence that makes old presentations and their assets interpretable.
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
     pub response_state: LiveAssessmentPreviousAttemptState,
-    /// Readable submitted response, released independently from all grading
-    /// and feedback fields. Omitted when withheld or exact reproduction fails.
+    /// Readable submitted response, independent of optional teaching feedback.
+    /// Omitted when no response exists or retained evidence cannot reproduce it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response: Option<Vec<question_model::QuestionContentBlock>>,
+    /// The immutable native Question presentation originally shown to this
+    /// Student. It is independent of answer and feedback disclosure.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<question_model::presentation::QuestionPresentation>,
+    /// Current permission to fetch the separately authorized recorded
+    /// backend Question and response document.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend_review: Option<BackendReviewAvailability>,
     /// Current permission to fetch a separately authorized backend answer document.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub backend_answer_review: Option<BackendAnswerReviewAvailability>,
@@ -150,6 +158,14 @@ pub struct StudentAssessmentAttemptHistoryQuestion {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BackendAnswerReviewAvailability {
+    Available,
+}
+
+/// Closed availability marker for one read-only recorded backend document.
+/// It conveys no renderer location, answer key, or saved response data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackendReviewAvailability {
     Available,
 }
 
@@ -189,6 +205,9 @@ pub struct StudentAssessmentAttemptHistoryResponseSource {
     pub position: u32,
     /// Canonical durable response identifiers, retained below the HTTP seam.
     pub response: Option<StudentResponse>,
+    /// Immutable answer-free backend document retained with this issued
+    /// Question. It remains below the browser history projection.
+    pub backend_document: Option<String>,
     /// Deliberately authored PLE-managed feedback for the exact issued
     /// Question Revision. It is not backend source or interaction feedback.
     pub general_feedback: Option<String>,
@@ -464,6 +483,27 @@ pub struct StudentAssessmentAttemptSavedResponse {
     pub assessment_attempt_id: AssessmentAttemptId,
     /// One-based fixed issued Question position.
     pub position: u32,
+    /// Monotone revision of the response the database accepted.
+    pub saved_response_revision: u64,
+}
+
+/// Result of an ordered working-response save.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StudentAssessmentAttemptResponseSaveResult {
+    Saved(StudentAssessmentAttemptSavedResponse),
+    /// The saved response advanced after the browser read its version. The
+    /// caller keeps local input and reconciles from this authoritative value.
+    Conflict {
+        saved_response_revision: u64,
+    },
+}
+
+/// One current saved response and its monotone working-state revision.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StudentAssessmentAttemptSavedResponseSnapshot {
+    pub response: StudentResponse,
+    /// Zero means no saved response exists for this issued position.
+    pub saved_response_revision: u64,
 }
 
 /// Browser-safe Student delivery chrome for one authorized Assessment Attempt.
@@ -581,7 +621,8 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
         assessment_attempt: AssessmentAttemptId,
         position: u32,
         response: StudentResponse,
-    ) -> Result<StudentAssessmentAttemptSavedResponse, StoreError>;
+        expected_saved_response_revision: u64,
+    ) -> Result<StudentAssessmentAttemptResponseSaveResult, StoreError>;
 
     /// Stores a monotone cumulative display-duration checkpoint for one open Question.
     async fn checkpoint_student_question_display_duration(
@@ -600,7 +641,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         assessment_attempt: AssessmentAttemptId,
         position: u32,
-    ) -> Result<Option<StudentResponse>, StoreError>;
+    ) -> Result<Option<StudentAssessmentAttemptSavedResponseSnapshot>, StoreError>;
 
     /// Captures an authorized saved-response snapshot before backend I/O. The
     /// database chooses deadline versus Student finalization from its clock.

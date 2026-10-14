@@ -1,6 +1,7 @@
 import type {
   StudentAssessmentAttemptContext,
   StudentAssessmentAttemptPresentation,
+  StudentAssessmentAttemptResponseSaveConflict,
   StudentAssessmentAttemptProgress,
   StudentAssessmentAttemptResponseSaveAcknowledgement,
   StudentAssessmentAttemptResponseState,
@@ -181,8 +182,22 @@ export function decodeStudentAssessmentAttemptPresentation(
   path = "response",
 ): StudentAssessmentAttemptPresentation {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["position", "presentation", "savedResponse"]);
+  requireOnlyFields(record, path, [
+    "position",
+    "presentation",
+    "savedResponse",
+    "savedResponseRevision",
+  ]);
   const savedResponse = field(record, "savedResponse", path);
+  const savedResponseRevision = decodeNonnegativeInteger(
+    field(record, "savedResponseRevision", path),
+    `${path}.savedResponseRevision`,
+  );
+  if ((savedResponse === null) !== (savedResponseRevision === 0))
+    throw new DecodeError(
+      `${path}.savedResponseRevision`,
+      "zero exactly when savedResponse is null",
+    );
   return {
     position: decodePositiveInteger(field(record, "position", path), `${path}.position`),
     presentation: decodeStudentQuestionPresentation(
@@ -191,6 +206,7 @@ export function decodeStudentAssessmentAttemptPresentation(
     ),
     savedResponse:
       savedResponse === null ? null : decodeStudentResponse(savedResponse, `${path}.savedResponse`),
+    savedResponseRevision,
   };
 }
 
@@ -199,7 +215,12 @@ export function decodeStudentAssessmentAttemptResponseSaveAcknowledgement(
   path = "response",
 ): StudentAssessmentAttemptResponseSaveAcknowledgement {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["assessmentAttemptId", "position", "responseState"]);
+  requireOnlyFields(record, path, [
+    "assessmentAttemptId",
+    "position",
+    "responseState",
+    "savedResponseRevision",
+  ]);
   const responseState = field(record, "responseState", path);
   if (responseState !== "saved")
     throw new DecodeError(`${path}.responseState`, 'the durable response state "saved"');
@@ -210,6 +231,25 @@ export function decodeStudentAssessmentAttemptResponseSaveAcknowledgement(
     ),
     position: decodePositiveInteger(field(record, "position", path), `${path}.position`),
     responseState,
+    savedResponseRevision: decodePositiveInteger(
+      field(record, "savedResponseRevision", path),
+      `${path}.savedResponseRevision`,
+    ),
+  };
+}
+
+export function decodeStudentAssessmentAttemptResponseSaveConflict(
+  value: unknown,
+  path = "response",
+): StudentAssessmentAttemptResponseSaveConflict {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["savedResponseRevision"]);
+  return {
+    responseState: "conflict",
+    savedResponseRevision: decodeNonnegativeInteger(
+      field(record, "savedResponseRevision", path),
+      `${path}.savedResponseRevision`,
+    ),
   };
 }
 

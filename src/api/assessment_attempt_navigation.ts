@@ -47,6 +47,8 @@ export interface StudentAssessmentAttemptPresentation {
   readonly presentation: StudentQuestionPresentation;
   /** The authenticated Student's current working response, never answer or grading data. */
   readonly savedResponse: StudentResponse | null;
+  /** Monotone revision of savedResponse; zero means this Question is unsaved. */
+  readonly savedResponseRevision: number;
 }
 
 /** Durable-save receipt for one owned Question position in an Assessment Attempt. */
@@ -54,7 +56,18 @@ export interface StudentAssessmentAttemptResponseSaveAcknowledgement {
   readonly assessmentAttemptId: AssessmentAttemptId;
   readonly position: number;
   readonly responseState: "saved";
+  readonly savedResponseRevision: number;
 }
+
+/** The server refused a stale save without changing the saved response. */
+export interface StudentAssessmentAttemptResponseSaveConflict {
+  readonly responseState: "conflict";
+  readonly savedResponseRevision: number;
+}
+
+export type StudentAssessmentAttemptResponseSaveResult =
+  | StudentAssessmentAttemptResponseSaveAcknowledgement
+  | StudentAssessmentAttemptResponseSaveConflict;
 
 /** Immutable final-submission result for the whole Assessment Attempt. */
 export interface StudentAssessmentAttemptSubmissionResult {
@@ -81,7 +94,8 @@ export interface StudentAssessmentAttemptNavigationClient {
     assessmentAttemptId: AssessmentAttemptId,
     position: number,
     response: StudentResponse,
-  ) => Promise<StudentAssessmentAttemptResponseSaveAcknowledgement>;
+    expectedSavedResponseRevision: number,
+  ) => Promise<StudentAssessmentAttemptResponseSaveResult>;
   readonly submitStudentAssessmentAttempt: (
     assessmentAttemptId: AssessmentAttemptId,
   ) => Promise<StudentAssessmentAttemptSubmissionResult>;
