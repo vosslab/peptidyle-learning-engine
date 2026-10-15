@@ -10,7 +10,75 @@
 
 ## 2026-10-15
 
+### Behavior or Interface Changes
+
+- Clarified Search Question Library guidance: open an empty spreadsheet with column headings,
+  keyword search, and a concise prompt; require a keyword or filter to show results. Clearing
+  all criteria returns to the empty spreadsheet. The focused Human Guidance formatting check passed.
+- Clarified that Search and Browse share RecordList's column filters, sorting, display modes,
+  and record actions. Search uses full-width results with more visible columns; Browse adds a
+  compact classification sidebar, leaving narrower results with fewer visible columns.
+  RecordList adapts its visible columns to available space. Search adds keyword search above
+  RecordList, and sorting alone does not initiate an unfiltered search.
+  Renamed the shared filter guidance heading and updated its specification link. All three
+  focused formatting/link checks passed; a broader selection also found two existing broken
+  links to `publication.rs` in archived Human Guidance audits.
+- Recorded that RecordList column visibility and arrangement last only for the current view
+  and reset to defaults when reopened. The focused Human Guidance formatting check passed.
+- Made responsive column hiding, temporary column configurations, whole-result column sorting,
+  and combined column filters explicit shared RecordList features, including filtering hidden
+  columns. Renamed the guidance section to Shared Question Library spreadsheet and updated its
+  specification link. All three focused formatting/link checks passed.
+- Set Google Sheets as the reference for RecordList column resizing, hide/show, and filtering
+  capabilities. Column widths also reset when the view reopens. The focused formatting check passed.
+- Organized Human Guidance into shared RecordList and PageFrame interface sections. Moved common
+  collection mechanics out of Question Library guidance while retaining its classification,
+  Search, and Browse workflows. Navigation guidance now reserves confirmation for meaningful
+  unsaved edits. Aligned the search specification and filter link; all four focused formatting
+  and link checks passed.
+
 ### Fixes and Maintenance
+
+- Combined overlapping SearchBlock bullets in Human Guidance while preserving its required
+  RecordList relationship and shared responsibilities. `git diff --check` passed.
+- Made SearchBlock and its required RecordList the intended structure for searchable collections,
+  including personal Question collections. Pages supply criteria and controls; PageFrame supplies
+  page layout. Updated Human Guidance, the UI guide, and architecture recommendations. Three
+  focused link checks and `git diff --check` passed; application code remains unchanged.
+- Clarified that navigation and editor-closing confirmation depends on discarding meaningful
+  unsaved edits. Search terms, filters, results, and opening an editor do not qualify. Aligned
+  Human Guidance and the UI guide; both focused link checks and `git diff --check` passed.
+- Reviewed shared unsaved-change protection and its editor callers. Documented Pool creation's
+  proposed Stay/Discard behavior, metadata Save/Stay/Discard behavior, local close/replacement
+  handling, and pending-save limits. Added intended SearchBlock guidance after reviewing all
+  SearchPage responsibilities, preserving page-owned framing and dialogs plus shared RecordList
+  behavior. Documentation only; three focused link checks and `git diff --check` passed.
+- Refined PageFrame wording in Human Guidance and the UI guide to state its layout responsibilities
+  and assign page identification to the Ribbon and breadcrumbs. `git diff --check` passed.
+- Audited SearchPage layout and leave protection from source. Documented state-driven sidebar
+  layout, missing Browse sort/display controls, search-only guard inputs, and incidental rather
+  than edit-aware protection for Library editors. Recommended explicit layouts with one shared
+  RecordList and editor-owned unsaved-change protection. Aligned Human Guidance and the UI guide.
+  Three focused Markdown link checks and `git diff --check` passed. No application code changed;
+  browser behavior was not tested.
+- Updated PageFrame guidance to provide layout, spacing, actions, and content without page
+  headings, short labels, or introductory text. Aligned the UI design guide's heading rules.
+  This documentation-only change leaves implementation unchanged. Both focused Markdown link
+  checks and `git diff --check` passed.
+- Replaced the broad Google Sheets comparison in Human Guidance and the UI design guide with
+  explicit column edge resizing, individual hide/show, heading dragging, and available-value
+  filtering. Retained shared sorting, combined filters, responsive behavior, and temporary
+  configurations. Both focused Markdown link checks and `git diff --check` passed.
+- Reviewed Human Guidance's shared RecordList, PageFrame, and Search/Browse navigation rules.
+  Clarified plural Pool creation wording and that default columns may evolve with use and screen
+  width while view configurations remain temporary. The focused Human Guidance link check and
+  `git diff --check` passed.
+- Refocused Question specifications on formats, import/export, stored data, lifecycle and Draft
+  workflow transitions, query semantics, and API contracts. Moved web layouts, shared RecordList
+  and PageFrame behavior, discovery controls, and MATCH interaction guidance into the UI design
+  guide. Updated the spec index and references; documented current search implementation gaps
+  separately. All 28 scoped Markdown link checks passed. A broader keyword selection also found
+  four existing broken source links in two archived Question-spec reports; those remain unchanged.
 
 - Moved the shared BPW curriculum importer from `tools/ple_import/` into the root-level
   `ple_import/` application package, with absolute package imports and a thin

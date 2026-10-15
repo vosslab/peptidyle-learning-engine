@@ -1,55 +1,37 @@
 # Question Library search specification
 
-Search helps Instructors find content in a large Library using ordinary words, visible filters,
+Search queries match content in the Library using ordinary words, structured filters,
 and optional precise syntax. Authority:
 [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md#search-question-library-interface).
 Library Objects use this search; shared results are defined in
 [QUESTION_LIBRARY_SPEC.md](QUESTION_LIBRARY_SPEC.md).
 
-## Starting and refining
+## Query scope
 
-An Instructor may start directly in the spreadsheet-style results interface without a mandatory
-simple-search landing page. Simple search submits into the same advanced interface, retaining
-the entered terms and filters for refinement. Browse can enter it with classification choices.
+Search and Browse query the same Library Objects with the same access rules, field meanings,
+and result contract. Text and structured filters constrain one combined result set. A query
+with no matches returns no objects; it does not silently drop criteria or substitute unrelated
+content. [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md) owns filter semantics,
+cross-kind behavior, combinations, and count scope.
 
-Keep active terms, filters, and sort visible. Changing or clearing a filter updates this
-search. An empty result retains those controls and explains that nothing matches; it does not
-silently drop filters or show unrelated content. Changing display mode changes presentation,
-not which Library Objects match.
-
-[QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md) owns filter semantics,
-cross-kind behavior, filter combinations, and count scope for both Search and Browse.
+The Search page's initial state, query activation, controls, and layout belong to
+[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery). Shared RecordList and
+PageFrame behavior is defined there rather than in this domain specification.
 
 ## Browse
 
-Browse lets Instructors explore without knowing a search term. It enters and refines the same
-Library discovery workflow, using the same Library Objects, access rules, filters, and result
-display. Authority: [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md#browse-question-library-interface).
+Classification-based discovery uses the same matching rules as text search. Hierarchy validation,
+explicit cross-Discipline Subject matching, and counts follow
+[QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md).
+For example, Biology -> Genetics, Numeric, and the text `mapping` constrain one combined query;
+Browse introduces neither a separate Pool catalog nor different matching rules.
 
-1. Begin with Discipline and show useful available groupings and counts.
-2. Offer Subjects associated with the selected Discipline.
-3. Narrow to Topic and then Subtopic.
-4. Offer Tags, Question Types, Bloom dimensions, and other useful existing filters.
-5. Show matching Library Objects in the shared spreadsheet-style results.
-6. Allow text search within those results, retaining the selected filters.
-
-Use [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md) for hierarchy validation,
-explicit cross-Discipline Subject search, per-kind matching, and all counts. Present the
-cross-Discipline choice visibly. Show when a selected group has no matches and keep a direct way
-to loosen or clear its filters.
-
-Use [QUESTION_LIBRARY_SPEC.md](QUESTION_LIBRARY_SPEC.md) for Compact, List, and Visual box modes,
-shared fields, and item opening. Moving between Browse and text Search retains terms and filters
-within the open workflow; the navigation and temporary search-lifetime rules below apply equally.
-
-For example, an Instructor browses Biology -> Genetics, chooses Numeric, then searches `mapping`.
-The same combined discovery query applies those choices using the filter specification; Browse
-introduces neither a separate Pool catalog nor different matching rules.
+The Browse navigator and its interaction with Search belong to
+[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery).
 
 ## Text and field syntax
 
-Ordinary words need no syntax. Make useful field syntax discoverable when needed, and present
-options by priority so new users are not overwhelmed. Apply the field meanings in
+Ordinary words need no syntax. Apply the field meanings in
 [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md#per-field-meanings).
 Private source and Answer Keys are not exposed as search results.
 
@@ -83,8 +65,8 @@ independently paged searches in the browser. Current supported orders are `title
 (Title, then stable ID) and `publishedNewest` (publication/creation time, then stable ID). There
 is no extra Pool-promotion tie-break rule.
 
-The discovery page defaults to 50 results; requested size is 1-250, with ordinary controls for
-50, 100, and 250. These are established API bounds, not a reason to permanently save search
+The current default request size is 50 results; the API accepts page sizes from 1 through 250.
+These are established API bounds, not a reason to permanently save search
 results. The opaque continuation cursor is bound to the normalized search terms and filters, sort, and page
 size. A changed query starts at its first page. Each successful fetch replaces the current page.
 
@@ -96,8 +78,9 @@ including when a result page is empty.
 
 `GET /api/library-objects/search` currently serves combined Library search. The table records the
 implemented request names and values. The request, route, client, and filter field use the
-Library Object and Questions in no Pool vocabulary. They do not settle the tentative initial
-filter choice; see the [M24 implementation report](../archive/reports/QUESTION_SPEC_M24_LIBRARY_RESULTS.md).
+Library Object and Questions in no Pool vocabulary. The default object-kind filter remains
+tentative; see the filter specification and the
+[M24 implementation report](../archive/reports/QUESTION_SPEC_M24_LIBRARY_RESULTS.md).
 
 | Parameters | Values |
 | --- | --- |
@@ -114,25 +97,20 @@ filter choice; see the [M24 implementation report](../archive/reports/QUESTION_S
 | `cursor`, `page_size` | Opaque cursor and bounded page size |
 
 For example, `GET /api/library-objects/search?kind=both&questions=inNoPool&text=meiosis&sort=titleAscending&page_size=50`
-requests Questions in no Pool plus Pools matching meiosis. This is the tentative default candidate
-in HG; the final default remains open. Exact shared request types and limits live in
+requests Questions in no Pool plus Pools matching meiosis. The object-kind combination is a
+tentative default candidate in HG. Exact shared request types and limits live in
 [question_search.rs](../../crates/question_model/src/question_search.rs); response kinds are in
 [library_search.rs](../../crates/question_model/src/library_search.rs). A type's current default
-does not settle the initial interface default. See
+does not settle the default object-kind filter. See
 [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md#object-kind-and-questions-in-no-pool).
 
 ## Navigation and search lifetime
 
-Opening a result list item opens a new tab or window, leaving the current page and position
-available. Ribbon navigation remains in the current tab; confirm before discarding an existing
-search and its results. Leave an empty search page directly. Buttons perform their labeled action.
-
-Search prompts and results are never permanently stored for restoration. Keeping the original
-open page is temporary working state, not a saved search service. Do not add database snapshots,
-browser-persistent archives, or a restore-old-results promise. The user's reason is database size,
-server cost, and concern that results can become stale. No WASM search-memory design was approved.
+Navigation behavior and temporary interface state belong to
+[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery).
+Search prompts and results are not permanently stored for restoration. The search contract
+provides neither saved-result snapshots nor a guarantee that an earlier result remains current.
 
 A result observed earlier is not continuing permission to act on that object. Opening or changing
-it uses current server authorization and state checks. A page left open for months is not a
-four-month-old database snapshot. The exact choice of freshness indicators or refresh timing is
-not settled; do not introduce background synchronization to fill that gap.
+it uses current server authorization and state checks. Retaining a result does not preserve a
+database snapshot or authorize background synchronization.

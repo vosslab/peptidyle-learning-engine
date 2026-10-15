@@ -200,14 +200,9 @@ teaching requirements. The existing compiler limits are unchanged in this docume
 
 ## MATCH response presentation
 
-On laptop and desktop screens, show MATCH prompts with one shared choice bank containing the full
-set of choices. Support drag-and-drop and an equally capable keyboard-only way to assign, change,
-and clear matches. Keep each prompt's assigned choice easy to recognize and the choice bank
-reachable with keyboard, pointer, or touch.
-
-Layouts may adapt to available space, including repeating choices on narrow screens when useful.
-They preserve the same content, response meaning, and grading behavior. These requirements come
-from [HG's Native Question response presentation](../HUMAN_GUIDANCE.md#native-question-response-presentation).
+MATCH layouts and controls belong to
+[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#native-question-response-presentation).
+Presentation changes preserve response-item identities, response meaning, and grading behavior.
 
 ## Presentation, images, scripts, and randomization
 

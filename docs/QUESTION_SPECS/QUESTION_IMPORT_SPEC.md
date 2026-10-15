@@ -71,17 +71,16 @@ The test transport and harness are implementation choices, not additional produc
 
 ## Current implementation evidence
 
-The Import screen in My Draft Questions loads vendored QPM WASM and converts supported banks
+The browser import client loads vendored QPM WASM and converts supported banks
 locally to Native JSON. Its implementation saves each source unchanged through the Draft API, then
 uploads every referenced image per question with the current edit number, matching media type, and
 exact `X-PLE-Source-Relative-Name`. Bindings stay separate from source. Native JSON validation
 remains in preview and publication. Results report saved Draft links, rejections, and request
 failures; later items continue after an item failure, with no automatic retry. This implementation
-description does not claim connected or browser runtime acceptance. HOTSPOT stays in PLE's existing
-GUI and is outside QPM import. See
+description does not claim connected or browser runtime acceptance. HOTSPOT is outside QPM import. See
 [the transport contract](NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md#browser-transport).
 
-The ordinary private Draft API and browser creation page currently support Native JSON, WebWork PG,
+The ordinary private Draft API currently supports Native JSON, WebWork PG,
 and PGML. The API stores the selected Backend, format, source, and registered PG path as the Draft
 binding. First publication returns a Question ID; the importer obtains its exact Revision before
 using it elsewhere. See [Draft creation](../../crates/server/src/authoring/create.rs) and

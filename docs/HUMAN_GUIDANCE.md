@@ -354,6 +354,52 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   or alongside that title.
 - Preserve readable text and reachable controls as users enlarge text or zoom the page.
 
+### Shared RecordList interface
+
+- RecordList provides one modular interface for displaying collections throughout PLE.
+- RecordList supports Compact, List, and Visual boxes display modes.
+- RecordList preserves shared filtering, sorting, and record actions across its display modes.
+- RecordList owns spreadsheet column headings, filtering, sorting, and record presentation.
+- Compact mode uses dense spreadsheet-style rows with aligned columns.
+- Compact rows prioritize useful information and minimize vertical space.
+- RecordList supports resizing columns by dragging their edges.
+- RecordList supports hiding and showing individual columns.
+- RecordList supports rearranging columns by dragging their headings.
+- RecordList supports responsive column hiding based on available width.
+- RecordList supports different column configurations, including column widths, visibility,
+  and arrangement.
+- Default visible columns and their arrangement may be refined with use and available screen width.
+- RecordList column widths, visibility, and arrangement are temporary for the current view and
+  return to their defaults when the view is reopened.
+- RecordList supports sorting by clicking column headings, toggling between ascending and
+  descending order.
+- Sorting applies to the complete result set, not just the current page.
+- RecordList supports filtering through column headings by selecting one or more available values.
+- Column filters can be combined to narrow results.
+- Filtering remains available for columns that are currently hidden.
+- RecordList adapts its visible columns to the available space while preserving the same
+  filtering, sorting, display modes, and record actions.
+- Each collection supplies its relevant fields, records, and actions.
+- Shared RecordList improvements should apply consistently across PLE.
+
+### Shared SearchBlock interface
+
+- SearchBlock provides the shared search interface throughout PLE.
+- Pages use SearchBlock to display searchable collections, including personal collections and
+  library searches.
+- SearchBlock requires RecordList for record presentation, sorting, column filtering,
+  display modes, and record actions.
+- Each page supplies its search criteria and controls; each collection supplies its fields,
+  records, and actions to the shared RecordList.
+- My Questions, My Pools, My Drafts, Starred, Watched, Search Question Library, and Browse
+  Question Library use this same structure with different criteria and controls.
+- My Questions is a search with a predefined filter.
+- SearchBlock supports controls above results or beside results.
+- The page chooses the layout based on its purpose, not whether a search has run.
+- Controls beside results move above them when the available width is narrow.
+- Search terms and results are temporary and do not require confirmation when leaving.
+- Shared SearchBlock improvements should apply consistently across PLE.
+
 ### Interaction design
 
 - Keep common tasks compact, with supporting details easy to open when needed.
@@ -362,11 +408,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Opening a list item opens it in a new browser tab or window, including search results and
   Assessments in an Assessment list.
 - Ribbon navigation stays in the current tab. Buttons perform their stated action.
-- Confirm before navigation discards an existing search and its results; leave empty search
-  pages directly.
+- Navigation proceeds directly unless leaving would discard meaningful unsaved edits.
+- Search terms, filters, results, and opening an editor do not count as unsaved edits.
+- Editors use the shared UnsavedChangesGuard when they contain meaningful unsaved work.
+- Closing an editor or changing a selection requires confirmation only when that action would
+  discard meaningful unsaved edits.
 - PLE does not store old search results for later restoration.
 - Search prompts and search results are never stored permanently; keep database size and bloat under control.
-- Every search offers three display sizes: Compact, List, and Visual boxes.
 - Use clearly labeled expandable sections with chevrons for longer details and secondary settings,
   supporting keyboard, pointer, and touch interaction.
 - Keep essential information, primary actions, and current status visible in the main interface.
@@ -438,6 +486,20 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
 - Page actions should appear near the content they affect rather than changing the Ribbon layout.
 - See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
+
+### Shared PageFrame interface
+
+- PageFrame provides the shared page structure across PLE.
+- The Ribbon and breadcrumbs already identify the current location.
+- PageFrame begins with useful content, actions, controls, or records.
+- PageFrame uses compact spacing and consistent alignment across pages.
+- PageFrame adapts to available screen width while preserving useful content and actions.
+- Page-specific content and actions fit within the shared PageFrame structure.
+- PageFrame displays ordinary page content directly; searchable collections and search results
+  go through SearchBlock and its RecordList.
+- PageFrame provides layout, spacing, actions, and content. The Ribbon and breadcrumbs provide
+  page identification instead of PageFrame headings, short labels, or introductory text.
+- Shared PageFrame improvements should apply consistently across PLE.
 
 ### User top bar interface
 
@@ -534,7 +596,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Course interfaces
 
-- The **Courses** ribbon must include: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses.
+- The **Courses** ribbon must include:
+  My Blueprint Courses, My Active Courses, My Inactive Courses, Search Blueprint Courses, My Change Proposals
 - Course lists should support scanning and comparison without opening each Course.
 - The Course Editor should show the Course structure and its ordered Assessments without showing every Question at once.
 - Selecting an Assessment in the Course Editor opens that Assessment for editing.
@@ -546,8 +609,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ##### Blueprint Course interface
 
 - **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
-- **Search Public Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
-- Public Blueprint Course search should combine ordinary text search with shared classification
+- All Blueprint Courses are Public
+- **Search Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
+- Blueprint Course search should combine ordinary text search with shared classification
   filters beginning with Discipline and following Discipline -> Subject -> Topic -> Subtopic.
 - Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
 - After selecting a Subject, Instructors should have an explicit option to include Blueprint Courses
@@ -556,7 +620,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Search results should use a compact, information-rich layout that supports scanning and comparison.
 - Results should show Course name, classification, author, institution, and useful information
   about Course use and upkeep directly in the list for easy scanning and comparison.
-- Public Blueprint Course search supports sorting by Stars, Watches, Adoptions, number of students
+- Blueprint Course search supports sorting by Stars, Watches, Adoptions, number of students
   having taken the course, and most recent edit, plus other relevant search metadata.
 - Number of students having taken the course is an aggregate count, not identifiable Student records.
 - Search terms, active filters, and the selected sort should remain visible while reviewing results.
@@ -598,29 +662,50 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Question interface
 
-- The **Questions** ribbon must include: My Questions, My Draft Questions, Starred, Watched, Search Question Library, Browse Question Library.
+- The **Questions** ribbon must include:
+  My Questions, My Pools, My Drafts, Starred, Watched, Browse Question Library, Search Question Library.
+- Question Library is a proper name, so preserve it in both discovery tabs
 - **My Questions** should make the Instructor's Published Questions easy to find and manage.
-- **My Draft Questions** should emphasize Questions that still need work before publication.
+- **My Pools** should make the Instructor's Published Question Pools easy to find and manage.
+- **My Drafts** should emphasize Questions that still need work before publication.
 - **Starred** should provide a quick personal collection of Questions the Instructor wants to keep handy.
 - **Watched** should help Instructors follow Questions where changes or activity matter to them.
-- Published Questions should offer a **Create Pool from Question** action.
-- Pool creation should show the starting Question and its Discipline and Subject alongside the
-  Pool Title field.
-- Creating the Pool includes the starting Question and uses its Discipline and Subject.
+- Published Questions should offer a **Create Pool from Questions** action.
+- Pool creation should show the starting Question(s), their shared Discipline and Subject,
+  and the Pool Title field.
+- Creating the Pool includes the starting Question(s) and uses their shared Discipline and Subject.
 - Adding Published Questions to a Pool should begin with Question Library results filtered to the Pool's
   Discipline and Subject.
+- **Browse Question Library** helps Instructors explore Library Objects without knowing what to search for.
+- **Search Question Library** helps Instructors find specific Library Objects in a large library.
+- Search emphasizes finding and narrowing results; Browse emphasizes exploration and discovery.
+- Instructors can move naturally between Search and Browse as their goals change.
+- Search and Browse use the same modular RecordList with shared filtering, sorting,
+  Compact, List, and Visual boxes display modes, and record actions.
+- Search and Browse are different paths into the same **Question Library**, not separate collections.
+- Search adds keyword search above RecordList and uses the full available width for results,
+  allowing more visible columns.
+- Browse places a compact classification sidebar beside RecordList, leaving a narrower results
+  area with fewer visible columns.
+- Search keeps keyword controls above results before and after a search. Browse places its
+  classification navigator above results when the screen is too narrow for a sidebar.
+- Shared RecordList controls remain available in both Search and Browse.
+- Temporary search terms and results do not require a leave confirmation. Pool creation and
+  metadata editors protect meaningful unsaved edits independently of search activity.
 
 ##### Search Question Library interface
 
-- **Search Question Library** helps Instructors find specific Library Objects in a large library.
-- Instructors sometimes explore and sometimes know what they are looking for; the search interface
-  should support both.
-- Instructors can begin exploring or searching directly in the shared spreadsheet-style interface,
-  like Google Sheets with filters.
+- **Search Question Library** helps Instructors find specific or relevant Library Objects using search terms and filters.
+- Search Question Library opens with an empty spreadsheet showing its column headings and keyword search.
+- Searching requires at least one keyword or filter.
+- Sorting changes the order of displayed results without initiating an unfiltered search.
+- Instructors can begin searching with keywords or spreadsheet column filters.
+- The empty spreadsheet shows a concise prompt to enter a keyword or select a filter.
+- Results populate the shared spreadsheet-style interface as search criteria are applied.
+- Clearing all search terms and filters returns to the initial empty spreadsheet and its prompt.
 - Simple search returns the same advanced spreadsheet-style results, with the entered search and
   filters available for further refinement.
-- The modular spreadsheet-style interface supports compact, list, and movie-poster-style boxes;
-  the display mode names are not settled.
+- Search supports the shared Compact, List, and Visual boxes display modes.
 - Image-focused boxes can help Instructors find visual Questions.
 - Question Library search should work well with ordinary words by default.
 - Results should make it easy to scan many Library Objects quickly.
@@ -642,11 +727,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - PubMed is clean but not obvious to use: https://pubmed.ncbi.nlm.nih.gov/advanced/
 - eBay is dated but may be a useful comparison: https://www.ebay.com/sch/ebayadvsearch
 
-##### Search Question Library filters
+##### Question Library filters
 
-- Search results should support filters for narrowing the Question Library.
-- Classification browsing and filtering should begin with Discipline and follow the shared
-  Discipline -> Subject -> Topic -> Subtopic hierarchy.
+- Search and Browse use RecordList's shared column filters to narrow Question Library results.
+- RecordList exposes Discipline, Subject, Topic, and Subtopic through spreadsheet column filters,
+  following their classification relationships.
+- Keyword search and column filters work together to narrow the same results.
 - Tags should provide additional filters outside the hierarchy.
 - Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
 - After selecting a Subject, Instructors should have an explicit option to include Library Objects
@@ -669,15 +755,26 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ##### Browse Question Library interface
 
-- **Browse Question Library** helps Instructors explore Library Objects without knowing what to search for.
+- **Browse Question Library** helps Instructors explore what the Question Library contains by navigating Discipline -> Subject -> Topic -> Subtopic and other groupings.
 - Browse should help Instructors understand what the Question Library contains.
-- Browse should begin with Discipline and make moving through Subject, Topic, and Subtopic easy.
-- Selecting a Discipline limits browsing to Subjects associated with that Discipline.
-- Browse should also offer Tags, Question Types, and other useful groupings.
-- Browse should show useful counts where they help Instructors choose where to explore.
-- Browse results should use the same dense Library Object presentation used by Search where practical.
-- Instructors should be able to move from browsing into a more focused search.
-- Search and Browse are different paths into the same **Question Library**.
+- Browse uses a narrow classification sidebar beside RecordList, leaving a narrower results area
+  with fewer visible columns while retaining RecordList's column filters, sorting, and display modes.
+- Browse Question Library should be a compact, information-dense
+  exploration interface, not a dashboard or reference manual.
+- Prioritize the Discipline -> Subject -> Topic -> Subtopic hierarchy.
+  Show the available choices and useful counts without explanatory
+  paragraphs or repeated headings.
+- Keep the browsing sidebar short and easy to scan. Secondary filters
+  such as Tags, Question Types, and Bloom Classification should remain
+  available without dominating the interface.
+- Show information progressively as Instructors navigate the hierarchy,
+  rather than displaying every category, filter, and explanation at once.
+- Use compact controls and concise labels. Avoid repeating information
+  already established by navigation or the selected classification.
+- Keep taxonomy definitions and other reference material outside the
+  browsing interface.
+- Omit zero-count choices when they cannot lead to matching Questions.
+- The Question results should remain the primary visual focus.
 
 #### Assessment interface
 

@@ -1,9 +1,13 @@
 # Question Library filter specification
 
 Filters select Library Objects from one combined result set. Authority:
-[HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md#search-question-library-filters) and
+[HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md#question-library-filters) and
 [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md#question-pool-metadata).
-Search syntax and controls must agree on the meaning of an object's fields.
+Search syntax and structured filters use the same field meanings.
+
+This specification owns matching rules, filter combinations, and counts for Question Library
+content. RecordList's column-filter controls and presentation are shared interface behavior,
+defined in [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#shared-recordlist-interface).
 
 ## Object kind and Questions in no Pool
 
@@ -22,9 +26,12 @@ Pool even when that Pool is absent from the current search results.
 | Questions | All | All eligible Questions, including members |
 | Pools | Either | Pools only |
 
-The first row is a tentative default candidate because displaying Pool members redundantly makes
-search noisy. HG says "probably"; the final default remains open. Including members remains available. A Pool does not automatically
-stand in for every member-only search match.
+The first row is a tentative default object-kind filter because displaying Pool members
+redundantly makes search noisy. HG says "probably"; that filter choice remains open. This does
+not decide when the interface requests results. Search activation and its initial empty state
+are defined in [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery).
+Including members remains available. A Pool does not automatically stand in for every member-only
+search match.
 
 ## Per-field meanings
 

@@ -30,8 +30,7 @@ with common meanings.
 
 An omitted patch field means unchanged. Clearing an optional value is a deliberate action,
 distinct from leaving its control untouched. Required fields cannot be cleared to NULL. Pool
-common Type and Backend come from its Questions and do not become editable labels merely
-because the interface is spreadsheet-style.
+common Type and Backend come from its Questions and remain derived metadata.
 
 ## Applying an edit
 
@@ -54,7 +53,7 @@ request for both kinds. Keep that question explicit in
 [question_specs_open_questions.md](../archive/decisions/question_specs_open_questions.md).
 
 For example, changing Tags on a selected Question and Pool affects their own Tags, not the Pool's
-members. If one write fails, the interface must accurately report what committed. Whether both
+members. If one write fails, the operation result must accurately report what committed. Whether both
 must roll back is a product/API decision still to settle, not permission to claim both succeeded.
 
 The workflow uses existing Instructor authority. It does not create curator roles, content

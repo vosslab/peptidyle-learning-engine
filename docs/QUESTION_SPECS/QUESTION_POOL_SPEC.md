@@ -49,8 +49,8 @@ represent reasonably interchangeable assessments of the intended learning.
 When the set of Question Revision Tuples in a Pool changes, saving
 advances the Pool's Edit Number.
 
-Member editing supports spreadsheet-style display sorting. Display order changes neither the set of Question Revision Tuples
-nor random selection and does not advance the Pool Edit Number.
+Sorting Pool members changes neither the set of Question Revision Tuples nor random selection
+and does not advance the Pool Edit Number.
 
 | Proposed contents | Result |
 | --- | --- |

@@ -30,9 +30,9 @@ discovery, and Assessment use follow the same Question rules. The selected Backe
 source and execution through the common Question Backend interface; it does not create a
 different kind of Question or lifecycle.
 
-Every stored Question has its own internal Question record and one canonical Title; compact
-interfaces may truncate the displayed Title. Questions are subject agnostic and graded strictly
-and deterministically by their Backend, without requiring an Instructor to grade. Answer-choice
+Every stored Question has its own internal Question record and one canonical Title. Questions are
+subject agnostic and graded strictly and deterministically by their Backend, without requiring an
+Instructor to grade. Answer-choice
 randomization belongs to the Question, including its Native JSON setting, not to the Assessment.
 
 ## Shared responsibilities

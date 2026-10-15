@@ -50,7 +50,8 @@ Assessment rule.
 
 ## Discovery and examples
 
-Search and Browse start with Discipline and narrow through the hierarchy. Subject selection may
+Classification filters follow the Discipline -> Subject -> Topic -> Subtopic relationships.
+Text search and classification filters can constrain the same query. Subject matching may
 explicitly include that Subject across other Disciplines. Such a choice relaxes only the
 Discipline restriction, not the other active filters. See
 [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md).

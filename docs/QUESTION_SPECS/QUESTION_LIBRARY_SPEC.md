@@ -16,14 +16,6 @@ remain intact. It can be restored or forked; see
 [PUBLISHED_QUESTION_SPEC.md](PUBLISHED_QUESTION_SPEC.md#archive).
 Pool availability follows [QUESTION_POOL_SPEC.md](QUESTION_POOL_SPEC.md).
 
-## Question Library entry points
-
-The Questions Ribbon includes My Questions, My Draft Questions, Starred, Watched, Search Question
-Library, and Browse Question Library. My Questions supports finding and managing the Instructor's
-Published Questions; My Draft Questions emphasizes unfinished private work. Starred provides a
-quick personal collection, and Watched follows relevant changes. These views retain their distinct
-tasks while using the same Question and Pool meanings.
-
 ## Common search result
 
 Every result represents a Library Object. Shared result facts have the same meaning for both
@@ -44,32 +36,22 @@ for ordinary discovery.
 
 Question-specific facts include authors and the exact Question Revision represented. Pool-specific
 facts include member count, source Pool where present, and Pool Edit Number. Preserve those
-distinctions. Carry shared facts through API decoding to display instead of discarding them and
+distinctions. Preserve shared facts through API decoding instead of discarding them and
 reconstructing them differently by kind. The field definitions are in
 [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_LIBRARY_METADATA_SPEC.md).
 
-The table defines available result facts, not a demand to show every fact in every compact row.
-Display enough information to judge relevance without opening each object. IDs remain visually
-subordinate to Titles. Owner and Author labels keep their distinct meanings.
+The table defines available result facts, not a fixed visible-column configuration. Shared
+presentation and Question Library entry points belong to
+[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery).
 
-## Shared display and selection
+## Assessment and Pool references
 
-The reusable spreadsheet-style interface supports exploration before entering search text and
-supports refinement after simple search. It offers Compact, List, and Visual boxes, with the same
-results, filters, selection meanings, and paging. Visual boxes help with image-based Questions.
-Exact display names remain flexible where HG describes them as examples.
-
-List items open in a new tab or window. Tooltips provide brief text on hover and keyboard focus;
-expensive hover previews are not part of the required design. Navigation and search lifetime are
-owned by [QUESTION_LIBRARY_SEARCH_SPEC.md](QUESTION_LIBRARY_SEARCH_SPEC.md).
-
-Assessment editors reuse combined discovery to choose Library Objects. Committing a Question
-selection retains its exact Revision. Adding a Pool stores its existing Pool ID and the Assessment
-entry's selection count. An Instructor explicitly forks a Pool when independent customization is
+Adding a Question to an Assessment retains its exact Revision. Adding a Pool stores its existing
+Pool ID and the Assessment entry's selection count. An Instructor explicitly forks a Pool when
+independent customization is
 wanted; see [QUESTION_POOL_SPEC.md](QUESTION_POOL_SPEC.md).
-The picker for adding Questions to a Pool offers Published Questions only. Assessment
-editors provide direct Search and Browse paths, inspection before adding, and bulk addition by
-Question ID. The shared interface must support these workflows for both Library Object kinds.
+Pool membership accepts Published Questions only. Assessment assembly supports bulk addition by
+Question ID for both Library Object kinds.
 Current picker limitations are implementation evidence; they do not establish a product rule
 that requires Questions and Pools to be added separately.
 
@@ -127,6 +109,6 @@ edits or selecting content for Assessment assembly.
 
 ## Related workflows
 
-- [QUESTION_LIBRARY_SEARCH_SPEC.md](QUESTION_LIBRARY_SEARCH_SPEC.md): Search and Browse, syntax, sorting, paging, navigation.
+- [QUESTION_LIBRARY_SEARCH_SPEC.md](QUESTION_LIBRARY_SEARCH_SPEC.md): query syntax, matching, ordering, paging, and result lifetime.
 - [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md): filter meanings, including Questions in no Pool.
 - [QUESTION_LIBRARY_BULK_EDIT_SPEC.md](QUESTION_LIBRARY_BULK_EDIT_SPEC.md): cleanup of many Library Objects.

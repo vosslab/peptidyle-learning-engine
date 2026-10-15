@@ -1,8 +1,10 @@
 # Question specifications
 
 Published Questions and Question Pools are two kinds of Library Object in one Question Library.
-This specification set defines their shared fields, different lifecycles, discovery, Assessment
-use, execution, and import/export. Both kinds were part of PLE's original design.
+This specification set defines Question formats, import/export, stored fields and relationships,
+constraints, lifecycle transitions, query semantics, and Backend/API contracts. Draft authoring and
+publication workflows belong here as data operations and state transitions. Web interface layout
+and controls belong to [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md).
 
 Questions are backend agnostic. The workflow is: import or write a Draft, preview it, test it,
 refine it, add the metadata, then publish. Start with
@@ -16,8 +18,7 @@ operations. Existing code explains technical shapes; it does not decide product 
 HG conflicts or is silent. PLE is pre-production. Use PLE product vocabulary consistently across
 schema, API, Rust, TypeScript, JSON, and specifications. Current parameter, field, and type names
 are implementation evidence, not compatibility constraints. Rename them when needed to express
-the intended model clearly. Record implementation changes in TODO during this documentation
-pass. Repeated summaries link to the rule's owning specification.
+the intended model clearly. Repeated summaries link to the rule's owning specification.
 
 Start with [LIBRARY_OBJECT_SPEC.md](LIBRARY_OBJECT_SPEC.md), then
 [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_LIBRARY_METADATA_SPEC.md),
@@ -25,13 +26,22 @@ Start with [LIBRARY_OBJECT_SPEC.md](LIBRARY_OBJECT_SPEC.md), then
 Follow the workflow-specific documents below. Keep each coherent concept in one owning
 specification, with current implementation evidence clearly separated from product guidance.
 
+These specifications own Question data, lifecycles, query rules, selection semantics, and API
+contracts. Web layouts, controls, navigation, and shared component behavior belong
+to [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md), following Human Guidance's
+[RecordList](../HUMAN_GUIDANCE.md#shared-recordlist-interface) and
+[PageFrame](../HUMAN_GUIDANCE.md#shared-pageframe-interface) sections. Reference those owners for
+column layout, resizing, hide/show, sorting and filtering controls, display modes, and page spacing.
+[SEARCH_PAGE_ARCHITECTURE.md](../SEARCH_PAGE_ARCHITECTURE.md) records shared search implementation
+and its gaps against intended behavior.
+
 ## Shared Library model
 
 | Specification | Owns |
 | --- | --- |
 | [LIBRARY_OBJECT_SPEC.md](LIBRARY_OBJECT_SPEC.md) | Common model and the two object kinds |
-| [QUESTION_LIBRARY_SPEC.md](QUESTION_LIBRARY_SPEC.md) | Access, common result facts, display, picker reuse, Stars/Watches, usage statistics |
-| [QUESTION_LIBRARY_SEARCH_SPEC.md](QUESTION_LIBRARY_SEARCH_SPEC.md) | Search and Browse, text syntax, shared results, sorting, paging, navigation, and temporary search state; filter meaning belongs to the filter spec |
+| [QUESTION_LIBRARY_SPEC.md](QUESTION_LIBRARY_SPEC.md) | Access, common result facts, Assessment and Pool references, Stars/Watches, usage statistics |
+| [QUESTION_LIBRARY_SEARCH_SPEC.md](QUESTION_LIBRARY_SEARCH_SPEC.md) | Shared Search/Browse query semantics, text syntax, result ordering, paging, authorization, and result lifetime |
 | [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md) | Filter meaning by kind, Questions in no Pool, counts |
 | [QUESTION_LIBRARY_BULK_EDIT_SPEC.md](QUESTION_LIBRARY_BULK_EDIT_SPEC.md) | Deferred Instructor workflow, intended semantics, unresolved mixed-save behavior, and current API evidence |
 
@@ -88,6 +98,9 @@ relationships; PLE assigns PLE identities. QTI Package Maker is reused, not rebu
 
 ## External rule owners
 
+- [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md): shared RecordList interaction and PageFrame structure.
+- [SEARCH_PAGE_ARCHITECTURE.md](../SEARCH_PAGE_ARCHITECTURE.md): shared search implementation evidence
+  and identified differences from intended behavior.
 - [ASSESSMENT_LIFECYCLE.md](../ASSESSMENT_LIFECYCLE.md) and
   [ASSESSMENT_PAYLOAD_DESIGN.md](../ASSESSMENT_PAYLOAD_DESIGN.md): release, issue, Attempts and scoring.
 - [AUTHORIZATION_CONTRACTS.md](../AUTHORIZATION_CONTRACTS.md): authenticated roles and resource scope.

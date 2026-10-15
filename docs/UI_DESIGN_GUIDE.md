@@ -22,14 +22,13 @@ target, and stays usable through a narrow-phone compatibility guard.
 
 ## Hierarchy
 
-Use four typographic levels:
+The Ribbon and breadcrumbs identify the current location. Use three typographic levels in content:
 
-1. Compact page title: identifies the current place without consuming the workspace.
-2. Section title: names one decision or data group.
-3. Row label or Question Title: supports scanning inside that group.
-4. Label, value, help, and metadata: ordinary text with weight used sparingly.
+1. Section title: names one decision or data group.
+2. Row label or Question Title: supports scanning inside that group.
+3. Label, value, help, and metadata: ordinary text with weight used sparingly.
 
-Page titles should generally occupy one line. Prefer normal or medium weight for ordinary labels and
+Prefer normal or medium weight for ordinary labels and
 values; reserve bold for the few words that establish structure. Status text should describe a useful
 state or recovery action. Do not render confirmations such as "Question content ready" when the
 visible content already proves the state.
@@ -46,8 +45,8 @@ requirements and remain outside this browser rule.
 - Global shell: use nearly the full viewport, with bounded edge gutters rather than a narrow centered
   column. Reading-heavy student prose may use a local readable measure inside the wider shell.
 - Instructor pages: prioritize horizontal scanning, compact rows, sticky local actions when useful,
-  and one coherent primary work surface. Give Question Library results the primary work surface
-  beside a compact, task-related sidebar.
+  and one coherent primary work surface. Question Library Search uses full-width results; Browse
+  places a compact classification sidebar beside the same RecordList.
 - Student questions: keep prompt, response, feedback, navigation, and timer in one visual sequence.
   On large screens, use width to improve line length and grouping, not to separate the question from
   its answer across a long eye movement.
@@ -75,6 +74,127 @@ Adjust these tokens first when evidence supports a density change. Page styles m
 differences with `calc()`, but should not duplicate the governing measurement. Breakpoints are
 behavior thresholds rather than distances: change one only when the composition actually stops
 working, and validate 1280 by 800 plus the student tablet and phone targets after any token change.
+
+## Shared PageFrame interface
+
+Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#shared-pageframe-interface).
+PageFrame owns shared page structure across PLE. Pages supply their content, actions, and workflows
+within that structure. Begin with useful content, controls, actions, or records. PageFrame provides
+layout, spacing, actions, and content. The Ribbon and breadcrumbs provide page identification
+instead of PageFrame headings, short labels, or introductory text.
+
+Use compact spacing and consistent alignment. Adapt to available width while preserving useful
+content and reachable actions. Shared PageFrame improvements apply consistently across pages.
+
+## Shared RecordList interface
+
+Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#shared-recordlist-interface).
+RecordList provides one modular collection interface. Collections supply relevant fields, records,
+and actions. Compact, List, and Visual boxes share filtering, sorting, and record actions. Compact
+mode uses dense spreadsheet-style rows with aligned columns and little vertical overhead.
+
+- Resize columns by dragging their edges. Hide and show individual columns, and rearrange
+  columns by dragging their headings.
+- Hide columns responsively as available width decreases. Support different column configurations
+  for different layouts and record types, including widths, visibility, and arrangement.
+- Keep column widths, visibility, and arrangement temporary for the current view; reopening the
+  view restores its defaults.
+- Clicking column headings toggles ascending and descending sorting of the complete result set,
+  before pagination.
+- Filter through column headings by selecting one or more available values. Combine filters
+  across columns to narrow results and keep filtering available for hidden columns.
+- Adapt visible columns while preserving shared functionality. Apply shared improvements across
+  PLE rather than duplicating the collection interface in individual pages.
+
+These are intended interface requirements, not a claim that every current consumer implements
+them. [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) records current search composition
+and identified gaps. Content-specific matching and authorization remain with each domain.
+
+## Shared SearchBlock interface
+
+Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#shared-searchblock-interface).
+PageFrame arranges page content and actions. Searchable collections and search results go through
+SearchBlock, which requires RecordList to display results. Ordinary page content can appear
+directly in PageFrame. SearchBlock places supplied controls above RecordList or beside it.
+The page chooses that layout from its
+purpose; loading or clearing a search does not change it. Side controls stack above results on
+narrow screens. Pages supply domain controls and connect them to shared search state.
+
+My Questions, My Pools, My Drafts, Starred, Watched, Search Question Library, and Browse Question
+Library use this same structure. Each page supplies its criteria and controls; each collection
+supplies its fields, records, and actions. My Questions is a search with a predefined filter.
+The empty-on-entry rule remains specific to Search Question Library; this shared structure does
+not impose that starting state on personal collections.
+
+RecordList owns sorting, column filtering, display modes, and record actions. SearchBlock keeps
+that shared presentation in both layouts. Meaningful unsaved edits are protected by their editors;
+temporary search terms and results do not need leave confirmation.
+
+Navigation proceeds directly unless leaving would discard meaningful unsaved edits. Search terms,
+filters, results, and merely opening an editor do not count. Editors use the shared
+UnsavedChangesGuard for meaningful unsaved work. Apply the same rule to closing an editor or
+changing a selection within the page: confirm only when the action would discard those edits.
+
+SearchBlock is the intended component. The current SearchPage still wraps PageFrame and mounts
+the search leave guard. See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the
+source review and proposed changes, including unsaved-edit protection.
+
+## Question Library discovery
+
+Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-interface).
+Search and Browse use the same RecordList and underlying Question Library results. Search adds
+keyword search above full-width results with more visible columns. Browse adds a narrow
+classification sidebar, leaving a narrower result area with fewer columns and the same capabilities.
+Choose the layout by Search or Browse mode, not by whether a query has run. On narrow screens,
+place Browse's navigator above results. Shared RecordList controls remain available in both modes.
+
+Search opens with an empty spreadsheet, functional column headings, and a concise prompt to enter
+a keyword or select a filter. At least one keyword or filter is required to show results. Sorting
+alone does not initiate an unfiltered search. Clearing all criteria restores the empty spreadsheet
+and prompt. Default object-kind settings do not cause an initial results query.
+
+Keywords and column filters refine the same results. Keep terms, active filters, and sort visible;
+make useful syntax discoverable without overwhelming new users. When criteria match nothing, retain
+the controls and explain that no results match. Display-mode changes preserve the matching records.
+
+Browse begins with Discipline and progressively exposes Subject, Topic, and Subtopic choices with
+useful counts. Keep the navigator compact, omit zero-count choices that cannot yield matching
+Questions, and keep results the primary focus. Tags, Question Types, and Bloom filters remain
+available without dominating the sidebar. Keep definitions and reference material outside it.
+Make cross-Discipline Subject inclusion an explicit choice. Moving from Browse into text Search
+retains the chosen terms and filters within the open workflow.
+
+Results show enough information to judge relevance before opening an object. Compact entries may
+truncate the displayed Title while retaining one canonical Title. Titles lead; IDs are
+subordinate, and Owner and Author labels retain their distinct meanings. Visual boxes help users
+find image-based Questions. Library Object links open in a new tab or window, preserving the
+original search and position. Tooltips provide brief text on hover and keyboard focus.
+
+Navigation between Search and Browse proceeds directly; confirmation is reserved for meaningful
+unsaved edits. Search prompts and results are temporary working state and are never permanently
+stored for restoration. Column preferences also reset when the view reopens.
+Pool creation and metadata editors protect meaningful unsaved edits independently of search
+activity. Temporary search state alone also does not require reload or tab-close confirmation.
+See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md#search-and-browse-source-audit) for
+the current layout and leave-guard findings and recommended implementation changes.
+
+Assessment editors offer Search and Browse paths, inspection before adding, and bulk addition by
+Question ID. The Pool member picker offers Published Questions only. Data, matching, result fields,
+and selection semantics belong to [QUESTION_LIBRARY_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SPEC.md),
+[QUESTION_LIBRARY_SEARCH_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_SEARCH_SPEC.md), and
+[QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_FILTER_SPEC.md).
+
+## Native Question response presentation
+
+Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#native-question-response-presentation).
+On laptop and desktop screens, MATCH prompts use one shared choice bank containing all choices.
+Support drag-and-drop and an equally capable keyboard-only way to assign, change, and clear
+matches. Make each prompt's assigned choice recognizable and the choice bank reachable with
+keyboard, pointer, or touch.
+
+Layouts may adapt to available space, including repeating choices on narrow screens when useful.
+Preserve content, response meaning, and grading behavior. Source and response formats remain in
+[NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md).
 
 ## System-wide interface behavior
 
@@ -193,8 +313,8 @@ The Instructor task rows are ordered as follows:
 - **Courses:** **My Blueprint Courses**, **My Active Courses**, **My Inactive Courses**, **Search
   Public Blueprint Courses**. All required backed destinations remain visible when their collections
   are empty; the empty page explains the collection and offers the first useful action.
-- **Questions:** **My Questions**, **My Draft Questions**, **Starred**, **Watched**, **Search
-  Question Library**, **Browse Question Library**. Search and Browse are distinct paths into the
+- **Questions:** **My Questions**, **My Pools**, **My Drafts**, **Starred**, **Watched**, **Browse
+  Question Library**, **Search Question Library**. Search and Browse are distinct paths into the
   same Question Library. A task remains Unavailable until its complete workflow is backed. Draft
   Questions remain private authoring rather than Question Library membership.
 - **Assessments:** **Assessments Due Soon**, **My Assessment Templates**. A future or unavailable
