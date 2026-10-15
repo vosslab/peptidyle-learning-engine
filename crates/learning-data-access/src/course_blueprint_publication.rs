@@ -8,7 +8,7 @@ use question_model::{
 
 use crate::{SessionTokenHash, StoreError};
 
-/// Atomically copies current reusable Course structure into a new Private Blueprint.
+/// Atomically copies current reusable Course structure into a new public Blueprint.
 #[async_trait]
 pub trait CourseBlueprintPublicationStore: Send + Sync {
     async fn create_blueprint_from_course_instance(

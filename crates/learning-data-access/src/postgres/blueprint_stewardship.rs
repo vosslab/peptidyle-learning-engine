@@ -212,7 +212,6 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
                 let event_kind: String = row.try_get("event_kind").map_err(map_sqlx_error)?;
                 let kind = match event_kind.as_str() {
                     "revision" => BlueprintCourseWatchEventKind::Revision,
-                    "published" => BlueprintCourseWatchEventKind::Published,
                     "archived" => BlueprintCourseWatchEventKind::Archived,
                     "restored" => BlueprintCourseWatchEventKind::Restored,
                     _ => {

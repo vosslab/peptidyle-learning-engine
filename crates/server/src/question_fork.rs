@@ -18,9 +18,8 @@ use axum::{
     routing::post,
 };
 use learning_data_access::{
-    AuthoringDraftStore, ForkPublishedQuestionImageInput, ForkPublishedQuestionInput,
-    PublishedQuestionForkImage, PublishedQuestionLibraryEntry, QuestionForkStore,
-    QuestionLibraryStore, SessionTokenHash, StoreError,
+    AuthoringDraftStore, ForkPublishedQuestionInput, QuestionForkStore, QuestionLibraryStore,
+    SessionTokenHash, StoreError,
     postgres::{
         PostgresAuthoringDraftStore, PostgresQuestionForkStore, PostgresQuestionLibraryStore,
         PostgresSessionStore,
@@ -28,11 +27,10 @@ use learning_data_access::{
 };
 use objects::{
     ObjectAddress, ObjectStore, ObjectStoreError, PutObject, ResolvedQuestionSource,
-    image_validation::verify_still_image, s3::S3ObjectStore,
+    s3::S3ObjectStore,
 };
 use question_model::{
-    ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionBackend,
-    QuestionResponseFormat, QuestionRevisionNumber, QuestionType, UserRole,
+    ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionRevisionNumber, UserRole,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -152,17 +150,18 @@ async fn fork_published_question(
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };
-    let hotspot_question_image = match load_hotspot_question_image(
-        &state,
+    let question_images = match crate::question_fork_images::load_question_images(
+        state.forks.as_ref(),
+        &state.objects,
         session,
-        &library_entry,
+        library_entry.backend,
         &source_published_question_revision_tuple,
         source.bytes(),
     )
     .await
     {
         Ok(value) => value,
-        Err(response) => return *response,
+        Err(()) => return unavailable(),
     };
 
     let proposed_draft_question_id = Uuid::now_v7();
@@ -183,11 +182,11 @@ async fn fork_published_question(
         Err(_) => return unavailable(),
     };
     let target_source_address = target_source_record.address.clone();
-    let target_hotspot_question_image = match copy_hotspot_question_image(
+    let target_question_images = match crate::question_fork_images::copy_question_images(
         &state.objects,
         workspace,
         proposed_draft_question_id,
-        hotspot_question_image.as_ref(),
+        &question_images,
     )
     .await
     {
@@ -199,15 +198,16 @@ async fn fork_published_question(
             return unavailable();
         }
     };
-    let target_asset_address = target_hotspot_question_image
-        .as_ref()
-        .map(|asset| asset.target_record.address.clone());
+    let target_asset_addresses = target_question_images
+        .iter()
+        .map(|asset| asset.target_record.address.clone())
+        .collect::<Vec<_>>();
     let input = ForkPublishedQuestionInput {
         source_published_question_revision_tuple: source_published_question_revision_tuple.clone(),
         workspace,
         proposed_draft_question_id,
         target_source_record,
-        hotspot_question_image: target_hotspot_question_image,
+        question_images: target_question_images,
         idempotency_key,
     };
     match state
@@ -220,7 +220,7 @@ async fn fork_published_question(
                 cleanup_replayed_candidates(
                     &state.objects,
                     &target_source_address,
-                    target_asset_address.as_ref(),
+                    &target_asset_addresses,
                 )
                 .await
             }
@@ -234,121 +234,32 @@ async fn fork_published_question(
                     .into_response(),
             )
         }
+        // An uncertain commit may have registered these candidates. Only an
+        // authoritative replay receipt permits deleting unregistered objects.
         Err(error) => store_error_response(error),
     }
-}
-
-struct VerifiedForkHotspotImage {
-    evidence: PublishedQuestionForkImage,
-    bytes: Vec<u8>,
-}
-
-async fn load_hotspot_question_image(
-    state: &RouteState,
-    session: SessionTokenHash,
-    entry: &PublishedQuestionLibraryEntry,
-    published_question_revision_tuple: &PublishedQuestionRevisionTuple,
-    source: &[u8],
-) -> Result<Option<VerifiedForkHotspotImage>, Box<Response>> {
-    if entry.question_type != QuestionType::Hotspot {
-        return Ok(None);
-    }
-    if entry.backend != QuestionBackend::Ple
-        || entry.source_media_type != adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE
-    {
-        return Err(Box::new(unavailable()));
-    }
-    let document = adapter_ple::question_json::PleQuestionJsonDocument::parse(source)
-        .map_err(|_| Box::new(unavailable()))?;
-    let compiled = document.compile().map_err(|_| Box::new(unavailable()))?;
-    let QuestionResponseFormat::Hotspot {
-        question_image_asset_tuple,
-        ..
-    } = compiled.presentation().response()
-    else {
-        return Err(Box::new(unavailable()));
-    };
-    let evidence = state
-        .forks
-        .load_published_question_fork_asset(session, published_question_revision_tuple)
-        .await
-        .map_err(|_| Box::new(unavailable()))?
-        .ok_or_else(|| Box::new(unavailable()))?;
-    if evidence.question_image_asset_id != question_image_asset_tuple.question_image_asset_id
-        || evidence.source_record.sha256.to_string() != question_image_asset_tuple.checksum
-    {
-        return Err(Box::new(unavailable()));
-    }
-    let stored = state
-        .objects
-        .get(&evidence.source_record.address)
-        .await
-        .map_err(|_| Box::new(unavailable()))?;
-    if stored.record != evidence.source_record {
-        return Err(Box::new(unavailable()));
-    }
-    let verified = verify_still_image(&stored.bytes).map_err(|_| Box::new(unavailable()))?;
-    if verified.media_type.canonical_media_type() != evidence.source_record.media_type
-        || verified.width != evidence.intrinsic_width
-        || verified.height != evidence.intrinsic_height
-    {
-        return Err(Box::new(unavailable()));
-    }
-    Ok(Some(VerifiedForkHotspotImage {
-        evidence,
-        bytes: stored.bytes,
-    }))
-}
-
-async fn copy_hotspot_question_image(
-    objects: &S3ObjectStore,
-    workspace: question_model::WorkspaceId,
-    draft_question_uuid: Uuid,
-    source: Option<&VerifiedForkHotspotImage>,
-) -> Result<Option<ForkPublishedQuestionImageInput>, ObjectStoreError> {
-    let Some(source) = source else {
-        return Ok(None);
-    };
-    let target_record = objects
-        .put(PutObject {
-            address: ObjectAddress::DraftQuestionImage {
-                workspace_id: workspace,
-                draft_question_id: draft_question_uuid,
-                question_image_asset_id: source.evidence.question_image_asset_id,
-                object_id: ObjectId::generate(),
-            },
-            bytes: source.bytes.clone(),
-            media_type: source.evidence.source_record.media_type.clone(),
-            created_at: crate::authoring::now(),
-        })
-        .await?;
-    Ok(Some(ForkPublishedQuestionImageInput {
-        question_image_asset_id: source.evidence.question_image_asset_id,
-        target_record,
-        intrinsic_width: source.evidence.intrinsic_width,
-        intrinsic_height: source.evidence.intrinsic_height,
-    }))
 }
 
 async fn cleanup_candidates(
     objects: &S3ObjectStore,
     source: &ObjectAddress,
-    asset: Option<&ObjectAddress>,
+    assets: &[ObjectAddress],
 ) -> Result<(), ObjectStoreError> {
     let source_result = objects.delete(source).await;
-    let asset_result = match asset {
-        Some(asset) => objects.delete(asset).await,
-        None => Ok(()),
-    };
-    source_result.and(asset_result)
+    let mut result = source_result;
+    for asset in assets {
+        let asset_result = objects.delete(asset).await;
+        result = result.and(asset_result);
+    }
+    result
 }
 
 async fn cleanup_replayed_candidates(
     objects: &S3ObjectStore,
     source: &ObjectAddress,
-    asset: Option<&ObjectAddress>,
+    assets: &[ObjectAddress],
 ) {
-    if let Err(error) = cleanup_candidates(objects, source, asset).await {
+    if let Err(error) = cleanup_candidates(objects, source, assets).await {
         // The immutable database receipt is authoritative. Cleanup remains a
         // diagnostic concern and must never turn a recovered retry into failure.
         tracing::error!(?error, "Question Fork replay candidate cleanup failed");

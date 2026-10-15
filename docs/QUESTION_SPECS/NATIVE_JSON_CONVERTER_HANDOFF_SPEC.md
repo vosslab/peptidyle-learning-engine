@@ -23,16 +23,41 @@ QPM's wrapper nor its WASM. The picker lists only `formats().formats` entries wi
 
 `convert` receives the selected file bytes with `outputFormat: "ple_native_json"` and
 `allowMixed: true`. Its directory artifact supplies `item_*.json` and optional `media/*` entries.
-PLE shows warnings, inspects each item's display fields for images, then saves image-free items
-sequentially through `POST /api/authoring/drafts`. It preserves the emitted source HTML unchanged.
-Shared media does not make unrelated questions image-bearing; `externalResources` is inventory,
-not an image binding. Current inline-image binding is incomplete, so affected items are skipped
-before Draft creation with `contains images`.
+PLE shows warnings and processes each question independently: it saves the emitted Native JSON
+unchanged through `POST /api/authoring/drafts`, then uploads every image referenced by that
+question's display content through the existing Draft image endpoint. This covers prompt, choice,
+matching, ordering, blank-label, hint, and feedback content. `externalResources` is inventory only
+and never authorizes fetching or rendering.
 
-One result list reports created Draft links, rejected items with available server messages,
-skipped items with reasons, and individual request failures. Processing continues after a failed
-item, preserves earlier successes, and performs no automatic retry. A failed network response can
-leave the save outcome unknown. Check My Draft Questions before reimporting.
+### Draft image upload and binding
+
+For each referenced image, the browser sends its raw bytes to
+`POST /api/authoring/drafts/{draftId}/images` with the Draft's current `If-Match` edit number and
+the matching `Content-Type` (`image/png`, `image/jpeg`, `image/webp`, or `image/svg+xml`). It sends
+`X-PLE-Source-Relative-Name` with the exact relative filename emitted by QPM. PLE persists
+the source-name-to-`QuestionImageAssetTuple` binding independently from Native JSON. The source
+filename is a lookup key only; the image tuple remains the logical asset reference.
+
+The source-relative filename must be nonblank and at most 4096 characters. It uses slash-separated
+relative path segments and contains no leading slash, `.` or `..` segment, backslash, colon, query,
+fragment, or control character. PLE rejects a duplicate source filename for the Draft. Uploading
+an image does not increment the Draft edit number, so all image uploads for the saved source use
+that same expected edit number. After source and referenced images are saved, the Draft can be
+opened for preview. An upload error leaves the Draft available for repair; it does not stop
+processing later items in the import batch.
+
+The HTML and CSS presentation boundary is defined in
+[NATIVE_JSON_SPEC.md](NATIVE_JSON_SPEC.md#display-content). Authored source stays unchanged in
+storage. The browser sanitizes HTML and MathML with DOMPurify and inline CSS with a CSSOM-based
+allowlist. Relative and absolute diagram placement and transforms remain inside a relative wrapper
+with layout, paint, and style containment; fixed placement and resource URLs are filtered. Canvas
+and HTML scripts do not execute. Bound images render only through the authenticated same-origin
+image route. Existing isolated `authorScript` behavior remains separate and unchanged.
+
+Results report created Draft links, rejected items with available server messages, and individual
+request failures. Processing continues after a failed item, preserves earlier successes, and
+performs no automatic retry. A failed network response can leave the save outcome unknown. Check My
+Draft Questions before reimporting.
 
 Current readers are BBQ, text2qti, Oklahoma, and Blackboard export ZIP. Canvas QTI 1.2 and
 Blackboard QTI 2.1 remain writer-only in QPM; adding readers is separate upstream work. See
@@ -92,8 +117,7 @@ rules from this summary.
 
 ## Minimal complete source and associated file
 
-This valid single-choice source demonstrates HTML and a content-relative image reference. The
-relative path is an example only; it does not establish a required filename or directory policy.
+This valid single-choice source demonstrates HTML and a content-relative image reference.
 
 ```json
 {
@@ -116,53 +140,37 @@ The associated file is supplied separately at the matching relative path:
 assets/image_001.png  ->  image bytes
 ```
 
-The converter preserves the relative reference and supplies those bytes. Future inline-image
-binding in PLE must resolve the reference against the supplied import files, compute or verify the
-checksum, store the bytes through existing Draft image storage, and bind the existing tuple.
-The path is lookup input, not a
-persistent asset identity. `QuestionImageAssetTuple` has no new key or object-store field; PLE
-keeps logical asset identity separate from physical object identity.
+The converter preserves the relative reference and supplies those bytes. PLE resolves the exact
+relative filename, verifies and stores the bytes through existing Draft image storage, and binds
+the existing tuple. The path is lookup input, not a persistent asset identity.
+`QuestionImageAssetTuple` has no new key or object-store field; PLE keeps logical asset identity
+separate from physical object identity.
 
 ## Image and HTML responsibilities
 
 The converter preserves authored HTML and inline CSS in all Native JSON display content that
 supports HTML, as defined by the canonical [Display content rule](NATIVE_JSON_SPEC.md#display-content),
-and supplies each referenced file's bytes. Prompt and choice content are representative examples.
-It does not assign PLE asset IDs or object-store IDs. PLE owns checksum verification and assignment
-for its asset tuple when image binding is implemented.
-Paths such as `assets/image_001.png` are neutral examples, not naming requirements.
-
-Imported inline-image binding is deferred. Current browser import skips image-bearing questions
-before Draft creation, as specified in the browser transport above. When binding is implemented,
-PLE will resolve each image reference in Native JSON display content, verify the supplied bytes,
-store them through the existing Draft asset path, and bind the current `QuestionImageAssetTuple`.
-PLE will make the image available in preview and published content. Prompt and choice references
-are useful representative coverage. Final stored HTML `src` syntax remains unspecified. The
-existing single-surface HOTSPOT path remains a complete PLE-only authoring capability.
-
-HTML may parse and be stored as strings today, but current compilation/rendering escapes or treats
-it as text. It therefore does not yet satisfy the settled HTML display requirement. Sanitization
-policy remains deferred. Existing isolated `authorScript` rules remain in force and HTML support
-does not widen script execution.
+and supplies each referenced file's bytes. It does not assign PLE asset IDs or object-store IDs.
+The import flow binds each referenced image to the existing `QuestionImageAssetTuple` through the
+Draft upload API. The original source remains unchanged; bindings are stored independently.
+The exact bound image renders through the authenticated same-origin route. The existing
+single-surface HOTSPOT path remains a complete PLE-only authoring capability.
 
 ## Verification boundary
 
 The former seven-kind browser journey imported a fixed BBQ bank and opened every saved Draft
 preview. It was retired during test pruning, so it is historical refresh evidence rather than
-current QPM-to-PLE coverage. A discovered conversion failure calls for correcting the QPM Native
-JSON engine or PLE decoder against [NATIVE_JSON_SPEC.md](NATIVE_JSON_SPEC.md), then rebuilding and
-re-vendoring after engine changes. Inline-image rendering remains separate work.
+current QPM-to-PLE runtime acceptance. A discovered conversion failure calls for correcting the
+QPM Native JSON engine or PLE decoder against [NATIVE_JSON_SPEC.md](NATIVE_JSON_SPEC.md), then
+rebuilding and re-vendoring after engine changes. The current image-binding and HTML implementation
+does not by itself establish connected or browser runtime acceptance.
 
 ## Current PLE gaps and evidence
 
-- The Native JSON compiler stores prompt and choice strings, but the current renderer escapes or
-  treats them as text. HTML display with inline CSS remains an implementation gap. This is separate
-  from the M01-M29 acceptance recorded in the [October 7 ledger closeout](../archive/reports/question_spec_implementation_ledger.md).
-- The current publication image path handles a HOTSPOT surface. It does not enumerate and bind an
-  arbitrary set of images referenced in prompt and choice strings. Structured image rendering
-  already uses the tuple and image URL path; ordinary inline HTML image rendering is incomplete.
-- The browser import skips each image-bearing item before creating its Draft; it does not yet bind
-  arbitrary inline images to PLE image storage.
+- HTML and inline CSS display, Draft image binding, and multi-image publication are implemented
+  under the contract above. Browser and connected runtime acceptance remain pending. The M01-M29
+  acceptance is recorded in the
+  [October 7 ledger closeout](../archive/reports/question_spec_implementation_ledger.md).
 - HOTSPOT's existing stored surface requires `questionImageAssetId` and `checksum`. PLE's GUI owns
   that complete authoring path; there is no QPM-side HOTSPOT representation to coordinate.
 

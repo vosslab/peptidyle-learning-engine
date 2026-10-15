@@ -26,7 +26,7 @@ import {
 } from "./real_stack_ui";
 import { followCaptureLink, openStudentCourse } from "../screenshot_corpus/visible_workflows";
 
-const COURSE = "Biochemistry 301: Proteins and Peptides";
+const COURSE = "Biochemistry";
 // A failed --running rerun retains the prior disposable database.
 const TITLE = `Student work preservation browser check ${Date.now().toString()}`;
 const WEBWORK = "Genetic Disorders from Descriptions";
@@ -59,7 +59,7 @@ async function publishFib(page: Page): Promise<void> {
 
 async function instructor(page: Page): Promise<void> {
   await page.goto("/sign-in");
-  await chooseSeededIdentityAtSignIn(page, /Elena Rivera/u);
+  await chooseSeededIdentityAtSignIn(page, /Elena/u);
   await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
   await publishFib(page);
   await page.getByRole("link", { name: "Courses", exact: true }).click();

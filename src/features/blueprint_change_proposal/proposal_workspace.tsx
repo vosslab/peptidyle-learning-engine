@@ -194,7 +194,7 @@ export function ProposalTargetTools(props: {
     const generation = targetGeneration;
     setBusy(true);
     try {
-      // List includes owned Private saved sources; never use public-only discovery here.
+      // List the Instructor's saved Blueprint Courses as proposal sources.
       const page = await props.client.listBlueprintCourses(next);
       if (generation !== targetGeneration) return;
       setSources(next ? [...sources(), ...page.items] : page.items);
@@ -335,8 +335,8 @@ export function ProposalTargetTools(props: {
                   <p>Source Blueprint Theme: {source().theme}.</p>
                   <p>
                     The exact proposed teaching structure, instructions, settings and Question/Pool
-                    pins are shared with the receiving Instructor, including when your source is
-                    Private. This does not make the Private source generally visible.
+                    pins are shared with the receiving Instructor. Proposal evidence is visible only
+                    to proposal participants.
                   </p>
                   <button
                     class="primary-action"

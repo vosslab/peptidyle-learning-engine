@@ -367,7 +367,7 @@ fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
         },
     };
     let json = serde_json::to_vec(&EncodedPayload { meaning })
-        .expect("validated private Blueprint Revision Content serializes");
+        .expect("validated Blueprint Revision Content serializes");
     let mut bytes = Vec::with_capacity(DOMAIN.len() + json.len());
     bytes.extend_from_slice(DOMAIN);
     bytes.extend_from_slice(&json);

@@ -40,7 +40,7 @@ SELECT session_id
                  = '00000000-0000-0000-0000-000000000202'::uuid
       ),
       decode(:'example_content_session_token_hash', 'hex'),
-      900
+      28800
   );
 
 RESET ROLE;

@@ -1,7 +1,5 @@
 // Current mixed-Library evidence with the Pool created beside this capture workflow.
 
-import { decodeLibraryObjectSearchPage } from "../../../src/api/decoders/question_library";
-
 import type { ScenarioRuntime } from "./runtime";
 import type { Locator, Page } from "playwright";
 import { catalogScreenshotFilename } from "./filenames";
@@ -12,40 +10,21 @@ import {
 } from "./scenario_types";
 import {
   enterInstructor,
+  searchNativeMcLibraryQuestion,
   followCaptureLink,
   openInstructorLibraryBrowse,
 } from "./visible_workflows";
-
-const SOURCE_QUESTION_TITLE = "Genetic disorders: Which one?";
 
 async function loadDefaultLibrary(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Search", exact: true }).click();
 }
 
-async function createSearchPool(page: Page): Promise<string> {
-  const poolTitle = `Library search screenshot ${Date.now()}`;
-  const response: unknown = await page.evaluate(async (sourceQuestionTitle) => {
-    const query = new URLSearchParams({
-      kind: "questions",
-      questions: "all",
-      authorship: "any",
-      sort: "titleAscending",
-      page_size: "50",
-      text: sourceQuestionTitle,
-    });
-    const searched = await fetch(`/api/library-objects/search?${query.toString()}`);
-    if (!searched.ok) throw new Error(`Pilot Question search status ${searched.status}`);
-    return (await searched.json()) as unknown;
-  }, SOURCE_QUESTION_TITLE);
-  const matches = decodeLibraryObjectSearchPage(response).items.filter(
-    (item) =>
-      item.kind === "question" &&
-      item.question.summary.metadata.questionTitle === SOURCE_QUESTION_TITLE,
-  );
-  const match = matches[0];
-  if (matches.length !== 1 || match?.kind !== "question")
-    throw new Error("Expected one exact Pilot Question for this capture.");
-  const source = match.question.summary;
+async function createSearchPool(
+  page: Page,
+): Promise<{ poolTitle: string; sourceQuestionTitle: string }> {
+  const source = await searchNativeMcLibraryQuestion(page);
+  const sourceQuestionTitle = source.metadata.questionTitle;
+  const poolTitle = `${sourceQuestionTitle} screenshot ${Date.now()}`;
   await page.evaluate(
     async ({ title, publishedQuestionRevisionTuple }) => {
       const created = await fetch("/api/question-pools", {
@@ -53,7 +32,7 @@ async function createSearchPool(page: Page): Promise<string> {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           title,
-          description: "One exact Pilot Question for this Library search capture.",
+          description: "One selected published Question for this Library search capture.",
           members: [publishedQuestionRevisionTuple],
         }),
       });
@@ -67,7 +46,7 @@ async function createSearchPool(page: Page): Promise<string> {
       publishedQuestionRevisionTuple: source.publishedQuestionRevisionTuple,
     },
   );
-  return poolTitle;
+  return { poolTitle, sourceQuestionTitle };
 }
 
 function publishedRows(page: Page): Locator {
@@ -82,20 +61,35 @@ async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
   const page = session.page;
   try {
     await enterInstructor(page);
-    const poolTitle = await createSearchPool(page);
-    // The Library intentionally remains idle until the visible Search action submits its
-    // default query.
+    const { poolTitle, sourceQuestionTitle } = await createSearchPool(page);
+    await page.getByLabel("Search Question Library", { exact: true }).fill("");
+    await page
+      .getByRole("combobox", { name: "Question membership", exact: true })
+      .selectOption("inNoPool");
     await loadDefaultLibrary(page);
     const rows = publishedRows(page);
     await rows.filter({ hasText: poolTitle }).first().waitFor();
+    await rows
+      .filter({ has: page.getByRole("link", { name: "Open", exact: true }) })
+      .first()
+      .waitFor();
     await runtime.captureCheckpoint(session, "library_mixed_results");
     await page
       .getByRole("combobox", { name: "Question membership", exact: true })
       .selectOption("all");
-    await rows.filter({ hasText: SOURCE_QUESTION_TITLE }).first().waitFor();
+    await rows
+      .filter({
+        hasText: sourceQuestionTitle,
+        has: page.getByRole("link", { name: "Open", exact: true }),
+      })
+      .first()
+      .waitFor();
     await runtime.captureCheckpoint(session, "library_all_questions");
     await page.getByRole("combobox", { name: "Show", exact: true }).selectOption("pools");
     await rows.filter({ hasText: poolTitle }).first().waitFor();
+    if ((await rows.getByRole("link", { name: "Open", exact: true }).count()) !== 0) {
+      throw new Error("Pools-only Library results include a Question.");
+    }
     await runtime.captureCheckpoint(session, "library_pools_only");
     const displays = page.getByRole("group", { name: "Library result display", exact: true });
     for (const [mode, checkpoint] of [
@@ -107,7 +101,13 @@ async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
       await runtime.captureCheckpoint(session, checkpoint);
     }
     await openInstructorLibraryBrowse(page);
-    await page.getByRole("button", { name: /^Genetics/u }).click();
+    await page.getByRole("button", { name: /^Multiple choice/u }).click();
+    await page.getByRole("link", { name: "Search within results", exact: true }).click();
+    const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
+    await leaveSearch.waitFor();
+    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
+    await page.getByLabel("Search Question Library", { exact: true }).fill(poolTitle);
+    await page.getByLabel("Search Question Library", { exact: true }).press("Enter");
     await rows.filter({ hasText: poolTitle }).first().waitFor();
     const link = rows
       .filter({ hasText: poolTitle })

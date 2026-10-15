@@ -14,6 +14,7 @@ import {
   numberFromQuotedPositiveHeader,
 } from "../../api/http_client/conditional_request";
 import { ApiProtocolError } from "../../api/http_client/error";
+import { isQuestionSourceRelativeName } from "../../question_image_source";
 
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const SAFE_ORIGIN = "https://ple-question-json.invalid";
@@ -72,6 +73,7 @@ export interface PleQuestionJsonClient {
     image: Blob,
     expectedDraftQuestionEditNumber: string,
     signal?: AbortSignal,
+    sourceRelativeName?: string,
   ): Promise<PleQuestionJsonImageDescriptor>;
   questionImagePreviewPath(
     draftQuestion: DraftQuestionRouteId,
@@ -315,11 +317,14 @@ export function createPleQuestionJsonClient(
     image: Blob,
     expectedDraftQuestionEditNumber: string,
     signal?: AbortSignal,
+    sourceRelativeName?: string,
   ): Promise<PleQuestionJsonImageDescriptor> {
     if (image.size < 1 || image.size > 8 * 1024 * 1024)
       throw new PleQuestionJsonProtocolError("Choose an image no larger than 8 MiB.");
     if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(image.type))
       throw new PleQuestionJsonProtocolError("Choose a PNG, JPEG, WebP, or SVG image.");
+    if (sourceRelativeName !== undefined && !isQuestionSourceRelativeName(sourceRelativeName))
+      throw new PleQuestionJsonProtocolError("Use a content-relative image filename.");
     const path = `/api/authoring/drafts/${encodedId(draftQuestion)}/images`;
     // ASVS 2.2.2: browser checks aid usability; the server verifies the bytes and rewrites SVG.
     const response = await fetchImplementation(sameOriginPath(basePath, path), {
@@ -332,6 +337,9 @@ export function createPleQuestionJsonClient(
         accept: "application/json",
         "content-type": image.type,
         "if-match": ifMatchDraftQuestionEditNumber(expectedDraftQuestionEditNumber, path),
+        ...(sourceRelativeName === undefined
+          ? {}
+          : { "x-ple-source-relative-name": sourceRelativeName }),
       },
     });
     if (response.status === 409 || response.status === 412 || response.status === 428)

@@ -28,8 +28,7 @@ BEGIN
      WHERE ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
        AND course.blueprint_course_id = p_blueprint_course_id
        AND ple_api.current_session_account_is_instructor()
-       AND (course.availability IN ('public', 'archived')
-            OR course.owner_account_id = ple_api.current_session_account_id());
+       AND course.availability IN ('public', 'archived');
     IF v_blueprint_course_id IS NULL THEN
         RAISE EXCEPTION 'Blueprint not found' USING ERRCODE = '42501';
     END IF;

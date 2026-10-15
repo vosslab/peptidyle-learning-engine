@@ -54,11 +54,11 @@ impl PostgresQuestionForkStore {
 
 #[async_trait]
 impl QuestionForkStore for PostgresQuestionForkStore {
-    async fn load_published_question_fork_asset(
+    async fn load_published_question_fork_assets(
         &self,
         session_token_hash: SessionTokenHash,
         published_question_revision_tuple: &PublishedQuestionRevisionTuple,
-    ) -> Result<Option<PublishedQuestionForkImage>, StoreError> {
+    ) -> Result<Vec<PublishedQuestionForkImage>, StoreError> {
         let revision_number = i32::try_from(
             published_question_revision_tuple.revision_number.get(),
         )
@@ -78,17 +78,12 @@ impl QuestionForkStore for PostgresQuestionForkStore {
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        if rows.len() > 1 {
-            return Err(StoreError::InvalidRecord(
-                "Native HOTSPOT source Revision has more than one raster".to_owned(),
-            ));
-        }
-        let asset = rows
-            .first()
+        let assets = rows
+            .iter()
             .map(|row| decode_fork_asset(row, published_question_revision_tuple))
-            .transpose()?;
+            .collect::<Result<Vec<_>, _>>()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(asset)
+        Ok(assets)
     }
 
     async fn fork_published_question_to_draft(
@@ -117,8 +112,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
                 "Question Fork target size exceeds PostgreSQL bigint".to_owned(),
             )
         })?;
-        let hotspot_question_image =
-            encode_hotspot_question_image(input.hotspot_question_image.as_ref())?;
+        let question_images = encode_question_images(&input.question_images)?;
         let mut transaction = self.begin(session_token_hash).await?;
         let row = sqlx::query(
             "SELECT * FROM ple_api.fork_published_question_to_draft(\
@@ -141,7 +135,7 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         .bind(target_size)
         .bind(&target.media_type)
         .bind(target.created_at.as_unix_millis())
-        .bind(hotspot_question_image)
+        .bind(question_images)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -213,16 +207,20 @@ fn decode_fork_asset(
     }
     Ok(PublishedQuestionForkImage {
         question_image_asset_id,
+        source_relative_name: row
+            .try_get("source_relative_name")
+            .map_err(map_sqlx_error)?,
         source_record,
         intrinsic_width,
         intrinsic_height,
     })
 }
 
-fn encode_hotspot_question_image(
-    asset: Option<&crate::ForkPublishedQuestionImageInput>,
-) -> Result<Option<serde_json::Value>, StoreError> {
-    asset
+fn encode_question_images(
+    assets: &[crate::ForkPublishedQuestionImageInput],
+) -> Result<serde_json::Value, StoreError> {
+    assets
+        .iter()
         .map(|asset| {
             let record = &asset.target_record;
             let address = serde_json::to_value(&record.address).map_err(|_| {
@@ -230,6 +228,7 @@ fn encode_hotspot_question_image(
             })?;
             Ok(serde_json::json!({
                 "questionImageAssetId": asset.question_image_asset_id,
+                "sourceRelativeName": asset.source_relative_name,
                 "objectId": record.id,
                 "objectAddress": address,
                 "checksum": record.sha256.to_string(),
@@ -240,5 +239,6 @@ fn encode_hotspot_question_image(
                 "intrinsicHeight": asset.intrinsic_height,
             }))
         })
-        .transpose()
+        .collect::<Result<Vec<_>, StoreError>>()
+        .map(serde_json::Value::Array)
 }

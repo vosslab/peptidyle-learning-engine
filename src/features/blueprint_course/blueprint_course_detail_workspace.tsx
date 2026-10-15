@@ -348,7 +348,7 @@ export function BlueprintCourseDetailWorkspace(
       view,
     });
     publishBlueprintLabels(view);
-    if (metadata.metadata.availability !== "private") setEditing(false);
+    if (metadata.metadata.availability === "archived") setEditing(false);
     setMetadataConflict(false);
   }
 
@@ -479,74 +479,6 @@ export function BlueprintCourseDetailWorkspace(
     }
   }
 
-  async function publish(): Promise<void> {
-    const loaded = current();
-    if (
-      loaded === undefined ||
-      !blueprintLifecyclePresentation(loaded.view.availability, loaded.view.read_access).canPublish
-    )
-      return;
-    if (dirty()) {
-      setNotice({
-        kind: "alert",
-        text: "Save your Private Blueprint Course edits before publishing its current Revision.",
-      });
-      return;
-    }
-    setMetadataSaving(true);
-    try {
-      applyMetadata(
-        await props.client.publishBlueprintCourse(
-          loaded.view.id,
-          loaded.view.blueprint_edit_number,
-        ),
-      );
-      setNotice({
-        kind: "status",
-        text: "Blueprint Course published. Instructors can now browse and adopt its current Revision.",
-      });
-    } catch (error: unknown) {
-      setMetadataConflict(error instanceof BlueprintCourseConflictError);
-      setNotice({
-        kind: "alert",
-        text: errorMessage(error, "Blueprint Course could not publish."),
-      });
-    } finally {
-      setMetadataSaving(false);
-    }
-  }
-
-  async function returnToPrivate(): Promise<void> {
-    const loaded = current();
-    if (
-      loaded === undefined ||
-      !blueprintLifecyclePresentation(loaded.view.availability, loaded.view.read_access)
-        .canReturnToPrivate
-    )
-      return;
-    setMetadataSaving(true);
-    try {
-      applyMetadata(
-        await props.client.returnBlueprintCourseToPrivate(
-          loaded.view.id,
-          loaded.view.blueprint_edit_number,
-        ),
-      );
-      setNotice({ kind: "status", text: "Blueprint Course returned to Private." });
-    } catch (error: unknown) {
-      setMetadataConflict(error instanceof BlueprintCourseConflictError);
-      setNotice({
-        kind: "alert",
-        text: errorMessage(
-          error,
-          "Blueprint Course could not return to Private. It may already have been adopted.",
-        ),
-      });
-    } finally {
-      setMetadataSaving(false);
-    }
-  }
-
   async function reloadMetadata(): Promise<void> {
     const loaded = current();
     if (loaded === undefined) return;
@@ -656,8 +588,6 @@ export function BlueprintCourseDetailWorkspace(
                   setEditing(!editing());
                   setSelectedAssessment(undefined);
                 }}
-                onPublish={() => void publish()}
-                onReturnToPrivate={() => void returnToPrivate()}
                 onArchive={() => void archive()}
                 onRestore={() => void restore()}
               />
@@ -824,8 +754,6 @@ export function BlueprintCourseDetailWorkspace(
                   setEditing(!editing());
                   setSelectedAssessment(undefined);
                 }}
-                onPublish={() => void publish()}
-                onReturnToPrivate={() => void returnToPrivate()}
                 onArchive={() => void archive()}
                 onRestore={() => void restore()}
               />

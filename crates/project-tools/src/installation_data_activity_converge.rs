@@ -1,7 +1,7 @@
 //! Course, Assessment, and attempt convergence for the Live Demo activity.
 
 use anyhow::{Context, Result, bail, ensure};
-use question_model::{AssessmentAttemptId, AssessmentId, AssessmentType, CourseInstanceId};
+use question_model::{AssessmentAttemptId, AssessmentId, CourseInstanceId};
 use reqwest::{Method, StatusCode};
 use serde_json::{Map, Value, json};
 
@@ -9,9 +9,8 @@ use super::http::ProductApi;
 use super::response::response_from_presentation;
 use super::{
     AttemptState, BrowserEndpoint, DemoGraph, JACK_SAVED_RESPONSE_COUNT,
-    LIVE_DEMO_ASSESSMENT_TITLE, LIVE_DEMO_COURSE_LONG_NAME, LIVE_DEMO_COURSE_SHORT_NAME,
-    LIVE_DEMO_QUESTION_COUNT, TemporarySession, TemporarySessions, closed_array_field,
-    closed_object, closed_object_with_optional, expect_status, public_id,
+    LIVE_DEMO_COURSE_LONG_NAME, LIVE_DEMO_COURSE_SHORT_NAME, TemporarySession, TemporarySessions,
+    closed_array_field, closed_object, closed_object_with_optional, expect_status, public_id,
 };
 
 pub(super) async fn converge(
@@ -30,7 +29,7 @@ pub(super) async fn converge(
             &api,
             sessions.session("mary")?,
             &attempt,
-            LIVE_DEMO_QUESTION_COUNT,
+            graph.question_count,
         )
         .await?;
         submit_attempt(&api, sessions.session("mary")?, &attempt).await?;
@@ -48,7 +47,7 @@ pub(super) async fn converge(
         &api,
         sessions.session("jack")?,
         &jack_attempt,
-        JACK_SAVED_RESPONSE_COUNT,
+        JACK_SAVED_RESPONSE_COUNT.min(graph.question_count),
     )
     .await?;
 
@@ -133,11 +132,10 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
                 ],
                 "Assessment",
             )?;
-            Ok((object.get("assessmentType").and_then(Value::as_str)
-                == Some(AssessmentType::PracticeQuestionAssignment.as_str())
-                && object.get("title").and_then(Value::as_str) == Some(LIVE_DEMO_ASSESSMENT_TITLE)
-                && object.get("status").and_then(Value::as_str) == Some("released"))
-            .then_some(object))
+            Ok(
+                (object.get("status").and_then(Value::as_str) == Some("released"))
+                    .then_some(object),
+            )
         })
         .collect::<Result<Vec<_>>>()?
         .into_iter()
@@ -148,7 +146,37 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         "Live Demo Assessment is missing or ambiguous"
     );
     let assessment = public_id::<AssessmentId>(assessments[0].get("id"), "Assessment")?;
-    Ok(DemoGraph { course, assessment })
+    let workspace = expect_status(
+        api.request(
+            instructor,
+            "Assessment workspace",
+            Method::GET,
+            &format!("/api/course-instances/{course}/assessments/{assessment}"),
+            None,
+        )
+        .await?,
+        StatusCode::OK,
+        "Assessment workspace",
+    )?;
+    let entries = workspace["entries"]
+        .as_array()
+        .context("Assessment entries are invalid")?;
+    let question_count = entries.iter().try_fold(0_u64, |count, entry| {
+        let size = match entry["kind"].as_str() {
+            Some("fixedQuestion") => 1,
+            Some("questionPool") => entry["selectionCount"]
+                .as_u64()
+                .context("Pool selection count is invalid")?,
+            _ => bail!("Assessment entry kind is invalid"),
+        };
+        Ok::<_, anyhow::Error>(count + size)
+    })?;
+    ensure!(question_count > 0, "Representative Assessment is empty");
+    Ok(DemoGraph {
+        course,
+        assessment,
+        question_count,
+    })
 }
 
 async fn student_attempt_state(
@@ -199,7 +227,7 @@ async fn student_attempt_state(
     );
     let assessment = matches[0];
     ensure!(
-        assessment.get("questionCount").and_then(Value::as_u64) == Some(LIVE_DEMO_QUESTION_COUNT),
+        assessment.get("questionCount").and_then(Value::as_u64) == Some(graph.question_count),
         "Live Demo Student Assessment question count is invalid"
     );
     match (
@@ -342,7 +370,7 @@ async fn prepare_attempt(
             && object
                 .get("questions")
                 .and_then(Value::as_array)
-                .is_some_and(|items| items.len() == LIVE_DEMO_QUESTION_COUNT as usize),
+                .is_some_and(|items| items.len() == graph.question_count as usize),
         "Live Demo {student_name} Assessment Attempt is invalid"
     );
     public_id::<AssessmentAttemptId>(object.get("assessmentAttemptId"), "Assessment Attempt")
@@ -430,9 +458,10 @@ async fn selected_presentation(
     let presentation = object
         .get("presentation")
         .context("Live Demo Student presentation is invalid")?;
-    let presentation = closed_object(
+    let presentation = closed_object_with_optional(
         presentation,
         &["publishedQuestionRevisionTuple", "prompt", "response"],
+        &["authorContentDigest"],
         "Student presentation",
     )?;
     let response = presentation
@@ -521,9 +550,8 @@ async fn verify_complete_activity(
     )?;
     ensure!(
         progress.get("assessmentAttemptId").and_then(Value::as_str) == Some(jack_attempt)
-            && progress.get("questionCount").and_then(Value::as_u64)
-                == Some(LIVE_DEMO_QUESTION_COUNT)
-            && positions.len() == LIVE_DEMO_QUESTION_COUNT as usize,
+            && progress.get("questionCount").and_then(Value::as_u64) == Some(graph.question_count)
+            && positions.len() == graph.question_count as usize,
         "Live Demo Jack Student progress is invalid"
     );
     let saved = positions
@@ -555,7 +583,7 @@ async fn verify_complete_activity(
         .filter(|saved| *saved)
         .count();
     ensure!(
-        saved == JACK_SAVED_RESPONSE_COUNT as usize,
+        saved == JACK_SAVED_RESPONSE_COUNT.min(graph.question_count) as usize,
         "Live Demo Jack saved work did not converge"
     );
     Ok(())

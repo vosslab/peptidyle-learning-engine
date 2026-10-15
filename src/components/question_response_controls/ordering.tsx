@@ -12,6 +12,7 @@ import {
   createResponseController,
   Status,
   textFromBlocks,
+  QuestionResponseContent,
   type OrderingResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
@@ -121,15 +122,16 @@ export function OrderingResponse(
         <ol class="ordering-list">
           <For each={order()}>
             {(id, index) => {
-              const itemText = (): string => {
-                const orderingItem = orderingItemById(props.responseFormat.items, id);
-                return orderingItem === undefined
-                  ? "Unavailable Ordering Item"
-                  : textFromBlocks(orderingItem.body);
-              };
               return (
                 <li class="ordering-row" id={rowId(id)}>
-                  <span>{itemText()}</span>
+                  <QuestionResponseContent
+                    blocks={
+                      orderingItemById(props.responseFormat.items, id)?.body ?? [
+                        { kind: "text", markdown: "Unavailable Ordering Item" },
+                      ]
+                    }
+                    context={props}
+                  />
                   <button
                     class="order-action"
                     type="button"

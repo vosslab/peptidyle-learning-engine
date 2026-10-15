@@ -26,15 +26,13 @@ export interface BlueprintCourseValidation {
   readonly message: string | null;
 }
 
-/** Visible lifecycle choices mirror the server's directed Blueprint state machine. */
+/** Visible lifecycle choices mirror the server's archive state machine. */
 export interface BlueprintLifecyclePresentation {
   readonly meaning: string;
   readonly canAdopt: boolean;
   readonly canEdit: boolean;
-  readonly canPublish: boolean;
   readonly canArchive: boolean;
   readonly canRestore: boolean;
-  readonly canReturnToPrivate: boolean;
 }
 
 /** Fails closed for a state/read-access combination the server would not expose. */
@@ -43,18 +41,6 @@ export function blueprintLifecyclePresentation(
   readAccess: BlueprintCourseReadAccess,
 ): BlueprintLifecyclePresentation {
   const owner = readAccess === "blueprint_course_owner";
-  if (availability === "private") {
-    return {
-      meaning:
-        "Only you can view and edit this Blueprint Course. Publish it to let other Instructors browse and adopt it.",
-      canAdopt: false,
-      canEdit: owner,
-      canPublish: owner,
-      canArchive: false,
-      canRestore: false,
-      canReturnToPrivate: false,
-    };
-  }
   if (availability === "public") {
     return {
       meaning:
@@ -63,10 +49,8 @@ export function blueprintLifecyclePresentation(
       // ASVS 8.2.2: Per-Blueprint owner access controls this edit affordance; the server
       // independently authorizes every mutation.
       canEdit: owner,
-      canPublish: false,
       canArchive: owner,
       canRestore: false,
-      canReturnToPrivate: owner,
     };
   }
   return {
@@ -74,10 +58,8 @@ export function blueprintLifecyclePresentation(
       "This Blueprint Course is read-only and unavailable for new Course Instance creation. Restore it to Public to make it available again.",
     canAdopt: false,
     canEdit: false,
-    canPublish: false,
     canArchive: false,
     canRestore: owner,
-    canReturnToPrivate: false,
   };
 }
 

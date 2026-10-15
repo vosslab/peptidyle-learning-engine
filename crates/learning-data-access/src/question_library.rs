@@ -79,6 +79,8 @@ pub struct PublishedQuestionLibraryEntry {
     pub source_object_checksum: SourceObjectChecksum,
     /// Source media type required before backend parsing.
     pub source_media_type: String,
+    /// Exact ready image registry supplied only by authorized detail reads.
+    pub question_image_renditions: Vec<crate::ReadyQuestionImageRendition>,
     /// Registered backend-private WeBWorK path for this exact Revision.
     /// Absent for Questions that do not use the WeBWorK backend.
     pub webwork_pg_path: Option<String>,

@@ -5,7 +5,7 @@ import { Show, createEffect, onCleanup, onMount, type JSX } from "solid-js";
 import { PageFrame } from "../../components/page_frame";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { PLE_QUESTION_JSON_EDITOR_STYLES } from "./question_json_editor_styles";
-import type { PleQuestionJsonPreviewProps } from "./question_json_preview";
+import type { QuestionResponseControlBaseProps } from "../../components/question_response_controls/common";
 import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_types";
 import { PleQuestionJsonEditorWorkspace } from "./question_json_editor_workspace";
 import { DraftPreviewPanel } from "../question_draft_preview/draft_preview_panel";
@@ -35,7 +35,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   function publishQuestionTitle(title: string): void {
     if (publication !== undefined) publishRouteScopeLabels(publication, { questionTitle: title });
   }
-  function hotspotDraftQuestionImage(): PleQuestionJsonPreviewProps["hotspotDraftQuestionImage"] {
+  function draftQuestionImage(): QuestionResponseControlBaseProps["draftQuestionImage"] {
     const draftQuestion = props.draftQuestion;
     const client = props.questionImageClient;
     if (draftQuestion === undefined || client === undefined) return undefined;
@@ -188,10 +188,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
           subtopicUuid={editor.subtopicUuid}
           publishedQuestionId={editor.publishedQuestionId}
           publishedSummary={editor.publishedSummary}
-          hotspotDraftQuestionImage={hotspotDraftQuestionImage}
           instructorAnswerCheck={(draft) => questionJsonAnswerCheck(draft) ?? undefined}
           classificationClient={props.classificationClient}
-          responseValidator={props.responseValidator}
           draftPreviewPanel={
             <DraftPreviewPanel
               draftQuestion={props.draftQuestion}
@@ -203,8 +201,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                 webworkPgPath: null,
               }}
               isSaved={editor.isSaved()}
+              draftQuestionImage={draftQuestionImage()}
               responseValidator={props.responseValidator}
-              hotspotDraftQuestionImage={hotspotDraftQuestionImage()}
             />
           }
           questionImagePreviewPath={(asset) =>

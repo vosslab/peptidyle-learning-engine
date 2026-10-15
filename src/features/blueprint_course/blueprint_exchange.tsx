@@ -67,7 +67,7 @@ export function BlueprintCourseExport(props: {
   );
 }
 
-/** Imports pasted canonical JSON, validates it locally, then opens the new Private course. */
+/** Imports pasted canonical JSON, validates it locally, then opens the new Blueprint Course. */
 export function BlueprintCourseImport(props: {
   readonly client: BlueprintCourseClient;
 }): JSX.Element {
@@ -166,7 +166,7 @@ export function BlueprintCourseImport(props: {
           <div class="blueprint-course-section-heading">
             <div>
               <h2 id="blueprint-import-heading">Import canonical Blueprint JSON</h2>
-              <p>Import creates a new Private Blueprint Course from reusable structure.</p>
+              <p>Import creates a new shared Blueprint Course from reusable structure.</p>
             </div>
             <button type="button" class="quiet-action" disabled={busy()} onClick={close}>
               Close import
@@ -200,7 +200,7 @@ export function BlueprintCourseImport(props: {
                 ? "Importing Blueprint JSON..."
                 : retry()
                   ? "Retry import"
-                  : "Create Private Blueprint Course"}
+                  : "Create Blueprint Course"}
             </button>
           </div>
         </dialog>

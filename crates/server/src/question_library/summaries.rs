@@ -48,7 +48,24 @@ pub(super) async fn answer_free_question_library_entry<O: ObjectStore>(
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
     match entry.backend {
-        QuestionBackend::Ple => resolved_ple_question(objects, entry).await,
+        QuestionBackend::Ple => resolved_ple_question(objects, entry, None).await,
+        QuestionBackend::Webwork => webwork_question_library_entry(entry),
+        QuestionBackend::Imathas => Err(()),
+    }
+}
+
+/// Binds exact-revision images only when constructing rendered Question detail.
+pub(super) async fn answer_free_question_detail_entry<O: ObjectStore>(
+    objects: &O,
+    entry: PublishedQuestionLibraryEntry,
+) -> Result<ResolvedQuestionLibraryEntry, ()> {
+    match entry.backend {
+        QuestionBackend::Ple => {
+            let images = crate::assessment_delivery::question_html_image_bindings(
+                &entry.question_image_renditions,
+            );
+            resolved_ple_question(objects, entry, Some(&images)).await
+        }
         QuestionBackend::Webwork => webwork_question_library_entry(entry),
         QuestionBackend::Imathas => Err(()),
     }
@@ -98,6 +115,7 @@ fn webwork_question_library_entry(
 async fn resolved_ple_question<O: ObjectStore>(
     objects: &O,
     entry: PublishedQuestionLibraryEntry,
+    images: Option<&[question_model::QuestionHtmlImageBinding]>,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
     if entry.backend != QuestionBackend::Ple {
         return Err(());
@@ -117,7 +135,11 @@ async fn resolved_ple_question<O: ObjectStore>(
     }
     let document = adapter_ple::question_json::PleQuestionJsonDocument::parse(source.bytes())
         .map_err(|_| ())?;
-    let compiled = document.compile().map_err(|_| ())?;
+    let compiled = match images {
+        Some(images) => document.compile_with_images(images),
+        None => document.compile(),
+    }
+    .map_err(|_| ())?;
     let presentation = compiled.presentation();
     if presentation.question_type() != entry.question_type {
         return Err(());

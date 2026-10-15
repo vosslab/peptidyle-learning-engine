@@ -40,6 +40,24 @@ impl ResolvedPleQuestionJsonSource {
         source_object_id: ObjectId,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, PleQuestionBackendError> {
+        Self::resolve_with_images(
+            store,
+            published_question_revision_tuple,
+            source_object_id,
+            source_object_checksum,
+            &[],
+        )
+        .await
+    }
+
+    /// Resolves exact source with version-scoped inline-image registry evidence.
+    pub async fn resolve_with_images<S: ObjectStore>(
+        store: &S,
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
+        source_object_id: ObjectId,
+        source_object_checksum: SourceObjectChecksum,
+        images: &[question_model::QuestionHtmlImageBinding],
+    ) -> Result<Self, PleQuestionBackendError> {
         let source = ResolvedQuestionSource::resolve(
             store,
             published_question_revision_tuple,
@@ -56,7 +74,7 @@ impl ResolvedPleQuestionJsonSource {
         let document = PleQuestionJsonDocument::parse(source.bytes())
             .map_err(PleQuestionBackendError::QuestionSourceDocument)?;
         let compiled = document
-            .compile()
+            .compile_with_images(images)
             .map_err(PleQuestionBackendError::QuestionSourceDocument)?;
         Ok(Self { source, compiled })
     }

@@ -14,6 +14,7 @@ import {
   createResponseController,
   Status,
   textFromBlocks,
+  QuestionResponseContent,
   type HotspotResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
@@ -63,7 +64,7 @@ export function resolveHotspotImageUrl(
     | "responseFormat"
     | "publishedQuestionRevisionTuple"
     | "questionImageUrl"
-    | "hotspotDraftQuestionImage"
+    | "draftQuestionImage"
     | "mode"
   >,
 ): string | undefined {
@@ -79,7 +80,7 @@ export function resolveHotspotImageUrl(
       props.questionImageUrl,
     );
   }
-  const draft = props.hotspotDraftQuestionImage;
+  const draft = props.draftQuestionImage;
   if (props.mode !== "formatOnly" || draft === undefined) return undefined;
   const url = draft.questionImageUrl(asset);
   const path = `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}/images/${encodeURIComponent(asset.questionImageAssetId)}`;
@@ -231,7 +232,7 @@ export function HotspotResponse(
                   checked={selected().includes(region.id)}
                   onChange={() => choose(region.id)}
                 />
-                <span>{textFromBlocks(region.label)}</span>
+                <QuestionResponseContent blocks={region.label} context={props} />
               </label>
             )}
           </For>

@@ -961,6 +961,7 @@ Columns:
 | rendition_checksum | bytea | NOT NULL |
 | intrinsic_width | integer | NOT NULL |
 | intrinsic_height | integer | NOT NULL |
+| is_disclosed_support | boolean | NOT NULL |
 | created_at | timestamptz | NOT NULL |
 
 Constraints:
@@ -4265,6 +4266,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
+| source_relative_name | ple_data.source_relative_name | NULL |
 | draft_question_id | uuid | NOT NULL |
 | authoring_workspace_id | uuid | NOT NULL |
 | question_image_asset_id | uuid | NOT NULL |
@@ -4278,6 +4280,7 @@ Constraints:
 
 - PRIMARY KEY (draft_question_id, question_image_asset_id)
 - UNIQUE (source_object_record_id)
+- UNIQUE (draft_question_id, source_relative_name)
 - CHECK intrinsic_width: `(intrinsic_width > 0)`
 - CHECK intrinsic_height: `(intrinsic_height > 0)`
 
@@ -4290,6 +4293,7 @@ Indexes:
 
 - ple_private.draft_question_image_pkey UNIQUE (draft_question_id, question_image_asset_id)
 - ple_private.draft_question_image_unique_0 UNIQUE (source_object_record_id)
+- ple_private.draft_question_image_unique_1 UNIQUE (draft_question_id, source_relative_name)
 - draft_question_image_draft_question_id_b5a44014_fk_idx (draft_question_id, authoring_workspace_id)
 
 ## 20_tables/question_images.sql
@@ -4336,6 +4340,7 @@ Columns:
 
 | Name | Type | Null |
 | --- | --- | --- |
+| source_relative_name | ple_data.source_relative_name | NULL |
 | published_question_id | ple_data.question_family_id | NOT NULL |
 | revision_number | integer | NOT NULL |
 | question_image_asset_id | uuid | NOT NULL |
@@ -4358,6 +4363,7 @@ Constraints:
 - UNIQUE (public_object_id)
 - UNIQUE (object_delivery_id)
 - UNIQUE (job_id)
+- UNIQUE (published_question_id, revision_number, source_relative_name)
 - CHECK revision_number: `(revision_number > 0)`
 - CHECK source_object_checksum: `(octet_length(source_object_checksum) = 32)`
 - CHECK public_object_checksum: `(octet_length(public_object_checksum) = 32)`
@@ -4378,6 +4384,7 @@ Indexes:
 - ple_private.question_image_publication_unique_0 UNIQUE (public_object_id)
 - ple_private.question_image_publication_unique_1 UNIQUE (object_delivery_id)
 - ple_private.question_image_publication_unique_2 UNIQUE (job_id)
+- ple_private.question_image_publication_unique_3 UNIQUE (published_question_id, revision_number, source_relative_name)
 - question_image_publication_object_delivery_id_e5836f6f_fk_idx (object_delivery_id, public_object_id)
 - question_image_publication_source_object_record_id_fk_idx (source_object_record_id)
 

@@ -5,6 +5,9 @@ export const QUESTION_RENDERER_STYLES = `
   .question-renderer__status { margin: 0; color: var(--ple-muted); }
   .question-renderer__prompt { display: grid; gap: 0.5rem; min-width: 0; }
   .question-renderer__block { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .question-renderer__response-content { min-width: 0; max-width: 100%; }
+  .question-renderer__html { position: relative; min-width: 0; max-width: 100%; overflow: auto; overflow-wrap: anywhere; contain: layout paint style; isolation: isolate; }
+  .question-renderer__html img { max-width: 100%; object-fit: contain; }
   .question-renderer__figure { display: grid; gap: 0.5rem; margin: 0; }
   .question-renderer__image { display: block; max-width: 100%; height: auto; }
   .question-renderer__math { display: inline-block; max-width: 100%; overflow-x: auto; }

@@ -1537,16 +1537,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Blueprint Course lifecycle specifications
 
-- Blueprint Courses have three lifecycle states: **Private**, **Public**, and **Archived**.
-- New Blueprint Courses and forks start Private.
-- Private Blueprint Courses are visible only to their owning **Instructor**.
-- Instructors can develop and use Private Blueprint Courses without publishing them.
-- Private Blueprint Courses cannot be adopted to create daughter **Course Instances**.
-- Making a Blueprint Course Public adds it to the shared Blueprint Course collection.
-- Public Blueprint Courses and their Revision history are visible to all **Instructors**.
-- Public Blueprint Courses can be adopted to create daughter Course Instances.
-- A Public Blueprint Course with no adoptions can return to Private.
-- A Public Blueprint Course with one or more adoptions remains Public.
+- Blueprint Courses have two lifecycle states: **Public** and **Archived**.
+- New Blueprint Courses and forks are Public.
+- Public Blueprint Courses and their Revision history are visible to all **Instructors** and can be adopted to create daughter Course Instances.
 - Blueprint Courses have no separate Draft state.
 
 #### Archived Blueprint Course specifications
@@ -1556,7 +1549,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Archived Blueprint Courses do not appear in normal discovery unless explicitly included.
 - Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
 - Archived Blueprint Courses can be forked.
-- Forking an Archived Blueprint Course creates a new Private Blueprint Course.
+- Forking an Archived Blueprint Course creates a new Public Blueprint Course.
 - The owning **Instructor** can return an Archived Blueprint Course to Public.
 - Blueprint Course visibility includes its content, Revision history, and recorded changes.
 - Visibility does not grant editing authority.
@@ -1597,7 +1590,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Blueprint Course fork specifications
 
-- An **Instructor** can fork a Public or Archived **Blueprint Course** to create a new Private Blueprint Course.
+- An **Instructor** can fork a Public or Archived **Blueprint Course** to create a new Public Blueprint Course.
 - A fork is owned by the **Instructor** who created it.
 - A fork records the source Blueprint Course Revision Tuple from which it was created.
 - Forking a Blueprint Course creates new Blueprint Assessments.

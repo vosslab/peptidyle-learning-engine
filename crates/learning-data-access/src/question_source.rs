@@ -165,6 +165,7 @@ pub trait DraftQuestionPublicationSourceStore: Send + Sync {
 /// Trusted bytes-first original raster facts for one exact target Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedQuestionImagePublication {
+    pub source_relative_name: Option<String>,
     pub question_image_asset_id: QuestionImageAssetId,
     pub restricted_source_record: ObjectRecord,
     pub public_object_id: ObjectId,
@@ -179,6 +180,9 @@ impl PreparedQuestionImagePublication {
         &self,
         published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     ) -> Result<(), StoreError> {
+        if let Some(name) = &self.source_relative_name {
+            crate::validate_source_relative_name(name)?;
+        }
         let record = &self.restricted_source_record;
         let expected = ObjectAddress::RestrictedQuestionImage {
             published_question_revision_tuple: published_question_revision_tuple.clone(),
@@ -206,8 +210,8 @@ impl PreparedQuestionImagePublication {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewQuestionLineagePublicationInput {
-    /// Exactly one prepared raster for native HOTSPOT, absent otherwise.
-    pub hotspot_question_image: Option<PreparedQuestionImagePublication>,
+    /// Prepared rasters referenced by native source or its response surface.
+    pub question_images: Vec<PreparedQuestionImagePublication>,
     /// Current private Draft Question selected for publication.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Exact saved Draft Question state validated by the server.
@@ -253,7 +257,7 @@ impl NewQuestionLineagePublicationInput {
     pub fn validate(&self) -> Result<(), StoreError> {
         Self::validate_initial_shared_tags(&self.initial_shared_tags)?;
         let expected_revision_tuple = self.published_question_revision_tuple();
-        if let Some(asset) = &self.hotspot_question_image {
+        for asset in &self.question_images {
             asset.validate(&expected_revision_tuple)?;
         }
         let ObjectAddress::QuestionSource {
@@ -343,8 +347,8 @@ pub enum NewQuestionLineagePublicationError {
 /// optimistic-concurrency conflict rather than a reserved revision number.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExistingQuestionRevisionPublicationInput {
-    /// Exactly one prepared raster for native HOTSPOT, absent otherwise.
-    pub hotspot_question_image: Option<PreparedQuestionImagePublication>,
+    /// Prepared rasters referenced by native source or its response surface.
+    pub question_images: Vec<PreparedQuestionImagePublication>,
     /// Current private Draft Question selected for publication.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Exact saved Draft Question state validated by the server.
@@ -403,7 +407,7 @@ impl ExistingQuestionRevisionPublicationInput {
     /// Refuses a target object that is not owned by the exact successor.
     pub fn validate(&self) -> Result<(), StoreError> {
         let expected_revision_tuple = self.published_question_revision_tuple()?;
-        if let Some(asset) = &self.hotspot_question_image {
+        for asset in &self.question_images {
             asset.validate(&expected_revision_tuple)?;
         }
         let ObjectAddress::QuestionSource {

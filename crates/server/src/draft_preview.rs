@@ -15,9 +15,11 @@ use axum::{
     routing::{get, post},
 };
 use learning_data_access::{
-    AuthoringDraft, AuthoringDraftStore, DraftQuestionEditNumber, DraftQuestionUuid,
-    SessionTokenHash, StoreError,
-    postgres::{PostgresAuthoringDraftStore, PostgresSessionStore},
+    AuthoringDraft, AuthoringDraftStore, DraftQuestionEditNumber, DraftQuestionImageStore,
+    DraftQuestionUuid, SessionTokenHash, StoreError,
+    postgres::{
+        PostgresAuthoringDraftStore, PostgresDraftQuestionImageStore, PostgresSessionStore,
+    },
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
@@ -44,11 +46,13 @@ struct RouteState {
 pub fn draft_preview_router(
     sessions: Arc<PostgresSessionStore>,
     drafts: PostgresAuthoringDraftStore,
+    images: PostgresDraftQuestionImageStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 ) -> Router {
     let operations = Arc::new(StoredDraftQuestionPreviewOperations {
         drafts: drafts.clone(),
+        images,
         objects,
         webwork,
     });
@@ -74,6 +78,8 @@ struct DraftPreviewQuery {
     draft_question_edit_number: String,
     #[serde(default)]
     seed: Option<u64>,
+    #[serde(default)]
+    diagnostics: bool,
     #[serde(default, rename = "draftTest")]
     _draft_test: bool,
 }
@@ -111,6 +117,7 @@ enum DraftTestResponse {
 enum DraftPreviewOutput {
     Native(NativeDraftPreview),
     Webwork(Vec<u8>),
+    Diagnostics(adapter_webwork::http_renderer::WebworkSourceDiagnostics),
 }
 
 /// Draft preview/test inputs contain no Published tuple or Student Work identity.
@@ -122,6 +129,7 @@ struct CurrentDraftSource {
     format: QuestionFormat,
     webwork_pg_path: Option<String>,
     bytes: Vec<u8>,
+    html_images: Vec<question_model::QuestionHtmlImageBinding>,
 }
 
 #[derive(Debug)]
@@ -141,6 +149,7 @@ trait DraftQuestionPreviewOperations: Send + Sync {
         draft_question_uuid: DraftQuestionUuid,
         expected_edit_number: DraftQuestionEditNumber,
         seed: Option<QuestionSeed>,
+        diagnostics: bool,
     ) -> Result<DraftPreviewOutput, DraftPreviewError>;
 
     async fn test(
@@ -155,6 +164,7 @@ trait DraftQuestionPreviewOperations: Send + Sync {
 
 struct StoredDraftQuestionPreviewOperations {
     drafts: PostgresAuthoringDraftStore,
+    images: PostgresDraftQuestionImageStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 }
@@ -177,13 +187,51 @@ impl StoredDraftQuestionPreviewOperations {
         let bytes = load_verified_source(&self.objects, &draft)
             .await
             .map_err(|_| DraftPreviewError::Unavailable)?;
-        current_draft_source(draft, bytes.to_vec())
+        let mut source = current_draft_source(draft, bytes.to_vec())?;
+        if source.format == QuestionFormat::PleQuestionJson {
+            let document =
+                adapter_ple::question_json::PleQuestionJsonDocument::parse(&source.bytes)
+                    .map_err(|_| DraftPreviewError::InvalidSource)?;
+            let names = document
+                .relative_image_names()
+                .map_err(|_| DraftPreviewError::InvalidSource)?;
+            if !names.is_empty() {
+                let images = self
+                    .images
+                    .load_named_draft_question_images(session, draft_question_uuid)
+                    .await
+                    .map_err(map_store_error)?;
+                for name in names {
+                    let image = images
+                        .iter()
+                        .find(|image| image.source_relative_name.as_deref() == Some(name.as_str()))
+                        .ok_or(DraftPreviewError::InvalidSource)?;
+                    crate::draft_question_images::verified_question_image_bytes(
+                        &self.objects,
+                        image,
+                    )
+                    .await
+                    .map_err(|_| DraftPreviewError::Unavailable)?;
+                    source
+                        .html_images
+                        .push(question_model::QuestionHtmlImageBinding {
+                            source_relative_name: name,
+                            question_image_asset_tuple: question_model::QuestionImageAssetTuple {
+                                question_image_asset_id: image.question_image_asset_id,
+                                checksum: image.source_record.sha256.to_string(),
+                            },
+                        });
+                }
+            }
+        }
+        Ok(source)
     }
 
     async fn preview_current(
         &self,
         source: CurrentDraftSource,
         seed: Option<QuestionSeed>,
+        diagnostics: bool,
     ) -> Result<DraftPreviewOutput, DraftPreviewError> {
         match select_backend(
             source.backend,
@@ -191,14 +239,14 @@ impl StoredDraftQuestionPreviewOperations {
             source.webwork_pg_path.as_deref(),
         )? {
             DraftPreviewBackend::Native => {
-                if seed.is_some() {
+                if seed.is_some() || diagnostics {
                     return Err(DraftPreviewError::InvalidSource);
                 }
                 let document =
                     adapter_ple::question_json::PleQuestionJsonDocument::parse(&source.bytes)
                         .map_err(|_| DraftPreviewError::InvalidSource)?;
                 let compiled = document
-                    .compile()
+                    .compile_with_images(&source.html_images)
                     .map_err(|_| DraftPreviewError::InvalidSource)?;
                 let preview = domain::draft_preview::preview_ple_draft(
                     &domain::draft_preview::DraftPreviewRequest {
@@ -224,6 +272,14 @@ impl StoredDraftQuestionPreviewOperations {
             }
             DraftPreviewBackend::Webwork { pg_path } => {
                 let seed = seed.ok_or(DraftPreviewError::InvalidSource)?;
+                if diagnostics {
+                    let result = self
+                        .webwork
+                        .diagnose_draft_source(seed, &source.bytes, pg_path)
+                        .await
+                        .map_err(|_| DraftPreviewError::Unavailable)?;
+                    return Ok(DraftPreviewOutput::Diagnostics(result));
+                }
                 let document = self
                     .webwork
                     .preview_draft_document(seed, &source.bytes, pg_path)
@@ -243,11 +299,12 @@ impl DraftQuestionPreviewOperations for StoredDraftQuestionPreviewOperations {
         draft_question_uuid: DraftQuestionUuid,
         expected_edit_number: DraftQuestionEditNumber,
         seed: Option<QuestionSeed>,
+        diagnostics: bool,
     ) -> Result<DraftPreviewOutput, DraftPreviewError> {
         let source = self
             .current_source(session, draft_question_uuid, expected_edit_number)
             .await?;
-        self.preview_current(source, seed).await
+        self.preview_current(source, seed, diagnostics).await
     }
 
     async fn test(
@@ -274,7 +331,7 @@ impl DraftQuestionPreviewOperations for StoredDraftQuestionPreviewOperations {
                     adapter_ple::question_json::PleQuestionJsonDocument::parse(&source.bytes)
                         .map_err(|_| DraftPreviewError::InvalidSource)?;
                 let compiled = document
-                    .compile()
+                    .compile_with_images(&source.html_images)
                     .map_err(|_| DraftPreviewError::InvalidSource)?;
                 let evaluation = compiled
                     .private()
@@ -352,6 +409,7 @@ fn current_draft_source(
         format: draft.question_format,
         webwork_pg_path: draft.webwork_pg_path,
         bytes,
+        html_images: Vec::new(),
     })
 }
 
@@ -380,12 +438,18 @@ async fn preview_draft(
         .is_ok_and(|draft| draft.question_backend == QuestionBackend::Webwork);
     let output = match state
         .operations
-        .preview(session, draft, expected_edit_number, seed)
+        .preview(
+            session,
+            draft,
+            expected_edit_number,
+            seed,
+            query.diagnostics,
+        )
         .await
     {
         Ok(output) => output,
         Err(error) => {
-            return if webwork_draft {
+            return if webwork_draft && !query.diagnostics {
                 preview_document_error(error)
             } else {
                 preview_error(error)
@@ -393,6 +457,9 @@ async fn preview_draft(
         }
     };
     match output {
+        DraftPreviewOutput::Diagnostics(result) => {
+            crate::auth::no_store(Json(result).into_response())
+        }
         DraftPreviewOutput::Native(preview) => crate::auth::no_store(Json(preview).into_response()),
         DraftPreviewOutput::Webwork(document) => match String::from_utf8(document) {
             Ok(document) => {

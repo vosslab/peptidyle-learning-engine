@@ -1,4 +1,4 @@
-//! Create a new Private Blueprint from authorized Course reusable structure.
+//! Create a new public Blueprint from authorized Course reusable structure.
 
 use axum::{
     Json, extract::Path, extract::State, http::HeaderMap, http::StatusCode, response::Response,

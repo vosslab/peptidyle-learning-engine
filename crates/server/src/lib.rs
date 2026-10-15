@@ -76,6 +76,7 @@ mod question_bulk_metadata;
 mod question_correction_draft;
 /// Active-Instructor Published Question to private Draft fork command.
 mod question_fork;
+mod question_fork_images;
 /// Authorized immutable public Question Image redirect route.
 pub(crate) mod question_image_delivery;
 /// Instructor Question Library browse and answer-free detail routes.

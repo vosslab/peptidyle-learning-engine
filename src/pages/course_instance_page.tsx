@@ -62,7 +62,7 @@ function formatAssessmentDueDate(value: CourseAssessmentSummary["dueAt"]): strin
   return formatLocalWallClockDateTime(value);
 }
 
-/** Creates a distinct private Blueprint while retaining the source Course Instance unchanged. */
+/** Creates a distinct public Blueprint while retaining the source Course Instance unchanged. */
 function CreateBlueprintFromCourseInstance(props: {
   readonly course: CourseInstanceSummary;
 }): JSX.Element {

@@ -62,7 +62,7 @@ Published Question Pool
   +-- unordered set of Question Revision Tuples and Pool metadata
   +-- Pool Edit Number
 
-Blueprint Course (Private, Public, or Archived)
+Blueprint Course (Public or Archived)
   +-- complete Blueprint Revision records
         +-- Blueprint Assessments
   +-- adoption relationships used to copy newly added Blueprint Assessments
@@ -128,9 +128,9 @@ purge with Student Work.
 
 ## Blueprint Courses
 
-Creation atomically produces a Private Blueprint and Revision 1. A meaningful
+Creation atomically produces a Public Blueprint and Revision 1. A meaningful
 explicit content Save creates the next complete Blueprint Revision. A canonical no-op
-creates none. Short name, long name, and Private/Public/Archived lifecycle are
+creates none. Short name, long name, and Public/Archived lifecycle are
 current lineage metadata and do not create Revisions.
 
 A Course Instance may be created empty or adopt a Public Blueprint. Adoption
@@ -139,7 +139,7 @@ retains exact Blueprint Revision provenance. Blueprints contain no Students,
 dates, time zones, or relative schedules.
 
 The reverse creation workflow does not convert or mutate its source Course
-Instance. It atomically creates a distinct actor-owned Private Blueprint at
+Instance. It atomically creates a distinct actor-owned Public Blueprint at
 Revision 1 and records one immutable Blueprint-to-source-Course relation. That
 source Course counts as the Blueprint's first Adoption and contributes its
 distinct students-ever-enrolled count, but it is not a daughter Course and is
@@ -156,8 +156,8 @@ Proposals target a receiving Blueprint owner and create a new receiving
 Revision only for accepted changes. Their exact storage and concurrency shapes
 remain implementation choices rather than additional Revision families.
 
-Any current schema column or enum that represents `Available` instead of
-Private/Public/Archived is a migration gap.
+The fresh schema stores Public or Archived availability on the stable lineage;
+only the owning Instructor changes it.
 
 ## Course Instances and Assessments
 

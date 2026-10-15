@@ -74,7 +74,6 @@ fn decode_entry(
         BlueprintHistoryKind::Metadata => {
             let availability: String = row.try_get("availability").map_err(map_sqlx_error)?;
             let availability = match availability.as_str() {
-                "private" => BlueprintAvailability::Private,
                 "public" => BlueprintAvailability::Public,
                 "archived" => BlueprintAvailability::Archived,
                 _ => return Err(invalid()),

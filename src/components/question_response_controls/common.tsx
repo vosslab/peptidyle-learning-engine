@@ -15,7 +15,8 @@ import type {
   StudentResponseFormatIssue,
 } from "../../api/decoders/student_response_format_check";
 import type { ResponseFormatValidator } from "../../wasm/index";
-import type { QuestionImageUrlResolver } from "../question_renderer";
+import { QuestionPromptRenderer, type QuestionImageUrlResolver } from "../question_renderer";
+import { questionHtmlText } from "../question_html";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
 
@@ -103,7 +104,7 @@ export interface QuestionResponseControlBaseProps {
   readonly publishedQuestionRevisionTuple?: PublishedQuestionRevisionTuple;
   readonly questionImageUrl?: QuestionImageUrlResolver;
   /** Authorized private Draft route; local author preview only. */
-  readonly hotspotDraftQuestionImage?: {
+  readonly draftQuestionImage?: {
     readonly draftQuestion: DraftQuestionRouteId;
     readonly questionImageUrl: QuestionImageUrlResolver;
   };
@@ -175,6 +176,8 @@ export function textFromBlocks(blocks: ReadonlyArray<QuestionContentBlock>): str
       switch (block.kind) {
         case "text":
           return block.markdown;
+        case "html":
+          return questionHtmlText(block.html);
         case "math":
         case "image":
         case "table":
@@ -184,6 +187,29 @@ export function textFromBlocks(blocks: ReadonlyArray<QuestionContentBlock>): str
       }
     })
     .join(" ");
+}
+
+/** Share rich-content rendering and the exact image authority with prompts and feedback. */
+export function QuestionResponseContent(props: {
+  readonly blocks: ReadonlyArray<QuestionContentBlock>;
+  readonly context: QuestionResponseControlBaseProps;
+}): JSX.Element {
+  return (
+    <div class="question-renderer__response-content">
+      <QuestionPromptRenderer
+        blocks={props.blocks}
+        publishedQuestionRevisionTuple={props.context.publishedQuestionRevisionTuple}
+        draftQuestion={props.context.draftQuestionImage?.draftQuestion}
+        questionImageUrl={(asset) => {
+          const resolve =
+            props.context.questionImageUrl ?? props.context.draftQuestionImage?.questionImageUrl;
+          if (resolve === undefined)
+            throw new Error("Question image content requires its authorized image route.");
+          return resolve(asset);
+        }}
+      />
+    </div>
+  );
 }
 
 function responseFormatMessageForIssue(issue: StudentResponseFormatIssue): string {

@@ -121,11 +121,12 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let entry = row
+        let mut entry = row
             .as_ref()
             .map(decode_entry)
             .transpose()?
             .ok_or(StoreError::NotFound)?;
+        load_detail_image_renditions(&mut transaction, &mut entry).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(entry)
     }
@@ -167,6 +168,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         if entry.published_question_revision_tuple != *published_question_revision_tuple {
             return Err(invalid("Question Library exact revision"));
         }
+        load_detail_image_renditions(&mut transaction, &mut entry).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(entry)
     }
@@ -364,6 +366,29 @@ impl PostgresQuestionLibraryStore {
     }
 }
 
+async fn load_detail_image_renditions(
+    transaction: &mut Transaction<'_, Postgres>,
+    entry: &mut PublishedQuestionLibraryEntry,
+) -> Result<(), StoreError> {
+    if entry.backend == QuestionBackend::Ple {
+        // ASVS 8.2.2: the preceding library read authorizes this exact Revision.
+        entry.question_image_renditions =
+            super::assessment_delivery::current_ready_question_image_renditions(
+                transaction,
+                entry
+                    .published_question_revision_tuple
+                    .published_question_id
+                    .as_str(),
+                entry
+                    .published_question_revision_tuple
+                    .revision_number
+                    .get(),
+            )
+            .await?;
+    }
+    Ok(())
+}
+
 fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryEntry, StoreError> {
     let question_id: String = row
         .try_get("published_question_id")
@@ -472,6 +497,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         source_object_id,
         source_object_checksum,
         source_media_type: row.try_get("source_media_type").map_err(map_sqlx_error)?,
+        question_image_renditions: Vec::new(),
         webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,
         revision_general_feedback: None,
         revision_hint: None,

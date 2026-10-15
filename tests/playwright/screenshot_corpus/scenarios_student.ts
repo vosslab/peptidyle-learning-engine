@@ -17,6 +17,8 @@ import {
 import {
   ASSESSMENT_ENTRY_BUTTON,
   ASSESSMENT_TYPE_LABEL,
+  attemptQuestionCount,
+  waitForAttemptPosition,
   ASSIGNMENT_TITLE,
   COURSE_TITLE,
   choosePersona,
@@ -61,13 +63,10 @@ async function studentCoursesNavigation(runtime: ScenarioRuntime): Promise<void>
       await card.waitFor();
       await session.page
         .getByRole("navigation", { name: "Ribbon tasks", exact: true })
-        .getByRole("link", { name: "BCHM 301", exact: true })
+        .getByRole("link", { name: "BCHM 355", exact: true })
         .waitFor();
       await captureCheckpoint(runtime, checkpoint, session);
-      await followCaptureLink(
-        session.page,
-        card.getByRole("link", { name: "Open Course", exact: true }),
-      );
+      await openStudentCourse(session.page);
       await session.page
         .getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true })
         .waitFor();
@@ -274,7 +273,7 @@ async function studentTwoCourseList(runtime: ScenarioRuntime): Promise<void> {
         throw new Error("The Student Course list did not show two active Courses.");
       }
       const courseTasks = page.getByRole("navigation", { name: "Ribbon tasks", exact: true });
-      await courseTasks.getByRole("link", { name: "BCHM 301", exact: true }).waitFor();
+      await courseTasks.getByRole("link", { name: "BCHM 355", exact: true }).waitFor();
       const invitationCourse = courseTasks.getByRole("link", {
         name: INVITATION_COURSE_SHORT_NAME,
         exact: true,
@@ -393,12 +392,7 @@ async function saveCurrentResponse(session: CaptureSession): Promise<void> {
   const responseControl = attemptSurface(session).locator("section.question-response-control");
   const matchingSlots = responseControl.locator(".matching-slot[data-prompt-id]:not(:disabled)");
   const nativeChoices = responseControl.locator('input[type="radio"], input[type="checkbox"]');
-  await responseControl
-    .locator(
-      '.matching-slot[data-prompt-id]:not(:disabled), input[type="radio"], input[type="checkbox"]',
-    )
-    .first()
-    .waitFor();
+  await responseControl.getByRole("button", { name: "Save response", exact: true }).waitFor();
   if ((await matchingSlots.count()) > 0) {
     const slotCount = await matchingSlots.count();
     for (let index = 0; index < slotCount; index += 1) {
@@ -412,8 +406,12 @@ async function saveCurrentResponse(session: CaptureSession): Promise<void> {
         .getByText("Assign selected choice", { exact: true })
         .waitFor({ state: "detached" });
     }
-  } else {
+  } else if ((await nativeChoices.count()) > 0) {
     await nativeChoices.first().check();
+  } else {
+    throw new Error(
+      "The representative Live Demo Question needs an unsupported capture response control.",
+    );
   }
   await responseControl.getByRole("button", { name: "Save response", exact: true }).click();
   await session.page.getByText("Response saved.", { exact: true }).waitFor();
@@ -436,6 +434,7 @@ async function waitForRestoredResponse(session: CaptureSession): Promise<void> {
 }
 
 async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void> {
+  let nextPosition: number;
   const savedSession = await runtime.open("response_selected_laptop");
   try {
     await choosePersona(savedSession.page, "Avery Thompson");
@@ -444,13 +443,19 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await openStudentAssignment(savedSession.page);
     await savedSession.page.getByRole("button", { name: ASSESSMENT_ENTRY_BUTTON }).click();
     await attemptSurface(savedSession).waitFor();
-    await savedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
+    await waitForAttemptPosition(savedSession.page, 1);
+    nextPosition = Math.min(2, await attemptQuestionCount(savedSession.page));
     await saveCurrentResponse(savedSession);
     await attemptQuestion(savedSession, "Question 1: Saved, current").waitFor();
     await captureCheckpoint(runtime, "response_selected_laptop", savedSession);
-    await attemptQuestion(savedSession, "Question 2: Not answered").click();
-    await attemptQuestion(savedSession, "Question 2: Not answered, current").waitFor();
-    await savedSession.page.getByText("Question 2 of 4", { exact: true }).waitFor();
+    if (nextPosition > 1) {
+      await attemptQuestion(savedSession, `Question ${nextPosition}: Not answered`).click();
+      await attemptQuestion(
+        savedSession,
+        `Question ${nextPosition}: Not answered, current`,
+      ).waitFor();
+    }
+    await waitForAttemptPosition(savedSession.page, nextPosition);
     await captureCheckpoint(runtime, "assessment_navigation_laptop", savedSession);
   } finally {
     await runtime.close(savedSession);
@@ -463,13 +468,18 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
       await openStudentCourse(session.page);
       await openAllStudentCoursework(session.page);
       await resumeStudentAssignmentAttempt(session.page);
-      await attemptQuestion(session, "Question 1: Saved").click();
-      await session.page.getByText("Question 1 of 4", { exact: true }).waitFor();
+      await session.page
+        .getByRole("navigation", { name: "Coursework questions", exact: true })
+        .getByRole("button", { name: /^Question 1: Saved/u })
+        .click();
+      await waitForAttemptPosition(session.page, 1);
       await waitForRestoredResponse(session);
       await captureCheckpoint(runtime, `response_selected_${viewport}`, session);
-      await attemptQuestion(session, "Question 2: Not answered").click();
-      await attemptQuestion(session, "Question 2: Not answered, current").waitFor();
-      await session.page.getByText("Question 2 of 4", { exact: true }).waitFor();
+      if (nextPosition > 1) {
+        await attemptQuestion(session, `Question ${nextPosition}: Not answered`).click();
+        await attemptQuestion(session, `Question ${nextPosition}: Not answered, current`).waitFor();
+      }
+      await waitForAttemptPosition(session.page, nextPosition);
       await captureCheckpoint(runtime, `assessment_navigation_${viewport}`, session);
     } finally {
       await runtime.close(session);
@@ -483,14 +493,16 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
       await openStudentCourse(resumedSession.page);
       await openAllStudentCoursework(resumedSession.page);
       await resumeStudentAssignmentAttempt(resumedSession.page);
-      await resumedSession.page.getByText("Question 2 of 4", { exact: true }).waitFor();
+      await waitForAttemptPosition(resumedSession.page, nextPosition);
       await attemptSurface(resumedSession).locator("section.question-response-control").waitFor();
       await resumedSession.privacy.settleResponses();
       await resumedSession.page.reload({ waitUntil: "commit" });
       await attemptSurface(resumedSession).waitFor();
-      await attemptQuestion(resumedSession, "Question 1: Saved").waitFor();
-      await attemptQuestion(resumedSession, "Question 1: Saved").click();
-      await resumedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
+      const savedQuestion = resumedSession.page
+        .getByRole("navigation", { name: "Coursework questions", exact: true })
+        .getByRole("button", { name: /^Question 1: Saved/u });
+      await savedQuestion.click();
+      await waitForAttemptPosition(resumedSession.page, 1);
       await waitForRestoredResponse(resumedSession);
       await resumedSession.page.getByText("Response saved.", { exact: true }).waitFor();
       await captureCheckpoint(runtime, `resume_selected_${viewport}`, resumedSession);
@@ -505,17 +517,17 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await openStudentCourse(submittedSession.page);
     await openAllStudentCoursework(submittedSession.page);
     await resumeStudentAssignmentAttempt(submittedSession.page);
-    await attemptQuestion(submittedSession, "Question 2: Not answered, current").waitFor();
-    await saveCurrentResponse(submittedSession);
-    await attemptQuestion(submittedSession, "Question 2: Saved, current").waitFor();
-    await attemptQuestion(submittedSession, "Question 3: Not answered").click();
-    await attemptQuestion(submittedSession, "Question 3: Not answered, current").waitFor();
-    await saveCurrentResponse(submittedSession);
-    await attemptQuestion(submittedSession, "Question 3: Saved, current").waitFor();
-    await attemptQuestion(submittedSession, "Question 4: Not answered").click();
-    await attemptQuestion(submittedSession, "Question 4: Not answered, current").waitFor();
-    await saveCurrentResponse(submittedSession);
-    await attemptQuestion(submittedSession, "Question 4: Saved, current").waitFor();
+    const count = await attemptQuestionCount(submittedSession.page);
+    for (let position = 1; position <= count; position += 1) {
+      const question = submittedSession.page
+        .getByRole("navigation", { name: "Coursework questions", exact: true })
+        .getByRole("button", { name: new RegExp(`^Question ${position}:`, "u") });
+      await question.click();
+      await waitForAttemptPosition(submittedSession.page, position);
+      if ((await question.getAttribute("aria-label"))?.includes("Not answered")) {
+        await saveCurrentResponse(submittedSession);
+      }
+    }
     await submittedSession.page
       .getByRole("button", { name: "Submit Attempt", exact: true })
       .click();
@@ -791,10 +803,10 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         ),
         area: "assessments",
         workflow: "assessment navigation and progress",
-        state: "Question 2 current with one saved response",
+        state: "current Question with one saved response",
         viewport: "laptop",
         privacyProfile: "student_self",
-        caption: "Student Question navigation, saved progress, and countdown timer",
+        caption: "Student Question navigation and saved progress",
       }),
       ...directViewportCaptures({
         checkpoint: "resume_selected_laptop",

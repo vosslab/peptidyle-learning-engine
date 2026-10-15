@@ -165,6 +165,11 @@ fn collect_question_images(
     target: &mut BTreeSet<QuestionImageRefKey>,
 ) {
     for block in content {
+        if let QuestionContentBlock::Html { images, .. } = block {
+            for image in images {
+                target.insert(QuestionImageRefKey::from(&image.question_image_asset_tuple));
+            }
+        }
         if let QuestionContentBlock::Image {
             question_image_asset_tuple,
             ..

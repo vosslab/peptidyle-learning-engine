@@ -62,6 +62,7 @@ reqwest = { version = "*", features = ["json"] }
 regex-lite = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
+scraper = { version = "*", default-features = false }
 serde_yaml_ng = "*"
 sha2 = "*"
 sha1 = "*"

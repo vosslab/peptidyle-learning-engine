@@ -1,7 +1,7 @@
 //! Fixed-origin, bounded JSON transport for Live Demo activity convergence.
 
 use super::{BrowserEndpoint, MAX_RESPONSE_BYTES, REQUEST_TIMEOUT, TemporarySession};
-use anyhow::{Result, ensure};
+use anyhow::{Result, bail, ensure};
 use reqwest::{Client, Method, StatusCode, header};
 use serde_json::Value;
 
@@ -39,6 +39,19 @@ impl ProductApi {
         path: &str,
         body: Option<Value>,
     ) -> Result<ProductResponse> {
+        self.request_with_edit(session, operation, method, path, body, None)
+            .await
+    }
+
+    pub(super) async fn request_with_edit(
+        &self,
+        session: &TemporarySession,
+        operation: &'static str,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        edit_number: Option<u64>,
+    ) -> Result<ProductResponse> {
         // ASVS V12.3 and V13.2: a fixed path and validated origin prevent
         // configuration from redirecting temporary authenticated requests.
         ensure!(
@@ -56,6 +69,9 @@ impl ProductApi {
             .header(header::ORIGIN, self.origin_header.clone())
             .header(header::HOST, self.host_header.clone())
             .header(header::COOKIE, session.cookie.clone());
+        if let Some(edit_number) = edit_number {
+            request = request.header(header::IF_MATCH, format!("\"{edit_number}\""));
+        }
         if let Some(body) = body {
             request = request.json(&body);
         }
@@ -65,7 +81,22 @@ impl ProductApi {
             .map_err(|_| anyhow::anyhow!("Live Demo {operation} request did not complete"))?;
         let status = response.status();
         if !status.is_success() {
-            return Ok(ProductResponse { status, body: None });
+            // ASVS 16.2.5 and 16.4.1: retain printable correlation metadata
+            // without exposing credentials or response bodies.
+            let request_id = response
+                .headers()
+                .get("x-request-id")
+                .and_then(|value| value.to_str().ok())
+                .filter(|value| {
+                    !value.trim().is_empty()
+                        && value
+                            .bytes()
+                            .all(|byte| byte.is_ascii_graphic() || byte == b' ')
+                });
+            if let Some(request_id) = request_id {
+                bail!("Live Demo {operation} returned HTTP {status} (request ID {request_id})");
+            }
+            bail!("Live Demo {operation} returned HTTP {status}");
         }
         let content_type = response
             .headers()

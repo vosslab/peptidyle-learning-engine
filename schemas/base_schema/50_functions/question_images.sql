@@ -11,13 +11,10 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.reject_question_image_publication_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
-    IF NEW.published_question_id IS DISTINCT FROM OLD.published_question_id OR NEW.revision_number IS DISTINCT FROM OLD.revision_number
-       OR NEW.question_image_asset_id IS DISTINCT FROM OLD.question_image_asset_id OR NEW.source_object_record_id IS DISTINCT FROM OLD.source_object_record_id
-       OR NEW.source_object_checksum IS DISTINCT FROM OLD.source_object_checksum OR NEW.public_object_id IS DISTINCT FROM OLD.public_object_id
-       OR NEW.public_object_checksum IS DISTINCT FROM OLD.public_object_checksum OR NEW.public_byte_length IS DISTINCT FROM OLD.public_byte_length
-       OR NEW.verified_media_type IS DISTINCT FROM OLD.verified_media_type OR NEW.intrinsic_width IS DISTINCT FROM OLD.intrinsic_width
-       OR NEW.intrinsic_height IS DISTINCT FROM OLD.intrinsic_height OR NEW.object_delivery_id IS DISTINCT FROM OLD.object_delivery_id
-       OR NEW.job_id IS DISTINCT FROM OLD.job_id OR OLD.publication_state <> 'pending' OR NEW.publication_state <> 'ready'
+    -- ASVS 2.3.1: added columns are immutable by default; activation changes only state.
+    IF TG_OP = 'DELETE'
+       OR (to_jsonb(NEW) - 'publication_state') IS DISTINCT FROM (to_jsonb(OLD) - 'publication_state')
+       OR OLD.publication_state <> 'pending' OR NEW.publication_state <> 'ready'
        OR current_setting('ple.question_image_publication_activation', true) IS DISTINCT FROM OLD.job_id::text THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Question Image Publication is immutable apart from Pending to Ready';
     END IF;
@@ -83,9 +80,9 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.require_complete_question_image_public
 SET LOCAL ROLE ple_private_owner;
 
 CREATE FUNCTION ple_private.select_ready_question_image_renditions(p_published_question_id text, p_revision_number integer)
-RETURNS TABLE(question_image_asset_id uuid, question_image_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer)
+RETURNS TABLE(question_image_asset_id uuid, question_image_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer, source_relative_name text)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_data, ple_private AS $$
-    SELECT publication.question_image_asset_id, encode(publication.source_object_checksum,'hex'), encode(publication.public_object_checksum,'hex'), publication.intrinsic_width, publication.intrinsic_height
+    SELECT publication.question_image_asset_id, encode(publication.source_object_checksum,'hex'), encode(publication.public_object_checksum,'hex'), publication.intrinsic_width, publication.intrinsic_height, publication.source_relative_name::text
     FROM ple_private.question_image_publication publication
     JOIN ple_data.object_delivery delivery ON delivery.object_delivery_id=publication.object_delivery_id AND delivery.object_record_id=publication.public_object_id
     JOIN ple_data.question_image_delivery image_delivery ON image_delivery.object_delivery_id=publication.object_delivery_id AND image_delivery.question_image_asset_id=publication.question_image_asset_id
@@ -96,7 +93,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.select_ready_question_image_renditions(p_published_question_id text, p_revision_number integer)
-RETURNS TABLE(question_image_asset_id uuid, question_image_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer)
+RETURNS TABLE(question_image_asset_id uuid, question_image_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer, source_relative_name text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.select_ready_question_image_renditions(p_published_question_id, p_revision_number)
 $$;
@@ -106,20 +103,20 @@ SET LOCAL ROLE ple_private_owner;
 
 
 -- Narrow historical source read used only while forking one exact native
--- HOTSPOT Revision. Availability is deliberately absent: the fork mutation
+-- Revision. Availability is deliberately absent: the fork mutation
 -- rechecks it after its actor/key receipt lookup.
 CREATE FUNCTION ple_private.load_question_fork_asset(
     p_published_question_id text, p_revision_number integer
 ) RETURNS TABLE(
     question_image_asset_id uuid, object_record_id uuid, object_address jsonb, sha256 bytea,
     size_bytes bigint, media_type text, created_at_millis bigint,
-    intrinsic_width integer, intrinsic_height integer
+    intrinsic_width integer, intrinsic_height integer, source_relative_name text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     SELECT publication.question_image_asset_id, record.object_record_id, record.object_address,
            record.sha256, record.size_bytes, record.media_type,
            pg_catalog.round(extract(epoch FROM record.created_at) * 1000)::bigint,
-           publication.intrinsic_width, publication.intrinsic_height
+           publication.intrinsic_width, publication.intrinsic_height, publication.source_relative_name::text
       FROM ple_private.question_image_publication AS publication
       JOIN ple_data.question_revision AS revision
         ON revision.published_question_id = publication.published_question_id
@@ -128,7 +125,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       JOIN ple_data.question_revision_metadata AS metadata
         ON metadata.published_question_id = revision.published_question_id
        AND metadata.revision_number = revision.revision_number
-       AND metadata.question_type = 'hotspot'
       JOIN ple_private.object_record AS record
         ON record.object_record_id = publication.source_object_record_id
        AND record.sha256 = publication.source_object_checksum
@@ -153,7 +149,7 @@ CREATE FUNCTION ple_api.load_question_fork_asset(
 ) RETURNS TABLE(
     question_image_asset_id uuid, object_record_id uuid, object_address jsonb, sha256 bytea,
     size_bytes bigint, media_type text, created_at_millis bigint,
-    intrinsic_width integer, intrinsic_height integer
+    intrinsic_width integer, intrinsic_height integer, source_relative_name text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.load_question_fork_asset(p_published_question_id, p_revision_number)

@@ -160,7 +160,8 @@ BEGIN
                        'question_image_checksum', rendition.question_image_checksum,
                        'rendition_checksum', rendition.rendition_checksum,
                        'intrinsic_width', rendition.intrinsic_width,
-                       'intrinsic_height', rendition.intrinsic_height
+                       'intrinsic_height', rendition.intrinsic_height,
+                       'source_relative_name', rendition.source_relative_name
                    ) ORDER BY rendition.question_image_asset_id
                )
                  FROM ple_api.select_ready_question_image_renditions(

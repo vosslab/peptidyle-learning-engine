@@ -1,40 +1,39 @@
 # PLE installation data
 
-Installation data creates the ordinary complete Live Demo teaching environment
-on the canonical PLE schema. It is selected by default for a new local or
-production installation; an installation owner can opt out before
-provisioning. It is not a demo schema, marker, report, special role, or
-teardown subsystem. Once present, its records follow the same product lifecycle
-as other teaching data.
+The host imports complete Genetics, Biochemistry, Biotechnology, and Biostatistics
+content through [the shared Python importer](../../launchers/import_bpw.py).
+PG and PGML reach WeBWorK unchanged. BBQ sources pass through the QPM CLI to
+Native JSON. Question publication, Pool creation, Blueprint creation, Course
+adoption, Assessment release, and Student activity use ordinary HTTP routes.
 
-Run the complete default operation after the base schema and its owning
-services are ready:
-
-```bash
-cargo tools installation-data provision
-```
-
-`provision` runs `apply`, then creates cross-system Student Work and grading
-effects through their ordinary application paths. `apply` is the narrower,
-convergent database-owned operation: it creates a temporary publication
-context, publishes the eight Pilot Questions through the ordinary publisher,
-then runs `install.sql`. `live_demo.sql` adds ordinary Accounts, an Authoring
-Workspace, saved Blueprint Course Revision, Course, roster claims, and a released
-Assessment with exact Question Revision pins. Repeating `apply` converges on
-that same database-owned graph.
-
-Direct SQL is used only for state PostgreSQL owns completely. Attempts,
-presentation, responses, submission, grading, statistics, and other
-cross-system effects remain with their ordinary owning paths; the manifest does
-not recreate those effects.
-
-To opt out before any Live Demo data is provisioned:
+The default local installation includes fictional Live Demo Accounts and adopts
+Biochemistry as BCHM 355. To import into an already ready local installation:
 
 ```bash
-cargo tools installation-data provision --without-live-demo
+source source_me.sh && python3 local_stack.py install-data
 ```
 
-See the [Live Demo specification](../../docs/LIVE_DEMO_SPEC.md) for the
-resulting product data and [installation guide](../../docs/INSTALL.md) for the
-required publisher and storage environment. The local Live Demo launcher always
-uses the complete ordinary provisioning path.
+To retain curriculum and omit the fictional teaching graph on a fresh installation:
+
+```bash
+source source_me.sh && python3 local_stack.py install-data --without-live-demo
+```
+
+Set `PLE_BPW_ROOT` and `PLE_QPM_CLI` to explicit source/tool paths when adjacent
+development checkouts are unavailable. The host trusts its selected gateway's
+Caddy root certificate for this import process.
+
+The private Rust `installation-data prepare`, `finalize`, and `revoke` phases
+provision trusted fictional identities/enrollment and bracket the import with an
+ordinary temporary Instructor session. The normal eight-hour session lifetime
+supports long imports; the host revokes the exact session after success or
+failure. Credentials cross captured stdin/stdout pipes rather than argv, logs,
+or result files. `--without-live-demo` uses a non-login PLE Example Content
+Instructor, retaining ordinary ownership without creating fictional Accounts.
+
+The schema manifest is DDL-only. `live_demo.sql` creates only fictional
+relationships around the API-created Course. It creates no reusable content,
+Course, Assessment, Attempt, response, grading, or statistics records.
+
+See [the Live Demo specification](../../docs/LIVE_DEMO_SPEC.md) and
+[the installation guide](../../docs/INSTALL.md).

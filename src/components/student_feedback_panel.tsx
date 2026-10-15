@@ -17,6 +17,7 @@ import type { PublishedQuestionRevisionTuple } from "../../generated/api/Publish
 import { formatPointScore, formatScoreValue } from "../score_format";
 
 import {
+  QuestionPromptRenderer,
   resolveSameOriginQuestionImageUrl,
   type QuestionImageUrlResolver,
 } from "./question_renderer";
@@ -95,6 +96,14 @@ function StudentFeedbackBlock(props: {
   switch (props.block.kind) {
     case "text":
       return <p>{props.block.markdown}</p>;
+    case "html":
+      return (
+        <QuestionPromptRenderer
+          blocks={[props.block]}
+          publishedQuestionRevisionTuple={props.publishedQuestionRevisionTuple}
+          questionImageUrl={props.questionImageUrl}
+        />
+      );
     case "math":
       return (
         <p>

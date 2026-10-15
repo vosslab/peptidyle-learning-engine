@@ -305,16 +305,25 @@ finding-by-finding reconciliation is in the
 - [x] Integrate QPM as a vendored browser WASM distribution and save emitted Native JSON through
       the existing Draft API. Import uses ordinary metadata defaults; preview and publication own
       Native JSON validation. Each request has its own result and failures do not stop later items.
-- [ ] Bind imported inline-image references through existing Draft image storage and the
-      QuestionImageAssetTuple. Currently the importer detects images per question and skips the
-      affected item before creating a Draft. Shared package media does not skip unrelated questions.
-      Future binding must locate, verify, hash, and store referenced bytes, preserving logical image
-      identity separately from physical object identity. The converter does not mint PLE IDs.
-      Final stored HTML `src` syntax and multi-image publication remain deferred.
-- [ ] Display preserved HTML and inline CSS in Native JSON authoring, preview, and published prompt,
-      choice, and response content. Current text escaping remains implementation drift. Verify prompt
-      and choice images visually when image binding is implemented. Sanitization detail remains
-      deferred; existing author-JavaScript isolation and RDKit rules stay in force.
+- [x] Bind imported inline-image references through the existing Draft image endpoint and
+      QuestionImageAssetTuple. Save each Native JSON Draft, then upload the referenced raw image
+      bytes with its current edit number, media type, and exact source-relative filename. PLE stores
+      the binding separately from unchanged source; source paths are lookup keys, duplicate names
+      are rejected, and uploads do not increment the edit number. Draft preview is available after
+      upload. Per-item errors preserve the Draft and allow later imports to continue. Publication validates ownership
+      and checksums and includes referenced bytes in the immutable revision. See the
+      [Native JSON converter handoff](QUESTION_SPECS/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md#draft-image-upload-and-binding).
+- [x] Display authored HTML and inline CSS in Native JSON authoring, preview, and published prompt,
+      choice, hint, and feedback content. Keep authored source unchanged in storage. Sanitize HTML
+      with DOMPurify for supported HTML and MathML and inline CSS with a CSSOM allowlist. Preserve
+      ordinary formatting, relative and absolute diagram placement, and transforms inside the
+      renderer's relative wrapper with layout, paint, and style containment. Filter fixed placement,
+      resource URLs, scripts, forms, style blocks, and embedded content. Render only bound images
+      through the authenticated same-origin route; `externalResources` does not authorize loading.
+      Keep student response Plain Text escaped and isolated authorScript behavior unchanged. Code
+      implementation is complete; connected and browser runtime acceptance remains pending. See
+      the
+      [Native JSON display-content contract](QUESTION_SPECS/NATIVE_JSON_SPEC.md#display-content).
 - [ ] Add and verify Canvas QTI 1.2 and Blackboard QTI 2.1 readers upstream before offering these
       formats in Import. The vendored QPM registry exposes both as writers only. Current readers are
       BBQ, text2qti, Oklahoma, and Blackboard export ZIP. Reader work belongs in a separate upstream

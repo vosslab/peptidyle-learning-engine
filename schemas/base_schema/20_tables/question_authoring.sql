@@ -226,6 +226,7 @@ CREATE TABLE ple_private.question_folder_entry (
 
 -- Immutable private raster staging for a real Draft; no catalog or mutable selection.
 CREATE TABLE ple_private.draft_question_image (
+    source_relative_name ple_data.source_relative_name,
     draft_question_id uuid NOT NULL,
     authoring_workspace_id uuid NOT NULL,
     question_image_asset_id uuid NOT NULL,
@@ -233,6 +234,7 @@ CREATE TABLE ple_private.draft_question_image (
     intrinsic_width integer NOT NULL CHECK (intrinsic_width > 0),
     intrinsic_height integer NOT NULL CHECK (intrinsic_height > 0),
     PRIMARY KEY (draft_question_id, question_image_asset_id),
+    UNIQUE (draft_question_id, source_relative_name),
     FOREIGN KEY (draft_question_id, authoring_workspace_id)
         REFERENCES ple_private.draft_question(draft_question_id, authoring_workspace_id) ON DELETE CASCADE,
     CHECK (intrinsic_width::bigint * intrinsic_height <= 20000000),
@@ -300,3 +302,5 @@ COMMENT ON COLUMN ple_private.draft_question_source_binding.webwork_pg_path IS '
 COMMENT ON COLUMN ple_private.question_revision_source_binding.native_question_type IS 'NULL means the exact source is WeBWorK; Native Type is immutable source interaction evidence.';
 COMMENT ON COLUMN ple_private.question_revision_source_binding.webwork_pg_path IS 'NULL means this optional fact is absent.';
 COMMENT ON COLUMN ple_private.workspace_import.committed_at IS 'NULL means this optional fact is absent.';
+
+COMMENT ON COLUMN ple_private.draft_question_image.source_relative_name IS 'Exact relative filename in native source; NULL for an anonymous response image.';

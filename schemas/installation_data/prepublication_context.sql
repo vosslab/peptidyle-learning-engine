@@ -156,7 +156,7 @@ SELECT session_id
            WHERE email.normalized_email = 'elena.martinez@live-demo.invalid'
       ),
       decode(:'pilot_publication_session_token_hash', 'hex'),
-      900
+      28800
   );
 
 RESET ROLE;

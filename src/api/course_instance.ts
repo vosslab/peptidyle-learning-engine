@@ -88,14 +88,14 @@ export interface CreatedCourseInstance {
   readonly courseInstance: CourseInstanceSummary;
 }
 
-/** Receipt for a new private Blueprint derived from one Course Instance. */
+/** Receipt for a new public Blueprint derived from one Course Instance. */
 export interface CreatedBlueprintFromCourseInstance {
   readonly blueprintCourse: BlueprintCourseView;
 }
 
 /** Same-origin client boundary for Course Instance creation and initial teaching team. */
 export interface CourseInstanceClient {
-  /** Creates a new private Blueprint from one Course Instance's reusable structure. */
+  /** Creates a new public Blueprint from one Course Instance's reusable structure. */
   readonly createBlueprintFromCourseInstance: (
     courseInstanceId: CourseInstanceId,
     input: CreateBlueprintFromCourseInstanceInput,

@@ -55,9 +55,9 @@ mod summaries;
 mod usage_statistics;
 
 use summaries::{
-    ResolvedQuestionLibraryEntry, answer_free_question_library_entry, availability_response,
-    concealed, entries_to_summaries, question_response, route_error, store_error_response,
-    summary_from_entry, unavailable,
+    ResolvedQuestionLibraryEntry, answer_free_question_detail_entry,
+    answer_free_question_library_entry, availability_response, concealed, entries_to_summaries,
+    question_response, route_error, store_error_response, summary_from_entry, unavailable,
 };
 pub(crate) use usage_statistics::{
     answer_free_question_search_results, answer_free_reusable_question_view,
@@ -268,7 +268,7 @@ async fn question_details(
         .published_question_id
         .clone();
     let edit_number = entry.availability_edit_number;
-    let resolved = match answer_free_question_library_entry(&state.objects, entry).await {
+    let resolved = match answer_free_question_detail_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
         Err(()) => {
             return route_error(
@@ -325,7 +325,7 @@ async fn question_revision_details(
         .published_question_id
         .clone();
     let edit_number = entry.availability_edit_number;
-    let resolved = match answer_free_question_library_entry(&state.objects, entry).await {
+    let resolved = match answer_free_question_detail_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
         Err(()) => return unavailable(),
     };

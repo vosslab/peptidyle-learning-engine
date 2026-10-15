@@ -39,7 +39,6 @@ pub struct BlueprintCourseWatchProjection {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlueprintCourseWatchEventKind {
     Revision,
-    Published,
     Archived,
     Restored,
 }

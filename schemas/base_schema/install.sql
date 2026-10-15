@@ -92,6 +92,7 @@
 \ir 50_functions/assessment_attempts.sql
 \ir 50_functions/assessment_attempt_interaction.sql
 \ir 50_functions/assessment_attempt_presentation.sql
+\ir 50_functions/assessment_attempt_support_images.sql
 \ir 50_functions/assessment_attempt_operations.sql
 \ir 50_functions/assessment_attempt_start.sql
 \ir 50_functions/assessment_attempt_finalization.sql

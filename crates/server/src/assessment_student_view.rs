@@ -391,16 +391,23 @@ async fn answer_free_presentation(
             {
                 return Err(());
             }
-            let resolved = ResolvedPleQuestionJsonSource::resolve(
+            let resolved = ResolvedPleQuestionJsonSource::resolve_with_images(
                 &state.objects,
                 published_question_revision_tuple.clone(),
                 source_object_id,
                 source_object_checksum,
+                &crate::assessment_delivery::question_html_image_bindings(
+                    &question_image_renditions,
+                ),
             )
             .await
             .map_err(|_| ())?;
             let presentation =
                 PleQuestionBackend::new().preview_question_json(&resolved, &question_title);
+            let question_image_renditions = crate::assessment_delivery::presentation_renditions(
+                &presentation,
+                &question_image_renditions,
+            );
             let built = question_model::presentation::build_question_presentation(
                 &presentation,
                 &crate::assessment_delivery::question_image_renditions_from_ready(
@@ -468,18 +475,21 @@ async fn answer_free_document(
             source_object_id,
             source_object_checksum,
             source_media_type,
-            ..
+            question_image_renditions,
         } => {
             if &published_question_revision_tuple != expected
                 || source_media_type != adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE
             {
                 return unavailable();
             }
-            let resolved = match ResolvedPleQuestionJsonSource::resolve(
+            let resolved = match ResolvedPleQuestionJsonSource::resolve_with_images(
                 &state.objects,
                 published_question_revision_tuple,
                 source_object_id,
                 source_object_checksum,
+                &crate::assessment_delivery::question_html_image_bindings(
+                    &question_image_renditions,
+                ),
             )
             .await
             {

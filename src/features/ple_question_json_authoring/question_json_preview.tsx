@@ -1,11 +1,7 @@
-// question_json_preview.tsx - answer-free local preview through the student response runtime.
+// question_json_preview.tsx - protected Instructor Answer checks beside the saved Draft preview.
 
 import { For, Show, type JSX } from "solid-js";
 
-import { QuestionResponseControl } from "../../components/question_response_controls/question_response_control";
-import type { QuestionResponseControlBaseProps } from "../../components/question_response_controls/common";
-import type { WasmFacade } from "../../wasm/index";
-import type { PleQuestionJsonPublicPreview } from "./question_json_public_preview";
 import type {
   PleQuestionJsonNumericResponseTolerance,
   PleQuestionJsonTextResponseMatchRule,
@@ -43,16 +39,7 @@ export type PleQuestionJsonInstructorAnswerCheck =
       readonly items: ReadonlyArray<{ readonly id: string; readonly text: string }>;
     };
 
-export interface PleQuestionJsonPreviewProps {
-  readonly hotspotDraftQuestionImage?: QuestionResponseControlBaseProps["hotspotDraftQuestionImage"];
-  /** This PLE Question JSON Public Preview contains no correct answer and is safe for the student-equivalent preview. */
-  readonly preview: PleQuestionJsonPublicPreview;
-  readonly validator: Pick<WasmFacade, "validateResponseFormat">;
-  /** The page exposes this only after the author explicitly asks to inspect the Answer Key. */
-  readonly instructorAnswerCheck?: PleQuestionJsonInstructorAnswerCheck;
-}
-
-function InstructorAnswerCheck(props: {
+export function PleQuestionJsonInstructorAnswerCheckView(props: {
   readonly check: PleQuestionJsonInstructorAnswerCheck;
 }): JSX.Element {
   if (props.check.kind === "matching") {
@@ -169,36 +156,5 @@ function PrivateAnswerList(props: {
         <For each={props.items}>{(item) => <li>{item}</li>}</For>
       </ol>
     </aside>
-  );
-}
-
-/** Uses the same QuestionResponseControl as a student while retaining answer checks in an explicit private panel. */
-export function PleQuestionJsonPreview(props: PleQuestionJsonPreviewProps): JSX.Element {
-  return (
-    <section
-      class="ple-question-json-authoring__preview"
-      aria-labelledby="ple-question-json-student-preview-heading"
-    >
-      <h3 id="ple-question-json-student-preview-heading">Student preview</h3>
-      <p class="ple-question-json-authoring__help">
-        This is answer-free. It uses the Student Question Response Control but does not grade, save,
-        or send a request.
-      </p>
-      <article aria-labelledby="ple-question-json-preview-title">
-        <h4 id="ple-question-json-preview-title">{props.preview.questionTitle}</h4>
-        <p>{props.preview.prompt}</p>
-        <QuestionResponseControl
-          attemptId="ple-question-json-author-preview"
-          hotspotDraftQuestionImage={props.hotspotDraftQuestionImage}
-          responseFormat={props.preview.response}
-          mode="formatOnly"
-          validator={props.validator}
-          onEscape={() => undefined}
-        />
-      </article>
-      <Show when={props.instructorAnswerCheck}>
-        {(check) => <InstructorAnswerCheck check={check()} />}
-      </Show>
-    </section>
   );
 }

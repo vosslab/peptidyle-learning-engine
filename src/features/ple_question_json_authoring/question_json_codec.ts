@@ -34,7 +34,6 @@ import { isRecordedExternalJavascriptDependency } from "./recorded_javascript_de
 const MAX_SOURCE_BYTES = 256 * 1024;
 const MAX_CHOICES = 100;
 const MAX_CHOICE_ID_BYTES = 64;
-const MAX_PROMPT_CHARS = 65_536;
 const MAX_CHOICE_TEXT_CHARS = 16_384;
 const MAX_FEEDBACK_CHARS = 16_384;
 const MAX_HINT_CHARS = 16_384;
@@ -788,9 +787,11 @@ export function decodePleQuestionJsonSource(
   } else {
     throw new DecodeError(`${responsePath}.kind`, "a supported PLE Question JSON response kind");
   }
+  const prompt = string(field(record, "prompt", path), `${path}.prompt`);
+  if (prompt.trim().length === 0) throw new DecodeError(`${path}.prompt`, "nonblank text");
   return {
     format: PLE_QUESTION_JSON_FORMAT,
-    prompt: boundedText(field(record, "prompt", path), `${path}.prompt`, MAX_PROMPT_CHARS),
+    prompt,
     response,
     questionHint: decodeQuestionHint(record.questionHint, `${path}.questionHint`),
     feedback:

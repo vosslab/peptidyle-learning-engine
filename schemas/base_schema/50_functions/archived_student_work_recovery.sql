@@ -135,6 +135,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                   FROM ple_private.question_attempt_presentation_image_rendition AS image
                  WHERE image.question_attempt_id
                        = attempt.question_attempt_id
+                   AND NOT image.is_disclosed_support
             ) AS question_images
            WHERE issued.assessment_attempt_id = work.assessment_attempt_id
       ) AS evidence

@@ -308,11 +308,21 @@ pub struct NativePleIssuanceSource {
 /// The Question Image Asset checksum is content identity, not an object-store locator.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadyQuestionImageRendition {
+    pub source_relative_name: Option<String>,
     pub question_image_asset_id: QuestionImageAssetId,
     pub question_image_checksum: String,
     pub rendition_checksum: String,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
+}
+
+/// Images from one issued position's already disclosed support fields.
+/// This internal server-to-Store record is never a browser request or response.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StudentAssessmentAttemptSupportImages {
+    pub position: u32,
+    pub revision: PublishedQuestionRevisionTuple,
+    pub images: Vec<question_model::QuestionHtmlImageBinding>,
 }
 
 /// Server-only immutable-source facts for native WeBWorK issuance.
@@ -553,6 +563,7 @@ pub enum StudentAssessmentAttemptFinalizationKind {
 /// serialize to the browser.
 #[derive(Debug, Clone)]
 pub struct StudentAssessmentAttemptFinalizationSource {
+    pub question_image_renditions: Vec<ReadyQuestionImageRendition>,
     pub question_attempt_id: uuid::Uuid,
     pub saved_at: Timestamp,
     pub question_id: PublishedQuestionId,
@@ -726,4 +737,14 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         assessment_attempt: AssessmentAttemptId,
     ) -> Result<Vec<StudentAssessmentAttemptHistoryResponseSource>, StoreError>;
+
+    /// Retains only image bindings from support fields actually disclosed by
+    /// the trusted server. The Store repeats exact completed-Attempt ownership
+    /// and immutable published source/rendition validation.
+    async fn register_student_assessment_attempt_support_images(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assessment_attempt: AssessmentAttemptId,
+        disclosed: &[StudentAssessmentAttemptSupportImages],
+    ) -> Result<(), StoreError>;
 }

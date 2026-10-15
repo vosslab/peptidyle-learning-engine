@@ -149,10 +149,24 @@ RETURNS TABLE (
     points_earned double precision, points_possible double precision,
     question_attempt_id uuid, saved_at_millis bigint, published_question_id text,
     revision_number integer, source_object_record_id uuid, source_object_checksum text,
-    question_seed numeric, generated_parameter_sha256 text, student_response jsonb, backend text, webwork_pg_path text
+    question_seed numeric, generated_parameter_sha256 text, student_response jsonb, backend text, webwork_pg_path text, question_image_renditions jsonb
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT * FROM ple_private.prepare_student_assessment_attempt_finalization($1)
+    -- ASVS 8.2.3: private compilation inputs follow the exact authorized preparation.
+    SELECT prepared.*, COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'question_image_asset_id', image.question_image_asset_id,
+            'question_image_checksum', image.question_image_checksum,
+            'rendition_checksum', image.rendition_checksum,
+            'intrinsic_width', image.intrinsic_width,
+            'intrinsic_height', image.intrinsic_height,
+            'source_relative_name', image.source_relative_name
+        ) ORDER BY image.question_image_asset_id)
+        FROM ple_private.select_ready_question_image_renditions(
+            prepared.published_question_id, prepared.revision_number
+        ) AS image
+    ), '[]'::jsonb)
+    FROM ple_private.prepare_student_assessment_attempt_finalization($1) AS prepared
 $$;
 
 CREATE FUNCTION ple_api.commit_student_assessment_attempt_finalization(uuid, text, jsonb)
@@ -166,10 +180,24 @@ RETURNS TABLE (
     assessment_attempt_id uuid, question_attempt_id uuid, saved_at_millis bigint,
     published_question_id text, revision_number integer, source_object_record_id uuid,
     source_object_checksum text, question_seed numeric, generated_parameter_sha256 text, student_response jsonb,
-    backend text, webwork_pg_path text
+    backend text, webwork_pg_path text, question_image_renditions jsonb
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT * FROM ple_private.prepare_expired_student_assessment_attempt_finalizations($1)
+    -- ASVS 8.2.3: private compilation inputs follow the exact authorized preparation.
+    SELECT prepared.*, COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+            'question_image_asset_id', image.question_image_asset_id,
+            'question_image_checksum', image.question_image_checksum,
+            'rendition_checksum', image.rendition_checksum,
+            'intrinsic_width', image.intrinsic_width,
+            'intrinsic_height', image.intrinsic_height,
+            'source_relative_name', image.source_relative_name
+        ) ORDER BY image.question_image_asset_id)
+        FROM ple_private.select_ready_question_image_renditions(
+            prepared.published_question_id, prepared.revision_number
+        ) AS image
+    ), '[]'::jsonb)
+    FROM ple_private.prepare_expired_student_assessment_attempt_finalizations($1) AS prepared
 $$;
 
 CREATE FUNCTION ple_api.commit_expired_student_assessment_attempt_finalization(uuid, jsonb)

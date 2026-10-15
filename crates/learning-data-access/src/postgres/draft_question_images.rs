@@ -63,7 +63,7 @@ impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
         let mut tx = self.begin(session_hash).await?;
         // ASVS 1.2.4, 8.2.2, 15.4.2: parameters and transactional owner/CAS recheck.
         sqlx::query(
-            "SELECT ple_api.register_draft_question_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+            "SELECT ple_api.register_draft_question_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
         )
         .bind(input.draft_question_uuid.as_uuid())
         .bind(input.expected_edit_number.as_postgres_bigint())
@@ -76,16 +76,37 @@ impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
         .bind(input.source_record.created_at.as_unix_millis())
         .bind(input.intrinsic_width as i32)
         .bind(input.intrinsic_height as i32)
+        .bind(&input.source_relative_name)
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(OwnedDraftQuestionImage {
             question_image_asset_id: input.question_image_asset_id,
+            source_relative_name: input.source_relative_name,
             source_record: input.source_record,
             intrinsic_width: input.intrinsic_width,
             intrinsic_height: input.intrinsic_height,
         })
+    }
+
+    async fn load_named_draft_question_images(
+        &self,
+        session_hash: SessionTokenHash,
+        draft_question_uuid: crate::DraftQuestionUuid,
+    ) -> Result<Vec<OwnedDraftQuestionImage>, StoreError> {
+        let mut tx = self.begin(session_hash).await?;
+        let rows = sqlx::query("SELECT * FROM ple_api.load_named_draft_question_images($1)")
+            .bind(draft_question_uuid.as_uuid())
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        let images = rows
+            .iter()
+            .map(decode_image)
+            .collect::<Result<Vec<_>, _>>()?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(images)
     }
 
     async fn load_draft_question_image(
@@ -102,45 +123,56 @@ impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
             .await
             .map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
-        let Json(address): Json<ObjectAddress> =
-            row.try_get("object_address").map_err(map_sqlx_error)?;
-        let sha: Vec<u8> = row.try_get("sha256").map_err(map_sqlx_error)?;
-        let invalid =
-            || StoreError::InvalidRecord("Database returned invalid Draft raster facts".into());
-        let record = ObjectRecord {
-            id: ObjectId::from_uuid(row.try_get("object_record_id").map_err(map_sqlx_error)?),
-            address,
-            storage_area: ObjectStorageArea::PrivateContent,
-            data_class: ObjectDataClass::AuthoringContent,
-            sha256: Sha256Checksum::from_bytes(sha.try_into().map_err(|_| invalid())?),
-            size_bytes: u64::try_from(
-                row.try_get::<i64, _>("size_bytes")
-                    .map_err(map_sqlx_error)?,
-            )
-            .map_err(|_| invalid())?,
-            media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
-            published_question_revision_tuple: None,
-            created_at: Timestamp::from_unix_millis(
-                row.try_get("created_at_millis").map_err(map_sqlx_error)?,
-            ),
-        };
-        let width = u32::try_from(
-            row.try_get::<i32, _>("intrinsic_width")
-                .map_err(map_sqlx_error)?,
-        )
-        .map_err(|_| invalid())?;
-        let height = u32::try_from(
-            row.try_get::<i32, _>("intrinsic_height")
-                .map_err(map_sqlx_error)?,
-        )
-        .map_err(|_| invalid())?;
-        crate::draft_question_images::validate_raster_facts(&record, width, height)?;
+        let image = decode_image(&row)?;
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(OwnedDraftQuestionImage {
-            question_image_asset_id,
-            source_record: record,
-            intrinsic_width: width,
-            intrinsic_height: height,
-        })
+        Ok(image)
     }
+}
+
+fn decode_image(row: &sqlx::postgres::PgRow) -> Result<OwnedDraftQuestionImage, StoreError> {
+    let Json(address): Json<ObjectAddress> =
+        row.try_get("object_address").map_err(map_sqlx_error)?;
+    let sha: Vec<u8> = row.try_get("sha256").map_err(map_sqlx_error)?;
+    let invalid =
+        || StoreError::InvalidRecord("Database returned invalid Draft raster facts".into());
+    let record = ObjectRecord {
+        id: ObjectId::from_uuid(row.try_get("object_record_id").map_err(map_sqlx_error)?),
+        address,
+        storage_area: ObjectStorageArea::PrivateContent,
+        data_class: ObjectDataClass::AuthoringContent,
+        sha256: Sha256Checksum::from_bytes(sha.try_into().map_err(|_| invalid())?),
+        size_bytes: u64::try_from(
+            row.try_get::<i64, _>("size_bytes")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid())?,
+        media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
+        published_question_revision_tuple: None,
+        created_at: Timestamp::from_unix_millis(
+            row.try_get("created_at_millis").map_err(map_sqlx_error)?,
+        ),
+    };
+    let width = u32::try_from(
+        row.try_get::<i32, _>("intrinsic_width")
+            .map_err(map_sqlx_error)?,
+    )
+    .map_err(|_| invalid())?;
+    let height = u32::try_from(
+        row.try_get::<i32, _>("intrinsic_height")
+            .map_err(map_sqlx_error)?,
+    )
+    .map_err(|_| invalid())?;
+    crate::draft_question_images::validate_raster_facts(&record, width, height)?;
+    Ok(OwnedDraftQuestionImage {
+        question_image_asset_id: QuestionImageAssetId::from_uuid(
+            row.try_get("question_image_asset_id")
+                .map_err(map_sqlx_error)?,
+        ),
+        source_relative_name: row
+            .try_get("source_relative_name")
+            .map_err(map_sqlx_error)?,
+        source_record: record,
+        intrinsic_width: width,
+        intrinsic_height: height,
+    })
 }

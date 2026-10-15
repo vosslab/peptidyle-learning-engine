@@ -17,6 +17,14 @@ pub struct QuestionImageAssetTuple {
     pub checksum: String,
 }
 
+/// One source-relative inline image resolved to immutable PLE image content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionHtmlImageBinding {
+    pub source_relative_name: String,
+    pub question_image_asset_tuple: QuestionImageAssetTuple,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -24,6 +32,10 @@ pub struct QuestionImageAssetTuple {
     rename_all_fields = "camelCase"
 )]
 pub enum QuestionContentBlock {
+    Html {
+        html: String,
+        images: Vec<QuestionHtmlImageBinding>,
+    },
     Text {
         markdown: String,
     },

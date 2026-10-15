@@ -450,10 +450,7 @@ function contentView(value: unknown, path: string): void {
 }
 
 function availability(value: unknown, path: string): BlueprintAvailability {
-  // Blueprint Availability is a closed, generated browser contract. Do not
-  // accept the obsolete `available` spelling: Private and Public have distinct
-  // visibility and adoption behavior.
-  return decodeStringEnum(value, path, ["private", "public", "archived"]);
+  return decodeStringEnum(value, path, ["public", "archived"]);
 }
 
 export function blueprintEditNumber(value: unknown, path: string): BlueprintEditNumber {

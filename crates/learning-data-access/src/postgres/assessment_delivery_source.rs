@@ -271,6 +271,8 @@ pub(super) fn issuance_reproduction_from_row(
 
 #[derive(serde::Deserialize)]
 struct ReadyQuestionImageRenditionRow {
+    #[serde(default)]
+    source_relative_name: Option<String>,
     question_image_asset_id: String,
     question_image_checksum: String,
     rendition_checksum: String,
@@ -298,6 +300,7 @@ fn decode_retained_question_image_renditions(
         .into_iter()
         .map(|value| {
             Ok(ReadyQuestionImageRendition {
+                source_relative_name: value.source_relative_name,
                 question_image_asset_id: uuid::Uuid::parse_str(&value.question_image_asset_id)
                     .map(question_model::QuestionImageAssetId::from_uuid)
                     .map_err(|_| {

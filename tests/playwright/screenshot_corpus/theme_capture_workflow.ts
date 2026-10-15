@@ -53,7 +53,7 @@ export async function persistDisplayMode(page: Page, target: DisplayMode): Promi
 }
 
 export async function openSeededCourseAppearance(page: Page): Promise<string> {
-  await choosePersona(page, "Elena Rivera");
+  await choosePersona(page, "Elena");
   const tabs = page.getByRole("navigation", { name: "Ribbon tabs", exact: true });
   await tabs.getByRole("link", { name: "Courses", exact: true }).click();
   await page.locator('[data-route-surface="courses"]').waitFor();

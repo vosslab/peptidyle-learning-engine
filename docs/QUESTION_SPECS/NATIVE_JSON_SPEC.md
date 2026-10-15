@@ -39,22 +39,44 @@ Revision are not Native JSON fields. Their owners are the Assessment, lifecycle,
 
 ### Display content
 
-String fields whose values are displayed as Question content carry HTML, including inline CSS when
-needed for presentation. This includes the prompt and displayed response content, such as choice
-text, as well as optional hint and feedback strings. For example, a prompt or choice may contain
-`<em>Compare</em>` or `<span style="color: #174a7e">blue</span>`. Ordinary `<img src="...">`
-references are also display content; imported image references resolve through the existing Question
-Image Asset tuple and asset-storage paths.
+String fields whose values are displayed as Question content carry authored HTML, including inline
+CSS when needed for presentation. This includes prompt, displayed response content such as choice
+text, and optional hint and feedback strings. Plain Text blocks for student responses remain plain
+text and are escaped. The source stored in a Draft remains unchanged; the browser sanitizes markup
+when presenting it. The presentation boundary uses DOMPurify for supported HTML and MathML and a
+CSSOM-based allowlist for inline styles. The allowlist preserves ordinary educational formatting,
+including tables, colors, borders, fonts, and dimensions. It permits static, relative, and absolute
+positioning and transforms for diagrams; the renderer places this content in a relative wrapper
+with layout, paint, and style containment. It filters fixed positioning, resource URLs, scripts,
+forms, style blocks, and embedded content. This boundary does not execute canvas or authored HTML
+scripts. The separate `authorScript` feature keeps its existing isolated behavior.
+
+Ordinary `<img src="...">` references are display content. Native JSON image source paths are
+temporary lookup keys, not persistent asset identities. Draft authoring binds each supplied image
+to the existing Question Image Asset tuple and persists that binding separately from the unchanged
+source document. Rendering resolves only an exact bound image through PLE's existing authenticated
+same-origin image route. `externalResources` is an inventory and never authorizes image loading.
+Publication validates ownership and checksums for every referenced image and includes its bytes in
+the immutable published revision. Generic fork and correction Draft creation preserve the authored
+Native JSON source and copy its bound image tuples and bytes. Source-relative names remain separate
+from source and from the Question Image Asset tuple.
 
 HTML does not apply to every JSON string. Stable IDs, answer keys and accepted answer values,
 numeric values, classifications, and metadata retain their existing data meaning. Native author
 JavaScript remains an explicit isolated, untrusted author-script feature governed by its existing
 rules; HTML support does not grant unrestricted JavaScript. The amount of HTML sanitization is
-deferred and is not specified here.
+defined by the presentation boundary above.
 
-The current Native source compiler and renderer treat these strings as text in relevant paths.
-That is implementation drift from this display-content requirement. Authoring, preview, live
-rendering, and conversion must preserve and display the authored HTML and inline CSS.
+The Native source compiler and renderer preserve and display authored HTML and inline CSS in
+authoring, preview, live rendering, and publication. Hint and feedback follow the same boundary.
+Prompt and response image bindings are part of the initial presentation. Hint, feedback, and answer
+image bindings stay private until the corresponding support content is disclosed, then are
+registered for the authorized owner. The full source image registry remains private to source
+compilation. Direct logical asset access for support images remains denied until the authorized
+history projection returns that support and registers its exact bindings for the owning student;
+the existing disclosure policy is unchanged. The implementation is present; browser and connected
+runtime acceptance remains pending. Native author JavaScript remains a separate, isolated,
+untrusted feature under its existing rules.
 
 ## Current implementation evidence: metadata
 
@@ -96,8 +118,8 @@ identity. See [the server preview routes](../../crates/server/src/draft_preview.
 
 These source and test paths are implementation evidence. Connected database and browser acceptance
 for M01-M29 passed in the [October 7 final ledger closeout](../archive/reports/question_spec_implementation_ledger.md).
-That closeout predates the separately recorded HTML display correction and does not establish
-HTML or inline-image rendering acceptance.
+That closeout predates the current HTML display and image-binding implementation; it does not
+establish runtime acceptance for those changes.
 
 The ignored generated output `generated/api/TextResponseMatchRule.ts` was observed to include
 `regex` in this checkout. The durable source definition is the Rust
@@ -105,8 +127,8 @@ The ignored generated output `generated/api/TextResponseMatchRule.ts` was observ
 `Regex` variant as `regex`. This does not establish full TypeScript type acceptance. Source-level
 grading evidence also does not by itself establish connected response persistence, Student grading
 presentation, or Assessment points. Those integrated M01-M29 criteria passed in the
-[October 7 final ledger closeout](../archive/reports/question_spec_implementation_ledger.md);
-the closeout does not establish the later HTML and inline-image behavior.
+[October 7 final ledger closeout](../archive/reports/question_spec_implementation_ledger.md); the
+closeout does not establish runtime acceptance for the current HTML and inline-image behavior.
 
 ## Response shapes and grading
 
@@ -151,7 +173,8 @@ pair-counting explanation, and worked examples belong to
 These source-level grading results do not by themselves establish Assessment point calculation or
 connected response persistence and Student browser behavior. Those integrated M01-M29 criteria
 passed in the [October 7 final ledger closeout](../archive/reports/question_spec_implementation_ledger.md).
-That accepted evidence does not cover the later HTML and inline-image implementation gap.
+That accepted evidence does not establish runtime acceptance for the current HTML and inline-image
+implementation.
 
 FIB supports lists of accepted answers and author-supplied regular expressions. MULTI-FIB uses
 that same FIB behavior for every blank. Text matching supports `exact`, `caseInsensitive`,
@@ -195,8 +218,9 @@ using issued presentation state; it does not change stable IDs or grading.
 
 An image uses the existing Question Image Asset reference: `questionImageAssetId` plus the
 lowercase SHA-256 checksum of verified bytes, with an accessible description. The logical asset ID
-is distinct from its physical object-store ID. A hotspot surface must reference an uploaded valid
-asset. Author
+is distinct from its physical object-store ID. Inline HTML images use bindings persisted separately
+from source and resolve only through the authenticated same-origin image route. A hotspot surface
+must reference an uploaded valid asset. Author
 JavaScript may support rendering or interaction only in an isolated untrusted environment. It has
 no credentials, private source, Answer Key, or grading authority. Its dependency list is closed;
 current declared library support is `rdkit`. That current library-name list is separate from the

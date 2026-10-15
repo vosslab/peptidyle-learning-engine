@@ -50,14 +50,11 @@ impl RequestChecksum {
     }
 }
 
-/// Current stable-lineage lifecycle state. Private Blueprints are visible only
-/// to their owner; Public Blueprints are eligible for discovery and adoption;
-/// Archived Blueprints are unavailable for new selection. Exact Revisions
-/// remain resolvable after either later transition.
+/// Current stable-lineage lifecycle state. Blueprint Courses are shared among
+/// Instructors unless archived. Exact Revisions remain resolvable after archive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlueprintAvailability {
-    Private,
     Public,
     Archived,
 }

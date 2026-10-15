@@ -298,13 +298,13 @@ export function createBlueprintCourseClient(
         },
       );
       if (
-        result.body.availability !== "private" ||
+        result.body.availability !== "public" ||
         result.body.read_access !== "blueprint_course_owner" ||
         result.body.fork_source_tuple !== null ||
         result.body.current_revision_tuple.revisionNumber !== "1"
       )
         throw new ApiProtocolError(
-          "Imported Blueprint Course must be an actor-owned Private root at Revision 1",
+          "Imported Blueprint Course must be an actor-owned public root at Revision 1",
         );
       return loadedBlueprintCourse(result.body, result.response, path);
     },
@@ -345,9 +345,9 @@ export function createBlueprintCourseClient(
         decodeBlueprintCourseView,
         { method: "POST", idempotencyKey: requestKey, expectedStatus: 201 },
       );
-      if (result.body.id === blueprintCourseId || result.body.availability !== "private") {
+      if (result.body.id === blueprintCourseId || result.body.availability !== "public") {
         throw new ApiProtocolError(
-          "Blueprint fork response must identify an independent Private Blueprint Course",
+          "Blueprint fork response must identify an independent public Blueprint Course",
         );
       }
       return loadedBlueprintCourse(result.body, result.response, path);
@@ -590,25 +590,6 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
-    publishBlueprintCourse: async (
-      blueprintCourseId,
-      expectedBlueprintEditNumber,
-    ): Promise<BlueprintMetadataTransition> => {
-      const path = `${blueprintPath(blueprintCourseId)}/publish`;
-      const result = await blueprintJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeBlueprintMetadataState,
-        {
-          method: "POST",
-          ifMatchNumber: expectedBlueprintEditNumber,
-          ifMatchLabel: "Blueprint Edit Number",
-          expectedStatus: 200,
-        },
-      );
-      return metadataTransition(result.body, result.response, path);
-    },
     getBlueprintRevision: async (
       blueprintCourseId,
       revisionNumber,
@@ -643,25 +624,6 @@ export function createBlueprintCourseClient(
       expectedBlueprintEditNumber,
     ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(blueprintCourseId)}/restore`;
-      const result = await blueprintJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeBlueprintMetadataState,
-        {
-          method: "POST",
-          ifMatchNumber: expectedBlueprintEditNumber,
-          ifMatchLabel: "Blueprint Edit Number",
-          expectedStatus: 200,
-        },
-      );
-      return metadataTransition(result.body, result.response, path);
-    },
-    returnBlueprintCourseToPrivate: async (
-      blueprintCourseId,
-      expectedBlueprintEditNumber,
-    ): Promise<BlueprintMetadataTransition> => {
-      const path = `${blueprintPath(blueprintCourseId)}/return-to-private`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,

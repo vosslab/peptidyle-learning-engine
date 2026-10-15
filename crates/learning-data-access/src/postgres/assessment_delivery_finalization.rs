@@ -27,7 +27,7 @@ pub(super) async fn prepare(
                 published_question_id, revision_number, \
                 source_object_record_id, \
                 source_object_checksum, question_seed::text AS question_seed, generated_parameter_sha256, student_response, \
-                backend, webwork_pg_path \
+                backend, webwork_pg_path, question_image_renditions \
          FROM ple_api.prepare_student_assessment_attempt_finalization($1)",
     )
     .bind(assessment_attempt.as_uuid())
@@ -262,6 +262,8 @@ pub(super) fn finalization_source_from_row(
         }
     };
     Ok(Some(StudentAssessmentAttemptFinalizationSource {
+        question_image_renditions:
+            super::assessment_delivery_source::ready_question_image_renditions(row)?,
         question_attempt_id,
         saved_at,
         question_id: published_question_id,

@@ -42,7 +42,6 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
       theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, THEME_VALUES),
       longName: text(field(record, "longName", path), `${path}.longName`),
       availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
-        "private",
         "public",
         "archived",
       ]),

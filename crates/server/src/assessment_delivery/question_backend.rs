@@ -23,8 +23,7 @@ use question_model::{
 };
 
 use super::{
-    StartError, question_image_renditions, question_image_renditions_from_ready, resolve_source,
-    resolve_webwork_source,
+    StartError, question_image_renditions_from_ready, resolve_source, resolve_webwork_source,
 };
 
 /// The basic interface every production Question Backend implements.
@@ -92,9 +91,15 @@ impl<S: ObjectStore> BasicQuestionBackend<S> for PleQuestionBackendAdapter {
         let issued = backend
             .issue_question_json(&resolved, &source.question_title)
             .map_err(|_| StartError::Invalid)?;
-        let presentation =
-            build_question_presentation(&issued.presentation, &question_image_renditions(source))
-                .map_err(|_| StartError::Unavailable)?;
+        let retained_renditions = super::presentation_images::presentation_renditions(
+            &issued.presentation,
+            &source.question_image_renditions,
+        );
+        let presentation = build_question_presentation(
+            &issued.presentation,
+            &question_image_renditions_from_ready(&retained_renditions),
+        )
+        .map_err(|_| StartError::Unavailable)?;
         if presentation.reproduction != QuestionReproduction::Static {
             return Err(StartError::Invalid);
         }
@@ -119,7 +124,7 @@ impl<S: ObjectStore> BasicQuestionBackend<S> for PleQuestionBackendAdapter {
             presentation_checksum: presentation.checksum.to_hex(),
             author_content: presentation.author_content.clone(),
             response_item_bindings,
-            question_image_renditions: source.question_image_renditions.clone(),
+            question_image_renditions: retained_renditions,
             issued_capability: "ple_question_json_presentation".to_string(),
             backend_document: None,
         })
@@ -134,11 +139,14 @@ impl<S: ObjectStore> BasicQuestionBackend<S> for PleQuestionBackendAdapter {
             return Err(unavailable());
         }
         let published_question_revision_tuple = revision_tuple(response)?;
-        let source = ResolvedPleQuestionJsonSource::resolve(
+        let source = ResolvedPleQuestionJsonSource::resolve_with_images(
             objects,
             published_question_revision_tuple,
             object_id(response)?,
             checksum(response)?,
+            &super::presentation_images::question_html_image_bindings(
+                &response.question_image_renditions,
+            ),
         )
         .await
         .map_err(|_| unavailable())?;

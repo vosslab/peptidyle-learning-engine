@@ -87,7 +87,7 @@ CREATE TYPE ple_data.retention_lifecycle_state AS ENUM (
     'active', 'archived', 'deleted'
 );
 CREATE TYPE ple_data.blueprint_availability AS ENUM (
-    'private', 'public', 'archived'
+    'public', 'archived'
 );
 CREATE TYPE ple_data.question_availability AS ENUM (
     'available', 'archived'
@@ -166,7 +166,7 @@ CREATE TYPE ple_data.retention_failure_kind AS ENUM (
     'not_configured', 'provider_rejected', 'provider_transient'
 );
 CREATE TYPE ple_data.watch_notification_event_kind AS ENUM (
-    'revision', 'published', 'archived', 'restored'
+    'revision', 'archived', 'restored'
 );
 CREATE TYPE ple_data.auth_rate_scope AS ENUM (
     'email', 'network', 'principal', 'service'
@@ -297,6 +297,13 @@ CREATE DOMAIN ple_data.assessment_id AS text
     CHECK (VALUE IS NULL OR ple_private.is_canonical_prefixed_public_id(VALUE, 'A'));
 CREATE DOMAIN ple_data.question_family_id AS text
     CHECK (VALUE IS NULL OR ple_private.is_canonical_question_family_id(VALUE));
+-- Exact package filename for a bound native inline image; never an address.
+CREATE DOMAIN ple_data.source_relative_name AS text
+    CHECK (VALUE IS NULL OR (
+        octet_length(VALUE) BETWEEN 1 AND 4096 AND btrim(VALUE) <> ''
+        AND VALUE !~ '[\\:?#]' AND VALUE !~ '[[:cntrl:]]'
+        AND VALUE !~ '(^/|/$|//|(^|/)\.{1,2}(/|$))'
+    ));
 CREATE DOMAIN ple_data.sha256_digest AS bytea
     CHECK (VALUE IS NULL OR octet_length(VALUE) = 32);
 
@@ -306,5 +313,6 @@ GRANT USAGE ON TYPE
     ple_data.blueprint_course_id,
     ple_data.assessment_id,
     ple_data.question_family_id,
-    ple_data.sha256_digest
+    ple_data.sha256_digest,
+    ple_data.source_relative_name
     TO ple_private_owner, ple_audit_owner, ple_api_owner;

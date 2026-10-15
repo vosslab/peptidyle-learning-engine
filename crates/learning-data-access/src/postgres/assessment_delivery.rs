@@ -27,9 +27,8 @@ pub(super) use super::assessment_delivery_source::{
 };
 #[path = "assessment_delivery_renditions.rs"]
 mod assessment_delivery_renditions;
-use assessment_delivery_renditions::{
-    current_ready_question_image_renditions, presentation_payloads,
-};
+pub(super) use assessment_delivery_renditions::current_ready_question_image_renditions;
+use assessment_delivery_renditions::presentation_payloads;
 
 /// PostgreSQL Store for the Student delivery boundary.
 #[derive(Clone)]
@@ -815,6 +814,21 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         assessment_attempt: AssessmentAttemptId,
     ) -> Result<Vec<StudentAssessmentAttemptHistoryResponseSource>, StoreError> {
         super::assessment_delivery_history_response::read(self, token, assessment_attempt).await
+    }
+
+    async fn register_student_assessment_attempt_support_images(
+        &self,
+        token: SessionTokenHash,
+        assessment_attempt: AssessmentAttemptId,
+        disclosed: &[crate::StudentAssessmentAttemptSupportImages],
+    ) -> Result<(), StoreError> {
+        super::assessment_delivery_support_images::register(
+            self,
+            token,
+            assessment_attempt,
+            disclosed,
+        )
+        .await
     }
 }
 

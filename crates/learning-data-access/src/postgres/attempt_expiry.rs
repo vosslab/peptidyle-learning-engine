@@ -46,7 +46,7 @@ impl AssessmentAttemptExpirySweepStore for PostgresAssessmentAttemptExpirySweepS
                     published_question_id, revision_number, \
                     source_object_record_id, \
                     source_object_checksum, question_seed::text AS question_seed, generated_parameter_sha256, student_response, \
-                    backend, webwork_pg_path \
+                    backend, webwork_pg_path, question_image_renditions \
              FROM ple_api.prepare_expired_student_assessment_attempt_finalizations($1)",
         )
         .bind(limit)

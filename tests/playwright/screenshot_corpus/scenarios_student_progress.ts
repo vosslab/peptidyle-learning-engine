@@ -11,6 +11,8 @@ import {
 } from "./scenario_types";
 import {
   ASSESSMENT_ENTRY_BUTTON,
+  attemptQuestionCount,
+  waitForAttemptPosition,
   ASSIGNMENT_TITLE,
   choosePersona,
   openAllStudentCoursework,
@@ -19,7 +21,7 @@ import {
   scrollTop,
 } from "./visible_workflows";
 
-const PILOT_COURSE_SHORT_NAME = "BCHM 301";
+const DEMO_COURSE_SHORT_NAME = "BCHM 355";
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
@@ -75,22 +77,22 @@ async function waitForCourseSections(
   );
 }
 
-function attemptHistoryForPilotAssessment(page: Page): Locator {
+function attemptHistoryForDemoAssessment(page: Page): Locator {
   return pageCourseAttemptHistorySection(page)
-    .getByRole("list", { name: `${PILOT_COURSE_SHORT_NAME} Attempts`, exact: true })
+    .getByRole("list", { name: `${DEMO_COURSE_SHORT_NAME} Attempts`, exact: true })
     .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }) });
 }
 
 function pageCourseAttemptHistorySection(page: Page): Locator {
   return page.getByRole("region", {
-    name: `${PILOT_COURSE_SHORT_NAME} Attempt History`,
+    name: `${DEMO_COURSE_SHORT_NAME} Attempt History`,
     exact: true,
   });
 }
 
-function submittedAttemptHistoryForPilotAssessment(page: Page): Locator {
-  return attemptHistoryForPilotAssessment(page).filter({ hasText: /· Submitted/u });
+function submittedAttemptHistoryForDemoAssessment(page: Page): Locator {
+  return attemptHistoryForDemoAssessment(page).filter({ hasText: /· Submitted/u });
 }
 
 async function nextDurationCheckpoint(
@@ -128,16 +130,19 @@ async function verifyQuestionDurationLifecycle(page: Page): Promise<void> {
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  await page.waitForTimeout(250);
-  const transitionCheckpoint = nextDurationCheckpoint(page, 1);
-  await page
-    .getByRole("navigation", { name: "Coursework questions", exact: true })
-    .getByRole("button", { name: "Question 2: Not answered", exact: true })
-    .click();
-  const transitionReceipt = (await (await transitionCheckpoint).json()) as {
-    cumulativeDisplayDurationMs: number;
-  };
-  await page.getByText("Question 2 of 4", { exact: true }).waitFor();
+  let savedMilliseconds = hiddenReceipt.cumulativeDisplayDurationMs;
+  if ((await attemptQuestionCount(page)) > 1) {
+    const transitionCheckpoint = nextDurationCheckpoint(page, 1);
+    await page
+      .getByRole("navigation", { name: "Coursework questions", exact: true })
+      .getByRole("button", { name: "Question 2: Not answered", exact: true })
+      .click();
+    const transitionReceipt = (await (await transitionCheckpoint).json()) as {
+      cumulativeDisplayDurationMs: number;
+    };
+    savedMilliseconds = transitionReceipt.cumulativeDisplayDurationMs;
+    await waitForAttemptPosition(page, 2);
+  }
 
   const progressResponsePromise = page.waitForResponse(
     (response) =>
@@ -155,7 +160,7 @@ async function verifyQuestionDurationLifecycle(page: Page): Promise<void> {
   if (
     resumedMilliseconds === null ||
     resumedMilliseconds === undefined ||
-    resumedMilliseconds < transitionReceipt.cumulativeDisplayDurationMs
+    resumedMilliseconds < savedMilliseconds
   ) {
     throw new Error("Reload did not resume from the Question's saved cumulative display time.");
   }
@@ -165,7 +170,7 @@ async function verifyQuestionDurationLifecycle(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Coursework questions", exact: true })
     .getByRole("button", { name: /^Question 1: Not answered/u })
     .click();
-  await page.getByText("Question 1 of 4", { exact: true }).waitFor();
+  await waitForAttemptPosition(page, 1);
   await page.waitForTimeout(250);
   const submissionCheckpoint = nextDurationCheckpoint(page, 1);
   await page.getByRole("button", { name: "Submit Attempt", exact: true }).click();
@@ -186,7 +191,7 @@ async function createUnansweredAttempt(page: Page, captureDurationSample: boolea
   await openStudentAssignment(page);
   await page.getByRole("button", { name: ASSESSMENT_ENTRY_BUTTON }).click();
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
-  await page.getByText("Question 1 of 4", { exact: true }).waitFor();
+  await waitForAttemptPosition(page, 1);
   if (captureDurationSample) {
     await verifyQuestionDurationLifecycle(page);
   } else {
@@ -269,7 +274,7 @@ async function captureAttemptHistoryAndFeedback(
     await choosePersona(page, "Mary Okafor");
     await openStudentCourse(page);
     await openCourseAttemptHistory(page);
-    let submittedAttemptCount = await submittedAttemptHistoryForPilotAssessment(page).count();
+    let submittedAttemptCount = await submittedAttemptHistoryForDemoAssessment(page).count();
     for (
       let createdAttemptCount = 0;
       seedHistory && submittedAttemptCount < 40 && createdAttemptCount < 40;
@@ -278,7 +283,7 @@ async function captureAttemptHistoryAndFeedback(
       const previousAttemptCount = submittedAttemptCount;
       await createUnansweredAttempt(page, false);
       await openCourseAttemptHistory(page);
-      submittedAttemptCount = await submittedAttemptHistoryForPilotAssessment(page).count();
+      submittedAttemptCount = await submittedAttemptHistoryForDemoAssessment(page).count();
       if (submittedAttemptCount <= previousAttemptCount) {
         throw new Error(
           `Course Attempt History stayed at ${submittedAttemptCount} submitted Attempts after a new submission. ` +
@@ -291,7 +296,7 @@ async function captureAttemptHistoryAndFeedback(
         `Expected at least 40 submitted Course Attempts, found ${submittedAttemptCount}.`,
       );
     }
-    await attemptHistoryForPilotAssessment(page)
+    await attemptHistoryForDemoAssessment(page)
       .first()
       .getByText(/^Started/u)
       .waitFor();
@@ -331,7 +336,7 @@ async function captureAttemptHistoryAndFeedback(
           `${latestFeedback?.assessmentAttemptId ?? "none"}.`,
       );
     }
-    submittedAttemptCount = await submittedAttemptHistoryForPilotAssessment(page).count();
+    submittedAttemptCount = await submittedAttemptHistoryForDemoAssessment(page).count();
     if (submittedAttemptCount < 40) {
       throw new Error(
         `Course History lost submitted Attempts after navigating through Response Stats; ` +

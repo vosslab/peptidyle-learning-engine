@@ -99,6 +99,25 @@ pub struct WebworkAdapter<R> {
     renderer: R,
 }
 
+impl WebworkAdapter<crate::HttpWebworkRenderer> {
+    /// Diagnoses saved authoring source without creating Attempt or grading state.
+    pub async fn diagnose_draft_source(
+        &self,
+        question_seed: QuestionSeed,
+        pg_source: &[u8],
+        pg_path: &str,
+    ) -> Result<crate::http_renderer::WebworkSourceDiagnostics, RendererFailure> {
+        self.renderer
+            .diagnose_source(RenderRequest {
+                pg_source,
+                pg_path,
+                published_question_revision_tuple: None,
+                seed: question_seed.value(),
+            })
+            .await
+    }
+}
+
 impl<R: WebworkRenderer> WebworkAdapter<R> {
     pub fn new(renderer: R) -> Self {
         Self { renderer }

@@ -29,6 +29,8 @@ mod assessment_delivery_source;
 #[cfg(feature = "postgres")]
 mod assessment_delivery_start;
 #[cfg(feature = "postgres")]
+mod assessment_delivery_support_images;
+#[cfg(feature = "postgres")]
 mod assessment_release;
 #[cfg(feature = "postgres")]
 mod assessment_student_time_accommodation;

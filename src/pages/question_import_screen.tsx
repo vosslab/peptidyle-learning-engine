@@ -2,19 +2,13 @@
 
 import { For, Show, createResource, createSignal, type JSX } from "solid-js";
 
-import type { FormatInfo, NamedBytes, Warning } from "../../assets/qpm_wasm/src/index.js";
-import { ApiRequestError } from "../api/http_client/error";
+import type { FormatInfo, Warning } from "../../assets/qpm_wasm/src/index.js";
+import { createPleQuestionJsonClient } from "../features/ple_question_json_authoring/question_json_client";
+import { saveQuestionImportItem, type QuestionImportResult } from "./question_import_items";
 import { createQuestionDraftCreationClient } from "../api/question_draft_creation";
 
 declare const __QPM_WASM_ASSET_VERSION__: string;
 type Qpm = typeof import("../../assets/qpm_wasm/src/index.js");
-type ImportResult = {
-  readonly name: string;
-  readonly status: "created" | "rejected" | "skipped" | "failed";
-  readonly message: string;
-  readonly href?: string;
-};
-
 /** Loads the vendored wrapper and WASM only while the import screen is open. */
 async function loadQpm(): Promise<Qpm> {
   const base = `/wasm/qpm-${__QPM_WASM_ASSET_VERSION__}`;
@@ -26,47 +20,6 @@ async function loadQpm(): Promise<Qpm> {
   return qpm;
 }
 
-function record(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-/** Inspect this item's display fields; package-wide media inventory is not an item binding. */
-function containsImages(source: string): boolean {
-  const question = record(JSON.parse(source) as unknown);
-  const response = record(question.response);
-  const feedback = record(question.feedback);
-  const display = [
-    question.prompt,
-    question.questionHint,
-    feedback.correct,
-    feedback.incorrect,
-    response.unit,
-  ];
-  for (const key of ["choices", "prompts", "items", "blanks"]) {
-    const items: unknown = response[key];
-    if (!Array.isArray(items)) continue;
-    for (const item of items) {
-      const fields = record(item);
-      display.push(fields.text, fields.label, fields.feedback);
-    }
-  }
-  return display.some((html) => {
-    if (typeof html !== "string") return false;
-    // ASVS 1.5.2: inspect an inert template, never attach or execute source HTML.
-    const template = document.createElement("template");
-    template.innerHTML = html;
-    return (
-      template.content.querySelector("img, picture, svg, object, embed, input[type=image]") !==
-        null ||
-      Array.from(template.content.querySelectorAll("[style], style")).some((element) =>
-        /url\s*\(/iu.test(element.getAttribute("style") ?? element.textContent ?? ""),
-      )
-    );
-  });
-}
-
 /** Imports supported banks into saved Drafts; existing preview/publication validate Native JSON. */
 export function QuestionImportScreen(props: { readonly onClose: () => void }): JSX.Element {
   const [qpm] = createResource(loadQpm);
@@ -75,37 +28,15 @@ export function QuestionImportScreen(props: { readonly onClose: () => void }): J
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [warnings, setWarnings] = createSignal<ReadonlyArray<Warning>>([]);
-  const [results, setResults] = createSignal<ReadonlyArray<ImportResult>>([]);
+  const [results, setResults] = createSignal<ReadonlyArray<QuestionImportResult>>([]);
   const client = createQuestionDraftCreationClient();
+  const imageClient = createPleQuestionJsonClient();
   const readableFormats = (): ReadonlyArray<FormatInfo> =>
     qpm.state === "ready"
       ? qpm()
           .formats()
           .formats.filter((item) => item.canRead)
       : [];
-
-  async function saveItem(item: NamedBytes): Promise<ImportResult> {
-    try {
-      const source = new TextDecoder("utf-8", { fatal: true }).decode(item.bytes);
-      if (containsImages(source)) {
-        return { name: item.name, status: "skipped", message: "contains images" };
-      }
-      // ASVS 2.2.2: the existing Draft API owns authorization and storage validation.
-      const draft = await client.createDraft({ format: "pleQuestionJson", source });
-      return {
-        name: item.name,
-        status: "created",
-        message: "Saved as a Draft",
-        href: `/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`,
-      };
-    } catch (error: unknown) {
-      return {
-        name: item.name,
-        status: error instanceof ApiRequestError ? "rejected" : "failed",
-        message: error instanceof Error ? error.message : "This question could not be saved.",
-      };
-    }
-  }
 
   async function importQuestions(): Promise<void> {
     const selected = file();
@@ -139,13 +70,18 @@ export function QuestionImportScreen(props: { readonly onClose: () => void }): J
         .sort((left, right) => left.name.localeCompare(right.name));
       for (const [index, item] of items.entries()) {
         setMessage(`Saving question ${index + 1} of ${items.length}...`);
-        const result = await saveItem(item);
+        const result = await saveQuestionImportItem(
+          item,
+          converted.artifact.entries,
+          client,
+          imageClient,
+        );
         setResults((previous) => [...previous, result]);
       }
       setMessage(
         items.length === 0
           ? "No questions were returned by the converter."
-          : `Import complete. ${results().filter((item) => item.status === "created").length} of ${items.length} questions saved as Drafts.`,
+          : `Import complete. ${results().filter((item) => item.href !== undefined).length} of ${items.length} questions saved as Drafts. ${results().filter((item) => item.status === "created").length} ready to preview.`,
       );
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : "The question bank could not be read.");
@@ -167,7 +103,9 @@ export function QuestionImportScreen(props: { readonly onClose: () => void }): J
         Select a question bank to convert on this device. Created questions are saved as private
         Drafts. Open each Draft to preview it, add metadata, and publish.
       </p>
-      <p>Questions containing images are skipped. Create HOTSPOT questions in the Draft editor.</p>
+      <p>
+        Referenced images are saved with each Draft. Create HOTSPOT questions in the Draft editor.
+      </p>
       <Show when={qpm.loading}>
         <p role="status">Loading question importer...</p>
       </Show>

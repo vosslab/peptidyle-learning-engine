@@ -13,6 +13,7 @@ import { catalogScreenshotFilename } from "./filenames";
 import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";
 import {
   COURSE_TITLE,
+  searchNativeMcLibraryQuestion,
   courseCard,
   enterInstructor,
   followCaptureLink,
@@ -24,7 +25,6 @@ import {
 const AUTHORING_TITLE = "Screenshot corpus peptide geometry";
 const BLUEPRINT_PICKER_TITLE = "Screenshot corpus Blueprint preview";
 const ASSIGNMENT_TITLE = "Screenshot corpus peptide practice";
-const PUBLISHED_NATIVE_TITLE = "Biochemistry Chapter 1: Charged functional groups";
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
@@ -92,7 +92,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await captureCheckpoint(runtime, "course_assignment_workspace", session);
     await session.page.getByRole("link", { name: "Open Students", exact: true }).click();
     await session.page.getByRole("heading", { name: "Students", exact: true }).waitFor();
-    await session.page.getByText("BIO301-AVERY", { exact: true }).waitFor();
+    await session.page.getByText("BCHM355-AVERY", { exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_roster_active", session);
     await session.page.locator("summary").filter({ hasText: "Roster tools" }).click();
     await session.page
@@ -113,7 +113,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("link", { name: "Gradebook", exact: true })
       .click();
     await session.page.locator('[data-route-surface="gradebook"]').waitFor();
-    await session.page.getByText("BIO301-JACK", { exact: true }).first().waitFor();
+    await session.page.getByText("BCHM355-JACK", { exact: true }).first().waitFor();
     await captureCheckpoint(runtime, "gradebook", session);
     await session.page.locator(".ple-app-ribbon__brand").click();
     await session.page.waitForURL((url) => url.pathname === "/instructor");
@@ -188,18 +188,29 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
   try {
     await enterInstructor(session.page);
     await captureCheckpoint(runtime, "library_default", session);
-    await session.page.getByLabel("Search Question Library").fill("charged functional");
-    await session.page.getByLabel("Search Question Library").press("Enter");
-    await session.page
-      .getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true })
-      .waitFor();
+    const question = await searchNativeMcLibraryQuestion(session.page);
     await captureCheckpoint(runtime, "library_filtered", session);
     await openInstructorLibraryBrowse(session.page);
     await captureCheckpoint(runtime, "library_browse", session);
-    await session.page.getByRole("button", { name: /^Biochemistry/u }).click();
-    const result = session.page.locator(".record-list__row").filter({
-      has: session.page.getByRole("heading", { name: PUBLISHED_NATIVE_TITLE, exact: true }),
+    await session.page.getByRole("button", { name: /^Multiple choice/u }).click();
+    await session.page.getByRole("link", { name: "Search within results", exact: true }).click();
+    const leaveSearch = session.page.getByRole("dialog", {
+      name: "Leave this search?",
+      exact: true,
     });
+    await leaveSearch.waitFor();
+    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
+    await searchNativeMcLibraryQuestion(session.page);
+    const result = session.page
+      .locator(".record-list__row")
+      .filter({
+        has: session.page.getByRole("heading", {
+          name: question.metadata.questionTitle,
+          exact: true,
+        }),
+      })
+      .filter({ has: session.page.getByRole("link", { name: "Open", exact: true }) })
+      .first();
     await followCaptureLink(session.page, result.getByRole("link", { name: "Open", exact: true }));
     await session.page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await captureCheckpoint(runtime, "published_question_detail", session);
@@ -352,6 +363,7 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
   const page = session.page;
   try {
     await enterInstructor(page);
+    const question = await searchNativeMcLibraryQuestion(page);
     await openInstructorCourse(page);
     await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Create an Assessment", exact: true }).waitFor();
@@ -369,13 +381,14 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       name: "Choose published Assessment content",
       exact: true,
     });
-    // The dialog loads one library page on open. Search isolates the seeded published title.
+    // The dialog searches the actual published Question chosen from the current Library.
     await picker
       .getByLabel("Search published Assessment content", { exact: true })
-      .fill(PUBLISHED_NATIVE_TITLE);
+      .fill(question.metadata.questionTitle);
     await picker.getByRole("button", { name: "Search", exact: true }).click();
     await picker
-      .getByRole("checkbox", { name: `Select ${PUBLISHED_NATIVE_TITLE}`, exact: true })
+      .getByRole("checkbox", { name: `Select ${question.metadata.questionTitle}`, exact: true })
+      .first()
       .check();
     await picker.getByRole("button", { name: "Add selected content", exact: true }).click();
     await picker.waitFor({ state: "hidden" });

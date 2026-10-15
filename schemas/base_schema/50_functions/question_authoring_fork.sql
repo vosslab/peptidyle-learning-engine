@@ -19,7 +19,7 @@ CREATE FUNCTION ple_private.fork_published_question_to_draft(
     p_target_size_bytes bigint,
     p_target_media_type text,
     p_target_created_at_millis bigint,
-    p_hotspot_question_image jsonb
+    p_question_images jsonb
 ) RETURNS TABLE (
     draft_question_id uuid,
     authoring_workspace_id uuid,
@@ -41,6 +41,9 @@ DECLARE
     source_record ple_private.object_record%ROWTYPE;
     expected_source_address jsonb;
     asset_count bigint;
+    target_image jsonb;
+    source_asset_relative_name text;
+    target_asset_relative_name text;
     source_question_image_asset_id uuid;
     source_asset_checksum bytea;
     source_asset_media_type text;
@@ -204,63 +207,21 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Fork target must preserve the exact source Revision bytes';
     END IF;
-    IF source_metadata.question_type = 'hotspot' THEN
-        SELECT pg_catalog.count(*) INTO asset_count
-          FROM ple_private.question_image_publication AS publication
-         WHERE publication.published_question_id = p_source_question_id
-           AND publication.revision_number = p_source_question_revision_number;
-        IF source_revision.backend <> 'ple' OR asset_count <> 1 OR p_hotspot_question_image IS NULL THEN
-            RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'Native HOTSPOT fork requires one exact source raster';
-        END IF;
-          SELECT publication.question_image_asset_id,
-               publication.source_object_checksum, publication.verified_media_type,
-               record.size_bytes, publication.intrinsic_width, publication.intrinsic_height
-          INTO STRICT source_question_image_asset_id, source_asset_checksum,
-               source_asset_media_type, source_asset_size_bytes,
-               source_asset_width, source_asset_height
-          FROM ple_private.question_image_publication AS publication
-          JOIN ple_private.object_record AS record
-            ON record.object_record_id = publication.source_object_record_id
-         WHERE publication.published_question_id = p_source_question_id
-           AND publication.revision_number = p_source_question_revision_number
-           AND record.object_address = pg_catalog.jsonb_build_object(
-               'kind', 'restrictedQuestionImage',
-               'publishedQuestionRevisionTuple', pg_catalog.jsonb_build_object(
-                   'publishedQuestionId', p_source_question_id,
-                   'revisionNumber', p_source_question_revision_number),
-               'questionImageAssetId', publication.question_image_asset_id,
-               'objectId', publication.source_object_record_id)
-           AND record.object_storage_area = 'private-content'
-           AND record.object_data_class = 'question-image'
-           AND record.sha256 = publication.source_object_checksum
-           AND record.media_type = publication.verified_media_type::text;
-        target_question_image_asset_id := (p_hotspot_question_image ->> 'questionImageAssetId')::uuid;
-        target_question_image_object_id := (p_hotspot_question_image ->> 'objectId')::uuid;
-        target_asset_address := p_hotspot_question_image -> 'objectAddress';
-        target_asset_checksum := pg_catalog.decode(p_hotspot_question_image ->> 'checksum', 'hex');
-        target_asset_size_bytes := (p_hotspot_question_image ->> 'byteLength')::bigint;
-        target_asset_media_type := p_hotspot_question_image ->> 'mediaType';
-        target_asset_created_at_millis := (p_hotspot_question_image ->> 'createdAtMillis')::bigint;
-        target_asset_width := (p_hotspot_question_image ->> 'intrinsicWidth')::integer;
-        target_asset_height := (p_hotspot_question_image ->> 'intrinsicHeight')::integer;
-        IF target_question_image_asset_id IS DISTINCT FROM source_question_image_asset_id
-           OR target_asset_checksum IS DISTINCT FROM source_asset_checksum
-           OR target_asset_size_bytes IS DISTINCT FROM source_asset_size_bytes
-           OR target_asset_media_type IS DISTINCT FROM source_asset_media_type
-           OR target_asset_width IS DISTINCT FROM source_asset_width
-           OR target_asset_height IS DISTINCT FROM source_asset_height
-           OR target_asset_created_at_millis IS NULL
-           OR target_asset_address IS DISTINCT FROM pg_catalog.jsonb_build_object(
-               'kind', 'draftQuestionImage', 'workspaceId', p_authoring_workspace_id,
-               'draftQuestionId', p_draft_question_uuid,
-               'questionImageAssetId', target_question_image_asset_id, 'objectId', target_question_image_object_id) THEN
-            RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'Question Fork target raster must preserve exact HOTSPOT evidence';
-        END IF;
-    ELSIF p_hotspot_question_image IS NOT NULL THEN
+    SELECT pg_catalog.count(*) INTO asset_count
+      FROM ple_private.question_image_publication AS publication
+     WHERE publication.published_question_id = p_source_question_id
+       AND publication.revision_number = p_source_question_revision_number;
+    IF pg_catalog.jsonb_typeof(p_question_images) IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Only a native HOTSPOT fork may carry a Draft raster';
+            MESSAGE = 'Question Fork image copies must be an array';
+    END IF;
+    IF pg_catalog.jsonb_array_length(p_question_images) <> asset_count
+       OR (asset_count > 0 AND source_revision.backend <> 'ple')
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.jsonb_array_elements(p_question_images) AS image(value)
+           GROUP BY image.value ->> 'questionImageAssetId' HAVING pg_catalog.count(*) <> 1) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Question Fork must copy every exact source image once';
     END IF;
     INSERT INTO ple_private.draft_question(
         draft_question_id, authoring_workspace_id, parent_published_question_id,
@@ -311,7 +272,59 @@ BEGIN
         source_metadata.question_type, source_binding.webwork_pg_path,
         p_target_object_id,
         pg_catalog.encode(p_target_sha256, 'hex'), fork_created_at, fork_created_at);
-    IF source_metadata.question_type = 'hotspot' THEN
+    -- ASVS 8.3.1: trusted persistence verifies each image against the locked source Revision.
+    FOR target_image IN SELECT value FROM pg_catalog.jsonb_array_elements(p_question_images) LOOP
+        target_question_image_asset_id := (target_image ->> 'questionImageAssetId')::uuid;
+        target_question_image_object_id := (target_image ->> 'objectId')::uuid;
+        target_asset_relative_name := target_image ->> 'sourceRelativeName';
+        target_asset_address := target_image -> 'objectAddress';
+        target_asset_checksum := pg_catalog.decode(target_image ->> 'checksum', 'hex');
+        target_asset_size_bytes := (target_image ->> 'byteLength')::bigint;
+        target_asset_media_type := target_image ->> 'mediaType';
+        target_asset_created_at_millis := (target_image ->> 'createdAtMillis')::bigint;
+        target_asset_width := (target_image ->> 'intrinsicWidth')::integer;
+        target_asset_height := (target_image ->> 'intrinsicHeight')::integer;
+        SELECT publication.question_image_asset_id, publication.source_relative_name,
+               publication.source_object_checksum, publication.verified_media_type,
+               record.size_bytes, publication.intrinsic_width, publication.intrinsic_height
+          INTO source_question_image_asset_id, source_asset_relative_name, source_asset_checksum,
+               source_asset_media_type, source_asset_size_bytes, source_asset_width, source_asset_height
+          FROM ple_private.question_image_publication AS publication
+          JOIN ple_private.object_record AS record
+            ON record.object_record_id = publication.source_object_record_id
+         WHERE publication.published_question_id = p_source_question_id
+           AND publication.revision_number = p_source_question_revision_number
+           AND publication.question_image_asset_id = target_question_image_asset_id
+           AND record.object_address = pg_catalog.jsonb_build_object(
+               'kind', 'restrictedQuestionImage',
+               'publishedQuestionRevisionTuple', pg_catalog.jsonb_build_object(
+                   'publishedQuestionId', p_source_question_id,
+                   'revisionNumber', p_source_question_revision_number),
+               'questionImageAssetId', publication.question_image_asset_id,
+               'objectId', publication.source_object_record_id)
+           AND record.object_storage_area = 'private-content'
+           AND record.object_data_class = 'question-image'
+           AND record.sha256 = publication.source_object_checksum
+           AND record.media_type = publication.verified_media_type::text
+           FOR SHARE OF publication, record;
+        IF NOT FOUND
+           OR target_question_image_object_id IS NULL
+           OR target_question_image_asset_id IS DISTINCT FROM source_question_image_asset_id
+           OR target_asset_relative_name IS DISTINCT FROM source_asset_relative_name
+           OR target_asset_checksum IS DISTINCT FROM source_asset_checksum
+           OR target_asset_size_bytes IS DISTINCT FROM source_asset_size_bytes
+           OR target_asset_media_type IS DISTINCT FROM source_asset_media_type
+           OR target_asset_width IS DISTINCT FROM source_asset_width
+           OR target_asset_height IS DISTINCT FROM source_asset_height
+           OR target_asset_created_at_millis IS NULL
+           OR target_asset_address IS DISTINCT FROM pg_catalog.jsonb_build_object(
+               'kind', 'draftQuestionImage', 'workspaceId', p_authoring_workspace_id,
+               'draftQuestionId', p_draft_question_uuid,
+               'questionImageAssetId', target_question_image_asset_id,
+               'objectId', target_question_image_object_id) THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Question Fork target image must preserve exact source evidence';
+        END IF;
         INSERT INTO ple_private.object_record(
             object_record_id, object_address, object_storage_area, object_data_class,
             sha256, size_bytes, media_type, created_at
@@ -322,11 +335,12 @@ BEGIN
             pg_catalog.to_timestamp(target_asset_created_at_millis::double precision / 1000.0));
         INSERT INTO ple_private.draft_question_image(
             draft_question_id, authoring_workspace_id, question_image_asset_id, source_object_record_id,
-            intrinsic_width, intrinsic_height
+            intrinsic_width, intrinsic_height, source_relative_name
         ) VALUES (
             p_draft_question_uuid, p_authoring_workspace_id, target_question_image_asset_id,
-            target_question_image_object_id, target_asset_width, target_asset_height);
-    END IF;
+            target_question_image_object_id, target_asset_width, target_asset_height,
+            target_asset_relative_name);
+    END LOOP;
     INSERT INTO ple_private.draft_question_creation_receipt(
         draft_question_id, actor_account_id, request_key, request_fingerprint, created_at
     ) VALUES (
@@ -353,7 +367,7 @@ CREATE FUNCTION ple_api.fork_published_question_to_draft(
     p_target_size_bytes bigint,
     p_target_media_type text,
     p_target_created_at_millis bigint,
-    p_hotspot_question_image jsonb
+    p_question_images jsonb
 ) RETURNS TABLE (
     draft_question_id uuid,
     authoring_workspace_id uuid,
@@ -365,5 +379,5 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_source_question_revision_number, p_idempotency_key,
         p_target_object_id, p_target_object_address, p_target_sha256,
         p_target_size_bytes, p_target_media_type, p_target_created_at_millis,
-        p_hotspot_question_image)
+        p_question_images)
 $$;

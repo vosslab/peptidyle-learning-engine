@@ -324,6 +324,7 @@ CREATE TABLE ple_private.question_attempt_presentation_image_rendition (
     rendition_checksum bytea NOT NULL CHECK (octet_length(rendition_checksum) = 32),
     intrinsic_width integer NOT NULL CHECK (intrinsic_width > 0),
     intrinsic_height integer NOT NULL CHECK (intrinsic_height > 0),
+    is_disclosed_support boolean NOT NULL DEFAULT false,
     PRIMARY KEY (course_instance_id, question_attempt_id, question_image_asset_id),
     FOREIGN KEY (course_instance_id, question_attempt_id)
         REFERENCES ple_private.question_attempt_presentation_asset_binding(course_instance_id, question_attempt_id)
@@ -379,6 +380,7 @@ COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS 'role: stu
 COMMENT ON TABLE ple_private.question_attempt_response_item_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
 COMMENT ON TABLE ple_private.question_attempt_presentation_asset_binding IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
 COMMENT ON TABLE ple_private.question_attempt_presentation_image_rendition IS 'role: student work, deleted by Unrelease and FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Student Work.';
+COMMENT ON COLUMN ple_private.question_attempt_presentation_image_rendition.is_disclosed_support IS 'True only for an image retained after the server returns disclosed support content; excluded from original presentation reproduction.';
 COMMENT ON TABLE ple_private.grading_result IS 'role: student work, One immutable normalized-credit outcome for an accepted Submission; current Assessment Entry points calculate scores on read.';
 
 SET LOCAL ROLE ple_audit_owner;

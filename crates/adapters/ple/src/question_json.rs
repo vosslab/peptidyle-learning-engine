@@ -17,8 +17,11 @@ use question_model::{QuestionHint, QuestionType};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+mod html_content;
 /// Trusted QTI-profile mapping bridge for canonical PLE Question JSON source.
 mod source_document;
+#[cfg(test)]
+mod tests;
 
 /// Canonical media type for canonical PLE Question JSON source payloads.
 pub const PLE_QUESTION_JSON_MEDIA_TYPE: &str = "application/vnd.peptidyle.question+json";
@@ -30,7 +33,6 @@ pub const MAX_PLE_QUESTION_JSON_BYTES: usize =
 const PLE_QUESTION_JSON_FORMAT_NAME: &str = "pleQuestionJson";
 const MAX_CHOICES: usize = 100;
 const MAX_CHOICE_ID_BYTES: usize = 64;
-const MAX_PROMPT_CHARS: usize = 65_536;
 const MAX_CHOICE_TEXT_CHARS: usize = 16_384;
 const MAX_FEEDBACK_CHARS: usize = 16_384;
 const MAX_HINT_CHARS: usize = 16_384;
@@ -165,7 +167,20 @@ impl PleQuestionJsonDocument {
     ///
     /// Refuses invalid content before constructing either persistence value.
     pub fn compile(&self) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
-        self.0.compile()
+        self.0.compile(None)
+    }
+
+    /// Enumerates image references in display fields, excluding resource inventory.
+    pub fn relative_image_names(&self) -> Result<Vec<String>, PleQuestionJsonError> {
+        self.0.relative_image_names()
+    }
+
+    /// Resolves every relative display image before constructing integrity values.
+    pub fn compile_with_images(
+        &self,
+        images: &[question_model::QuestionHtmlImageBinding],
+    ) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
+        self.0.compile(Some(images))
     }
 
     /// Reports whether the source declares a remote image whose bytes are not
@@ -192,9 +207,10 @@ impl PleQuestionJsonDocument {
     }
 }
 
-fn markdown_blocks(markdown: &str) -> Vec<QuestionContentBlock> {
-    vec![QuestionContentBlock::Text {
-        markdown: markdown.to_string(),
+fn html_blocks(html: &str) -> Vec<QuestionContentBlock> {
+    vec![QuestionContentBlock::Html {
+        html: html.to_string(),
+        images: Vec::new(),
     }]
 }
 

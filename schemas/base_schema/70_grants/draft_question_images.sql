@@ -6,17 +6,21 @@ REVOKE ALL ON ple_private.draft_question_image FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION ple_private.validate_draft_question_image() FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_private.register_draft_question_image(uuid, bigint, uuid, uuid, jsonb, bytea, bigint, text, bigint, integer, integer),
+REVOKE ALL ON FUNCTION ple_private.register_draft_question_image(uuid, bigint, uuid, uuid, jsonb, bytea, bigint, text, bigint, integer, integer, text),
+    ple_private.load_named_draft_question_images(uuid),
     ple_private.load_draft_question_image(uuid, uuid) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_image(uuid, bigint, uuid, uuid, jsonb, bytea, bigint, text, bigint, integer, integer),
+GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_image(uuid, bigint, uuid, uuid, jsonb, bytea, bigint, text, bigint, integer, integer, text),
+    ple_private.load_named_draft_question_images(uuid),
     ple_private.load_draft_question_image(uuid, uuid) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
-REVOKE ALL ON FUNCTION ple_api.register_draft_question_image(uuid, bigint, uuid, uuid, jsonb, bytea, bigint, text, bigint, integer, integer),
+REVOKE ALL ON FUNCTION ple_api.register_draft_question_image(uuid, bigint, uuid, uuid, jsonb, bytea, bigint, text, bigint, integer, integer, text),
+    ple_api.load_named_draft_question_images(uuid),
     ple_api.load_draft_question_image(uuid, uuid) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_image(uuid, bigint, uuid, uuid, jsonb, bytea, bigint, text, bigint, integer, integer),
+GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_image(uuid, bigint, uuid, uuid, jsonb, bytea, bigint, text, bigint, integer, integer, text),
+    ple_api.load_named_draft_question_images(uuid),
     ple_api.load_draft_question_image(uuid, uuid) TO ple_app;
 

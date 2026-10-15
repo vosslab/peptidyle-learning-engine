@@ -1,4 +1,4 @@
-//! Answer-free response derivation for the fixed Live Demo Questions.
+//! Answer-free response derivation for ordinary native Live Demo Questions.
 
 use std::collections::BTreeSet;
 
@@ -14,8 +14,33 @@ pub(super) fn response_from_presentation(response: &Value) -> Result<Value> {
         .context("Live Demo Student presentation response is invalid")?;
     match object.get("kind").and_then(Value::as_str) {
         Some("singleChoice") => single_choice_response(response, object),
+        Some("multipleAnswer") => {
+            let choices = nonempty_array(object.get("choices"))?;
+            let minimum = object["minimum"]
+                .as_u64()
+                .context("selection minimum is invalid")? as usize;
+            let count = minimum.max(1).min(choices.len());
+            let selected = item_ids(choices, "multiple-answer presentation")?
+                .into_iter()
+                .take(count)
+                .collect::<Vec<_>>();
+            Ok(json!({"kind":"multipleChoice", "selected":selected}))
+        }
+        Some("fillIn") => Ok(json!({"kind":"shortText", "text":"example"})),
+        Some("numerical") => Ok(json!({"kind":"numeric", "value":0})),
+        Some("multiFillIn") => {
+            let blanks = nonempty_array(object.get("blanks"))?;
+            let answers = blanks.iter().map(|blank| {
+                Ok(json!({"slot":blank["id"].as_str().context("blank ID is invalid")?, "text":"example"}))
+            }).collect::<Result<Vec<_>>>()?;
+            Ok(json!({"kind":"multiBlank", "answers":answers}))
+        }
+        Some("ordering") => {
+            let items = nonempty_array(object.get("items"))?;
+            Ok(json!({"kind":"ordering", "order":item_ids(items, "ordering presentation")?}))
+        }
         Some("matching") => matching_response(response, object),
-        _ => bail!("Live Demo Pilot Question has an unsupported presentation kind"),
+        _ => bail!("Live Demo Question has an unsupported presentation kind"),
     }
 }
 

@@ -436,23 +436,21 @@ and no Students, Student Work, dates, time zones, or relative schedules.
 
 The Blueprint lifecycle is:
 
-- **Private**: owner-only and not adoptable;
 - **Public**: visible to Instructors and adoptable; or
 - **Archived**: read-only, excluded from ordinary discovery and new adoption,
   available through explicit archived inclusion, and forkable.
 
 The **Blueprint Course Owner** is the owning Instructor with ordinary editing
 and lifecycle authority. Visibility grants reading, not editing. A Public
-Blueprint can return to Private only before any adoption. Once adopted, it
-remains Public unless Archived. Archived restores to Public.
+Blueprint remains Public unless Archived. Archived restores to Public.
 
 **Blueprint Revision** keeps saved reusable content fixed. Permitted metadata changes keep the
 Revision Number. Creation
-produces a Private Blueprint at Revision 1. A meaningful explicit Save creates
+produces a Public Blueprint at Revision 1. A meaningful explicit Save creates
 the next Revision; a no-op creates none. Blueprint metadata changes, including
 names, do not create Revisions. Lifecycle changes are separate from content saves.
 
-**Blueprint fork** creates a new Private lineage with ancestry.
+**Blueprint fork** creates a new Public lineage with ancestry.
 An Instructor may fork a visible Public or Archived Blueprint and owns the
 fork. The fork records the source Blueprint Course Revision Tuple, creates new
 Blueprint Assessments, retains Question Revision Tuples,

@@ -30,7 +30,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.validate_draft_question_image();
 CREATE FUNCTION ple_private.register_draft_question_image(
     p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_question_image_asset_id uuid,
     p_object_record_id uuid, p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint,
-    p_media_type text, p_created_at_millis bigint, p_width integer, p_height integer
+    p_media_type text, p_created_at_millis bigint, p_width integer, p_height integer, p_source_relative_name text
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE draft ple_private.draft_question%ROWTYPE; expected_address jsonb;
@@ -60,19 +60,31 @@ BEGIN
     IF p_object_address IS DISTINCT FROM expected_address THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Draft Question Image address is not its exact owner';
     END IF;
+    -- Duplicate source names are an ordinary authoring conflict under the Draft lock.
+    IF p_source_relative_name IS NOT NULL THEN
+        PERFORM p_source_relative_name::ple_data.source_relative_name;
+        IF EXISTS (SELECT 1 FROM ple_private.draft_question_image AS image
+            WHERE image.draft_question_id = draft.draft_question_id
+              AND image.source_relative_name = p_source_relative_name) THEN
+            RAISE EXCEPTION USING ERRCODE = '23505', MESSAGE = 'Draft image source relative name is already registered';
+        END IF;
+    END IF;
     INSERT INTO ple_private.object_record(object_record_id, object_address, object_storage_area, object_data_class,
         sha256, size_bytes, media_type, created_at)
     VALUES (p_object_record_id, expected_address, 'private-content', 'authoring-content', p_sha256,
         p_size_bytes, p_media_type, to_timestamp(p_created_at_millis::double precision / 1000.0));
-    INSERT INTO ple_private.draft_question_image VALUES
-        (draft.draft_question_id, draft.authoring_workspace_id, p_question_image_asset_id, p_object_record_id, p_width, p_height);
+    INSERT INTO ple_private.draft_question_image
+        (draft_question_id, authoring_workspace_id, question_image_asset_id, source_object_record_id,
+         intrinsic_width, intrinsic_height, source_relative_name)
+    VALUES (draft.draft_question_id, draft.authoring_workspace_id, p_question_image_asset_id, p_object_record_id,
+        p_width, p_height, p_source_relative_name);
 END $$;
 
 CREATE FUNCTION ple_private.load_draft_question_image(p_draft_question_uuid uuid, p_question_image_asset_id uuid)
-RETURNS TABLE(object_record_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
+RETURNS TABLE(question_image_asset_id uuid, source_relative_name text, object_record_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
     media_type text, created_at_millis bigint, intrinsic_width integer, intrinsic_height integer)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT record.object_record_id, record.object_address, record.sha256, record.size_bytes, record.media_type,
+    SELECT image.question_image_asset_id, image.source_relative_name::text, record.object_record_id, record.object_address, record.sha256, record.size_bytes, record.media_type,
         round(extract(epoch FROM record.created_at) * 1000)::bigint, image.intrinsic_width, image.intrinsic_height
       FROM ple_private.draft_question AS draft
       JOIN ple_private.draft_question_image AS image USING (draft_question_id, authoring_workspace_id)
@@ -82,20 +94,39 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
        AND ple_private.current_session_is_authoring_workspace_owner(draft.authoring_workspace_id)
 $$;
 
+CREATE FUNCTION ple_private.load_named_draft_question_images(p_draft_question_uuid uuid)
+RETURNS TABLE(question_image_asset_id uuid, source_relative_name text, object_record_id uuid,
+    object_address jsonb, sha256 bytea, size_bytes bigint, media_type text, created_at_millis bigint,
+    intrinsic_width integer, intrinsic_height integer)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT loaded.* FROM ple_private.draft_question_image AS image
+    CROSS JOIN LATERAL ple_private.load_draft_question_image(p_draft_question_uuid, image.question_image_asset_id) AS loaded
+    WHERE image.draft_question_id = p_draft_question_uuid AND image.source_relative_name IS NOT NULL
+    ORDER BY image.source_relative_name
+$$;
+
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.register_draft_question_image(
     p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_question_image_asset_id uuid,
     p_object_record_id uuid, p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint,
-    p_media_type text, p_created_at_millis bigint, p_width integer, p_height integer
+    p_media_type text, p_created_at_millis bigint, p_width integer, p_height integer, p_source_relative_name text
 ) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private AS $$
     SELECT ple_private.register_draft_question_image(p_draft_question_uuid,p_expected_draft_question_edit_number,p_question_image_asset_id,
-        p_object_record_id,p_object_address,p_sha256,p_size_bytes,p_media_type,p_created_at_millis,p_width,p_height)
+        p_object_record_id,p_object_address,p_sha256,p_size_bytes,p_media_type,p_created_at_millis,p_width,p_height,p_source_relative_name)
 $$;
 
 CREATE FUNCTION ple_api.load_draft_question_image(p_draft_question_uuid uuid, p_question_image_asset_id uuid)
-RETURNS TABLE(object_record_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
+RETURNS TABLE(question_image_asset_id uuid, source_relative_name text, object_record_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
     media_type text, created_at_millis bigint, intrinsic_width integer, intrinsic_height integer)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private AS $$
     SELECT * FROM ple_private.load_draft_question_image(p_draft_question_uuid,p_question_image_asset_id)
+$$;
+
+CREATE FUNCTION ple_api.load_named_draft_question_images(p_draft_question_uuid uuid)
+RETURNS TABLE(question_image_asset_id uuid, source_relative_name text, object_record_id uuid,
+    object_address jsonb, sha256 bytea, size_bytes bigint, media_type text, created_at_millis bigint,
+    intrinsic_width integer, intrinsic_height integer)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private AS $$
+    SELECT * FROM ple_private.load_named_draft_question_images(p_draft_question_uuid)
 $$;

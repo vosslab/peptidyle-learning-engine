@@ -34,39 +34,10 @@ The four static payloads are deliberately curated questions, not an unreviewed b
 199-row source banks. Their prompts use plain text and parallel wording, and the matching questions
 provide four distinct descriptions without relying on color.
 
-## Validation
+## Current installation
 
-Run the tracked teaching-set validator from the repository root:
-
-```bash
-cargo tools pilot-content
-```
-
-It proves the durable eight-question matrix, unique human slugs, source and payload checksums,
-manifest-to-PLE-Question-JSON-payload Question Title agreement, supported point values,
-selected MC/MATCH Blackboard record shape, strict current PLE Question JSON compilation, CC BY metadata,
-answer-free Question Content, private-key binding, and correct-versus-wrong server grading for
-all four static questions.
-
-The production-installation orchestrator defaults to a complete known-good Live
-Demo and accepts an explicit opt-out. It publishes this eight-Question inventory
-through the content compiler and owning object-publication path; each publication
-supplies one exact immutable Question Revision. The database-owned subject
-organization follows in `schemas/installation_data/live_demo.sql`. That manifest
-also creates every other wholly PostgreSQL-owned teaching fact; existing owner
-paths create only cross-system effects. Its fixed manifest and Rust behavior
-tests own Chapter One replay and grading semantics; the graph has its ordinary
-product lifecycle rather than seed-specific permanence. The local persona selector
-and throwaway storage remain confined to private bootstrap/local disposable use
-and are absent before a public gateway. Historical pilot evidence used
-`P-...-v1` references, but current Instructor-facing IDs use canonical `AAAA-ZBBB`
-Crockford Question IDs while exact Revision and backend evidence stay internal.
-
-Browser student behavior is selected only through the canonical wrapper:
-
-```bash
-./devel/run_playwright_tests.sh --build
-```
-
-That wrapper owns the production `dist/` build, HTTPS stack, browser selection,
-fixed owner lease, and exact cleanup.
+This small curated teaching set remains source material. Its miniature publisher
+has been retired. Fresh installation imports complete BPW collections and bundled
+Genetics PGML through [the shared Python loader](../launchers/import_bpw.py),
+then adopts full Biochemistry through ordinary HTTP workflows. See
+[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for representative Student Work.

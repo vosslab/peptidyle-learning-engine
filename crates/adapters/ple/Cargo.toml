@@ -16,3 +16,4 @@ sha2.workspace = true
 uuid.workspace = true
 url.workspace = true
 
+scraper.workspace = true

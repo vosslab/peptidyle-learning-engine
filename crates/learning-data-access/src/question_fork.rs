@@ -22,25 +22,29 @@ pub struct ForkPublishedQuestionInput {
     pub proposed_draft_question_id: Uuid,
     /// Fresh immutable copy of the exact source bytes in the target workspace.
     pub target_source_record: ObjectRecord,
-    /// Fresh Draft-owned copy of the exact native HOTSPOT raster, when required.
-    pub hotspot_question_image: Option<ForkPublishedQuestionImageInput>,
+    /// Fresh Draft-owned copies of every image bound to the source Revision.
+    pub question_images: Vec<ForkPublishedQuestionImageInput>,
     /// Opaque caller retry key, scoped by PostgreSQL to the authenticated actor.
     pub idempotency_key: Uuid,
 }
 
-/// Fresh target facts for the one native HOTSPOT raster owned by the new Draft.
+/// Fresh target facts for one image owned by the new Draft.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkPublishedQuestionImageInput {
     pub question_image_asset_id: QuestionImageAssetId,
+    /// Exact imported source filename, retained without rewriting Native JSON.
+    pub source_relative_name: Option<String>,
     pub target_record: ObjectRecord,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
 }
 
-/// Exact immutable published HOTSPOT raster selected by its source Revision.
+/// Exact immutable published image selected by its source Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedQuestionForkImage {
     pub question_image_asset_id: QuestionImageAssetId,
+    /// Exact imported source filename, retained without rewriting Native JSON.
+    pub source_relative_name: Option<String>,
     pub source_record: ObjectRecord,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
@@ -63,7 +67,22 @@ impl ForkPublishedQuestionInput {
                 "Question Fork target source is not owned by its workspace".to_owned(),
             ));
         }
-        if let Some(asset) = &self.hotspot_question_image {
+        let mut asset_ids = std::collections::HashSet::new();
+        let mut source_names = std::collections::HashSet::new();
+        for asset in &self.question_images {
+            if let Some(name) = &asset.source_relative_name {
+                crate::draft_question_images::validate_source_relative_name(name)?;
+            }
+            if !asset_ids.insert(asset.question_image_asset_id)
+                || asset
+                    .source_relative_name
+                    .as_ref()
+                    .is_some_and(|name| !source_names.insert(name))
+            {
+                return Err(StoreError::InvalidRecord(
+                    "Question Fork image bindings are duplicated".into(),
+                ));
+            }
             let record = &asset.target_record;
             if record.address
                 != (ObjectAddress::DraftQuestionImage {
@@ -99,15 +118,15 @@ pub struct ForkedPublishedQuestionDraft {
 /// Session-authorized source resolution and atomic Draft fork capability.
 #[async_trait]
 pub trait QuestionForkStore: Send + Sync {
-    /// Loads the exact immutable raster for a native HOTSPOT Revision.
+    /// Loads every immutable image bound to an exact native Revision.
     ///
     /// This historical evidence read intentionally has no availability
     /// predicate; the atomic mutation owns that new-operation precondition.
-    async fn load_published_question_fork_asset(
+    async fn load_published_question_fork_assets(
         &self,
         session_token_hash: SessionTokenHash,
         published_question_revision_tuple: &PublishedQuestionRevisionTuple,
-    ) -> Result<Option<PublishedQuestionForkImage>, StoreError>;
+    ) -> Result<Vec<PublishedQuestionForkImage>, StoreError>;
 
     /// Creates or returns the actor/key's one private Draft fork atomically.
     async fn fork_published_question_to_draft(

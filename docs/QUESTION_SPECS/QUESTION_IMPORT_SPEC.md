@@ -42,22 +42,28 @@ preserves the appropriate representation: Native JSON for static Questions, and 
 PGML for WeBWorK. One algorithmic source remains one Published Question.
 PLE accepts Native JSON directly from `qti-package-maker-rs`, with no intermediate Question
 format. The Native JSON specification owns the existing unversioned source format; Question
-metadata remains separate. Future imported-image binding will reuse existing Draft image storage. QTI is
-an interchange path for supported content; PLE does not build a second converter. See
+metadata remains separate. Imported-image binding uses existing Draft image storage. QTI is an
+interchange path for supported content; PLE does not build a second converter. See
 [QTI_INTERCHANGE_SPEC.md](QTI_INTERCHANGE_SPEC.md).
 
-Preserve HTML with inline CSS in imported Native JSON display content. Current browser import
-skips each image-bearing question before Draft creation and reports `contains images`. Shared
-package media does not skip unrelated image-free questions.
+Preserve authored HTML and inline CSS in imported Native JSON display content. After saving the
+source unchanged as a Draft, upload each referenced image's raw bytes through the existing Draft
+image endpoint. Supply the current Draft edit number in `If-Match`, the image media type in
+`Content-Type`, and the exact relative source filename in
+`X-PLE-Source-Relative-Name`. PLE stores the filename-to-`QuestionImageAssetTuple` binding
+separately from source; source paths are lookup keys and never persistent asset identity. Uploads
+do not increment the Draft edit number. Duplicate filenames are rejected. The filename must be a
+nonblank slash-separated relative path no longer than 4096 characters, with no leading slash,
+`.` or `..` segment, backslash, colon, query, fragment, or control character. Supported image
+media types are PNG, JPEG, WebP, and SVG.
 
-The following image-binding behavior is deferred, as recorded in
-[TODO.md](../TODO.md#future-product-capabilities). When an ordinary `<img src="...">` refers to a
-supplied import file, PLE will locate those bytes, verify and hash them, store them through the
-existing Draft asset path, and bind the reference to the
-existing Question Image Asset tuple. The import path is temporary input used to find bytes; it is not
-a persisted asset identity. Do not require the converter to know PLE asset IDs. Display the image in
-Draft preview, published Questions, and response renderers. The final stored HTML `src` syntax
-remains unspecified.
+After import, authors can open the complete Draft for preview. Per-question save and upload errors
+retain the Draft for repair and do not stop later items in the batch. The browser renders only
+images bound to the Draft through PLE's authenticated same-origin image route; `externalResources`
+never authorizes loading. HTML and inline CSS use the presentation boundary in
+[NATIVE_JSON_SPEC.md](NATIVE_JSON_SPEC.md#display-content). This is the settled contract; see the
+[converter handoff](NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md#draft-image-upload-and-binding) for the
+request details.
 
 Direct SQL and store calls can serve focused schema fixtures. They do not prove import behavior.
 Import verification exercises the supported PLE API operations and checks the resulting objects.
@@ -66,12 +72,13 @@ The test transport and harness are implementation choices, not additional produc
 ## Current implementation evidence
 
 The Import screen in My Draft Questions loads vendored QPM WASM and converts supported banks
-locally to Native JSON. It saves image-free items sequentially through the existing Draft API,
-using ordinary metadata defaults. Created means saved; Native JSON validation remains in preview
-and publication. Warnings precede the results list, which records created links, server rejections,
-image skips, and individual request failures. Later items continue after a failure, with no
-automatic retry. Image detection examines each question's display content, independently of shared
-package media. HOTSPOT stays in PLE's existing GUI and is outside QPM import. See
+locally to Native JSON. Its implementation saves each source unchanged through the Draft API, then
+uploads every referenced image per question with the current edit number, matching media type, and
+exact `X-PLE-Source-Relative-Name`. Bindings stay separate from source. Native JSON validation
+remains in preview and publication. Results report saved Draft links, rejections, and request
+failures; later items continue after an item failure, with no automatic retry. This implementation
+description does not claim connected or browser runtime acceptance. HOTSPOT stays in PLE's existing
+GUI and is outside QPM import. See
 [the transport contract](NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md#browser-transport).
 
 The ordinary private Draft API and browser creation page currently support Native JSON, WebWork PG,
@@ -90,12 +97,11 @@ implementation evidence rather than replacement coverage.
 
 The accepted M01-M29 implementation and runtime status is recorded in the
 [implementation ledger](../archive/reports/question_spec_implementation_ledger.md). That
-acceptance does not include the later Native JSON converter integration or HTML/image rendering
-work recorded in [TODO.md](../TODO.md#future-product-capabilities).
+acceptance does not establish Native JSON converter integration or HTML/image rendering runtime
+acceptance.
 
 Current source evidence: [authoring.rs](../../crates/server/src/authoring.rs),
-[parameterized_publication.rs](../../crates/project-tools/src/curriculum_content/parameterized_publication.rs),
-and [publication.rs](../../crates/project-tools/src/pilot_content/publication.rs).
+and [import_bpw.py](../../launchers/import_bpw.py).
 
 The evidence owner is
 [question_backend_spec_handoff.md](../archive/reports/question_backend_spec_handoff.md).

@@ -1,6 +1,10 @@
 // visible_workflows.ts - reusable visible application actions for browser tests and captures.
 
+import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
+import { decodeLibraryObjectSearchPage } from "../../../src/api/decoders/question_library";
 import type { Dialog, Locator, Page } from "playwright";
+import { decodeLiveStudentAssessmentLandings } from "../../../src/api/decoders/live_student_course_landing";
+import { assessmentTypePresentation } from "../../../src/assessment_type_presentation";
 
 import { localDemoAuthenticationCode } from "./local_demo_authenticator";
 
@@ -10,14 +14,14 @@ import {
   restoreViewportOrigin,
 } from "../e2e/real_stack_ui";
 
-export const COURSE_TITLE = "Biochemistry 301: Proteins and Peptides";
-export const ASSIGNMENT_TITLE = "Chapter 1 Pilot Practice";
-// The seeded Live Demo Assessment is a Unit Review Assignment; card links and the
-// overview Start button render `{verb} {type label}`.
-export const ASSESSMENT_TYPE_LABEL = "Unit Review Assignment";
+export const COURSE_TITLE = "Biochemistry";
+// The imported catalog determines the representative released Assessment.
+export let ASSIGNMENT_TITLE = "";
+// Card links and the overview entry button use the imported Assessment Type label.
+export let ASSESSMENT_TYPE_LABEL = "Unit Review Assignment";
 
 export type SeededPersona =
-  "Elena Rivera" | "Mary Okafor" | "Jack Nguyen" | "Avery Thompson" | "Morgan Delgado";
+  "Elena" | "Priya Shah" | "Mary Okafor" | "Jack Nguyen" | "Avery Thompson" | "Morgan Delgado";
 
 export async function choosePersona(page: Page, persona: SeededPersona): Promise<void> {
   await chooseSeededIdentityAtSignIn(page, new RegExp(persona, "u"));
@@ -117,8 +121,20 @@ export async function openStudentCourse(page: Page, title: string = COURSE_TITLE
   await openStudentCourseList(page);
   const card = courseCard(page, title);
   await card.waitFor();
+  const landingValue = page
+    .waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        new URL(response.url()).pathname.endsWith("/assessment-landing"),
+    )
+    .then(async (response): Promise<unknown> => {
+      if (!response.ok()) throw new Error("The Student Assessment landing could not be loaded.");
+      // Read the body while its document is current; later navigation releases browser responses.
+      return (await response.json()) as unknown;
+    });
   await followCaptureLink(page, card.getByRole("link", { name: "Open Course", exact: true }));
   await studentCourseHeading(page, title).waitFor();
+  await rememberDemoAssessment(page, landingValue);
 }
 
 /** Opens the fixed Student Courses destination through Tier 1 navigation. */
@@ -140,7 +156,72 @@ function studentCourseListHeading(page: Page): Locator {
 }
 
 /** Matches the overview's entry button whether the Attempt is new or resumable. */
-export const ASSESSMENT_ENTRY_BUTTON = new RegExp(`^(Start|Resume) ${ASSESSMENT_TYPE_LABEL}$`, "u");
+export let ASSESSMENT_ENTRY_BUTTON = new RegExp(`^(Start|Resume) ${ASSESSMENT_TYPE_LABEL}$`, "u");
+
+/** Read the same answer-free landing response used by the visible Student Course. */
+async function rememberDemoAssessment(page: Page, landingValue: Promise<unknown>): Promise<void> {
+  const assessments = decodeLiveStudentAssessmentLandings(await landingValue);
+  const selected =
+    ASSIGNMENT_TITLE === ""
+      ? (assessments.find((item) => item.assessmentAttemptNumber !== null) ?? assessments[0])
+      : assessments.find((item) => item.title === ASSIGNMENT_TITLE);
+  if (selected === undefined) throw new Error("The released Live Demo Assessment is unavailable.");
+  ASSIGNMENT_TITLE = selected.title;
+  ASSESSMENT_TYPE_LABEL = assessmentTypePresentation(selected.assessmentType).label;
+  ASSESSMENT_ENTRY_BUTTON = new RegExp(`^(Start|Resume) ${ASSESSMENT_TYPE_LABEL}$`, "u");
+  await page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }).waitFor();
+}
+
+/** The issued Attempt's visible position label supplies its complete Question count. */
+export async function attemptQuestionCount(page: Page): Promise<number> {
+  const label = page.getByText(/^Question [1-9][0-9]* of [1-9][0-9]*$/u);
+  await label.waitFor();
+  const count = / of ([1-9][0-9]*)$/u.exec(await label.innerText())?.[1];
+  if (count === undefined) throw new Error("The issued Attempt has no Question count.");
+  return Number(count);
+}
+
+/** Select ordinary available Native MC content from the current Library, then show its search. */
+export async function searchNativeMcLibraryQuestion(page: Page): Promise<QuestionSummary> {
+  const value: unknown = await page.evaluate(async () => {
+    const query = new URLSearchParams({
+      kind: "questions",
+      questions: "all",
+      authorship: "any",
+      backends: "ple",
+      question_types: "multipleChoice",
+      page_size: "50",
+      sort: "titleAscending",
+    });
+    const response = await fetch(`/api/library-objects/search?${query.toString()}`);
+    if (!response.ok) throw new Error(`Native Question search failed: HTTP ${response.status}`);
+    return (await response.json()) as unknown;
+  });
+  const summary = decodeLibraryObjectSearchPage(value)
+    .items.flatMap((item) => (item.kind === "question" ? [item.question.summary] : []))
+    .find(
+      (item) =>
+        item.backend === "ple" &&
+        item.questionType === "multipleChoice" &&
+        item.availability.availability === "available",
+    );
+  if (summary === undefined) throw new Error("No available Native MC Question was found.");
+  await page
+    .getByLabel("Search Question Library", { exact: true })
+    .fill(summary.metadata.questionTitle);
+  await page.getByLabel("Search Question Library", { exact: true }).press("Enter");
+  const membership = page.getByRole("combobox", { name: "Question membership", exact: true });
+  await membership.selectOption("all");
+  await page
+    .getByRole("heading", { name: summary.metadata.questionTitle, exact: true })
+    .first()
+    .waitFor();
+  return summary;
+}
+
+export async function waitForAttemptPosition(page: Page, position: number): Promise<void> {
+  await page.getByText(new RegExp(`^Question ${position} of [1-9][0-9]*$`, "u")).waitFor();
+}
 
 export async function openStudentAssignment(page: Page): Promise<void> {
   const card = assignmentCard(page);
@@ -160,7 +241,7 @@ export async function resumeStudentAssignmentAttempt(page: Page): Promise<void> 
 }
 
 export async function enterInstructor(page: Page): Promise<void> {
-  await choosePersona(page, "Elena Rivera");
+  await choosePersona(page, "Elena");
   await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
 }
 

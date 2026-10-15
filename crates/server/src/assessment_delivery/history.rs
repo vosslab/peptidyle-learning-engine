@@ -146,6 +146,7 @@ async fn project_released_content(
         .delivery
         .student_assessment_attempt_history_response_sources(token, assessment_attempt)
         .await?;
+    let mut disclosed = Vec::new();
     for source in sources {
         // ASVS 8.2.3: each protected teaching field is assigned only after
         // the server-owned disclosure decision and exact source read succeed.
@@ -172,6 +173,9 @@ async fn project_released_content(
             .cloned()
             .flatten();
         let question = &mut history.questions[question_index];
+        let revision = presentation_evidence
+            .published_question_revision_tuple
+            .clone();
         let presentation =
             reproduce_selected_issued_presentation(presentation_evidence.clone()).ok();
         match presentation_source.as_ref() {
@@ -246,7 +250,23 @@ async fn project_released_content(
                 project_teaching_feedback(question, decision, recorded_result, teaching);
             }
         }
+        // ASVS 8.2.3/8.3.1: grant image access only for the support fields
+        // actually returned after the existing domain disclosure projection.
+        let images = super::support_images::disclosed_images(question);
+        if !images.is_empty() {
+            disclosed.push(
+                learning_data_access::StudentAssessmentAttemptSupportImages {
+                    position,
+                    revision,
+                    images,
+                },
+            );
+        }
     }
+    state
+        .delivery
+        .register_student_assessment_attempt_support_images(token, assessment_attempt, &disclosed)
+        .await?;
     Ok(())
 }
 

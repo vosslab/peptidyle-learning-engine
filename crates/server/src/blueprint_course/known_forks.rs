@@ -28,7 +28,7 @@ pub(super) async fn list_known_forks(
         Err(response) => return *response,
     };
     // ASVS 8.2.2/3, 8.3.1: the attested Store filters source and child
-    // visibility, including Private children hidden from the source owner.
+    // visibility and source lineage access.
     match state
         .lineage
         .list_known_blueprint_forks(session, blueprint_course_id)

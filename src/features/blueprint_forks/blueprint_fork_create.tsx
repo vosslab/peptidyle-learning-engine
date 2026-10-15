@@ -11,7 +11,7 @@ export interface BlueprintForkCreateProps {
   readonly source: BlueprintCourseView;
 }
 
-/** Creates a separately owned Private fork, without changing the source. */
+/** Creates a separately owned Public fork, without changing the source. */
 export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Element {
   const navigate = useNavigate();
   const [pending, setPending] = createSignal(false);
@@ -71,7 +71,7 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
       <div class="blueprint-course-save-actions" aria-busy={pending()}>
         <p>
           Fork Revision {props.source.current_revision_tuple.revisionNumber} into your own
-          independent Private Blueprint Course. Later source changes are not applied automatically.
+          independent Public Blueprint Course. Later source changes are not applied automatically.
         </p>
         <button type="button" disabled={pending()} onClick={() => void createFork()}>
           {pending()

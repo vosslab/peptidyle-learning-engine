@@ -7,7 +7,7 @@
 //! revision identifier, availability, Stars, Watches, Course Instance,
 //! Student, delivery, or operational state. Import authenticates and validates
 //! this projection before the ordinary creation transaction creates a distinct
-//! Private Blueprint Course with fresh local child identities.
+//! Public Blueprint Course with fresh local child identities.
 
 use serde::{Deserialize, Serialize};
 

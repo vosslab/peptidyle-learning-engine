@@ -137,19 +137,14 @@ appropriate front-door script. Do not edit a derived file to make a build appear
 
 ## Installation data
 
-The optional Live Demo is ordinary product data on the canonical schema, not a
-fixture namespace or alternate model. `cargo tools installation-data provision`
-first runs `apply`, which publishes the eight reviewed Pilot Questions through
-the ordinary publisher and applies the idempotent SQL manifest for the
-database-owned teaching graph. `provision` then uses the owning application
-paths for presentation, submission, grading, and other cross-system records.
-The manifest receives the publisher's exact Question Revision Tuples.
-
-The default local stack runs `provision` for a fresh database. Re-running `apply`
-converges on the same ordinary Accounts, Authoring Workspace, Blueprint,
-Course, roster, and released Assessment. See
-[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
-[schemas/installation_data/README.md](../schemas/installation_data/README.md).
+The default ready-stack lifecycle invokes the shared host Python importer for
+all four public BPW Blueprint Courses. Trusted Rust phases provide an ordinary
+Instructor session and fictional identities; reusable content publication,
+Biochemistry adoption, Assessment release, and Student Work use HTTP. SQL
+provisions fictional enrollment only. `local_stack.py install-data` uses the
+same pipeline on a ready installation; `--without-live-demo` retains curriculum
+without creating the fictional graph. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md)
+and [schemas/installation_data/README.md](../schemas/installation_data/README.md).
 
 ## Choose the right gate
 
@@ -256,12 +251,10 @@ explicit argument, with each reader validating the file's schema and private
 filesystem boundary. Test that durable contract offline; record the real
 Podman/browser execution separately as one-time evidence.
 
-Run `cargo tools pilot-content` to validate the tracked Pilot source and
-compiler contract. After the Bloom publication cutover, the installation-data
-operation will remain the sole supported path for publishing those Questions as
-part of the Live Demo. It will use the ordinary publisher and then the
-idempotent database manifest. The result will be ordinary published content and
-ordinary product data, so no protected host-only replay manifest is retained.
+The miniature Chapter 1 publisher has been retired. The shared loader imports
+complete BPW collections and bundled Genetics PGML through ordinary HTTP
+publication. One-time importer assembly checks protect the conversion boundary;
+real stack acceptance separately proves publication, adoption, and Student Work.
 
 Automated initial Bloom Classification is deferred. The current PLE runtime
 does not compose an AI provider. Publication still reaches the provider-neutral

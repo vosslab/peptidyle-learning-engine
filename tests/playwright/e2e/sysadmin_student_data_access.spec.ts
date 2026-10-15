@@ -13,7 +13,7 @@ import {
   writeContextOriginReceipt,
 } from "./real_stack_ui";
 
-const seededCourseTitle = "Biochemistry 301: Proteins and Peptides";
+const seededCourseTitle = "Biochemistry";
 const contextOptions = { viewport: { width: 1280, height: 800 } };
 
 test.describe("Sysadmin Student-data confirmation on the production PLE stack", () => {
@@ -57,7 +57,7 @@ test.describe("Sysadmin Student-data confirmation on the production PLE stack", 
       let sysadminCoursePage = sysadmin;
 
       await test.step("Elena reads Mary's roster ID from the visible seeded Course roster", async () => {
-        await chooseSeededIdentity(instructor, /Elena Rivera/u);
+        await chooseSeededIdentity(instructor, /Elena/u);
         instructorCoursePage = await selectVisibleCourse(instructor, seededCourseTitle);
         await instructorCoursePage
           .getByRole("link", { name: "Open Students", exact: true })
@@ -69,7 +69,7 @@ test.describe("Sysadmin Student-data confirmation on the production PLE stack", 
 
       const maryRow = instructorCoursePage
         .getByRole("row")
-        .filter({ has: instructorCoursePage.getByText("BIO301-MARY", { exact: true }) });
+        .filter({ has: instructorCoursePage.getByText("BCHM355-MARY", { exact: true }) });
       await expect(maryRow).toHaveCount(1);
       const rosterId = (await maryRow.locator("small").textContent())?.trim();
       expect(rosterId).toMatch(/^[A-Za-z0-9._-]{1,64}$/u);

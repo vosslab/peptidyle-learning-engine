@@ -27,9 +27,10 @@ browser over HTTPS and uses production authentication; it does not select a
 alternate authentication or SMTP overlay.
 
 The lifecycle initializes the canonical schema before the API starts. After the
-services are ready, its `installation-data provision` phase creates the complete
-ordinary Live Demo. `apply` creates only the database-owned Pilot and teaching graph.
-Cross-system work in the complete demo stays with its owning application paths.
+services are ready, the host shared Python importer creates complete public BPW
+Blueprint Courses through ordinary HTTP routes. Trusted Rust phases supply the
+temporary Instructor session and fictional membership. Biochemistry adoption and
+representative Student Work remain ordinary HTTP product operations.
 
 ## Long-running services
 

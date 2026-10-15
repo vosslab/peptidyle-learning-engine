@@ -406,7 +406,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .into_create_input()
             .map_err(|_| invalid("canonical Blueprint exchange"))?;
         // ASVS 2.3.3: reuse the one atomic create transaction. It owns the
-        // actor, Private lifecycle state, Revision 1, fresh local identities,
+        // actor, public lifecycle state, Revision 1, fresh local identities,
         // exact pin validation, and stable Pool references.
         self.create_blueprint_course(session, request_checksum, input)
             .await
@@ -570,22 +570,6 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         .await
     }
 
-    async fn publish_blueprint(
-        &self,
-        session: SessionTokenHash,
-        blueprint_course_id: BlueprintCourseId,
-        expected_edit_number: BlueprintEditNumber,
-    ) -> Result<BlueprintMetadataState, StoreError> {
-        self.set_availability(
-            session,
-            blueprint_course_id,
-            expected_edit_number,
-            "public",
-            None,
-        )
-        .await
-    }
-
     async fn restore_blueprint(
         &self,
         session: SessionTokenHash,
@@ -597,22 +581,6 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             blueprint_course_id,
             expected_edit_number,
             "public",
-            None,
-        )
-        .await
-    }
-
-    async fn return_blueprint_to_private(
-        &self,
-        session: SessionTokenHash,
-        blueprint_course_id: BlueprintCourseId,
-        expected_edit_number: BlueprintEditNumber,
-    ) -> Result<BlueprintMetadataState, StoreError> {
-        self.set_availability(
-            session,
-            blueprint_course_id,
-            expected_edit_number,
-            "private",
             None,
         )
         .await

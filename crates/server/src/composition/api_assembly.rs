@@ -246,6 +246,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::draft_preview::draft_preview_router(
             Arc::clone(&sessions),
             authoring_drafts.clone(),
+            draft_question_images.clone(),
             question_library_objects.clone(),
             Arc::clone(&webwork_adapter),
         ))

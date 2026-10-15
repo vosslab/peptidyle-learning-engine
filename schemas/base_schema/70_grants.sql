@@ -54,6 +54,7 @@ RESET ROLE;
 \ir 70_grants/assessment_attempts.sql
 \ir 70_grants/assessment_attempt_interaction.sql
 \ir 70_grants/assessment_attempt_presentation.sql
+\ir 70_grants/assessment_attempt_support_images.sql
 \ir 70_grants/assessment_attempt_operations.sql
 \ir 70_grants/assessment_attempt_operations_api.sql
 \ir 70_grants/assessment_student_time_accommodation.sql

@@ -195,7 +195,8 @@ BEGIN
                'question_image_checksum', encode(rendition.question_image_checksum, 'hex'),
                'rendition_checksum', encode(rendition.rendition_checksum, 'hex'),
                'intrinsic_width', rendition.intrinsic_width,
-               'intrinsic_height', rendition.intrinsic_height
+               'intrinsic_height', rendition.intrinsic_height,
+               'source_relative_name', rendition.source_relative_name
            ) ORDER BY rendition.question_image_asset_id) FILTER (WHERE rendition.question_image_asset_id IS NOT NULL), '[]'::jsonb)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_revision_source_binding AS source
@@ -215,12 +216,19 @@ BEGIN
       -- ASVS 2.3.1/8.2.2: select only after the owning Attempt check above.
       LEFT JOIN LATERAL (
           SELECT retained.question_image_asset_id, retained.question_image_checksum,
-                 retained.rendition_checksum, retained.intrinsic_width, retained.intrinsic_height
+                 retained.rendition_checksum, retained.intrinsic_width, retained.intrinsic_height,
+                 publication.source_relative_name::text
             FROM ple_private.question_attempt_presentation_image_rendition AS retained
+            JOIN ple_private.question_image_publication AS publication
+              ON publication.published_question_id = issued.published_question_id
+             AND publication.revision_number = issued.revision_number
+             AND publication.question_image_asset_id = retained.question_image_asset_id
+             AND publication.source_object_checksum = retained.question_image_checksum
            WHERE retained.question_attempt_id = assessment_attempt.question_attempt_id
+             AND NOT retained.is_disclosed_support
           UNION ALL
           SELECT ready.question_image_asset_id, decode(ready.question_image_checksum, 'hex'),
-                 decode(ready.rendition_checksum, 'hex'), ready.intrinsic_width, ready.intrinsic_height
+                 decode(ready.rendition_checksum, 'hex'), ready.intrinsic_width, ready.intrinsic_height, ready.source_relative_name
             FROM ple_private.select_ready_question_image_renditions(
                 issued.published_question_id, issued.revision_number
             ) AS ready
@@ -530,7 +538,13 @@ BEGIN
                'question_image_checksum', encode(rendition.question_image_checksum, 'hex'),
                'rendition_checksum', encode(rendition.rendition_checksum, 'hex'),
                'intrinsic_width', rendition.intrinsic_width,
-               'intrinsic_height', rendition.intrinsic_height
+               'intrinsic_height', rendition.intrinsic_height,
+               'source_relative_name', (SELECT publication.source_relative_name::text
+                   FROM ple_private.question_image_publication AS publication
+                  WHERE publication.published_question_id = issued.published_question_id
+                    AND publication.revision_number = issued.revision_number
+                    AND publication.question_image_asset_id = rendition.question_image_asset_id
+                    AND publication.source_object_checksum = rendition.question_image_checksum)
            ) ORDER BY rendition.question_image_asset_id) FILTER (WHERE rendition.question_image_asset_id IS NOT NULL), '[]'::jsonb)
            , COALESCE(response_item_bindings.response_item_bindings, '[]'::jsonb)
       FROM ple_private.issued_question AS issued
@@ -543,6 +557,7 @@ BEGIN
        AND revision_metadata.revision_number = issued.revision_number
       LEFT JOIN ple_private.question_attempt_presentation_image_rendition AS rendition
         ON rendition.question_attempt_id = question_attempt.question_attempt_id
+       AND NOT rendition.is_disclosed_support
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
               'presentation_response_item_id', response_item.presentation_response_item_id,
@@ -610,13 +625,20 @@ BEGIN
            question_attempt.question_seed::numeric, question_attempt.generated_parameter_sha256::text,
            binding.presentation_nonce::text, encode(binding.presentation_checksum, 'hex')::text,
            binding.presentation::jsonb, binding.author_content::jsonb,
-           COALESCE(jsonb_agg(jsonb_build_object('question_image_asset_id', rendition.question_image_asset_id, 'question_image_checksum', encode(rendition.question_image_checksum, 'hex'), 'rendition_checksum', encode(rendition.rendition_checksum, 'hex'), 'intrinsic_width', rendition.intrinsic_width, 'intrinsic_height', rendition.intrinsic_height) ORDER BY rendition.question_image_asset_id) FILTER (WHERE rendition.question_image_asset_id IS NOT NULL), '[]'::jsonb)
+           COALESCE(jsonb_agg(jsonb_build_object('question_image_asset_id', rendition.question_image_asset_id, 'question_image_checksum', encode(rendition.question_image_checksum, 'hex'), 'rendition_checksum', encode(rendition.rendition_checksum, 'hex'), 'intrinsic_width', rendition.intrinsic_width, 'intrinsic_height', rendition.intrinsic_height,
+               'source_relative_name', (SELECT publication.source_relative_name::text
+                   FROM ple_private.question_image_publication AS publication
+                  WHERE publication.published_question_id = issued.published_question_id
+                    AND publication.revision_number = issued.revision_number
+                    AND publication.question_image_asset_id = rendition.question_image_asset_id
+                    AND publication.source_object_checksum = rendition.question_image_checksum)) ORDER BY rendition.question_image_asset_id) FILTER (WHERE rendition.question_image_asset_id IS NOT NULL), '[]'::jsonb)
            , COALESCE(response_item_bindings.response_item_bindings, '[]'::jsonb)
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_revision_source_binding AS source ON source.published_question_id = issued.published_question_id AND source.revision_number = issued.revision_number
       JOIN ple_private.question_attempt_presentation_binding AS binding ON binding.question_attempt_id = question_attempt.question_attempt_id
       LEFT JOIN ple_private.question_attempt_presentation_image_rendition AS rendition ON rendition.question_attempt_id = question_attempt.question_attempt_id
+       AND NOT rendition.is_disclosed_support
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(
               'presentation_response_item_id', response_item.presentation_response_item_id,

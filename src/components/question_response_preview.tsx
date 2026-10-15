@@ -15,6 +15,7 @@ export function QuestionResponsePreviewControl(
     <QuestionPromptRenderer
       blocks={blocks}
       publishedQuestionRevisionTuple={props.publishedQuestionRevisionTuple}
+      draftQuestion={props.draftQuestion}
       questionImageUrl={props.questionImageUrl}
     />
   );

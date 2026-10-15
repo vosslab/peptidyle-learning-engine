@@ -1,6 +1,6 @@
 // question_json_editor_workspace.tsx - private draft fields, preview, and publish review.
 
-import { For, Show, type Accessor, type JSX, type Setter } from "solid-js";
+import { Show, type Accessor, type JSX, type Setter } from "solid-js";
 
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import { PleQuestionJsonFeedbackFields } from "./question_json_feedback_fields";
@@ -12,11 +12,9 @@ import {
   setQuestionHint,
 } from "./question_json_editor_model";
 import { PleQuestionJsonMetadataFields } from "./question_json_metadata_fields";
-import { pleQuestionJsonPublicPreview } from "./question_json_public_preview";
 import {
-  PleQuestionJsonPreview,
+  PleQuestionJsonInstructorAnswerCheckView,
   type PleQuestionJsonInstructorAnswerCheck,
-  type PleQuestionJsonPreviewProps,
 } from "./question_json_preview";
 import { PleQuestionJsonResponseFields } from "./question_json_response_fields";
 import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_types";
@@ -58,13 +56,11 @@ export interface PleQuestionJsonEditorWorkspaceProps {
   readonly subtopicUuid: Accessor<string | null>;
   readonly publishedQuestionId: Accessor<string | null>;
   readonly publishedSummary: Accessor<QuestionSummary | undefined>;
-  readonly hotspotDraftQuestionImage: () => PleQuestionJsonPreviewProps["hotspotDraftQuestionImage"];
   readonly instructorAnswerCheck: (
     draft: PleQuestionJsonDocument,
   ) => PleQuestionJsonInstructorAnswerCheck | undefined;
   readonly classificationClient: PleQuestionJsonEditorPageProps["classificationClient"];
-  readonly responseValidator: PleQuestionJsonEditorPageProps["responseValidator"];
-  readonly draftPreviewPanel?: JSX.Element;
+  readonly draftPreviewPanel: JSX.Element;
   readonly questionImagePreviewPath: (asset: string) => string;
   readonly onEdit: (source: PleQuestionJsonDocument) => void;
   readonly onMetadataChange: (metadata: PleQuestionJsonRecordMetadata) => void;
@@ -228,23 +224,16 @@ export function PleQuestionJsonEditorWorkspace(
               </div>
             </section>
             <aside class="editor-preview">
-              <section class="editor-panel">
-                <For each={[props.currentSource()]}>
-                  {(draft) => (
-                    <PleQuestionJsonPreview
-                      preview={pleQuestionJsonPublicPreview(draft, props.metadata())}
-                      hotspotDraftQuestionImage={props.hotspotDraftQuestionImage()}
-                      validator={props.responseValidator}
-                      instructorAnswerCheck={
-                        props.showInstructorCheck() && props.isSaved()
-                          ? props.instructorAnswerCheck(draft)
-                          : undefined
-                      }
-                    />
-                  )}
-                </For>
-              </section>
               {props.draftPreviewPanel}
+              <Show
+                when={
+                  props.showInstructorCheck() && props.isSaved()
+                    ? props.instructorAnswerCheck(props.currentSource())
+                    : undefined
+                }
+              >
+                {(check) => <PleQuestionJsonInstructorAnswerCheckView check={check()} />}
+              </Show>
               <PleQuestionJsonMetadataFields
                 metadata={props.metadata()}
                 disabled={props.isLocked()}

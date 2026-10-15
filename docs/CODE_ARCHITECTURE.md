@@ -38,7 +38,7 @@ Rust declarations, while authored runtime decoders reject unexpected wire data.
 Draft Question --publish--> Published Question + complete Question Revision records
 Question Pool -------------> unordered set of Question Revision Tuples + metadata + Edit Number
 
-Blueprint Course (Private/Public/Archived)
+Blueprint Course (Public/Archived)
   +-- complete Blueprint Revision records
   +-- Blueprint Assessments
                |
@@ -69,7 +69,7 @@ a daughter Course Instance.
 
 A Course Instance keeps its own deliberately entered short and long names and
 at least one assigned Instructor. Publishing its reusable structure creates a
-new Private Blueprint lineage without copying Students, Course dates, releases,
+new Public Blueprint lineage without copying Students, Course dates, releases,
 Student Work, or other delivery state.
 
 Account, Course Instance, Assessment, Blueprint Course, Published Question, and

@@ -13,6 +13,8 @@ pub struct RegisterDraftQuestionImageInput {
     pub draft_question_uuid: crate::DraftQuestionUuid,
     pub expected_edit_number: DraftQuestionEditNumber,
     pub question_image_asset_id: QuestionImageAssetId,
+    /// Exact source filename for inline HTML; absent for an anonymous response image.
+    pub source_relative_name: Option<String>,
     pub source_record: ObjectRecord,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
@@ -22,6 +24,8 @@ pub struct RegisterDraftQuestionImageInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OwnedDraftQuestionImage {
     pub question_image_asset_id: QuestionImageAssetId,
+    /// Exact source filename for inline HTML; absent for an anonymous response image.
+    pub source_relative_name: Option<String>,
     pub source_record: ObjectRecord,
     pub intrinsic_width: u32,
     pub intrinsic_height: u32,
@@ -29,6 +33,9 @@ pub struct OwnedDraftQuestionImage {
 
 impl RegisterDraftQuestionImageInput {
     pub fn validate(&self) -> Result<(), StoreError> {
+        if let Some(name) = &self.source_relative_name {
+            validate_source_relative_name(name)?;
+        }
         let ObjectAddress::DraftQuestionImage {
             question_image_asset_id: asset,
             object_id: object,
@@ -58,6 +65,24 @@ impl RegisterDraftQuestionImageInput {
             self.intrinsic_height,
         )
     }
+}
+
+/// Validates an exact relative source filename without normalizing its spelling.
+pub fn validate_source_relative_name(name: &str) -> Result<(), StoreError> {
+    // ASVS 2.2.1-2.2.3: filenames are bindings, never filesystem paths or URLs.
+    if name.trim().is_empty()
+        || name.len() > 4096
+        || name.starts_with('/')
+        || name
+            .chars()
+            .any(|c| c.is_control() || matches!(c, '\\' | ':' | '?' | '#'))
+        || name.split('/').any(|part| matches!(part, "" | "." | ".."))
+    {
+        return Err(StoreError::InvalidRecord(
+            "Source relative image name is invalid".into(),
+        ));
+    }
+    Ok(())
 }
 
 pub(crate) fn validate_raster_facts(
@@ -90,10 +115,44 @@ pub trait DraftQuestionImageStore: Send + Sync {
         session_hash: SessionTokenHash,
         input: RegisterDraftQuestionImageInput,
     ) -> Result<OwnedDraftQuestionImage, StoreError>;
+    /// Loads named assets owned by the exact authorized Draft.
+    async fn load_named_draft_question_images(
+        &self,
+        session_hash: SessionTokenHash,
+        draft_question_uuid: crate::DraftQuestionUuid,
+    ) -> Result<Vec<OwnedDraftQuestionImage>, StoreError>;
     async fn load_draft_question_image(
         &self,
         session_hash: SessionTokenHash,
         draft_question_uuid: crate::DraftQuestionUuid,
         question_image_asset_id: QuestionImageAssetId,
     ) -> Result<OwnedDraftQuestionImage, StoreError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_source_relative_name;
+
+    #[test]
+    fn exact_relative_image_names_exclude_paths_and_urls() {
+        for name in ["figure.png", "images/my diagram.png", "nested/diagram.svg"] {
+            assert!(validate_source_relative_name(name).is_ok(), "{name}");
+        }
+        for name in [
+            "",
+            " ",
+            "/image.png",
+            "images/../image.png",
+            "./image.png",
+            "image.png/",
+            "a//image.png",
+            "a\\image.png",
+            "https:example.png",
+            "image.png?x",
+            "image.png#x",
+            "a\nimage.png",
+        ] {
+            assert!(validate_source_relative_name(name).is_err(), "{name:?}");
+        }
+    }
 }

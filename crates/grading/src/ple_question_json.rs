@@ -24,9 +24,9 @@ mod ple_question_json_validate;
 mod recorded_teaching;
 
 use ple_question_json_validate::{
-    evaluate_response, invalid, is_hex_sha256, markdown_blocks, question_answer_blocks,
-    selectable_ids, validate_choice_id, validate_feedback, validate_key_against_response,
-    validate_optional_feedback, validate_response_for_type,
+    evaluate_response, invalid, is_hex_sha256, question_answer_blocks, selectable_ids,
+    validate_choice_id, validate_feedback, validate_key_against_response,
+    validate_response_for_type,
 };
 
 pub use recorded_teaching::PleQuestionJsonRecordedTeachingContent;
@@ -490,16 +490,16 @@ pub struct PleQuestionJsonPrivateGrading {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PleQuestionJsonChoiceFeedback {
     choice: String,
-    markdown: String,
+    content: Vec<question_model::QuestionContentBlock>,
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PleQuestionJsonOutcomeFeedback {
     #[serde(default)]
-    correct: Option<String>,
+    correct: Option<Vec<question_model::QuestionContentBlock>>,
     #[serde(default)]
-    incorrect: Option<String>,
+    incorrect: Option<Vec<question_model::QuestionContentBlock>>,
 }
 
 /// Grading Result plus selected Question Feedback, Question Answer, and Question
@@ -522,6 +522,30 @@ impl PleQuestionJsonPrivateGrading {
         correct_feedback: Option<String>,
         incorrect_feedback: Option<String>,
     ) -> Result<Self, PleQuestionJsonError> {
+        Self::new_with_html_feedback(
+            source_checksum,
+            question_type,
+            response_format,
+            answer_key,
+            choice_feedback
+                .into_iter()
+                .map(|(id, html)| (id, html_feedback_blocks(&html)))
+                .collect(),
+            correct_feedback.as_deref().map(html_feedback_blocks),
+            incorrect_feedback.as_deref().map(html_feedback_blocks),
+        )
+    }
+
+    /// Builds private grading with already resolved display HTML feedback.
+    pub fn new_with_html_feedback(
+        source_checksum: String,
+        question_type: QuestionType,
+        response_format: &QuestionResponseFormat,
+        answer_key: AnswerKey,
+        choice_feedback: Vec<(ResponseItemId, Vec<question_model::QuestionContentBlock>)>,
+        correct_feedback: Option<Vec<question_model::QuestionContentBlock>>,
+        incorrect_feedback: Option<Vec<question_model::QuestionContentBlock>>,
+    ) -> Result<Self, PleQuestionJsonError> {
         validate_ple_question_json_shape(question_type, response_format)?;
         if !is_hex_sha256(&source_checksum) {
             return invalid("source checksum must be a 64-character lowercase SHA-256 checksum");
@@ -529,18 +553,18 @@ impl PleQuestionJsonPrivateGrading {
         let available = selectable_ids(response_format);
         let mut feedback_ids = HashSet::new();
         let mut feedback = Vec::with_capacity(choice_feedback.len());
-        for (choice, markdown) in choice_feedback {
+        for (choice, content) in choice_feedback {
             if !available.contains(&choice) || !feedback_ids.insert(choice.clone()) {
                 return invalid("choice feedback targets must be unique available choices");
             }
-            validate_feedback(&markdown)?;
+            validate_html_feedback(&content)?;
             feedback.push(PleQuestionJsonChoiceFeedback {
                 choice: choice.as_str().to_string(),
-                markdown,
+                content,
             });
         }
-        validate_optional_feedback(correct_feedback.as_deref())?;
-        validate_optional_feedback(incorrect_feedback.as_deref())?;
+        validate_optional_html_feedback(correct_feedback.as_deref())?;
+        validate_optional_html_feedback(incorrect_feedback.as_deref())?;
         validate_key_against_response(response_format, &answer_key)?;
         Ok(Self {
             public_content_checksum: source_checksum,
@@ -670,15 +694,15 @@ impl PleQuestionJsonPrivateGrading {
                 "publicContentChecksum must be a 64-character lowercase SHA-256 checksum",
             );
         }
-        validate_optional_feedback(self.outcome_feedback.correct.as_deref())?;
-        validate_optional_feedback(self.outcome_feedback.incorrect.as_deref())?;
+        validate_optional_html_feedback(self.outcome_feedback.correct.as_deref())?;
+        validate_optional_html_feedback(self.outcome_feedback.incorrect.as_deref())?;
         let mut feedback_ids = HashSet::new();
         for feedback in &self.choice_feedback {
             validate_choice_id(&feedback.choice)?;
             if !feedback_ids.insert(feedback.choice.as_str()) {
                 return invalid("choice feedback target IDs must be unique");
             }
-            validate_feedback(&feedback.markdown)?;
+            validate_html_feedback(&feedback.content)?;
         }
         Ok(())
     }
@@ -709,8 +733,8 @@ impl PleQuestionJsonPrivateGrading {
         } else {
             (None, self.outcome_feedback.incorrect.as_deref())
         };
-        feedback.correct_feedback = correct_feedback.map(markdown_blocks);
-        feedback.incorrect_feedback = incorrect_feedback.map(markdown_blocks);
+        feedback.correct_feedback = correct_feedback.map(<[_]>::to_vec);
+        feedback.incorrect_feedback = incorrect_feedback.map(<[_]>::to_vec);
         Ok(feedback)
     }
 
@@ -726,7 +750,7 @@ impl PleQuestionJsonPrivateGrading {
                     .iter()
                     .find(|feedback| feedback.choice == selected_choice.as_str())
                 {
-                    choice_feedback.extend(markdown_blocks(&feedback.markdown));
+                    choice_feedback.extend(feedback.content.clone());
                 }
             }
         }
@@ -754,5 +778,40 @@ pub fn validate_ple_question_json_shape(
     response: &QuestionResponseFormat,
 ) -> Result<(), PleQuestionJsonError> {
     validate_response_for_type(question_type, response)?;
+    Ok(())
+}
+
+fn html_feedback_blocks(html: &str) -> Vec<question_model::QuestionContentBlock> {
+    vec![question_model::QuestionContentBlock::Html {
+        html: html.to_owned(),
+        images: Vec::new(),
+    }]
+}
+
+fn validate_optional_html_feedback(
+    content: Option<&[question_model::QuestionContentBlock]>,
+) -> Result<(), PleQuestionJsonError> {
+    if let Some(content) = content {
+        validate_html_feedback(content)?;
+    }
+    Ok(())
+}
+
+fn validate_html_feedback(
+    content: &[question_model::QuestionContentBlock],
+) -> Result<(), PleQuestionJsonError> {
+    let [question_model::QuestionContentBlock::Html { html, images }] = content else {
+        return invalid("native feedback requires one HTML content block");
+    };
+    validate_feedback(html)?;
+    let mut names = HashSet::new();
+    for image in images {
+        if image.source_relative_name.trim().is_empty()
+            || !names.insert(&image.source_relative_name)
+            || !is_hex_sha256(&image.question_image_asset_tuple.checksum)
+        {
+            return invalid("native feedback image bindings are invalid");
+        }
+    }
     Ok(())
 }

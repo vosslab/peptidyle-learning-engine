@@ -27,6 +27,7 @@ BEGIN
         SELECT * FROM (VALUES
             ('Biology', 'Genetics'),
             ('Biology', 'Biochemistry'),
+            ('Biology', 'Biotechnology'),
             ('Biology', 'Molecular Biology'),
             ('Biology', 'DNA Profiling'),
             ('Biology', 'Inheritance Genetics'),

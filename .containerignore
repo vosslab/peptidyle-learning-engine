@@ -22,5 +22,7 @@
 !schemas/installation_data
 !schemas/installation_data/**
 !content
+!content/genetics
+!content/genetics/**
 !content/pilot
 !content/pilot/**

@@ -145,13 +145,12 @@ Failure leaves both state and Student Work unchanged.
 
 ## Blueprint boundary
 
-Private Blueprints are owner-only and cannot be adopted. Public Blueprints are
+Public Blueprints are
 visible to Instructors and adoptable. Archived Blueprints are read-only,
 excluded from ordinary discovery and new adoption, available only through
 explicit archived inclusion, and forkable.
 
-Only the owner saves or changes lifecycle state. Public can return to Private
-only before any adoption. Archived restores to Public. Blueprint content has no
+Only the owner saves or changes lifecycle state. Archived restores to Public. Blueprint content has no
 Students, dates, time zones, or relative schedules.
 
 Newer Blueprint Revisions are offered to daughter Course Instructors for

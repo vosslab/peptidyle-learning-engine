@@ -243,8 +243,8 @@ pub use crate::question_backend_fields::{
 pub use crate::question_content::{
     DraftQuestionClassification, DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
     MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionContentBlock, QuestionDescriptionError,
-    QuestionFormat, QuestionImageAssetTuple, QuestionMetadata, QuestionTitleError,
-    validate_question_description, validate_question_title,
+    QuestionFormat, QuestionHtmlImageBinding, QuestionImageAssetTuple, QuestionMetadata,
+    QuestionTitleError, validate_question_description, validate_question_title,
 };
 pub use crate::question_library::{
     CourseQuestionUse, LibraryObjectSearchFilter, LibraryObjectSearchPage,

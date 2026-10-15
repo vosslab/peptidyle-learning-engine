@@ -109,9 +109,9 @@ These are retained future-contract work, not current interfaces:
   supported content types and pinned libraries, terminal xAPI/score semantics, and the role of
   scoreless activities. PLE currently has no H5P import, source, or runtime interface.
 
-YAML is not a generic input or output interface. The checked-in pilot Question Set manifest is a
-controlled source input owned and validated by
-[pilot_content.rs](../crates/project-tools/src/pilot_content.rs); the generated private
+YAML is not a generic input or output interface. The shared
+[BPW importer](../launchers/import_bpw.py) reads bundled Genetics source metadata
+and imports direct PG/PGML or QPM Native JSON through ordinary HTTP routes. The generated private
 `runtime.yaml` is a controlled runtime handoff owned and validated by
 [runtime_manifest.py](../local_stack_control/runtime_manifest.py). No generic user-facing YAML
 authoring or interchange schema is accepted today. A future human-editing format may compile to

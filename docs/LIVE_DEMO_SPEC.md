@@ -2,102 +2,50 @@
 
 ## Purpose
 
-The Live Demo is one complete, known-good teaching environment built with the
-ordinary PLE product model. It gives a new installation useful data for
-end-to-end demonstration and acceptance; it is not a second schema, a mock
-application, or a special lifecycle of its own.
-
-After the Bloom publication cutover and canonical database initialization, the
-operator will run the installation-data provision command. That operation will
-include this environment by default; `--without-live-demo` will omit the
-fictional teaching graph but retain ordinary shipped Genetics content. The
-choice will not change the installed schema or application model. Once
-provisioned, every record will follow the same archive, retention, Unrelease,
-and deletion rules as corresponding product data. There will be no
-demo-specific marker, role, teardown capability, or report artifact.
-
-Local disposable stacks will use the same installation-data path. Resetting one
-of those stacks replaces its storage; it is a development convenience, not a
-separate product-data contract.
+The Live Demo is ordinary PLE teaching data. A fresh installation imports complete
+Genetics, Biochemistry, Biotechnology, and Biostatistics collections through the
+shared Python importer, then includes the fictional teaching graph by default.
+`local_stack.py install-data --without-live-demo` retains curriculum, including
+bundled Genetics sources, while omitting that graph on a fresh installation.
 
 ## Installation boundary
 
-The canonical base schema is DDL-only and creates no product data. After the
-Bloom publication cutover, the separate installation-data provision command
-will include the Live Demo by default. It will first use the ordinary Pilot
-Question publisher to create the required published Question Revisions and
-their object bindings, then apply the database-owned Live Demo graph. The
-publisher will return exact Question Revision Tuples to the SQL manifest;
-the manifest will validate that mapping before it creates dependent records.
-`--without-live-demo` will leave the fictional Live Demo graph unprovisioned
-while retaining the shipped Genetics content.
+The canonical base schema is DDL-only. The host owns BPW source discovery, Python,
+and QPM CLI conversion. PG and PGML source reaches WeBWorK directly and unchanged;
+BBQ source uses QPM Native JSON. Publication, Question Pools, all four public
+Blueprint Courses, Course adoption, Assessment release, and Student Work use
+ordinary Instructor and Student HTTP workflows.
 
-Automated initial Bloom Classification is deferred, and the PLE runtime does
-not configure an AI provider. The current SQL and data-access publication
-contract still requires a prepared Bloom receipt, so fresh Question publication
-for this graph remains unavailable until that separate cutover is complete.
-This limitation does not add another Live Demo topology or gateway path.
-
-Question identifiers are ordinary opaque public IDs. Published Questions and
-Question Pools use the canonical `XXXX-ZXXX` form unchanged in storage, APIs,
-URLs, and the browser. Pilot source slugs and source checksums select the
-reviewed content internally, but are neither public Question IDs nor a special
-Question namespace.
-
-The idempotent SQL installation-data layer owns the facts for which PostgreSQL
-owns the complete invariant. It creates the same ordinary data graph on a
-fresh installation:
-
-- fictional Accounts and their ordinary roles, with server-minted public IDs;
-- subject organization;
-- a Blueprint Course, its save-created Blueprint Revision, and exact
-  Question Revision pins;
-- a Course Instance, Instructor relationship, invitations, Student records,
-  and Course Memberships; and
-- the released Assessment and its exact Question Revision pins.
-
-The manifest is intentionally not a substitute for systems that own effects
-outside PostgreSQL. The established owner paths create Attempts, retained
-presentation bindings, responses, submissions, grading, and related
-statistics when a demonstration needs them. This preserves the same object
-storage, renderer, worker, and grading behavior used by product workflows.
+The trusted installer provisions fictional Accounts and enrollment separately.
+It supplies the loader an ordinary Instructor cookie through private stdin, using
+the existing eight-hour lifetime, and revokes that session after completion or
+failure. Content-only installation uses a non-login PLE Example Content Instructor
+without creating the fictional Accounts. The migrator container runs Rust only;
+it does not own host Python, BPW, or QPM.
 
 ## Known-good teaching graph
 
-The reusable Blueprint Course is **Biochemistry 301: Proteins and Peptides**.
-Elena Rivera owns its ordinary save-created Blueprint Revision. The resulting
-Course Instance is `BCHM 301`, also named **Biochemistry 301: Proteins and
-Peptides**, runs from 2026-08-24 through 2026-12-11 in `America/Chicago`, and
-has Elena as its first ordinary co-Instructor, with no greater authority than a
-later co-Instructor.
+Elena Martinez adopts the complete public Biochemistry Blueprint as **BCHM 355**,
+also named **Biochemistry**, from 2026-08-24 through 2026-12-11. All imported
+Modules and Assessments follow ordinary adoption. One ordinary native Assessment
+is released for representative delivery; other imported Assessments begin
+Unreleased and remain editable by the teaching team.
 
-The ordinary publisher makes all eight reviewed Pilot Questions available in
-the Question Library, including the four WeBWorK Questions described in
-[`content/pilot/chapter_1_assessments.yaml`](../content/pilot/chapter_1_assessments.yaml).
-Its released Assessment, **Chapter 1 Pilot Practice**, has Type **Practice
-Question Assignment** and uses the four
-PLE-native PLE Question JSON Pilot Questions. Each entry pins the exact
-Published Question Revision. The Assessment instructions are: "Complete the
-four reviewed Chapter 1 practice questions."
+The activity installer derives sample responses from answer-free native
+presentations, submits Mary's work, saves Jack's open work, and leaves Avery's
+work unstarted. Entry counts come from ordinary content; no fixed Pilot Question
+count is required.
 
-The database-owned graph includes the three ordinary Student records and
-Course Memberships below. The cross-system activity owner may then establish
-the demonstration work states through normal delivery and grading paths.
-
-| Student        | Roster ID      | Demonstration state                    |
-| -------------- | -------------- | -------------------------------------- |
-| Mary Okafor    | `BIO301-MARY`  | Completed and graded work              |
-| Jack Nguyen    | `BIO301-JACK`  | Open work with saved responses         |
-| Avery Thompson | `BIO301-AVERY` | Released Assessment available to start |
-
-These are ordinary relationships and Student Work records. Instructor views,
-Student views, and Gradebook results derive from them under the normal
-authorization and evidence rules.
+| Student | Roster ID | Demonstration state |
+| --- | --- | --- |
+| Mary Okafor | `BCHM355-MARY` | Completed work |
+| Jack Nguyen | `BCHM355-JACK` | Open work with saved responses |
+| Avery Thompson | `BCHM355-AVERY` | Released Assessment available to start |
 
 ## Local identity selector
 
 The disposable local HTTPS entry currently offers a fixed six-persona
-identity selector: Elena Rivera and Priya Shah (Instructors); Mary Okafor, Jack Nguyen, and
+identity selector: Elena Martinez and Priya Shah (Instructors); Mary Okafor, Jack Nguyen, and
 Avery Thompson (Students); and Morgan Delgado (Sysadmin). It replaces only
 identity verification, then the server resolves the configured Account and
 issues the ordinary authenticated session for a Student or Instructor. Morgan
@@ -106,8 +54,8 @@ Sysadmin role and issues a session only after it atomically consumes one
 unused, short-lived, Account- and browser-bound TOTP attestation. Stored roles
 and relationships still decide every authorization result.
 
-Priya has her own ordinary active Instructor Account and private authoring
-workspace, initially without Course Membership or Blueprint access. She can
+Priya has her own ordinary active Instructor Account and personal authoring
+workspace, initially without Course Membership. She can
 participate in multi-Instructor Blueprint collaboration through the ordinary
 sharing and Proposal workflows; selecting her identity grants no collaboration
 authority itself. This fixed fictional identity is disposable demonstration

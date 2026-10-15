@@ -80,7 +80,6 @@ export function decodeBlueprintWatchEvents(
     return {
       kind: decodeStringEnum(field(event, "kind", path), `${path}.kind`, [
         "revision",
-        "published",
         "archived",
         "restored",
       ]),

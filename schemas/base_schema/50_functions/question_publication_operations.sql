@@ -85,7 +85,7 @@ CREATE FUNCTION ple_private.publish_question_revision(
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
-    p_hotspot_question_image jsonb
+    p_question_images jsonb
 ) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -187,9 +187,9 @@ BEGIN
     -- content, answer, grading, backend interaction feedback, and asset
     -- references. Changing those bytes changes source_object_checksum.
     -- PLE-managed general feedback, Hint, and Worked Solution text are
-    -- separate immutable Question Revision content. A native HOTSPOT Question
-    -- Image Asset is the draft-owned raster. A different asset, checksum, or
-    -- dimension differs from the parent question_image_publication. Both sides
+    -- separate immutable Question Revision content. Native Question images are
+    -- Draft-owned rasters. A different asset, filename, checksum, or dimension
+    -- differs from the parent question_image_publication. Both sides
     -- absent stay equal. Metadata-only corrections update the current record
     -- without a successor. A content Revision takes editable Title, Description,
     -- Tags, Language, and support from this saved Draft. Type uses the locked
@@ -207,54 +207,42 @@ BEGIN
      WHERE parent_image.published_question_id = p_published_question_id
        AND parent_image.revision_number = p_expected_parent_question_revision_number
      FOR UPDATE;
-    v_question_image_unchanged := CASE
-        WHEN binding.backend IS DISTINCT FROM 'ple'::ple_data.question_backend
-          OR binding.question_type IS DISTINCT FROM 'hotspot'::ple_data.question_type THEN
-            p_hotspot_question_image IS NULL
-            AND NOT EXISTS (
-                SELECT 1 FROM ple_private.question_image_publication AS parent_image
-                 WHERE parent_image.published_question_id = p_published_question_id
-                   AND parent_image.revision_number = p_expected_parent_question_revision_number)
-        WHEN p_hotspot_question_image IS NULL THEN
-            NOT EXISTS (
-                SELECT 1 FROM ple_private.question_image_publication AS parent_image
-                 WHERE parent_image.published_question_id = p_published_question_id
-                   AND parent_image.revision_number = p_expected_parent_question_revision_number)
-        WHEN jsonb_typeof(p_hotspot_question_image) IS DISTINCT FROM 'object'
-          OR COALESCE(p_hotspot_question_image->>'checksum', '') !~ '^[0-9a-f]{64}$'
-          OR COALESCE(p_hotspot_question_image->>'questionImageAssetId', '')
-             !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          OR COALESCE(p_hotspot_question_image->>'intrinsicWidth', '') !~ '^[1-9][0-9]{0,6}$'
-          OR COALESCE(p_hotspot_question_image->>'intrinsicHeight', '') !~ '^[1-9][0-9]{0,6}$' THEN
-            false
-        ELSE
-            EXISTS (
-                SELECT 1
-                  FROM ple_private.draft_question_image AS draft_image
-                  JOIN ple_private.object_record AS draft_image_record
-                    ON draft_image_record.object_record_id = draft_image.source_object_record_id
-                  JOIN ple_private.question_image_publication AS parent_image
-                    ON parent_image.published_question_id = p_published_question_id
-                   AND parent_image.revision_number = p_expected_parent_question_revision_number
-                   AND parent_image.question_image_asset_id = draft_image.question_image_asset_id
-                 WHERE draft_image.draft_question_id = p_draft_question_uuid
-                   AND draft_image.authoring_workspace_id = p_authoring_workspace_id
-                   AND draft_image.question_image_asset_id
-                       = (p_hotspot_question_image->>'questionImageAssetId')::uuid
-                   AND encode(draft_image_record.sha256, 'hex') = p_hotspot_question_image->>'checksum'
-                   AND encode(parent_image.source_object_checksum, 'hex')
-                       = p_hotspot_question_image->>'checksum'
-                   AND draft_image.intrinsic_width = (p_hotspot_question_image->>'intrinsicWidth')::integer
-                   AND draft_image.intrinsic_height = (p_hotspot_question_image->>'intrinsicHeight')::integer
-                   AND parent_image.intrinsic_width = draft_image.intrinsic_width
-                   AND parent_image.intrinsic_height = draft_image.intrinsic_height)
-            AND NOT EXISTS (
-                SELECT 1 FROM ple_private.question_image_publication AS parent_image
-                 WHERE parent_image.published_question_id = p_published_question_id
-                   AND parent_image.revision_number = p_expected_parent_question_revision_number
-                   AND parent_image.question_image_asset_id
-                       IS DISTINCT FROM (p_hotspot_question_image->>'questionImageAssetId')::uuid)
-    END;
+    -- The complete exact asset set defines content alongside immutable source bytes.
+    -- ASVS 2.2.1, 8.2.2: compare the named image and response image facts to both owners.
+    v_question_image_unchanged := false;
+    IF jsonb_typeof(p_question_images) = 'array' THEN
+        v_question_image_unchanged := (
+            SELECT count(*) FROM jsonb_array_elements(p_question_images)
+        ) = (
+            SELECT count(*) FROM ple_private.question_image_publication AS image
+            WHERE image.published_question_id = p_published_question_id
+              AND image.revision_number = p_expected_parent_question_revision_number
+        ) AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(p_question_images) AS prepared(image)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM ple_private.draft_question_image AS draft_image
+                JOIN ple_private.object_record AS draft_record
+                  ON draft_record.object_record_id = draft_image.source_object_record_id
+                JOIN ple_private.question_image_publication AS parent_image
+                  ON parent_image.published_question_id = p_published_question_id
+                 AND parent_image.revision_number = p_expected_parent_question_revision_number
+                 AND parent_image.question_image_asset_id = draft_image.question_image_asset_id
+                WHERE draft_image.draft_question_id = p_draft_question_uuid
+                  AND draft_image.authoring_workspace_id = p_authoring_workspace_id
+                  AND draft_image.question_image_asset_id::text = prepared.image->>'questionImageAssetId'
+                  AND encode(draft_record.sha256, 'hex') = prepared.image->>'checksum'
+                  AND parent_image.source_object_checksum = draft_record.sha256
+                  AND draft_image.intrinsic_width::text = prepared.image->>'intrinsicWidth'
+                  AND draft_image.intrinsic_height::text = prepared.image->>'intrinsicHeight'
+                  AND parent_image.intrinsic_width = draft_image.intrinsic_width
+                  AND parent_image.intrinsic_height = draft_image.intrinsic_height
+                  AND draft_image.source_relative_name::text IS NOT DISTINCT FROM prepared.image->>'sourceRelativeName'
+                  AND parent_image.source_relative_name IS NOT DISTINCT FROM draft_image.source_relative_name
+            )
+        ) AND (
+            SELECT count(DISTINCT image->>'questionImageAssetId') FROM jsonb_array_elements(p_question_images) AS prepared(image)
+        ) = jsonb_array_length(p_question_images);
+    END IF;
     IF binding.backend = parent_binding.backend
        AND binding.question_format = parent_binding.question_format
        AND binding.webwork_pg_path IS NOT DISTINCT FROM parent_binding.webwork_pg_path
@@ -334,7 +322,7 @@ BEGIN
     INSERT INTO ple_data.question_publication_event(event_id, published_question_id, revision_number, actor_account_id, occurred_at)
     VALUES (p_publication_event_id, p_published_question_id, v_next_question_revision_number, actor_id, published_at);
     PERFORM ple_private.bind_draft_question_image_publication(p_draft_question_uuid, p_authoring_workspace_id,
-        p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_type, p_hotspot_question_image, published_at);
+        p_published_question_id, v_next_question_revision_number, binding.backend, binding.question_type, p_question_images, published_at);
     RETURN v_next_question_revision_number;
 END
 $$;
@@ -380,7 +368,7 @@ CREATE FUNCTION ple_api.publish_question_revision(
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
-    p_hotspot_question_image jsonb
+    p_question_images jsonb
 ) RETURNS integer LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_question_revision(
@@ -388,7 +376,7 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_expected_parent_question_revision_number, p_target_object_id, p_target_object_address,
         p_target_sha256, p_target_size_bytes,
         p_target_media_type, p_target_created_at_millis, p_reason_for_edit, p_publication_event_id,
-        p_hotspot_question_image)
+        p_question_images)
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -468,7 +456,7 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
-    p_availability_event_id uuid, p_hotspot_question_image jsonb
+    p_availability_event_id uuid, p_question_images jsonb
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -684,7 +672,7 @@ BEGIN
         event_id, published_question_id, actor_account_id, availability, edit_number, reason, occurred_at
     ) VALUES (p_availability_event_id, p_published_question_id, actor_id, 'available'::ple_data.question_availability, 1, NULL, published_at);
     PERFORM ple_private.bind_draft_question_image_publication(p_draft_question_uuid, p_authoring_workspace_id,
-        p_published_question_id, 1, binding.backend, binding.question_type, p_hotspot_question_image, published_at);
+        p_published_question_id, 1, binding.backend, binding.question_type, p_question_images, published_at);
     IF v_parent_published_question_id IS NOT NULL THEN
         PERFORM pg_catalog.set_config(
             'ple.authorized_draft_publication_receipt_uuid', p_draft_question_uuid::text, true);
@@ -718,7 +706,7 @@ CREATE FUNCTION ple_api.publish_new_question_lineage(
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
-    p_availability_event_id uuid, p_hotspot_question_image jsonb
+    p_availability_event_id uuid, p_question_images jsonb
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_new_question_lineage(p_draft_question_uuid, p_expected_draft_question_edit_number,
@@ -727,5 +715,5 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_initial_shared_tags, p_discipline_uuid, p_subject_uuid,
         p_topic_uuid, p_subtopic_uuid, p_license,
         p_reason_for_edit, p_ownership_event_id, p_publication_event_id, p_availability_event_id,
-        p_hotspot_question_image)
+        p_question_images)
 $$;

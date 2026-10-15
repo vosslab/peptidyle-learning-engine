@@ -58,10 +58,8 @@ BEGIN
     SELECT course.* INTO v_target FROM ple_data.blueprint_course AS course
      WHERE course.blueprint_course_id = p_target_blueprint_course_id;
     IF v_source.blueprint_course_id IS NULL OR v_target.blueprint_course_id IS NULL
-       OR NOT (v_source.availability IN ('public', 'archived')
-               OR v_source.owner_account_id = v_actor)
-       OR NOT (v_target.availability IN ('public', 'archived')
-               OR v_target.owner_account_id = v_actor)
+       OR v_source.availability NOT IN ('public', 'archived')
+       OR v_target.availability NOT IN ('public', 'archived')
        OR v_target.owner_account_id = v_actor THEN
         RAISE EXCEPTION 'Blueprint Proposal is unavailable' USING ERRCODE = '42501';
     END IF;
@@ -98,10 +96,8 @@ RETURNS TABLE (
     content_topic_id uuid, content_subtopic_id uuid, tags text[], theme_id text, can_accept boolean
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    -- ASVS 8.2.2, 8.3.2: submission intentionally shares the exact proposed
-    -- evidence with the receiving owner, including a Private source. This grants
-    -- no general source or history reads. Proposer reads retain ordinary source
-    -- visibility, and both participants retain ordinary target visibility.
+    -- ASVS 8.2.2, 8.3.2: proposal participants may read the exact proposed evidence;
+    -- only the target owner may accept it. Shared content grants no editing authority.
     SELECT proposal.blueprint_change_proposal_id, proposal.proposer_account_id,
            (extract(epoch FROM proposal.created_at) * 1000)::bigint,
            target.current_blueprint_revision_number <> proposal.target_revision_number
@@ -139,11 +135,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        AND ple_api.current_session_account_is_instructor()
        AND (proposal.proposer_account_id = ple_api.current_session_account_id()
             OR target.owner_account_id = ple_api.current_session_account_id())
-       AND (source.availability IN ('public', 'archived')
-            OR source.owner_account_id = ple_api.current_session_account_id()
-            OR target.owner_account_id = ple_api.current_session_account_id())
-       AND (target.availability IN ('public', 'archived')
-            OR target.owner_account_id = ple_api.current_session_account_id())
+       AND source.availability IN ('public', 'archived')
+       AND target.availability IN ('public', 'archived')
      ORDER BY basis.position;
 $$;
 
@@ -192,14 +185,14 @@ BEGIN
     IF NOT p_mine AND NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course AS target
          WHERE target.blueprint_course_id = p_target_blueprint_course_id
-           AND (target.availability IN ('public', 'archived') OR target.owner_account_id = v_actor)
+           AND target.availability IN ('public', 'archived')
            AND (target.owner_account_id = v_actor OR EXISTS (
                SELECT 1 FROM ple_data.blueprint_change_proposal AS proposal
                 JOIN ple_data.blueprint_course AS source
                   ON source.blueprint_course_id = proposal.source_blueprint_course_id
                 WHERE proposal.target_blueprint_course_id = target.blueprint_course_id
                   AND proposal.proposer_account_id = v_actor
-                  AND (source.availability IN ('public', 'archived') OR source.owner_account_id = v_actor)
+                  AND source.availability IN ('public', 'archived')
            ))
     ) THEN
         RAISE EXCEPTION 'Blueprint Proposal list is unavailable' USING ERRCODE = '42501';
@@ -234,9 +227,8 @@ BEGIN
      WHERE (p_mine AND proposal.proposer_account_id = v_actor
             OR NOT p_mine AND target.blueprint_course_id = p_target_blueprint_course_id)
        AND (proposal.proposer_account_id = v_actor OR target.owner_account_id = v_actor)
-       AND (source.availability IN ('public', 'archived')
-            OR source.owner_account_id = v_actor OR target.owner_account_id = v_actor)
-       AND (target.availability IN ('public', 'archived') OR target.owner_account_id = v_actor)
+       AND source.availability IN ('public', 'archived')
+       AND target.availability IN ('public', 'archived')
        AND (v_after IS NULL OR (proposal.created_at, proposal.blueprint_change_proposal_id) < (v_after, p_after_proposal_id))
      ORDER BY proposal.created_at DESC, proposal.blueprint_change_proposal_id DESC
      LIMIT p_limit;

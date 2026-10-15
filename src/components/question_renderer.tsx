@@ -11,6 +11,7 @@ import type { PublishedQuestionRevisionTuple } from "../../generated/api/Publish
 import type { DraftQuestionRouteId } from "../navigation/public_route";
 
 import { QUESTION_RENDERER_STYLES } from "./question_renderer_styles";
+import { sanitizeQuestionHtml } from "./question_html";
 
 /**
  * MathML emitted by Temml is still parsed as untrusted XML. These are the presentation MathML
@@ -345,6 +346,32 @@ function QuestionContentBlockRenderer(props: {
   switch (props.block.kind) {
     case "text":
       return <p class="question-renderer__block">{props.block.markdown}</p>;
+    case "html": {
+      const block = props.block;
+      return (
+        <div
+          class="question-renderer__html"
+          ref={(host) => {
+            const fragment = sanitizeQuestionHtml(block.html, block.images, (image) =>
+              props.publishedQuestionRevisionTuple !== undefined
+                ? resolveSameOriginQuestionImageUrl(
+                    image,
+                    props.publishedQuestionRevisionTuple,
+                    props.questionImageUrl,
+                  )
+                : props.draftQuestion !== undefined
+                  ? resolveSameOriginDraftQuestionImageUrl(
+                      image,
+                      props.draftQuestion,
+                      props.questionImageUrl,
+                    )
+                  : unauthorizedQuestionImage(),
+            );
+            host.replaceChildren(fragment);
+          }}
+        />
+      );
+    }
     case "math": {
       const description = requireAccessibilityDescription(
         props.block.description,

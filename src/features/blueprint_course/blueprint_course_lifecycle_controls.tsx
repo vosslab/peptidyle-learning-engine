@@ -17,8 +17,6 @@ export interface BlueprintCourseLifecycleControlsProps {
   readonly archiveConfirmation: string;
   readonly onArchiveConfirmationInput: (value: string) => void;
   readonly onToggleEditor: () => void;
-  readonly onPublish: () => void;
-  readonly onReturnToPrivate: () => void;
   readonly onArchive: () => void;
   readonly onRestore: () => void;
 }
@@ -52,36 +50,8 @@ export function BlueprintCourseLifecycleControls(
   return (
     <>
       <p class="blueprint-course-field-help">{lifecycle().meaning}</p>
-      <Show
-        when={lifecycle().canPublish || lifecycle().canRestore || lifecycle().canReturnToPrivate}
-      >
+      <Show when={lifecycle().canRestore}>
         <aside class="blueprint-course-inspection">
-          <Show when={lifecycle().canPublish}>
-            <h2>Publish Blueprint Course</h2>
-            <p>Publish lets active Instructors browse and adopt the current Revision.</p>
-            <button
-              type="button"
-              disabled={props.metadataSaving || props.hasUnsavedContent}
-              onClick={props.onPublish}
-            >
-              {props.metadataSaving ? "Publishing..." : "Publish Blueprint Course"}
-            </button>
-          </Show>
-          <Show when={lifecycle().canReturnToPrivate}>
-            <h2>Return Blueprint Course to Private</h2>
-            <p>
-              This is available only while the server confirms that no Course Instance has adopted
-              this Blueprint Course.
-            </p>
-            <button
-              type="button"
-              class="quiet-action"
-              disabled={props.metadataSaving}
-              onClick={props.onReturnToPrivate}
-            >
-              {props.metadataSaving ? "Returning..." : "Return to Private"}
-            </button>
-          </Show>
           <Show when={lifecycle().canRestore}>
             <h2>Restore Blueprint Course</h2>
             <p>Restore makes this Blueprint Course Public for new Instructor adoption.</p>

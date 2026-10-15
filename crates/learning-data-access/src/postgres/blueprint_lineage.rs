@@ -95,7 +95,6 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                 short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                 long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                 availability: match availability.as_str() {
-                    "private" => BlueprintAvailability::Private,
                     "public" => BlueprintAvailability::Public,
                     "archived" => BlueprintAvailability::Archived,
                     _ => {

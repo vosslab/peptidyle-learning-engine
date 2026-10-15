@@ -208,7 +208,6 @@ pub(super) fn read_access(is_owner: bool) -> BlueprintCourseReadAccess {
 
 pub(super) fn availability_value(value: String) -> Result<BlueprintAvailability, StoreError> {
     match value.as_str() {
-        "private" => Ok(BlueprintAvailability::Private),
         "public" => Ok(BlueprintAvailability::Public),
         "archived" => Ok(BlueprintAvailability::Archived),
         _ => Err(invalid("Blueprint availability")),

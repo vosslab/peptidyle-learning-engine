@@ -1,319 +1,188 @@
-//! Installation publication for bundled curriculum and the optional Live Demo graph.
+//! Trusted installer context around the shared, ordinary HTTP curriculum importer.
 
 use std::collections::BTreeMap;
-use std::io::Write as _;
+use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, bail, ensure};
-use learning_data_access::{
-    BlueprintCourseStore, SessionId, SessionTokenHash,
-    postgres::{PostgresBlueprintCourseStore, lazy_pool},
-};
-use question_model::{
-    BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseReadAccess,
-    WorkspaceId,
-};
-use uuid::Uuid;
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use learning_data_access::{SessionId, SessionTokenHash};
+use serde::{Deserialize, Serialize};
 
 use crate::libpq_environment::LibpqEnvironment;
-use crate::{curriculum_content, pilot_content};
 
-const USAGE: &str = "usage: cargo tools installation-data <apply|provision [--without-live-demo]>";
+const USAGE: &str =
+    "usage: cargo tools installation-data <prepare [--without-live-demo]|finalize|revoke>";
 const PSQL_EXECUTABLE: &str = "/usr/bin/psql";
 const IMAGE_SCHEMA_ROOT: &str = "/opt/ple/schemas/installation_data";
-const IMAGE_GENETICS_CONTENT_ROOT: &str = "/opt/ple/content/genetics";
-const BUNDLED_GENETICS_MANIFEST: &str = "manifest.yaml";
-const PILOT_WORKSPACE_ID: &str = "00000000-0000-0000-0000-000000000201";
-const EXAMPLE_CONTENT_WORKSPACE_ID: &str = "00000000-0000-0000-0000-000000000202";
 
 pub(crate) const LIVE_DEMO_ELENA_EMAIL: &str = "elena.martinez@live-demo.invalid";
 pub(crate) const LIVE_DEMO_MARY_EMAIL: &str = "mary.okafor@biology.roosevelt.edu";
 pub(crate) const LIVE_DEMO_JACK_EMAIL: &str = "jack.nguyen@biology.roosevelt.edu";
 pub(crate) const LIVE_DEMO_AVERY_EMAIL: &str = "avery.thompson@biology.roosevelt.edu";
-pub(crate) const LIVE_DEMO_COURSE_SHORT_NAME: &str = "BCHM 301";
-pub(crate) const LIVE_DEMO_COURSE_LONG_NAME: &str = "Biochemistry 301: Proteins and Peptides";
-pub(crate) const LIVE_DEMO_ASSESSMENT_TITLE: &str = "Chapter 1 Pilot Practice";
+pub(crate) const LIVE_DEMO_COURSE_SHORT_NAME: &str = "BCHM 355";
+pub(crate) const LIVE_DEMO_COURSE_LONG_NAME: &str = "Biochemistry";
 
-/// Runs the fixed bundled curriculum and optional teaching-data installation operation.
-pub(crate) fn run(args: &[String]) -> Result<()> {
-    if matches!(args, [flag] if flag == "--help" || flag == "-h") {
-        println!("{USAGE}");
-        return Ok(());
-    }
-    run_command(parse_arguments(args)?)
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ImportSession {
+    session_id: uuid::Uuid,
+    session_cookie: String,
+    include_live_demo: bool,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum InstallationDataCommand {
-    Apply,
-    Provision { include_live_demo: bool },
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FinalizeInput {
+    session: ImportSession,
+    import_result: ImportResult,
 }
 
-fn parse_arguments(args: &[String]) -> Result<InstallationDataCommand> {
-    match args {
-        [action] if action == "apply" => Ok(InstallationDataCommand::Apply),
-        [action] if action == "provision" => Ok(InstallationDataCommand::Provision {
-            include_live_demo: true,
-        }),
-        [action, flag] if action == "provision" && flag == "--without-live-demo" => {
-            Ok(InstallationDataCommand::Provision {
-                include_live_demo: false,
-            })
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImportResult {
+    blueprints: BTreeMap<String, question_model::BlueprintCourseId>,
+    questions: u64,
+    pools: u64,
+    #[serde(rename = "pointDefaults")]
+    _point_defaults: Vec<BTreeMap<String, String>>,
+    complete: bool,
+    errors: Vec<String>,
+}
+
+impl ImportResult {
+    fn validate(&self) -> Result<()> {
+        // ASVS 2.2.1, 2.3.1: adopt only a completed, error-free curriculum import.
+        ensure!(
+            self.complete && self.errors.is_empty(),
+            "curriculum import is incomplete or reported errors"
+        );
+        ensure!(
+            self.questions > 0 && self.pools > 0,
+            "curriculum import returned no Questions or Pools"
+        );
+        ensure!(
+            self.blueprints.len() == 4,
+            "curriculum import must return all four Blueprint Courses"
+        );
+        for course in ["genetics", "biochemistry", "biotechnology", "biostatistics"] {
+            ensure!(
+                self.blueprints.contains_key(course),
+                "curriculum Blueprint is missing"
+            );
         }
+        Ok(())
+    }
+}
+
+/// Runs private installer phases; the host owns Python, source discovery, and HTTP import.
+pub(crate) fn run(args: &[String]) -> Result<()> {
+    match args {
+        [flag] if flag == "--help" || flag == "-h" => println!("{USAGE}"),
+        [action] if action == "prepare" => prepare(true)?,
+        [action, flag] if action == "prepare" && flag == "--without-live-demo" => prepare(false)?,
+        [action] if action == "finalize" => finalize(read_input()?)?,
+        [action] if action == "revoke" => revoke(&read_input::<ImportSession>()?)?,
         _ => bail!("{USAGE}"),
     }
+    Ok(())
 }
 
-fn run_command(command: InstallationDataCommand) -> Result<()> {
-    validate_publisher_environment()?;
-    // ASVS 2.3.1: bundled authorship declares its vocabulary before either
-    // ordinary publisher validates Question classification.
+fn read_input<T: serde::de::DeserializeOwned>() -> Result<T> {
+    // ASVS 2.2.1, 13.3.2: credentials cross a bounded private stdin pipe, never argv.
+    let mut input = String::new();
+    std::io::stdin()
+        .take(16 * 1024)
+        .read_to_string(&mut input)?;
+    serde_json::from_str(&input).context("installer input is invalid")
+}
+
+fn prepare(include_live_demo: bool) -> Result<()> {
+    let database = required_environment("PLE_MIGRATION_DATABASE_URL")?;
+    run_manifest(&database, "content_vocabulary.sql", &BTreeMap::new())?;
+    // ASVS 7.2.2, 7.2.3: each installation import gets fresh CSPRNG session material.
+    let mut token = [0_u8; 32];
+    getrandom::fill(&mut token).map_err(|_| anyhow::anyhow!("generating import session failed"))?;
+    let session_id = SessionId::generate()
+        .map_err(anyhow::Error::msg)?
+        .as_uuid()
+        .to_owned();
+    let token_hash = SessionTokenHash::compute(&token);
+    let (manifest, id_key, hash_key) = if include_live_demo {
+        (
+            "prepublication_context.sql",
+            "pilot_publication_session_id",
+            "pilot_publication_session_token_hash",
+        )
+    } else {
+        (
+            "bundled_curriculum_context.sql",
+            "example_content_session_id",
+            "example_content_session_token_hash",
+        )
+    };
+    run_manifest(
+        &database,
+        manifest,
+        &BTreeMap::from([
+            (id_key, session_id.to_string()),
+            (hash_key, token_hash.to_string()),
+        ]),
+    )?;
+    let token_wire = URL_SAFE_NO_PAD.encode(token);
+    // This stdout is captured only by the trusted host coordinator.
+    println!(
+        "{}",
+        serde_json::to_string(&ImportSession {
+            session_id,
+            session_cookie: format!("__Host-ple_session={token_wire}"),
+            include_live_demo,
+        })?
+    );
+    Ok(())
+}
+
+fn finalize(input: FinalizeInput) -> Result<()> {
+    input.import_result.validate()?;
+    if input.session.include_live_demo {
+        let blueprint = &input.import_result.blueprints["biochemistry"];
+        let course = crate::installation_data_activity::adopt_blueprint(
+            &input.session.session_cookie,
+            blueprint,
+        )?;
+        run_manifest(
+            &required_environment("PLE_MIGRATION_DATABASE_URL")?,
+            "install.sql",
+            &BTreeMap::from([("live_demo_course_instance_id", course)]),
+        )?;
+        crate::installation_data_activity::provision()?;
+    }
+    // Finalization never needs the import credential after adoption.
+    revoke(&input.session)
+}
+
+fn revoke(session: &ImportSession) -> Result<()> {
+    let encoded = session
+        .session_cookie
+        .strip_prefix("__Host-ple_session=")
+        .context("import session cookie is invalid")?;
+    let token: [u8; 32] = URL_SAFE_NO_PAD
+        .decode(encoded)
+        .context("import session cookie is invalid")?
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("import session cookie is invalid"))?;
     run_manifest(
         &required_environment("PLE_MIGRATION_DATABASE_URL")?,
-        "content_vocabulary.sql",
-        &BTreeMap::new(),
+        "revoke_import_session.sql",
+        &BTreeMap::from([
+            ("import_session_id", session.session_id.to_string()),
+            (
+                "import_session_token_hash",
+                SessionTokenHash::compute(&token).to_string(),
+            ),
+        ]),
     )
-    .context("provisioning the declared bundled content vocabulary")?;
-    match command {
-        InstallationDataCommand::Apply => {
-            // Install the Live Demo graph on a default installation before
-            // adding the reusable bundled Blueprint. Public IDs are minted.
-            apply_live_demo()?;
-            apply_bundled_genetics()
-        }
-        InstallationDataCommand::Provision {
-            include_live_demo: false,
-        } => {
-            apply_bundled_genetics()?;
-            println!("installation-data: Live Demo provisioning skipped");
-            Ok(())
-        }
-        InstallationDataCommand::Provision {
-            include_live_demo: true,
-        } => {
-            apply_live_demo()?;
-            apply_bundled_genetics()?;
-            crate::installation_data_activity::provision()
-        }
-    }
-}
-
-/// Applies the Pilot publication and PostgreSQL-owned Live Demo graph.
-fn apply_live_demo() -> Result<()> {
-    validate_publisher_environment()?;
-
-    let migration_database_url = required_environment("PLE_MIGRATION_DATABASE_URL")?;
-    let session_id = SessionId::generate().map_err(anyhow::Error::msg)?;
-    let session_id_text = session_id.as_uuid().to_string();
-    let token_hash = fresh_session_token_hash()?;
-    let workspace = WorkspaceId::from_uuid(
-        Uuid::parse_str(PILOT_WORKSPACE_ID).expect("the fixed Pilot workspace ID is valid"),
-    );
-
-    run_manifest(
-        &migration_database_url,
-        "prepublication_context.sql",
-        &BTreeMap::from([
-            ("pilot_publication_session_id", session_id_text.clone()),
-            (
-                "pilot_publication_session_token_hash",
-                token_hash.to_string(),
-            ),
-        ]),
-    )?;
-    let publications = pilot_content::publish_with_context(token_hash, workspace)
-        .context("publishing the ordinary Pilot Question set")?;
-    pilot_content::validate_publication_mapping_json(&publications)
-        .context("validating the ordinary Pilot publication mapping")?;
-    let live_demo_blueprint =
-        crate::installation_data_blueprint::create_live_demo_blueprint(token_hash, &publications)
-            .context("creating the ordinary Live Demo Blueprint Course")?;
-    ensure!(
-        live_demo_blueprint
-            .assessment_id
-            .parse::<BlueprintAssessmentId>()
-            .is_ok(),
-        "Live Demo Blueprint Store receipt is not a canonical Blueprint Assessment ID"
-    );
-    run_manifest(
-        &migration_database_url,
-        "install.sql",
-        &BTreeMap::from([
-            ("pilot_publication_session_id", session_id_text),
-            ("pilot_question_publications", publications.clone()),
-            (
-                "live_demo_blueprint_course_id",
-                live_demo_blueprint.blueprint_course_id,
-            ),
-            (
-                "live_demo_blueprint_assessment_id",
-                live_demo_blueprint.assessment_id,
-            ),
-        ]),
-    )?;
-    println!("{publications}");
-    Ok(())
-}
-
-/// Publishes the shipped Genetics Blueprint through the ordinary authoring and
-/// Question-publication path. The temporary capability exists only for this
-/// installation operation and is revoked even when publication fails.
-fn apply_bundled_genetics() -> Result<()> {
-    validate_publisher_environment()?;
-
-    let migration_database_url = required_environment("PLE_MIGRATION_DATABASE_URL")?;
-    let session_id = SessionId::generate().map_err(anyhow::Error::msg)?;
-    let session_id_text = session_id.as_uuid().to_string();
-    let token_hash = fresh_session_token_hash()?;
-    run_manifest(
-        &migration_database_url,
-        "bundled_curriculum_context.sql",
-        &BTreeMap::from([
-            ("example_content_session_id", session_id_text.clone()),
-            ("example_content_session_token_hash", token_hash.to_string()),
-        ]),
-    )?;
-
-    let publication = publish_bundled_genetics(token_hash);
-    let cleanup = run_manifest(
-        &migration_database_url,
-        "revoke_example_content_session.sql",
-        &BTreeMap::from([("example_content_session_id", session_id_text)]),
-    );
-    match (publication, cleanup) {
-        (Ok(receipt), Ok(())) => {
-            println!("{}", receipt.installation_summary());
-            Ok(())
-        }
-        (Err(publication), Ok(())) => Err(publication),
-        (Ok(_), Err(cleanup)) => Err(cleanup.context("revoking the temporary PLE Example Content session")),
-        (Err(publication), Err(cleanup)) => Err(publication.context(format!(
-            "publishing bundled Genetics failed; the temporary PLE Example Content session also could not be revoked: {cleanup:#}"
-        ))),
-    }
-}
-
-fn publish_bundled_genetics(
-    session: SessionTokenHash,
-) -> Result<curriculum_content::publication::Receipt> {
-    let root = fixed_genetics_content_root()?;
-    let manifest = curriculum_content::load_from_root(&root, Path::new(BUNDLED_GENETICS_MANIFEST))
-        .context("loading the fixed bundled Genetics curriculum")?;
-    let workspace = WorkspaceId::from_uuid(
-        Uuid::parse_str(EXAMPLE_CONTENT_WORKSPACE_ID)
-            .expect("the fixed PLE Example Content workspace ID is valid"),
-    );
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .context("creating the bundled Genetics publication runtime")?;
-    runtime.block_on(async move {
-        let receipt = curriculum_content::publication::publish_with_context(
-            session, workspace, manifest, &root,
-        )
-        .await
-        .context("publishing the bundled Genetics Blueprint through the ordinary publisher")?;
-        let blueprint_course_id = BlueprintCourseId::new(receipt.blueprint_course_id())
-            .map_err(anyhow::Error::msg)
-            .context("resolving the bundled Genetics Blueprint receipt")?;
-        let database_url = required_environment("DATABASE_URL")?;
-        let pool = lazy_pool(&database_url)
-            .context("bundled Genetics Blueprint database URL is invalid")?;
-        let store = PostgresBlueprintCourseStore::new(pool);
-        let blueprint = store
-            .load_blueprint_course(session, blueprint_course_id.clone())
-            .await
-            .context("loading the retained bundled Genetics Blueprint")?;
-        // ASVS 8.2.2, 2.3.1: only the installation publisher's validated
-        // retained example is made Public, through its ordinary owner API.
-        ensure!(
-            blueprint.read_access == BlueprintCourseReadAccess::BlueprintCourseOwner,
-            "bundled Genetics Blueprint is not owned by the installation publisher"
-        );
-        ensure!(
-            matches!(
-                blueprint.availability,
-                BlueprintAvailability::Private | BlueprintAvailability::Public
-            ),
-            "bundled Genetics Blueprint is neither Private nor Public"
-        );
-        if blueprint.availability == BlueprintAvailability::Private {
-            store
-                .publish_blueprint(
-                    session,
-                    blueprint_course_id.clone(),
-                    blueprint.blueprint_edit_number,
-                )
-                .await
-                .context("making the bundled Genetics example Blueprint Public")?;
-        }
-        let published = store
-            .load_blueprint_course(session, blueprint_course_id)
-            .await
-            .context("reloading the Public bundled Genetics Blueprint")?;
-        ensure!(
-            published.availability == BlueprintAvailability::Public
-                && published.read_access == BlueprintCourseReadAccess::BlueprintCourseOwner
-                && published.current_revision_number == blueprint.current_revision_number,
-            "bundled Genetics publication changed ownership or Revision, or is not Public"
-        );
-        Ok(receipt)
-    })
-}
-
-fn fixed_genetics_content_root() -> Result<PathBuf> {
-    let source_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(Path::parent)
-        .context("locating the repository root from project-tools")?
-        .join("content/genetics");
-    for root in [PathBuf::from(IMAGE_GENETICS_CONTENT_ROOT), source_root] {
-        let Ok(root) = root.canonicalize() else {
-            continue;
-        };
-        if root.is_dir() {
-            return Ok(root);
-        }
-    }
-    bail!("the fixed bundled Genetics content root is unavailable")
-}
-
-fn fresh_session_token_hash() -> Result<SessionTokenHash> {
-    // ASVS 7.2.2, 7.2.3: every publisher capability starts as fresh CSPRNG
-    // material; no static installation credential is retained or logged.
-    let mut token = [0_u8; 32];
-    getrandom::fill(&mut token)
-        .map_err(|_| anyhow::anyhow!("generating the temporary Pilot session token failed"))?;
-    Ok(hash_session_token(token))
-}
-
-fn hash_session_token(token: [u8; 32]) -> SessionTokenHash {
-    SessionTokenHash::compute(&token)
-}
-
-fn validate_publisher_environment() -> Result<()> {
-    for name in [
-        "DATABASE_URL",
-        "PLE_STORAGE_TOPOLOGY",
-        "PLE_S3_REGION",
-        "PLE_PUBLIC_ASSETS_BUCKET",
-        "PLE_PRIVATE_CONTENT_BUCKET",
-        "PLE_STUDENT_RECORDS_BUCKET",
-        "PLE_TEMP_PROCESSING_BUCKET",
-    ] {
-        required_environment(name)?;
-    }
-    if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local") {
-        for name in [
-            "PLE_S3_ENDPOINT",
-            "AWS_ACCESS_KEY_ID",
-            "AWS_SECRET_ACCESS_KEY",
-        ] {
-            required_environment(name)?;
-        }
-    }
-    Ok(())
 }
 
 fn required_environment(name: &str) -> Result<String> {
@@ -372,7 +241,7 @@ fn fixed_manifest_path(filename: &str) -> Result<PathBuf> {
                 | "content_vocabulary.sql"
                 | "install.sql"
                 | "bundled_curriculum_context.sql"
-                | "revoke_example_content_session.sql"
+                | "revoke_import_session.sql"
         ),
         "installation-data manifest is not recognized"
     );
@@ -426,7 +295,7 @@ fn psql_script(manifest: &Path, variables: &BTreeMap<&str, String>) -> Result<St
                 "content_vocabulary.sql",
                 "install.sql",
                 "bundled_curriculum_context.sql",
-                "revoke_example_content_session.sql",
+                "revoke_import_session.sql",
             ]
             .iter()
             .any(|name| rendered_manifest.ends_with(&format!("/schemas/installation_data/{name}"))),
@@ -447,4 +316,51 @@ fn psql_value_is_safe(value: &str) -> bool {
                     b'-' | b'_' | b'{' | b'}' | b'[' | b']' | b':' | b',' | b'"'
                 )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn python_import_report_requires_completed_error_free_curriculum() {
+        let blueprints: BTreeMap<_, _> =
+            ["genetics", "biochemistry", "biotechnology", "biostatistics"]
+                .into_iter()
+                .enumerate()
+                .map(|(index, name)| {
+                    (
+                        name,
+                        question_model::BlueprintCourseId::from_debug_serial(index as u128),
+                    )
+                })
+                .collect();
+        let mut report = serde_json::json!({
+            "blueprints": blueprints,
+            "questions": 8,
+            "pools": 4,
+            "pointDefaults": [{
+                "source": "matching.pg",
+                "points": "1",
+                "reason": "Algorithmic choice count is not exposed in source metadata"
+            }],
+            "complete": true,
+            "errors": []
+        });
+        let completed: ImportResult = serde_json::from_value(report.clone()).unwrap();
+        completed.validate().unwrap();
+
+        for (complete, errors) in [
+            (false, serde_json::json!([])),
+            (true, serde_json::json!(["publication failed"])),
+        ] {
+            report["complete"] = complete.into();
+            report["errors"] = errors;
+            let result: ImportResult = serde_json::from_value(report.clone()).unwrap();
+            assert_eq!(
+                result.validate().unwrap_err().to_string(),
+                "curriculum import is incomplete or reported errors"
+            );
+        }
+    }
 }

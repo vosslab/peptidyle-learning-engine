@@ -33,7 +33,7 @@ export type DraftPreviewPanelProps = {
   readonly binding: DraftSourceBinding;
   readonly isSaved: boolean;
   readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;
-  readonly hotspotDraftQuestionImage?: QuestionResponseControlBaseProps["hotspotDraftQuestionImage"];
+  readonly draftQuestionImage?: QuestionResponseControlBaseProps["draftQuestionImage"];
   readonly client?: DraftQuestionPreviewClient;
   readonly clientConfig?: DraftPreviewClientConfig;
 };
@@ -163,7 +163,7 @@ export function DraftPreviewPanel(props: DraftPreviewPanelProps): JSX.Element {
                       blocks={preview.prompt}
                       draftQuestion={props.draftQuestion}
                       questionImageUrl={(asset) => {
-                        const resolve = props.hotspotDraftQuestionImage?.questionImageUrl;
+                        const resolve = props.draftQuestionImage?.questionImageUrl;
                         if (resolve === undefined)
                           throw new Error("Draft image preview is unavailable.");
                         return resolve(asset);
@@ -176,7 +176,7 @@ export function DraftPreviewPanel(props: DraftPreviewPanelProps): JSX.Element {
                   mode="formatOnly"
                   responseFormat={preview.response}
                   validator={props.responseValidator}
-                  hotspotDraftQuestionImage={props.hotspotDraftQuestionImage}
+                  draftQuestionImage={props.draftQuestionImage}
                   onEscape={() => undefined}
                   onResponseChange={(response, validation) =>
                     setNativeResponse(validation.issues.length === 0 ? response : undefined)

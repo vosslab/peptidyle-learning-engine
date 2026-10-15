@@ -20,7 +20,7 @@ Start the stack through [USAGE.md](USAGE.md). Current route evidence is in
 
 ## Teaching workflow
 
-1. Create a Private Blueprint Course, use a Public Blueprint, or create an
+1. Create a Blueprint Course, use an existing Public Blueprint, or create an
    empty Course Instance.
 2. When adopting a Blueprint, select one exact Public Blueprint Revision.
 3. Review offered Blueprint Revisions before applying changes to existing

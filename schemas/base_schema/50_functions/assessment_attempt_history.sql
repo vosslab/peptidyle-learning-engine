@@ -383,6 +383,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
             FROM ple_private.question_attempt_presentation_image_rendition AS presented
            WHERE presented.question_attempt_id
                  = question_attempt.question_attempt_id
+             AND NOT presented.is_disclosed_support
       ) AS question_image_renditions ON true
       LEFT JOIN LATERAL (
           SELECT jsonb_agg(jsonb_build_object(

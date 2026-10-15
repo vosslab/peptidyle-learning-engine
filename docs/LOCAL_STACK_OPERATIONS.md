@@ -34,7 +34,7 @@ is only a lookup/input value; it cannot establish authority.
 | Account, session, and passkey | Global `AccountId`                                                     | Server session and PostgreSQL                                     |
 | Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionTuple` | Active-Instructor Question Library                                |
 | Draft authoring               | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                                            |
-| Reusable curriculum           | Blueprint Course ID plus exact Blueprint Revision                      | Owner for Private/lifecycle; active Instructor for Public or explicitly included Archived read |
+| Reusable curriculum           | Blueprint Course ID plus exact Blueprint Revision                      | Owner for edits/lifecycle; active Instructor for Public or Archived read |
 | Course and assignment         | `CourseInstanceId` and child records                                           | Current Instructor Course Membership                              |
 | Student work and grades       | Exact course plus Student owner                                        | Student self or current course Instructor                         |
 | Jobs and objects              | Typed target from the locked lease                                     | Store/PostgreSQL capability boundary                              |
@@ -177,14 +177,14 @@ The command prints only the path of a separately created, mode-0600 `otpauth`
 URI file for the local authenticator to consume. It is not a browser credential
 and PLE provides no MFA recovery or self-service flow for Morgan.
 
-The default local installation runs `cargo tools installation-data provision`
-after the API and supporting services are ready. It creates the database-owned
-Pilot Question publication, ordinary Accounts, Blueprint Revision, Course,
-roster, and released Assessment, then uses ordinary authenticated routes for
-the cross-system Student Work and grading effects. Mary and Jack receive real
-Assessment Attempts; Avery remains enrolled without one. The database-owned
-manifest is convergent; the full provision command is the canonical owner for
-the complete known-good Live Demo.
+The default local installation uses the shared host Python importer after API
+readiness. It creates all four complete public Blueprint Courses through ordinary
+HTTP publication, adopts Biochemistry as BCHM 355, and provisions fictional
+membership separately. Mary completes ordinary work, Jack has open saved work,
+and Avery remains enrolled with an unstarted released Assessment. The same
+ready-stack operation is available through `local_stack.py install-data`;
+`--without-live-demo` retains curriculum and omits fictional teaching data on a
+fresh installation.
 
 ## Startup order
 

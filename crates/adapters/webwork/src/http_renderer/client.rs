@@ -129,6 +129,26 @@ pub struct HttpWebworkRenderer {
 }
 
 impl HttpWebworkRenderer {
+    /// Returns author-only PG diagnostics using the existing bounded render transport.
+    pub async fn diagnose_source(
+        &self,
+        request: RenderRequest<'_>,
+    ) -> Result<super::diagnostics::WebworkSourceDiagnostics, RendererFailure> {
+        validate_render_request(request)?;
+        let mut fields = super::protocol::render_fields(
+            request,
+            &self.settings.ple_origin,
+            &self.settings.ple_asset_base,
+        );
+        for (name, value) in &mut fields {
+            if name == "outputFormat" {
+                *value = "debug".into();
+            }
+        }
+        let value = self.rpc(fields).await?;
+        super::diagnostics::project(&value)
+    }
+
     pub fn new(settings: HttpWebworkRendererConfig) -> Result<Self, RendererConfigError> {
         let client = Client::builder()
             .connect_timeout(settings.deadline)

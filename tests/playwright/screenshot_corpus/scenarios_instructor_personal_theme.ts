@@ -5,10 +5,14 @@ import type { Theme } from "../../../generated/api/Theme";
 
 import type { ScenarioDefinition } from "./scenario_types";
 import { assertDocumentAppearance, persistDisplayMode } from "./theme_capture_workflow";
-import { choosePersona, followCaptureLink, scrollTop } from "./visible_workflows";
+import {
+  searchNativeMcLibraryQuestion,
+  choosePersona,
+  followCaptureLink,
+  scrollTop,
+} from "./visible_workflows";
 
 const PERSONAL_THEME = "magma";
-const PUBLISHED_QUESTION_TITLE = "Biochemistry Chapter 1: Charged functional groups";
 
 interface SavedPersonalAppearance {
   readonly theme: Theme;
@@ -17,7 +21,7 @@ interface SavedPersonalAppearance {
 }
 
 async function openProfile(page: Page): Promise<void> {
-  await choosePersona(page, "Elena Rivera");
+  await choosePersona(page, "Elena");
   await openProfileFromCurrentSession(page);
 }
 
@@ -132,15 +136,13 @@ async function persistPersonalTheme(page: Page): Promise<void> {
   await assertDocumentAppearance(page, { theme: PERSONAL_THEME, mode: "light" });
 }
 
-async function openFilteredLibrary(page: Page): Promise<void> {
+async function openFilteredLibrary(page: Page): Promise<string> {
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Questions", exact: true })
     .click();
   await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
-  await page.getByLabel("Search Question Library").fill("charged functional");
-  await page.getByLabel("Search Question Library").press("Enter");
-  await page.getByRole("heading", { name: PUBLISHED_QUESTION_TITLE, exact: true }).waitFor();
+  return (await searchNativeMcLibraryQuestion(page)).metadata.questionTitle;
 }
 
 export const INSTRUCTOR_PERSONAL_THEME_SCENARIO: ScenarioDefinition = {
@@ -209,7 +211,7 @@ export const INSTRUCTOR_PERSONAL_THEME_SCENARIO: ScenarioDefinition = {
       await openProfile(session.page);
       saved = await savedPersonalAppearance(session.page);
       await persistPersonalTheme(session.page);
-      await openFilteredLibrary(session.page);
+      const questionTitle = await openFilteredLibrary(session.page);
       await scrollTop(session.page);
       await runtime.captureCheckpoint(session, "personal_theme_library_light");
       await persistDisplayMode(session.page, "dark");
@@ -217,9 +219,13 @@ export const INSTRUCTOR_PERSONAL_THEME_SCENARIO: ScenarioDefinition = {
       await openFilteredLibrary(session.page);
       await scrollTop(session.page);
       await runtime.captureCheckpoint(session, "personal_theme_library_dark");
-      const result = session.page.locator(".record-list__row").filter({
-        has: session.page.getByRole("heading", { name: PUBLISHED_QUESTION_TITLE, exact: true }),
-      });
+      const result = session.page
+        .locator(".record-list__row")
+        .filter({
+          has: session.page.getByRole("heading", { name: questionTitle, exact: true }),
+        })
+        .filter({ has: session.page.getByRole("link", { name: "Open", exact: true }) })
+        .first();
       await followCaptureLink(
         session.page,
         result.getByRole("link", { name: "Open", exact: true }),

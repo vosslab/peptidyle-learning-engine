@@ -16,7 +16,7 @@ use super::{
 
 /// Forks one immutable Public or Archived source Revision. The Store derives
 /// the actor from the attested session and creates the separately editable
-/// Private child; no client can choose its owner, availability, Star, or Watch.
+/// Public child; no client can choose its owner, availability, Star, or Watch.
 pub(super) async fn fork_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,

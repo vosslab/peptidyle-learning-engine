@@ -56,7 +56,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   readonly exportBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,
   ) => Promise<CanonicalBlueprintCourse>;
-  /** Creates an independent Private Blueprint Course from validated reusable structure. */
+  /** Creates an independent public Blueprint Course from validated reusable structure. */
   readonly importBlueprintCourse: (
     exchange: CanonicalBlueprintCourse,
     idempotencyKey: BlueprintIdempotencyKey,
@@ -132,10 +132,6 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     names: RenameBlueprintCourseInput,
     expectedBlueprintEditNumber: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
-  readonly publishBlueprintCourse: (
-    blueprintCourseId: BlueprintCourseId,
-    expectedBlueprintEditNumber: BlueprintEditNumber,
-  ) => Promise<BlueprintMetadataTransition>;
   readonly getBlueprintRevision: (
     blueprintCourseId: BlueprintCourseId,
     revisionNumber: BlueprintRevisionNumber,
@@ -146,10 +142,6 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     expectedBlueprintEditNumber: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;
   readonly restoreBlueprintCourse: (
-    blueprintCourseId: BlueprintCourseId,
-    expectedBlueprintEditNumber: BlueprintEditNumber,
-  ) => Promise<BlueprintMetadataTransition>;
-  readonly returnBlueprintCourseToPrivate: (
     blueprintCourseId: BlueprintCourseId,
     expectedBlueprintEditNumber: BlueprintEditNumber,
   ) => Promise<BlueprintMetadataTransition>;

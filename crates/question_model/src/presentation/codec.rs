@@ -332,6 +332,15 @@ impl Encoder {
         self.u32_len(blocks.len())?;
         for block in blocks {
             match block {
+                QuestionContentBlock::Html { html, images } => {
+                    self.u8(5);
+                    self.string(html)?;
+                    self.u32_len(images.len())?;
+                    for image in images {
+                        self.string(&image.source_relative_name)?;
+                        self.asset_ref(&image.question_image_asset_tuple)?;
+                    }
+                }
                 QuestionContentBlock::Text { markdown } => {
                     self.u8(0);
                     self.string(markdown)?;

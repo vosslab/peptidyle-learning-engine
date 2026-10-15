@@ -12,7 +12,6 @@ use axum::{
 };
 use learning_data_access::{
     AuthoringDraftStore, CreateAuthoringDraftInput, DraftQuestionImageStore, DraftQuestionUuid,
-    ForkPublishedQuestionImageInput, PublishedQuestionForkImage, QuestionForkStore,
     QuestionLibraryStore, RegisterDraftQuestionImageInput, SaveAuthoringDraftGeneralFeedbackInput,
     SessionTokenHash, StoreError,
     postgres::{
@@ -23,8 +22,7 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectStore, PutObject, ResolvedQuestionSource, s3::S3ObjectStore};
 use question_model::{
     ObjectId as ModelObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple,
-    QuestionBackend, QuestionMetadata, QuestionResponseFormat, QuestionRevisionNumber,
-    QuestionType, UserRole,
+    QuestionBackend, QuestionMetadata, QuestionRevisionNumber, UserRole,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -69,18 +67,6 @@ pub fn question_correction_draft_router(
 struct CorrectionDraftResponse {
     draft_question: Uuid,
     published_question_revision_tuple: PublishedQuestionRevisionTuple,
-}
-
-struct VerifiedHotspotImage {
-    evidence: PublishedQuestionForkImage,
-    bytes: Vec<u8>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum HotspotImageLookup {
-    NotRequired,
-    Native,
-    UnsupportedBackend,
 }
 
 async fn create_correction_draft(
@@ -157,18 +143,18 @@ async fn create_correction_draft(
         Ok(source) if source.media_type() == entry.source_media_type => source,
         _ => return unavailable(),
     };
-    let hotspot = match load_hotspot_image(
-        &state,
+    let images = match crate::question_fork_images::load_question_images(
+        &state.forks,
+        &state.objects,
         session,
-        &entry.question_type,
-        &entry.backend,
+        entry.backend,
         &parent,
         source.bytes(),
     )
     .await
     {
         Ok(value) => value,
-        Err(response) => return *response,
+        Err(()) => return unavailable(),
     };
     let workspace = match state
         .drafts
@@ -196,11 +182,11 @@ async fn create_correction_draft(
         Err(_) => return unavailable(),
     };
     let source_record_cleanup = source_record.clone();
-    let target_image = match copy_hotspot_image(
+    let target_images = match crate::question_fork_images::copy_question_images(
         &state.objects,
         workspace,
-        draft_question_uuid,
-        hotspot.as_ref(),
+        draft_question_uuid.as_uuid(),
+        &images,
     )
     .await
     {
@@ -210,9 +196,10 @@ async fn create_correction_draft(
             return unavailable();
         }
     };
-    let image_record = target_image
-        .as_ref()
-        .map(|image| image.target_record.clone());
+    let image_records = target_images
+        .iter()
+        .map(|image| image.target_record.clone())
+        .collect::<Vec<_>>();
     let metadata = QuestionMetadata {
         question_title: entry.question_title.clone(),
         question_description: entry.question_description.clone(),
@@ -240,12 +227,12 @@ async fn create_correction_draft(
         Ok(value) => value,
         Err(_) => {
             cleanup_object(&state.objects, Some(&source_record_cleanup)).await;
-            cleanup_object(&state.objects, image_record.as_ref()).await;
+            cleanup_images(&state.objects, &image_records).await;
             return unavailable();
         }
     };
-    if let Some(image) = target_image
-        && state
+    for image in target_images {
+        if state
             .images
             .register_draft_question_image(
                 session,
@@ -253,6 +240,7 @@ async fn create_correction_draft(
                     draft_question_uuid,
                     expected_edit_number: draft.edit_number,
                     question_image_asset_id: image.question_image_asset_id,
+                    source_relative_name: image.source_relative_name,
                     source_record: image.target_record,
                     intrinsic_width: image.intrinsic_width,
                     intrinsic_height: image.intrinsic_height,
@@ -260,10 +248,10 @@ async fn create_correction_draft(
             )
             .await
             .is_err()
-    {
-        cleanup_unpublished_draft(&state, session, draft_question_uuid, image_record.as_ref())
-            .await;
-        return unavailable();
+        {
+            cleanup_unpublished_draft(&state, session, draft_question_uuid, &image_records).await;
+            return unavailable();
+        }
     }
     let support_saved = state
         .drafts
@@ -283,8 +271,7 @@ async fn create_correction_draft(
     let saved = match support_saved {
         Ok(value) => value,
         Err(_) => {
-            cleanup_unpublished_draft(&state, session, draft_question_uuid, image_record.as_ref())
-                .await;
+            cleanup_unpublished_draft(&state, session, draft_question_uuid, &image_records).await;
             return unavailable();
         }
     };
@@ -300,111 +287,11 @@ async fn create_correction_draft(
     )
 }
 
-async fn load_hotspot_image(
-    state: &RouteState,
-    session: SessionTokenHash,
-    question_type: &QuestionType,
-    backend: &QuestionBackend,
-    parent: &PublishedQuestionRevisionTuple,
-    source: &[u8],
-) -> Result<Option<VerifiedHotspotImage>, Box<Response>> {
-    match hotspot_image_lookup(backend, question_type) {
-        HotspotImageLookup::NotRequired => return Ok(None),
-        HotspotImageLookup::Native => {}
-        HotspotImageLookup::UnsupportedBackend => return Err(Box::new(unavailable())),
-    }
-    let document = adapter_ple::question_json::PleQuestionJsonDocument::parse(source)
-        .map_err(|_| Box::new(unavailable()))?;
-    let compiled = document.compile().map_err(|_| Box::new(unavailable()))?;
-    let QuestionResponseFormat::Hotspot {
-        question_image_asset_tuple,
-        ..
-    } = compiled.presentation().response()
-    else {
-        return Err(Box::new(unavailable()));
-    };
-    let evidence = state
-        .forks
-        .load_published_question_fork_asset(session, parent)
-        .await
-        .map_err(|_| Box::new(unavailable()))?
-        .ok_or_else(|| Box::new(unavailable()))?;
-    if evidence.question_image_asset_id != question_image_asset_tuple.question_image_asset_id
-        || evidence.source_record.sha256.to_string() != question_image_asset_tuple.checksum
-    {
-        return Err(Box::new(unavailable()));
-    }
-    let source_image = state
-        .objects
-        .get(&evidence.source_record.address)
-        .await
-        .map_err(|_| Box::new(unavailable()))?;
-    if source_image.record != evidence.source_record {
-        return Err(Box::new(unavailable()));
-    }
-    let verified = objects::image_validation::verify_still_image(&source_image.bytes)
-        .map_err(|_| Box::new(unavailable()))?;
-    if verified.media_type.canonical_media_type() != evidence.source_record.media_type
-        || verified.width != evidence.intrinsic_width
-        || verified.height != evidence.intrinsic_height
-    {
-        return Err(Box::new(unavailable()));
-    }
-    Ok(Some(VerifiedHotspotImage {
-        evidence,
-        bytes: source_image.bytes,
-    }))
-}
-
-fn hotspot_image_lookup(
-    backend: &QuestionBackend,
-    question_type: &QuestionType,
-) -> HotspotImageLookup {
-    if *backend == QuestionBackend::Webwork {
-        return HotspotImageLookup::NotRequired;
-    }
-    if *question_type != QuestionType::Hotspot {
-        return HotspotImageLookup::NotRequired;
-    }
-    if *backend == QuestionBackend::Ple {
-        return HotspotImageLookup::Native;
-    }
-    HotspotImageLookup::UnsupportedBackend
-}
-
-async fn copy_hotspot_image(
-    objects: &S3ObjectStore,
-    workspace: question_model::WorkspaceId,
-    draft_question_uuid: DraftQuestionUuid,
-    image: Option<&VerifiedHotspotImage>,
-) -> Result<Option<ForkPublishedQuestionImageInput>, objects::ObjectStoreError> {
-    let Some(image) = image else { return Ok(None) };
-    let target_record = objects
-        .put(PutObject {
-            address: ObjectAddress::DraftQuestionImage {
-                workspace_id: workspace,
-                draft_question_id: draft_question_uuid.as_uuid(),
-                question_image_asset_id: image.evidence.question_image_asset_id,
-                object_id: ModelObjectId::generate(),
-            },
-            bytes: image.bytes.clone(),
-            media_type: image.evidence.source_record.media_type.clone(),
-            created_at: crate::authoring::now(),
-        })
-        .await?;
-    Ok(Some(ForkPublishedQuestionImageInput {
-        question_image_asset_id: image.evidence.question_image_asset_id,
-        target_record,
-        intrinsic_width: image.evidence.intrinsic_width,
-        intrinsic_height: image.evidence.intrinsic_height,
-    }))
-}
-
 async fn cleanup_unpublished_draft(
     state: &RouteState,
     session: SessionTokenHash,
     draft_question_uuid: DraftQuestionUuid,
-    image_record: Option<&objects::ObjectRecord>,
+    image_records: &[objects::ObjectRecord],
 ) {
     let draft = state
         .drafts
@@ -424,7 +311,13 @@ async fn cleanup_unpublished_draft(
         .is_ok()
     {
         cleanup_object(&state.objects, Some(&draft.source_record)).await;
-        cleanup_object(&state.objects, image_record).await;
+        cleanup_images(&state.objects, image_records).await;
+    }
+}
+
+async fn cleanup_images(objects: &S3ObjectStore, images: &[objects::ObjectRecord]) {
+    for image in images {
+        let _ = objects.delete(&image.address).await;
     }
 }
 

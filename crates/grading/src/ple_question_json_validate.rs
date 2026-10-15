@@ -572,34 +572,30 @@ pub(super) fn question_answer_blocks(
             ))
         }
         (QuestionResponseFormat::MultiBlank { blanks }, AnswerKey::MultiBlank { accepted }) => {
-            vec![QuestionContentBlock::Table {
-                headers: vec!["Blank".to_string(), "Accepted response".to_string()],
-                rows: blanks
-                    .iter()
-                    .map(|blank| vec![blocks_text(&blank.label), accepted[&blank.id].join("; ")])
-                    .collect(),
-                description: "Accepted responses for each blank".to_string(),
-            }]
+            let mut blocks = Vec::new();
+            for (index, blank) in blanks.iter().enumerate() {
+                blocks.extend(markdown_blocks(&format!("Blank {}:", index + 1)));
+                blocks.extend(blank.label.clone());
+                blocks.extend(markdown_blocks(&accepted[&blank.id].join("; ")));
+            }
+            blocks
         }
         (
             QuestionResponseFormat::Matching { prompts, choices },
             AnswerKey::Matching { correct },
         ) => {
-            vec![QuestionContentBlock::Table {
-                headers: vec!["Prompt".to_string(), "Match".to_string()],
-                rows: prompts
+            let mut blocks = Vec::new();
+            for (index, prompt) in prompts.iter().enumerate() {
+                let choice_id = &correct[&prompt.id];
+                let choice = choices
                     .iter()
-                    .map(|prompt| {
-                        let choice_id = &correct[&prompt.id];
-                        let choice = choices
-                            .iter()
-                            .find(|choice| &choice.id == choice_id)
-                            .expect("validated matching key names an available choice");
-                        vec![blocks_text(&prompt.body), blocks_text(&choice.body)]
-                    })
-                    .collect(),
-                description: "Correct prompt and choice matches".to_string(),
-            }]
+                    .find(|choice| &choice.id == choice_id)
+                    .expect("validated matching key names an available choice");
+                blocks.extend(markdown_blocks(&format!("Match {}:", index + 1)));
+                blocks.extend(prompt.body.clone());
+                blocks.extend(choice.body.clone());
+            }
+            blocks
         }
         (QuestionResponseFormat::Ordering { items }, AnswerKey::Ordering { correct }) => correct
             .iter()
@@ -624,20 +620,6 @@ pub(super) fn question_answer_blocks(
     Ok(blocks)
 }
 
-fn blocks_text(blocks: &[QuestionContentBlock]) -> String {
-    blocks
-        .iter()
-        .map(|block| match block {
-            QuestionContentBlock::Text { markdown } => markdown.as_str(),
-            QuestionContentBlock::Math { description, .. }
-            | QuestionContentBlock::Image { description, .. }
-            | QuestionContentBlock::Table { description, .. } => description.as_str(),
-            QuestionContentBlock::Code { source, .. } => source.as_str(),
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
 pub(super) fn markdown_blocks(markdown: &str) -> Vec<QuestionContentBlock> {
     vec![QuestionContentBlock::Text {
         markdown: markdown.to_string(),
@@ -660,12 +642,6 @@ pub(super) fn validate_choice_id(value: &str) -> Result<(), PleQuestionJsonError
 }
 pub(super) fn validate_feedback(value: &str) -> Result<(), PleQuestionJsonError> {
     validate_bounded_text("feedback", value, MAX_FEEDBACK_CHARS)
-}
-pub(super) fn validate_optional_feedback(value: Option<&str>) -> Result<(), PleQuestionJsonError> {
-    if let Some(value) = value {
-        validate_feedback(value)?;
-    }
-    Ok(())
 }
 fn validate_bounded_text(
     name: &str,

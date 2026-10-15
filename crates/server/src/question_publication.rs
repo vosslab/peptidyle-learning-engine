@@ -240,17 +240,16 @@ where
         if source.record != source_record {
             return Err(QuestionPublicationError::SourceObjectRecordMismatch);
         }
-        let hotspot_question_image =
-            crate::question_publication_images::load_hotspot_question_image(
-                &self.object_store,
-                self.draft_question_image.as_ref(),
-                session_token_hash,
-                command.workspace,
-                command.draft_question_uuid,
-                &source.bytes,
-                &source_record.media_type,
-            )
-            .await?;
+        let question_images = crate::question_publication_images::load_question_images(
+            &self.object_store,
+            self.draft_question_image.as_ref(),
+            session_token_hash,
+            command.workspace,
+            command.draft_question_uuid,
+            &source.bytes,
+            &source_record.media_type,
+        )
+        .await?;
         let identity_attempts = if reserved_published_question_id.is_some() {
             1
         } else {
@@ -287,24 +286,25 @@ where
                 .await
                 .map_err(QuestionPublicationError::ObjectStore)?;
             let target_object_address = target_record.address.clone();
-            let prepared_question_image =
-                crate::question_publication_images::prepare_hotspot_question_image(
+            let prepared_question_images =
+                crate::question_publication_images::prepare_question_images(
                     &self.object_store,
-                    hotspot_question_image.as_ref(),
+                    &question_images,
                     &published_question_revision_tuple,
                     stored_at,
                 )
                 .await?;
-            let target_image_address = prepared_question_image
-                .as_ref()
-                .map(|asset| asset.restricted_source_record.address.clone());
+            let target_image_addresses = prepared_question_images
+                .iter()
+                .map(|asset| asset.restricted_source_record.address.clone())
+                .collect::<Vec<_>>();
             let input = NewQuestionLineagePublicationInput {
                 draft_question_uuid: command.draft_question_uuid,
                 expected_draft_question_edit_number: command.expected_draft_question_edit_number,
                 workspace: command.workspace,
                 question_id,
                 question_source_object_record: target_record,
-                hotspot_question_image: prepared_question_image,
+                question_images: prepared_question_images,
                 question_authorship: command.question_authorship.clone(),
                 initial_shared_tags: command.initial_shared_tags.clone(),
                 discipline_uuid: command.discipline_uuid,
@@ -335,7 +335,7 @@ where
                     crate::question_publication_images::cleanup_targets(
                         &self.object_store,
                         &target_object_address,
-                        target_image_address.as_ref(),
+                        &target_image_addresses,
                     )
                     .await?;
                     if reserved_published_question_id.is_some() {
@@ -416,17 +416,16 @@ where
         if source.record != source_record {
             return Err(QuestionPublicationError::SourceObjectRecordMismatch);
         }
-        let hotspot_question_image =
-            crate::question_publication_images::load_hotspot_question_image(
-                &self.object_store,
-                self.draft_question_image.as_ref(),
-                session_token_hash,
-                command.workspace,
-                command.draft_question_uuid,
-                &source.bytes,
-                &source_record.media_type,
-            )
-            .await?;
+        let question_images = crate::question_publication_images::load_question_images(
+            &self.object_store,
+            self.draft_question_image.as_ref(),
+            session_token_hash,
+            command.workspace,
+            command.draft_question_uuid,
+            &source.bytes,
+            &source_record.media_type,
+        )
+        .await?;
         let target_address = ObjectAddress::QuestionSource {
             published_question_revision_tuple: successor_published_question_revision_tuple.clone(),
             object_id: ObjectId::generate(),
@@ -442,17 +441,17 @@ where
             .await
             .map_err(QuestionPublicationError::ObjectStore)?;
         let target_address = target_record.address.clone();
-        let prepared_question_image =
-            crate::question_publication_images::prepare_hotspot_question_image(
-                &self.object_store,
-                hotspot_question_image.as_ref(),
-                &successor_published_question_revision_tuple,
-                stored_at,
-            )
-            .await?;
-        let target_image_address = prepared_question_image
-            .as_ref()
-            .map(|asset| asset.restricted_source_record.address.clone());
+        let prepared_question_images = crate::question_publication_images::prepare_question_images(
+            &self.object_store,
+            &question_images,
+            &successor_published_question_revision_tuple,
+            stored_at,
+        )
+        .await?;
+        let target_image_addresses = prepared_question_images
+            .iter()
+            .map(|asset| asset.restricted_source_record.address.clone())
+            .collect::<Vec<_>>();
         let input = ExistingQuestionRevisionPublicationInput {
             draft_question_uuid: command.draft_question_uuid,
             expected_draft_question_edit_number: command.expected_draft_question_edit_number,
@@ -460,7 +459,7 @@ where
             parent_published_question_revision_tuple: command
                 .parent_published_question_revision_tuple,
             question_source_object_record: target_record,
-            hotspot_question_image: prepared_question_image,
+            question_images: prepared_question_images,
             question_revision_reason: command.question_revision_reason,
             question_publication_event_id: Uuid::now_v7(),
         };
@@ -479,7 +478,7 @@ where
                 crate::question_publication_images::cleanup_targets(
                     &self.object_store,
                     &target_address,
-                    target_image_address.as_ref(),
+                    &target_image_addresses,
                 )
                 .await?;
                 Err(QuestionPublicationError::StaleQuestionRevision)

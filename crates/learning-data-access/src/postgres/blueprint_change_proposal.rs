@@ -103,7 +103,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             return Ok(None);
         };
         // Authorized trees are decoded/checksummed once; exact Pool membership is
-        // shared with lineage review, never loaded through ordinary Private history.
+        // shared with lineage review and resolved from the retained exact Revisions.
         let pool_memberships = super::blueprint_lineage::load_pool_memberships(
             &mut transaction,
             &[source.clone(), target.clone()],

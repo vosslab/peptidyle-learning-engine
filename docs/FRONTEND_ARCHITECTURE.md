@@ -88,12 +88,12 @@ not define product copy.
 
 ## Blueprint editor
 
-A new or forked Blueprint is Private and starts with Revision 1. The owner-only
+A new or forked Blueprint is Public and starts with Revision 1. The owner-only
 editor holds unsaved work locally until explicit Save. A meaningful Save creates
 the next immutable Blueprint Revision; a no-op creates none. Rename and
-Private/Public/Archived lifecycle changes do not create content Revisions.
+Public/Archived lifecycle changes do not create content Revisions.
 
-Public Blueprints are adoptable. Private Blueprints are owner-only. Archived
+Public Blueprints are adoptable. Only their owner may edit them. Archived
 Blueprints are read-only, hidden from ordinary discovery, available only by
 explicit archived inclusion, and forkable. Blueprints have no dates, Students,
 time zones, or relative schedules.

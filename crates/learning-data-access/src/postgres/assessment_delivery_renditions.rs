@@ -6,7 +6,7 @@ use super::super::connection::map_sqlx_error;
 use crate::StoreError;
 use crate::assessment_delivery::ReadyQuestionImageRendition;
 
-const SELECT_READY_QUESTION_IMAGE_RENDITIONS_SQL: &str = "SELECT question_image_asset_id::text, question_image_checksum, rendition_checksum, intrinsic_width, intrinsic_height \
+const SELECT_READY_QUESTION_IMAGE_RENDITIONS_SQL: &str = "SELECT source_relative_name, question_image_asset_id::text, question_image_checksum, rendition_checksum, intrinsic_width, intrinsic_height \
          FROM ple_api.select_ready_question_image_renditions($1, $2)";
 
 pub(super) fn presentation_payloads<'a>(
@@ -80,7 +80,7 @@ pub(super) fn presentation_payloads<'a>(
     }).collect::<Result<Vec<_>, StoreError>>().map(serde_json::Value::Array)
 }
 
-pub(super) async fn current_ready_question_image_renditions(
+pub(in crate::postgres) async fn current_ready_question_image_renditions(
     tx: &mut Transaction<'_, Postgres>,
     question_id: &str,
     revision_number: u32,
@@ -99,6 +99,9 @@ pub(super) async fn current_ready_question_image_renditions(
                 .try_get::<String, _>("question_image_asset_id")
                 .map_err(map_sqlx_error)?;
             Ok(ReadyQuestionImageRendition {
+                source_relative_name: row
+                    .try_get("source_relative_name")
+                    .map_err(map_sqlx_error)?,
                 question_image_asset_id: uuid::Uuid::parse_str(&question_image_asset_id)
                     .map(question_model::QuestionImageAssetId::from_uuid)
                     .map_err(|_| {

@@ -618,7 +618,7 @@ pub trait BlueprintCourseStore: Send + Sync {
         session: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
     ) -> Result<CanonicalBlueprintCourse, StoreError>;
-    /// Creates a distinct actor-owned Private Blueprint through the ordinary
+    /// Creates a distinct actor-owned public Blueprint through the ordinary
     /// Revision 1 transaction, preserving direct references to existing Pools.
     async fn import_blueprint_course(
         &self,
@@ -647,13 +647,6 @@ pub trait BlueprintCourseStore: Send + Sync {
         expected_edit_number: BlueprintEditNumber,
         input: RenameBlueprintCourseInput,
     ) -> Result<BlueprintMetadataState, StoreError>;
-    /// Requests C49's Private-to-Public lifecycle transition for an owner.
-    async fn publish_blueprint(
-        &self,
-        session: SessionTokenHash,
-        blueprint_course_id: BlueprintCourseId,
-        expected_edit_number: BlueprintEditNumber,
-    ) -> Result<BlueprintMetadataState, StoreError>;
     async fn archive_blueprint(
         &self,
         session: SessionTokenHash,
@@ -662,14 +655,6 @@ pub trait BlueprintCourseStore: Send + Sync {
         confirmation_title: &str,
     ) -> Result<BlueprintMetadataState, StoreError>;
     async fn restore_blueprint(
-        &self,
-        session: SessionTokenHash,
-        blueprint_course_id: BlueprintCourseId,
-        expected_edit_number: BlueprintEditNumber,
-    ) -> Result<BlueprintMetadataState, StoreError>;
-    /// Requests C49's permitted Public-to-Private transition for an owner.
-    /// The Store transaction denies it after the lineage has been adopted.
-    async fn return_blueprint_to_private(
         &self,
         session: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,

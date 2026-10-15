@@ -111,21 +111,18 @@ selected Questions after later Pool edits.
 
 ## Blueprint identities and lifecycle
 
-A Blueprint Course is created Private with Revision 1. An explicit Save creates
+A Blueprint Course is created Public with Revision 1. An explicit Save creates
 the next Blueprint Revision only when reusable content changed; a
 no-op returns the current Revision and creates nothing. Name and lifecycle
 metadata changes do not create Blueprint Revisions.
 
 The lifecycle state belongs to the Blueprint lineage:
 
-- Private: owner-only and unavailable for adoption;
 - Public: visible to Instructors and available for adoption; or
 - Archived: read-only, excluded from ordinary discovery and new adoption, but
   discoverable through explicit archived inclusion and forkable.
 
-Only the owner changes Blueprint lifecycle state. A Public Blueprint can return
-to Private only before any Course Instance has adopted it. Archived restores to
-Public. A Revision Tuple remains exact regardless of later lifecycle
+Only the owner changes Blueprint lifecycle state. Archived restores to Public. A Revision Tuple remains exact regardless of later lifecycle
 changes.
 
 Blueprints contain no Students, dates, time zones, or relative schedules.

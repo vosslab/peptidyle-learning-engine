@@ -22,7 +22,7 @@ CREATE TABLE ple_data.blueprint_course (
         REFERENCES ple_data.content_topic(content_subject_id, content_topic_id),
     FOREIGN KEY (content_topic_id, content_subtopic_id)
         REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
-    availability ple_data.blueprint_availability NOT NULL DEFAULT 'private',
+    availability ple_data.blueprint_availability NOT NULL DEFAULT 'public',
     promoted boolean NOT NULL DEFAULT false,
     parent_blueprint_course_id ple_data.blueprint_course_id,
     parent_blueprint_revision_number integer CHECK (

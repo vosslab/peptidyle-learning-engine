@@ -34,14 +34,15 @@ The canonical administration path is deliberately small:
 1. `cargo tools database initialize` installs a fresh eligible database from
    the base manifest.
 2. `cargo tools database migrate` applies any pending forward migration.
-3. `cargo tools installation-data provision` ordinarily provisions the complete
-   known-good Live Demo as ordinary product data. `provision --without-live-demo`
-   explicitly omits that data phase; `apply` is only the narrower
-   database-owned graph operation.
+3. `source source_me.sh && python3 local_stack.py install-data` imports the full
+   BPW curriculum through ordinary Instructor HTTP operations, then creates the
+   fictional Live Demo graph. `install-data --without-live-demo` retains the
+   curriculum and omits fictional records on a fresh installation. See
+   [../ple_import/README.md](../ple_import/README.md).
 4. `cargo tools database verify`, using the application role, confirms the
    restricted schema-state contract.
 
-The final material tree has passed the following release-readiness evidence:
+The earlier database-reset baseline passed the following release-readiness evidence:
 
 - PostgreSQL fresh initialization, replay, restricted application-role
   verification, schema ownership/RLS/DDL checks, and the populated Unrelease
@@ -60,6 +61,10 @@ The Live Demo uses the production schema and ordinary records. Database-owned
 facts belong in its idempotent data manifest; effects that leave PostgreSQL use
 their normal owning path. It has no parallel demo schema, special lifecycle,
 or teardown subsystem.
+
+The replacement BPW import and full Biochemistry adoption are awaiting fresh
+live installation and browser acceptance. Current evidence is recorded in
+[active_plans/active/bpw_import_status.md](active_plans/active/bpw_import_status.md).
 
 ## Product work that remains separate
 

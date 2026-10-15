@@ -5,9 +5,8 @@ SET LOCAL ROLE ple_api_owner;
 
 
 
--- ASVS 8.2.2/3, 8.3.1/2, 14.2.6: source permission never grants access to
--- another Instructor's Private child or identity. One statement snapshot keeps
--- current visibility, names and heads coherent without locking a read-only list.
+-- ASVS 8.2.1/8.3.1: Blueprint reading requires an active Instructor. One statement
+-- snapshot keeps current names and heads coherent without locking a read-only list.
 CREATE FUNCTION ple_api.list_known_blueprint_forks(p_source_blueprint_course_id text)
 RETURNS TABLE (
     blueprint_course_id text,
@@ -35,8 +34,7 @@ BEGIN
     SELECT source.blueprint_course_id INTO v_source_blueprint_course_id
       FROM ple_data.blueprint_course AS source
      WHERE source.blueprint_course_id = p_source_blueprint_course_id
-       AND (source.availability IN ('public', 'archived')
-           OR source.owner_account_id = v_actor);
+       AND source.availability IN ('public', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Blueprint Course is unavailable';
@@ -48,8 +46,7 @@ BEGIN
            ple_private.instructor_display_name(child.owner_account_id)
       FROM ple_data.blueprint_course AS child
      WHERE child.parent_blueprint_course_id = v_source_blueprint_course_id
-       AND (child.availability IN ('public', 'archived')
-           OR child.owner_account_id = v_actor)
+       AND child.availability IN ('public', 'archived')
      ORDER BY child.blueprint_course_id COLLATE "C";
 END
 $$;
@@ -75,7 +72,6 @@ CREATE FUNCTION ple_api.load_blueprint_comparison_sources(
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
-    v_actor text;
     v_fork ple_data.blueprint_course%ROWTYPE;
     v_source ple_data.blueprint_course%ROWTYPE;
     v_locked_blueprint_course_id text;
@@ -86,7 +82,6 @@ BEGIN
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RETURN;
     END IF;
-    v_actor := ple_api.current_session_account_id();
 
     -- Existing save, rename and lifecycle operations lock one Course FOR UPDATE;
     -- fork creation locks its source FOR SHARE before inserting a new child.
@@ -110,14 +105,11 @@ BEGIN
      WHERE course.blueprint_course_id = p_left_blueprint_course_id;
     IF NOT FOUND THEN RETURN; END IF;
     IF NOT ple_api.current_session_account_is_instructor()
-       OR NOT (v_fork.availability IN ('public', 'archived')
-           OR v_fork.owner_account_id = v_actor)
-       OR NOT (v_source.availability IN ('public', 'archived')
-           OR v_source.owner_account_id = v_actor) THEN
+       OR v_fork.availability NOT IN ('public', 'archived')
+       OR v_source.availability NOT IN ('public', 'archived') THEN
         RETURN;
     END IF;
-    -- Only selected records are projected. Private ancestors establish relation
-    -- internally without disclosing their identity, content or lineage size.
+    -- Only selected records are projected; ancestors establish their relation.
     IF NOT EXISTS (
         WITH RECURSIVE left_ancestors(blueprint_course_id) AS (
             SELECT v_source.blueprint_course_id
@@ -203,7 +195,7 @@ BEGIN
       WHERE course.blueprint_course_id = v_origin.blueprint_course_id;
     IF NOT ple_api.current_session_account_is_instructor()
        OR v_fork.owner_account_id <> v_actor
-       OR NOT (v_source.availability IN ('public', 'archived') OR v_source.owner_account_id = v_actor) THEN
+       OR v_source.availability NOT IN ('public', 'archived') THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is unavailable';
     END IF;
     IF v_fork.availability = 'archived' THEN
@@ -360,8 +352,7 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Lifecycle is evaluated at the transaction boundary. A source that is
-    -- changed to Private concurrently cannot be forked after this lock.
+    -- Keep the source metadata and exact Revision coherent with concurrent writes.
     SELECT * INTO v_source
       FROM ple_data.blueprint_course AS source_course
      WHERE source_course.blueprint_course_id = v_source_blueprint_course_id
@@ -431,7 +422,7 @@ BEGIN
         blueprint_edit_number, current_blueprint_revision_number, created_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
-        COALESCE(p_blueprint_course_id, 'BP0000000C'), v_actor, v_source.short_name, v_source.long_name, 'private',
+        COALESCE(p_blueprint_course_id, 'BP0000000C'), v_actor, v_source.short_name, v_source.long_name, 'public',
         v_source_blueprint_course_id, p_source_blueprint_revision_number,
         v_blueprint_edit_number, 1, v_now,
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
@@ -468,7 +459,7 @@ BEGIN
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_child_blueprint_course_id, v_actor, v_source.short_name, v_source.long_name,
-        'private', v_blueprint_edit_number, v_now,
+        'public', v_blueprint_edit_number, v_now,
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
         v_source.content_subtopic_id, v_source.tags, v_source.theme_id
     );

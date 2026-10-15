@@ -1,10 +1,10 @@
 # Genetics example Blueprint
 
-This directory ships the reusable `Genetics` / `Fall Genetics` example Blueprint.
-`manifest.yaml` is the active portable curriculum-content input. It defines 41 accepted
-canonical PGML sources (40 from biology-problems-website plus HLA) as direct Fixed entries
-across nine nonempty Genetics topics. It contains no static banks or migration-only
-replacement mappings.
+This directory supplies bundled Genetics PGML and attribution to the shared
+[BPW importer](../../launchers/import_bpw.py). The importer combines these
+sources with the complete BPW Genetics collection, keeping direct PG/PGML source
+unchanged. `manifest.yaml` supplies source metadata; its former miniature
+curriculum publication policy is no longer an installation path.
 
 The upstream Biology Problems snapshot is identified by the `source_revision` SHA-256 tree
 fingerprint in `manifest.yaml`. Question content is CC BY 4.0; see `LICENSE.CC_BY_4_0` and

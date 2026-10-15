@@ -21,10 +21,10 @@ use url::Url;
 use author_script::{PleQuestionJsonAuthorScript, compile_author_content, validate_author_script};
 
 use super::{
-    CompiledPleQuestionJson, MAX_PROMPT_CHARS, PLE_QUESTION_JSON_FORMAT_NAME,
-    PleQuestionJsonChoice, PleQuestionJsonError, PleQuestionJsonOutcomeFeedback,
-    PleQuestionJsonPresentation, PleQuestionJsonPrivateGrading, invalid, markdown_blocks,
-    validate_markdown, validate_optional_feedback, validate_optional_hint,
+    CompiledPleQuestionJson, PLE_QUESTION_JSON_FORMAT_NAME, PleQuestionJsonChoice,
+    PleQuestionJsonError, PleQuestionJsonOutcomeFeedback, PleQuestionJsonPresentation,
+    PleQuestionJsonPrivateGrading, html_blocks, invalid, validate_optional_feedback,
+    validate_optional_hint,
 };
 
 const MAX_BLANKS: usize = 50;
@@ -258,6 +258,47 @@ struct PleQuestionJsonHotspotRegion {
 }
 
 impl PleQuestionJsonDocumentBody {
+    fn display_html(&self) -> Vec<&str> {
+        let mut content = vec![self.prompt.as_str()];
+        content.extend(self.question_hint.as_deref());
+        content.extend(self.feedback.correct.as_deref());
+        content.extend(self.feedback.incorrect.as_deref());
+        match &self.response {
+            PleQuestionJsonResponse::SingleChoice { choices, .. }
+            | PleQuestionJsonResponse::MultipleAnswer { choices, .. } => {
+                for choice in choices {
+                    content.push(&choice.text);
+                    content.extend(choice.feedback.as_deref());
+                }
+            }
+            PleQuestionJsonResponse::MultiFillIn { blanks } => {
+                content.extend(blanks.iter().map(|blank| blank.label.as_str()))
+            }
+            PleQuestionJsonResponse::Matching {
+                prompts, choices, ..
+            } => {
+                content.extend(prompts.iter().map(|item| item.text.as_str()));
+                content.extend(choices.iter().map(|item| item.text.as_str()));
+            }
+            PleQuestionJsonResponse::Ordering { items, .. } => {
+                content.extend(items.iter().map(|item| item.text.as_str()))
+            }
+            PleQuestionJsonResponse::Hotspot { regions, .. } => {
+                content.extend(regions.iter().map(|item| item.label.as_str()))
+            }
+            _ => {}
+        }
+        content
+    }
+
+    pub(super) fn relative_image_names(&self) -> Result<Vec<String>, PleQuestionJsonError> {
+        let mut names = std::collections::BTreeSet::new();
+        for html in self.display_html() {
+            names.extend(super::html_content::relative_image_names(html)?);
+        }
+        Ok(names.into_iter().collect())
+    }
+
     pub(super) fn has_external_image_resource(&self) -> bool {
         self.external_resources
             .iter()
@@ -282,7 +323,9 @@ impl PleQuestionJsonDocumentBody {
         if self.format != PLE_QUESTION_JSON_FORMAT_NAME {
             return Err(PleQuestionJsonError::UnsupportedFormat);
         }
-        validate_markdown("prompt", &self.prompt, MAX_PROMPT_CHARS)?;
+        if self.prompt.trim().is_empty() {
+            return invalid("prompt must not be blank");
+        }
         validate_optional_feedback(self.feedback.correct.as_deref())?;
         validate_optional_feedback(self.feedback.incorrect.as_deref())?;
         validate_optional_hint(self.question_hint.as_deref())?;
@@ -331,30 +374,70 @@ impl PleQuestionJsonDocumentBody {
         }
     }
 
-    pub(super) fn compile(&self) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
+    pub(super) fn compile(
+        &self,
+        images: Option<&[question_model::QuestionHtmlImageBinding]>,
+    ) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
         self.validate()?;
         let question_type = question_type_for(&self.response);
-        let (response, native_choice_order, answer_key, choice_feedback, prompt_suffix) =
+        let (mut response, native_choice_order, answer_key, choice_feedback, prompt_suffix) =
             compile_response(&self.response)?;
-        let mut prompt = markdown_blocks(&self.prompt);
+        let mut prompt = html_blocks(&self.prompt);
         prompt.extend(prompt_suffix);
-        let source_checksum = super::sha256_hex(
-            &serde_json::to_vec(self)
-                .map_err(|error| PleQuestionJsonError::Encoding(error.to_string()))?,
-        );
-        let private = PleQuestionJsonPrivateGrading::new_with_key(
+        if let Some(images) = images {
+            super::html_content::bind_blocks(&mut prompt, images)?;
+            super::html_content::bind_response(&mut response, images)?;
+        }
+        let bound_document_images = if let Some(images) = images {
+            self.relative_image_names()?
+                .into_iter()
+                .map(|name| {
+                    images
+                        .iter()
+                        .find(|image| image.source_relative_name == name)
+                        .cloned()
+                        .ok_or_else(|| {
+                            PleQuestionJsonError::InvalidDocument(format!(
+                                "display image has no supplied asset: {name}"
+                            ))
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            Vec::new()
+        };
+        let integrity_bytes = if bound_document_images.is_empty() {
+            serde_json::to_vec(self)
+        } else {
+            serde_json::to_vec(&(self, &bound_document_images))
+        }
+        .map_err(|error| PleQuestionJsonError::Encoding(error.to_string()))?;
+        let source_checksum = super::sha256_hex(&integrity_bytes);
+        let private = PleQuestionJsonPrivateGrading::new_with_html_feedback(
             source_checksum,
             question_type,
             &response,
             answer_key,
-            choice_feedback,
-            self.feedback.correct.clone(),
-            self.feedback.incorrect.clone(),
+            choice_feedback
+                .into_iter()
+                .map(|(id, html)| Ok((id, super::html_content::html_blocks(&html, images)?)))
+                .collect::<Result<_, PleQuestionJsonError>>()?,
+            self.feedback
+                .correct
+                .as_deref()
+                .map(|html| super::html_content::html_blocks(html, images))
+                .transpose()?,
+            self.feedback
+                .incorrect
+                .as_deref()
+                .map(|html| super::html_content::html_blocks(html, images))
+                .transpose()?,
         )?;
         let question_hint = self
             .question_hint
             .as_deref()
-            .map(markdown_blocks)
+            .map(|html| super::html_content::html_blocks(html, images))
+            .transpose()?
             .and_then(QuestionHint::new);
         Ok(CompiledPleQuestionJson {
             presentation: PleQuestionJsonPresentation {

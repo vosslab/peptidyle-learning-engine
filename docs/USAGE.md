@@ -45,17 +45,20 @@ in the current distribution. Canvas QTI 1.2 and Blackboard QTI 2.1 are writer-on
 and are not offered as imports.
 
 Read any conversion warnings and the single results list. **Created** means saved as a private
-Draft, with a link to open it. **Rejected** shows the available server error; **failed** shows the
-individual request error; **skipped: contains images** means no Draft was created for that item.
-Images are detected in each question's display content. Media shared by a package does not cause
-unrelated image-free questions to be skipped. A failed item does not stop later saves or undo
+Draft with its referenced images, with a link to open it. **Rejected** shows the available server
+error; **failed** shows the individual save or image-binding error. A failed image binding retains
+the saved Draft and its link, so you can inspect and repair it. Referenced PNG, JPEG, WebP, and SVG
+images must be supplied once under their exact content-relative filenames. Media shared by a
+package does not affect unrelated Questions. A failed item does not stop later saves or undo
 earlier successes. Requests are not retried automatically; a network failure may leave the save
 outcome unknown, so check My Draft Questions before importing again.
 
 Open the created Drafts to preview and test them, supply metadata using the ordinary controls,
 and publish. Saving does not validate complete Native JSON; preview and publication use PLE's
-existing decoder. Existing metadata defaults remain unchanged. Source HTML is preserved, while
-the broader HTML-rendering and inline-image-binding gaps remain in [TODO.md](TODO.md).
+existing decoder. Source HTML is preserved. PLE renders supported HTML, MathML, and inline CSS
+with sanitized display content and authenticated bound images; Student responses remain Plain
+Text. Runtime acceptance for this rendering change is tracked in
+[active_plans/active/bpw_import_status.md](active_plans/active/bpw_import_status.md).
 Create HOTSPOT questions with PLE's existing image upload, region editor, and correct-region
 selection; HOTSPOT is outside QPM import.
 
@@ -80,12 +83,12 @@ you own, choose **Open Course Editor**, then **Edit assignment** beside one assi
 The quoted old labels identify current implementation controls; the target copy
 is **Edit Assessment** and **Return to Assessment list**. Local edits stay available
 until **Save Blueprint Course** creates a Revision or you discard them. Course names
-and Private/Public/Archived lifecycle are current metadata and do not create a
+and Public/Archived lifecycle are current metadata and do not create a
 Revision.
 
 ## Choose installation data
 
-The default local stack creates the Pilot Question publication and ordinary Live Demo
+The default local stack imports the complete BPW curriculum and creates the ordinary Live Demo
 graph after its canonical structure is installed. The Live Demo launcher is intentionally
 single-purpose; use the installation-data command documented below when a deployment
 needs to omit the optional teaching graph.
@@ -122,20 +125,24 @@ cargo tools database verify
 Use `initialize` for a genuinely empty PLE database. Use `migrate` only after the
 post-freeze migration lifecycle has pending forward changes. Use `verify` to check the
 application-safe schema projection without granting DDL or migration-ledger access.
-The complete default installation-data operation runs after services are ready:
+The default local startup imports all four complete BPW Blueprint Courses after
+services are ready. A ready installation can invoke the same host importer:
 
 ```bash
-cargo tools installation-data provision
+source source_me.sh && python3 local_stack.py install-data
+source source_me.sh && python3 local_stack.py install-data --without-live-demo
 ```
 
-`provision` first runs the convergent Pilot publication and database-owned
-teaching graph, then creates cross-system Student Work and grading effects
-through their owning paths. `apply` is available when only that database-owned
-graph is needed; it is not complete Live Demo provisioning. Use
-`cargo tools installation-data provision --without-live-demo` to explicitly
-skip the Live Demo before it is created. [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md)
-explains the base schema and post-freeze rule; [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md)
-explains the restricted-role boundary.
+The opt-out retains curriculum and omits fictional Live Demo data on a fresh
+installation. Optional `PLE_BPW_ROOT` and `PLE_QPM_CLI` entries in the selected
+stack configuration file configure source and converter paths. An Instructor can
+also run [the shared loader](../launchers/import_bpw.py)
+manually with `--bpw-root`, `--api-url`, `--qpm-cli`, and `--result-file`; its
+interactive authentication uses the ordinary email-code workflow.
+See [../ple_import/README.md](../ple_import/README.md) for the command,
+source coverage, media handling, and result fields.
+[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) explains the base-schema rule;
+[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) explains restricted roles.
 
 ## Validate a change
 

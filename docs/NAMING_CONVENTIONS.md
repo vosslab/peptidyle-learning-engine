@@ -152,7 +152,7 @@ must cite them, state the canonical Assessment or saved-response meaning nearby.
 ## Blueprint and Course names
 
 Use `BlueprintCourse` for reusable content and `CourseInstance` for delivered
-teaching. Blueprint lifecycle values are `Private`, `Public`, and `Archived`.
+teaching. Blueprint lifecycle values are `Public` and `Archived`.
 Do not name a Blueprint state Draft, Available, or Published.
 
 A Blueprint contains no dates or relative schedules. A Course Instance may

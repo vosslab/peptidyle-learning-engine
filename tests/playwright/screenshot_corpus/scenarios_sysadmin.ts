@@ -42,7 +42,7 @@ async function sysadminStudentDataConfirmation(runtime: ScenarioRuntime): Promis
       .getByRole("listitem")
       .filter({
         has: page.getByRole("heading", {
-          name: "Biochemistry 301: Proteins and Peptides",
+          name: "Biochemistry",
           exact: true,
         }),
       })

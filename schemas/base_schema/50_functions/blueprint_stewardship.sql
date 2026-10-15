@@ -100,7 +100,7 @@ BEGIN
     IF p_blueprint_course_id_number IS NULL
        
        OR p_event_kind IS NULL
-       OR p_event_kind NOT IN ('revision', 'published', 'archived', 'restored')
+       OR p_event_kind NOT IN ('revision', 'archived', 'restored')
        OR p_source_event_id IS NULL OR p_occurred_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint Course Watch event is invalid';
@@ -153,7 +153,6 @@ BEGIN
        AND blueprint_metadata_event_id < NEW.blueprint_metadata_event_id
      ORDER BY blueprint_metadata_event_id DESC LIMIT 1;
     event_kind := CASE
-        WHEN previous_availability = 'private' AND NEW.availability = 'public' THEN 'published'
         WHEN previous_availability = 'public' AND NEW.availability = 'archived' THEN 'archived'
         WHEN previous_availability = 'archived' AND NEW.availability = 'public' THEN 'restored'
         ELSE NULL

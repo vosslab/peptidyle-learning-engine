@@ -126,7 +126,7 @@ pub struct BlueprintChangeProposalReview {
 }
 
 /// Participant-only access. Submission shares exact proposed evidence with the
-/// receiving owner, without granting general Private source/history visibility.
+/// receiving owner, without granting editing authority on its source.
 #[async_trait]
 pub trait BlueprintChangeProposalStore: Send + Sync {
     async fn list_blueprint_change_proposals(

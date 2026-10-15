@@ -9,7 +9,7 @@ import {
   Actions,
   createResponseController,
   Status,
-  textFromBlocks,
+  QuestionResponseContent,
   type MultiBlankResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
@@ -70,7 +70,7 @@ export function MultiBlankResponse(
           <For each={props.responseFormat.blanks}>
             {(blank, index) => (
               <label for={`${props.attemptId}-blank-${index()}`}>
-                {textFromBlocks(blank.label)}
+                <QuestionResponseContent blocks={blank.label} context={props} />
                 <input
                   id={`${props.attemptId}-blank-${index()}`}
                   class="question-response-control__input"

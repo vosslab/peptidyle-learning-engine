@@ -17,8 +17,6 @@ function eventLabel(kind: BlueprintWatchEvent["kind"]): string {
   switch (kind) {
     case "revision":
       return "New Blueprint Revision";
-    case "published":
-      return "Blueprint published";
     case "archived":
       return "Blueprint archived";
     case "restored":

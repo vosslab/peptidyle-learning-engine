@@ -59,16 +59,14 @@ installation workflow owns the final product-data step.
    execute the application pool capability checks, prove RLS isolation with
    each task and capability login URL, and rotate the RDS master secret
    independently of every application secret.
-5. After the API, worker, publisher, object storage, and browser origin are
-   ready, run `cargo tools installation-data provision` from that same
-   controlled installation environment. It publishes the bundled free and
-   open-source Genetics example Blueprint and creates the complete ordinary
-   Live Demo through the canonical schema and the owning paths for
-   cross-system effects. An operator who does not want the demo runs
-   `cargo tools installation-data provision --without-live-demo` before data
-   exists; that still publishes the Genetics Blueprint. `apply` is the
-   narrower convergent installation operation. The demo then follows ordinary
-   product-data rules.
+5. After API, worker, publisher, object storage, and browser origin readiness,
+   the audited host brackets the shared Python BPW importer with trusted
+   `installation-data prepare`, `finalize`, and `revoke` phases. Import all four
+   public Blueprint Courses through ordinary HTTP publication. Default
+   finalization adopts Biochemistry and provisions fictional membership and
+   representative Student Work; an explicit `--without-live-demo` preparation
+   retains curriculum and omits that graph on a fresh installation. The Rust
+   migrator runs no host Python or converter and creates no reusable content.
 6. Establish human authority only from the same short-lived audited
    administration environment. After real-person validation and account-email
    verification, an operator may set one exact account's `platform_roles` to

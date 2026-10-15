@@ -6,7 +6,7 @@ SET LOCAL ROLE ple_private_owner;
 -- Requires Question images and Jobs to exist; never a standalone ple_app command.
 CREATE FUNCTION ple_private.bind_draft_question_image_publication(
     p_draft_uuid uuid, p_authoring_workspace_id uuid, p_published_question_id text, p_revision_number integer,
-    p_backend ple_data.question_backend, p_question_type ple_data.question_type, p_question_image jsonb, p_published_at timestamptz
+    p_backend ple_data.question_backend, p_question_type ple_data.question_type, p_question_images jsonb, p_published_at timestamptz
 ) RETURNS void LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -15,73 +15,82 @@ DECLARE
     created_at_millis bigint; v_media_type text; expected_address jsonb;
     draft_question_image ple_private.draft_question_image%ROWTYPE;
     record ple_private.object_record%ROWTYPE;
+    p_question_image jsonb;
 BEGIN
-    IF p_backend IS DISTINCT FROM 'ple'::ple_data.question_backend
-       OR p_question_type IS DISTINCT FROM 'hotspot'::ple_data.question_type THEN
-        IF p_question_image IS NOT NULL THEN
-            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Only native HOTSPOT accepts a prepared Draft Question image';
+    IF p_question_images IS NULL OR jsonb_typeof(p_question_images) IS DISTINCT FROM 'array' THEN
+        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Prepared Question images require an array';
+    END IF;
+    IF p_backend IS DISTINCT FROM 'ple'::ple_data.question_backend THEN
+        IF jsonb_array_length(p_question_images) <> 0 THEN
+            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Only native Questions accept prepared Draft images';
         END IF;
         RETURN;
     END IF;
-    IF p_question_image IS NULL OR jsonb_typeof(p_question_image) IS DISTINCT FROM 'object'
-       OR NOT p_question_image ?& ARRAY['questionImageAssetId','sourceObjectId','sourceObjectAddress','checksum','byteLength',
-            'mediaType','createdAtMillis','publicObjectId','intrinsicWidth','intrinsicHeight','deliveryId','jobId']
-       OR (p_question_image - ARRAY['questionImageAssetId','sourceObjectId','sourceObjectAddress','checksum','byteLength',
-            'mediaType','createdAtMillis','publicObjectId','intrinsicWidth','intrinsicHeight','deliveryId','jobId']) <> '{}'
-       OR (p_question_image->>'checksum') IS NULL OR (p_question_image->>'checksum') !~ '^[0-9a-f]{64}$' THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Native HOTSPOT requires complete prepared image facts';
+    IF p_question_type = 'hotspot'::ple_data.question_type AND jsonb_array_length(p_question_images) = 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Native HOTSPOT requires a prepared image';
     END IF;
-    v_question_image_asset_id := (p_question_image->>'questionImageAssetId')::uuid; source_id := (p_question_image->>'sourceObjectId')::uuid;
-    public_id := (p_question_image->>'publicObjectId')::uuid; v_delivery_id := (p_question_image->>'deliveryId')::uuid;
-    v_job_id := (p_question_image->>'jobId')::uuid; width := (p_question_image->>'intrinsicWidth')::integer;
-    height := (p_question_image->>'intrinsicHeight')::integer; checksum := decode(p_question_image->>'checksum','hex');
-    v_byte_length := (p_question_image->>'byteLength')::bigint; v_media_type := p_question_image->>'mediaType';
-    created_at_millis := (p_question_image->>'createdAtMillis')::bigint;
-    IF v_question_image_asset_id IS NULL OR source_id IS NULL OR public_id IS NULL OR v_delivery_id IS NULL OR v_job_id IS NULL
-       OR source_id = public_id OR width IS NULL OR height IS NULL OR width <= 0 OR height <= 0
-       OR width::bigint * height > 20000000 OR v_byte_length IS NULL OR v_byte_length NOT BETWEEN 1 AND 8388608
-       OR v_media_type IS NULL OR v_media_type NOT IN ('image/png','image/jpeg','image/webp')
-       OR created_at_millis IS NULL THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Prepared raster facts are invalid';
-    END IF;
-    -- ASVS 8.2.2, 8.3.1, 15.4.2: repeat owner and locked Draft checks, not caller checksum authority.
-    PERFORM 1 FROM ple_private.draft_question AS draft
-     WHERE draft.draft_question_id = p_draft_uuid AND draft.authoring_workspace_id = p_authoring_workspace_id
-       AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin())
-       AND ple_private.current_session_is_authoring_workspace_owner(draft.authoring_workspace_id)
-     FOR UPDATE;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Prepared image requires current Draft ownership';
-    END IF;
-    SELECT * INTO draft_question_image FROM ple_private.draft_question_image AS image
-     WHERE image.draft_question_id = p_draft_uuid AND image.authoring_workspace_id = p_authoring_workspace_id
-       AND image.question_image_asset_id = v_question_image_asset_id;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Publication image is not owned by this Draft';
-    END IF;
-    SELECT * INTO STRICT record FROM ple_private.object_record WHERE object_record_id = draft_question_image.source_object_record_id;
-    expected_address := jsonb_build_object('kind','restrictedQuestionImage',
-        'publishedQuestionRevisionTuple',jsonb_build_object('publishedQuestionId',p_published_question_id,'revisionNumber',p_revision_number),
-        'questionImageAssetId',v_question_image_asset_id,'objectId',source_id);
-    IF p_question_image->'sourceObjectAddress' IS DISTINCT FROM expected_address
-       OR record.sha256 IS DISTINCT FROM checksum OR record.size_bytes IS DISTINCT FROM v_byte_length
-       OR record.media_type IS DISTINCT FROM v_media_type
-       OR draft_question_image.intrinsic_width IS DISTINCT FROM width OR draft_question_image.intrinsic_height IS DISTINCT FROM height THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Publication image must preserve exact Draft-owned raster evidence';
-    END IF;
-    -- ASVS 2.3.3: restricted record, Pending delivery, sole Job, and registry commit together.
-    INSERT INTO ple_private.object_record(object_record_id,object_address,object_storage_area,object_data_class,
-        sha256,size_bytes,media_type,created_at)
-    VALUES(source_id,expected_address,'private-content','question-image',checksum,v_byte_length,v_media_type,
-        to_timestamp(created_at_millis::double precision / 1000.0));
-    INSERT INTO ple_data.object_delivery(object_delivery_id,object_record_id,sha256,media_type,byte_length,delivery_state,registered_at)
-    VALUES(v_delivery_id,public_id,checksum,v_media_type,v_byte_length,'pending',p_published_at);
-    INSERT INTO ple_data.question_image_delivery(object_delivery_id,object_record_id,published_question_id,revision_number,question_image_asset_id)
-    VALUES(v_delivery_id,public_id,p_published_question_id,p_revision_number,v_question_image_asset_id);
-    PERFORM ple_private.enqueue_public_asset_publication(v_job_id,p_published_question_id,p_revision_number,'{}',p_published_at,3,p_published_at);
-    INSERT INTO ple_private.question_image_publication(published_question_id,revision_number,question_image_asset_id,source_object_record_id,
-        source_object_checksum,public_object_id,public_object_checksum,public_byte_length,verified_media_type,
-        intrinsic_width,intrinsic_height,object_delivery_id,job_id,publication_state)
-    VALUES(p_published_question_id,p_revision_number,v_question_image_asset_id,source_id,checksum,public_id,checksum,v_byte_length,v_media_type::ple_data.media_type,
-        width,height,v_delivery_id,v_job_id,'pending');
+    FOR p_question_image IN SELECT value FROM jsonb_array_elements(p_question_images) LOOP
+        IF p_question_image IS NULL OR jsonb_typeof(p_question_image) IS DISTINCT FROM 'object'
+           OR NOT p_question_image ?& ARRAY['sourceRelativeName','questionImageAssetId','sourceObjectId','sourceObjectAddress','checksum','byteLength',
+                'mediaType','createdAtMillis','publicObjectId','intrinsicWidth','intrinsicHeight','deliveryId','jobId']
+           OR (p_question_image - ARRAY['sourceRelativeName','questionImageAssetId','sourceObjectId','sourceObjectAddress','checksum','byteLength',
+                'mediaType','createdAtMillis','publicObjectId','intrinsicWidth','intrinsicHeight','deliveryId','jobId']) <> '{}'
+           OR (p_question_image->>'checksum') IS NULL OR (p_question_image->>'checksum') !~ '^[0-9a-f]{64}$' THEN
+            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Native Question requires complete prepared image facts';
+        END IF;
+        v_question_image_asset_id := (p_question_image->>'questionImageAssetId')::uuid; source_id := (p_question_image->>'sourceObjectId')::uuid;
+        public_id := (p_question_image->>'publicObjectId')::uuid; v_delivery_id := (p_question_image->>'deliveryId')::uuid;
+        v_job_id := (p_question_image->>'jobId')::uuid; width := (p_question_image->>'intrinsicWidth')::integer;
+        height := (p_question_image->>'intrinsicHeight')::integer; checksum := decode(p_question_image->>'checksum','hex');
+        v_byte_length := (p_question_image->>'byteLength')::bigint; v_media_type := p_question_image->>'mediaType';
+        created_at_millis := (p_question_image->>'createdAtMillis')::bigint;
+        IF v_question_image_asset_id IS NULL OR source_id IS NULL OR public_id IS NULL OR v_delivery_id IS NULL OR v_job_id IS NULL
+           OR source_id = public_id OR width IS NULL OR height IS NULL OR width <= 0 OR height <= 0
+           OR width::bigint * height > 20000000 OR v_byte_length IS NULL OR v_byte_length NOT BETWEEN 1 AND 8388608
+           OR v_media_type IS NULL OR v_media_type NOT IN ('image/png','image/jpeg','image/webp')
+           OR created_at_millis IS NULL THEN
+            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Prepared raster facts are invalid';
+        END IF;
+        -- ASVS 8.2.2, 8.3.1, 15.4.2: repeat owner and locked Draft checks, not caller checksum authority.
+        PERFORM 1 FROM ple_private.draft_question AS draft
+         WHERE draft.draft_question_id = p_draft_uuid AND draft.authoring_workspace_id = p_authoring_workspace_id
+           AND (ple_api.current_session_account_is_instructor() OR ple_api.current_session_account_is_sysadmin())
+           AND ple_private.current_session_is_authoring_workspace_owner(draft.authoring_workspace_id)
+         FOR UPDATE;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Prepared image requires current Draft ownership';
+        END IF;
+        SELECT * INTO draft_question_image FROM ple_private.draft_question_image AS image
+         WHERE image.draft_question_id = p_draft_uuid AND image.authoring_workspace_id = p_authoring_workspace_id
+           AND image.question_image_asset_id = v_question_image_asset_id;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Publication image is not owned by this Draft';
+        END IF;
+        SELECT * INTO STRICT record FROM ple_private.object_record WHERE object_record_id = draft_question_image.source_object_record_id;
+        expected_address := jsonb_build_object('kind','restrictedQuestionImage',
+            'publishedQuestionRevisionTuple',jsonb_build_object('publishedQuestionId',p_published_question_id,'revisionNumber',p_revision_number),
+            'questionImageAssetId',v_question_image_asset_id,'objectId',source_id);
+        IF p_question_image->'sourceObjectAddress' IS DISTINCT FROM expected_address
+           OR record.sha256 IS DISTINCT FROM checksum OR record.size_bytes IS DISTINCT FROM v_byte_length
+           OR record.media_type IS DISTINCT FROM v_media_type
+           OR draft_question_image.source_relative_name::text IS DISTINCT FROM p_question_image->>'sourceRelativeName'
+           OR draft_question_image.intrinsic_width IS DISTINCT FROM width OR draft_question_image.intrinsic_height IS DISTINCT FROM height THEN
+            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Publication image must preserve exact Draft-owned raster evidence';
+        END IF;
+        -- ASVS 2.3.3: restricted record, Pending delivery, sole Job, and registry commit together.
+        INSERT INTO ple_private.object_record(object_record_id,object_address,object_storage_area,object_data_class,
+            sha256,size_bytes,media_type,created_at)
+        VALUES(source_id,expected_address,'private-content','question-image',checksum,v_byte_length,v_media_type,
+            to_timestamp(created_at_millis::double precision / 1000.0));
+        INSERT INTO ple_data.object_delivery(object_delivery_id,object_record_id,sha256,media_type,byte_length,delivery_state,registered_at)
+        VALUES(v_delivery_id,public_id,checksum,v_media_type,v_byte_length,'pending',p_published_at);
+        INSERT INTO ple_data.question_image_delivery(object_delivery_id,object_record_id,published_question_id,revision_number,question_image_asset_id)
+        VALUES(v_delivery_id,public_id,p_published_question_id,p_revision_number,v_question_image_asset_id);
+        PERFORM ple_private.enqueue_public_asset_publication(v_job_id,p_published_question_id,p_revision_number,'{}',p_published_at,3,p_published_at);
+        INSERT INTO ple_private.question_image_publication(source_relative_name,published_question_id,revision_number,question_image_asset_id,source_object_record_id,
+            source_object_checksum,public_object_id,public_object_checksum,public_byte_length,verified_media_type,
+            intrinsic_width,intrinsic_height,object_delivery_id,job_id,publication_state)
+        VALUES(draft_question_image.source_relative_name,p_published_question_id,p_revision_number,v_question_image_asset_id,source_id,checksum,public_id,checksum,v_byte_length,v_media_type::ple_data.media_type,
+            width,height,v_delivery_id,v_job_id,'pending');
+    END LOOP;
 END $$;

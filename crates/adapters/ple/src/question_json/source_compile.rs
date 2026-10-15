@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use super::super::{
     MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS, MAX_UNIT_CHARS, PleQuestionJsonChoice,
-    PleQuestionJsonError, invalid, markdown_blocks, validate_bounded_text, validate_choice_id,
+    PleQuestionJsonError, html_blocks, invalid, validate_bounded_text, validate_choice_id,
     validate_markdown, validate_optional_feedback,
 };
 use super::{
@@ -79,7 +79,7 @@ pub(super) fn compile_response(
                     .iter()
                     .map(|blank| TextEntrySlot {
                         id: ResponseItemId::new(&blank.id),
-                        label: markdown_blocks(&blank.label),
+                        label: html_blocks(&blank.label),
                         match_mode: blank.match_mode.into(),
                         max_length: blank.max_length,
                     })
@@ -199,7 +199,7 @@ fn compile_choices(
                 .iter()
                 .map(|choice| QuestionChoice {
                     id: ResponseItemId::new(&choice.id),
-                    body: markdown_blocks(&choice.text),
+                    body: html_blocks(&choice.text),
                 })
                 .collect(),
             selection,
@@ -230,7 +230,7 @@ fn compile_matching_prompts(items: &[PleQuestionJsonMatchingPrompt]) -> Vec<Matc
         .iter()
         .map(|item| MatchingPrompt {
             id: ResponseItemId::new(&item.id),
-            body: markdown_blocks(&item.text),
+            body: html_blocks(&item.text),
         })
         .collect()
 }
@@ -240,7 +240,7 @@ fn compile_matching_choices(items: &[PleQuestionJsonMatchingChoice]) -> Vec<Matc
         .iter()
         .map(|item| MatchingChoice {
             id: ResponseItemId::new(&item.id),
-            body: markdown_blocks(&item.text),
+            body: html_blocks(&item.text),
         })
         .collect()
 }
@@ -250,7 +250,7 @@ fn compile_ordering_items(items: &[PleQuestionJsonOrderingItem]) -> Vec<Ordering
         .iter()
         .map(|item| OrderingItem {
             id: ResponseItemId::new(&item.id),
-            body: markdown_blocks(&item.text),
+            body: html_blocks(&item.text),
         })
         .collect()
 }
@@ -258,7 +258,7 @@ fn compile_ordering_items(items: &[PleQuestionJsonOrderingItem]) -> Vec<Ordering
 fn compile_region(region: &PleQuestionJsonHotspotRegion) -> HotspotRegion {
     HotspotRegion {
         id: ResponseItemId::new(&region.id),
-        label: markdown_blocks(&region.label),
+        label: html_blocks(&region.label),
         x: region.x,
         y: region.y,
         width: region.width,

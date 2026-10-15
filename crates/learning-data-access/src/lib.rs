@@ -104,6 +104,7 @@ pub use assessment_delivery::{
     StudentAssessmentAttemptHistoryResponseSource, StudentAssessmentAttemptPresentationEvidence,
     StudentAssessmentAttemptPresentationSource, StudentAssessmentAttemptResponseSaveResult,
     StudentAssessmentAttemptSavedResponse, StudentAssessmentAttemptSavedResponseSnapshot,
+    StudentAssessmentAttemptSupportImages,
 };
 pub use assessment_release::{
     ApplyAssessmentBlueprintUpdateInput, AssessmentBlueprintUpdateCannotApplyReason,
@@ -189,6 +190,7 @@ pub use course_roster::{
 pub use course_theme::CourseThemeStore;
 pub use draft_question_images::{
     DraftQuestionImageStore, OwnedDraftQuestionImage, RegisterDraftQuestionImageInput,
+    validate_source_relative_name,
 };
 pub use imathas_question_backend_session::{
     ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasNormalizedScore,

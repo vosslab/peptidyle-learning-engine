@@ -22,6 +22,7 @@ CREATE TABLE ple_data.question_image_delivery (
 SET LOCAL ROLE ple_private_owner;
 
 CREATE TABLE ple_private.question_image_publication (
+    source_relative_name ple_data.source_relative_name,
     published_question_id ple_data.question_family_id NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
     question_image_asset_id uuid NOT NULL,
@@ -39,6 +40,7 @@ CREATE TABLE ple_private.question_image_publication (
     job_id uuid NOT NULL UNIQUE,
     publication_state ple_data.publication_state NOT NULL,
     PRIMARY KEY (published_question_id, revision_number, question_image_asset_id),
+    UNIQUE (published_question_id, revision_number, source_relative_name),
     FOREIGN KEY (published_question_id, revision_number) REFERENCES ple_data.question_revision,
     FOREIGN KEY (object_delivery_id, public_object_id) REFERENCES ple_data.object_delivery (object_delivery_id, object_record_id),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
@@ -52,3 +54,5 @@ COMMENT ON TABLE ple_data.question_image_delivery IS 'role: current state, delet
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.question_image_publication IS 'role: event, deleted by Unrelease and object cleanup. HUMAN_GUIDANCE.md Question Image Assets.';
 
+
+COMMENT ON COLUMN ple_private.question_image_publication.source_relative_name IS 'Exact relative filename from the published native source; NULL for an anonymous response image.';

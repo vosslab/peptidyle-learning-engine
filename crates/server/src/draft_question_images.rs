@@ -49,6 +49,15 @@ pub(crate) async fn upload(
         Ok(value) => value,
         Err(response) => return *response,
     };
+    let source_relative_name = match source_relative_name(headers) {
+        Ok(value) => value,
+        Err(()) => {
+            return private_error(
+                StatusCode::BAD_REQUEST,
+                "Source relative image name is invalid",
+            );
+        }
+    };
     let expected_edit_number = match expected_edit_number(headers) {
         Ok(value) => value,
         Err(response) => return *response,
@@ -132,6 +141,7 @@ pub(crate) async fn upload(
             );
         }
     };
+    let uploaded_address = record.address.clone();
     // ASVS 2.3.3/2.3.4: final row-locked registration repeats ownership and CAS.
     match state
         .draft_question_images
@@ -141,6 +151,7 @@ pub(crate) async fn upload(
                 draft_question_uuid,
                 expected_edit_number,
                 question_image_asset_id,
+                source_relative_name,
                 source_record: record,
                 intrinsic_width: verified.width,
                 intrinsic_height: verified.height,
@@ -161,9 +172,36 @@ pub(crate) async fn upload(
             )
                 .into_response(),
         ),
+        // A uniqueness refusal conclusively rolls back this generated upload identity.
+        Err(StoreError::AlreadyExists) => {
+            if state.objects.delete(&uploaded_address).await.is_err() {
+                return private_error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Authoring storage is unavailable",
+                );
+            }
+            private_error(
+                StatusCode::CONFLICT,
+                "Draft Question image source name is already registered",
+            )
+        }
         // An ambiguous registration error must not delete potentially committed bytes.
         Err(error) => private_store_error(error),
     }
+}
+
+fn source_relative_name(headers: &HeaderMap) -> Result<Option<String>, ()> {
+    // ASVS 4.2.4, 2.2.1: require one exact header value and validate before storage.
+    let mut values = headers.get_all("x-ple-source-relative-name").iter();
+    let Some(value) = values.next() else {
+        return Ok(None);
+    };
+    if values.next().is_some() {
+        return Err(());
+    }
+    let value = value.to_str().map_err(|_| ())?;
+    learning_data_access::validate_source_relative_name(value).map_err(|_| ())?;
+    Ok(Some(value.to_string()))
 }
 
 fn accepted_question_image_media_type(headers: &HeaderMap) -> Option<&str> {

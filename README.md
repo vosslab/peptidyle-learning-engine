@@ -37,7 +37,8 @@ Assignments default to unlimited Attempts, grade themselves, and keep the highes
 
 One Question Library serves every course: algorithmic WeBWorK PG and PGML problems beside
 native multiple choice, multiple answer, fill-in, numeric, matching, ordering, and hotspot
-Questions. The free BiologyProblems.org Genetics example Blueprint is included.
+Questions. The BiologyProblems.org Genetics, Biochemistry, Biotechnology, and Biostatistics
+Blueprint Courses are included.
 
 <p align="center">
   <img src="docs/screenshots/instructor/questions-browse-library_browse.webp" width="920" alt="Instructor Browse Question Library page with Subject, Tag, and Question Type counts and Discipline, Subject, Topic, and Subtopic filters">
@@ -87,8 +88,8 @@ one, and `stop` tears it down. Email sign-in is not configured for the demo: pic
 Account from the sign-in page (Sysadmin entry needs TOTP; see
 [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md)).
 
-1. Sign in as **Elena Rivera (Instructor)**. Open **BCHM 301**, then **Chapter 1 Pilot
-   Practice**: its Questions, Properties, answer-free Student View, and Gradebook.
+1. Sign in as **Elena Rivera (Instructor)**. Open **BCHM 355**, then its released
+   practice Assessment: its Questions, Properties, answer-free Student View, and Gradebook.
 2. Sign out and pick **Jack Nguyen (Student)** to resume an open practice Attempt with saved
    responses.
 3. Pick **Mary Okafor (Student)** for completed, scored work, or **Avery Thompson (Student)** to

@@ -19,11 +19,12 @@ is in [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 +- containers/              Podman Compose definitions and service images
 +- deploy/opentofu/         Future infrastructure design artifacts, not runtime evidence
 +- local_stack_control/     Disposable-stack lifecycle and acceptance helpers
++- ple_import/              Shared curriculum discovery, publication, and Course assembly
 +- tests/                   Deterministic, connected, and browser evidence lanes
 +- docs/                    Durable references, changelog, and active work records
 +- generated/               Ignored Rust-derived declarations and fixtures
 +- devel/                   Maintainer commands
-+- launchers/               Contributor and Live Demo entry points
++- launchers/               Thin application and contributor entry points
 +- tools/                   Standalone repository utilities
 +- schema_style/            PostgreSQL schema-style checker
 +- Cargo.toml               Rust workspace manifest

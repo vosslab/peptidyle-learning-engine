@@ -152,7 +152,6 @@ struct WatchEventResponse {
 #[serde(rename_all = "camelCase")]
 enum WatchEventKindResponse {
     Revision,
-    Published,
     Archived,
     Restored,
 }
@@ -161,7 +160,6 @@ impl From<BlueprintCourseWatchEventKind> for WatchEventKindResponse {
     fn from(value: BlueprintCourseWatchEventKind) -> Self {
         match value {
             BlueprintCourseWatchEventKind::Revision => Self::Revision,
-            BlueprintCourseWatchEventKind::Published => Self::Published,
             BlueprintCourseWatchEventKind::Archived => Self::Archived,
             BlueprintCourseWatchEventKind::Restored => Self::Restored,
         }

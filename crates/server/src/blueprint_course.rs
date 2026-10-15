@@ -1,4 +1,4 @@
-//! Blueprint Revision, lineage metadata, and availability routes.
+//! Blueprint Revision, lineage metadata, and archive routes.
 //!
 //! Browser Question IDs are checksum-validated before Store resolution. The Store
 //! alone resolves the exact immutable Question Revision pins.
@@ -158,10 +158,6 @@ pub fn blueprint_course_router(
             put(update_theme),
         )
         .route(
-            "/api/course-blueprints/{blueprint_course_id}/publish",
-            post(publish_blueprint),
-        )
-        .route(
             "/api/course-blueprints/{blueprint_course_id}/revisions/{revision_number}",
             get(load_revision),
         )
@@ -176,10 +172,6 @@ pub fn blueprint_course_router(
         .route(
             "/api/course-blueprints/{blueprint_course_id}/restore",
             post(restore_blueprint),
-        )
-        .route(
-            "/api/course-blueprints/{blueprint_course_id}/return-to-private",
-            post(return_blueprint_to_private),
         )
         .with_state(BlueprintCourseRouteState {
             sessions,
@@ -445,19 +437,6 @@ async fn archive_blueprint(
     )
     .await
 }
-async fn publish_blueprint(
-    State(state): State<BlueprintCourseRouteState>,
-    headers: HeaderMap,
-    Path(blueprint_course_id): Path<String>,
-) -> Response {
-    transition_availability(
-        &state,
-        &headers,
-        blueprint_course_id,
-        BlueprintLifecycleAction::Publish,
-    )
-    .await
-}
 async fn restore_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
@@ -471,29 +450,11 @@ async fn restore_blueprint(
     )
     .await
 }
-async fn return_blueprint_to_private(
-    State(state): State<BlueprintCourseRouteState>,
-    headers: HeaderMap,
-    Path(blueprint_course_id): Path<String>,
-) -> Response {
-    transition_availability(
-        &state,
-        &headers,
-        blueprint_course_id,
-        BlueprintLifecycleAction::ReturnToPrivate,
-    )
-    .await
-}
-
-/// The HTTP surface names the only four lifecycle commands.  It deliberately
-/// does not accept a client-selected availability string: C49 is the complete
-/// state machine, and its Store transaction owns the owner/adoption predicates
-/// (ASVS 2.2.1, 2.3.1, 8.2.2, 8.3.1).
+/// The HTTP surface names the two archive lifecycle commands. It deliberately
+/// does not accept a client-selected availability string.
 enum BlueprintLifecycleAction {
-    Publish,
     Archive { confirmation_long_name: String },
     Restore,
-    ReturnToPrivate,
 }
 
 async fn transition_availability(
@@ -515,12 +476,6 @@ async fn transition_availability(
         Err(response) => return *response,
     };
     let result = match action {
-        BlueprintLifecycleAction::Publish => {
-            state
-                .blueprints
-                .publish_blueprint(session, blueprint_course_id, expected)
-                .await
-        }
         BlueprintLifecycleAction::Archive {
             confirmation_long_name,
         } => {
@@ -538,12 +493,6 @@ async fn transition_availability(
             state
                 .blueprints
                 .restore_blueprint(session, blueprint_course_id, expected)
-                .await
-        }
-        BlueprintLifecycleAction::ReturnToPrivate => {
-            state
-                .blueprints
-                .return_blueprint_to_private(session, blueprint_course_id, expected)
                 .await
         }
     };

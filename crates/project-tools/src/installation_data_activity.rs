@@ -14,8 +14,8 @@ use server_core::auth::{self, CookieTransport, SessionConfig};
 use url::Url;
 
 use crate::installation_data::{
-    LIVE_DEMO_ASSESSMENT_TITLE, LIVE_DEMO_AVERY_EMAIL, LIVE_DEMO_COURSE_LONG_NAME,
-    LIVE_DEMO_COURSE_SHORT_NAME, LIVE_DEMO_ELENA_EMAIL, LIVE_DEMO_JACK_EMAIL, LIVE_DEMO_MARY_EMAIL,
+    LIVE_DEMO_AVERY_EMAIL, LIVE_DEMO_COURSE_LONG_NAME, LIVE_DEMO_COURSE_SHORT_NAME,
+    LIVE_DEMO_ELENA_EMAIL, LIVE_DEMO_JACK_EMAIL, LIVE_DEMO_MARY_EMAIL,
 };
 
 #[path = "installation_data_activity_http.rs"]
@@ -26,13 +26,14 @@ mod converge;
 #[path = "installation_data_activity_response.rs"]
 mod response;
 use converge::converge;
+#[path = "installation_data_adoption.rs"]
+mod adoption;
+pub(crate) use adoption::adopt_blueprint;
 
-// `live_demo.sql` assigns exactly the four PLE Question JSON Pilot entries.
-const LIVE_DEMO_QUESTION_COUNT: u64 = 4;
 const JACK_SAVED_RESPONSE_COUNT: u64 = 2;
-const TEMPORARY_SESSION_SECONDS: u32 = 5 * 60;
+const TEMPORARY_SESSION_SECONDS: u32 = 8 * 60 * 60;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
-const MAX_RESPONSE_BYTES: usize = 128 * 1024;
+const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 
 const DEMO_ACCOUNTS: [DemoAccount; 4] = [
     DemoAccount::new("elena", LIVE_DEMO_ELENA_EMAIL),
@@ -329,6 +330,7 @@ fn expect_status(
 struct DemoGraph {
     course: String,
     assessment: String,
+    question_count: u64,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

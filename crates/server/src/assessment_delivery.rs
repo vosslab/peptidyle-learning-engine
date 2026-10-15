@@ -43,9 +43,10 @@ mod ple_shell;
 mod presentation_images;
 mod question_backend;
 mod submission;
+mod support_images;
 
 pub(super) use presentation_images::{
-    question_image_renditions, question_image_renditions_from_ready,
+    presentation_renditions, question_html_image_bindings, question_image_renditions_from_ready,
 };
 
 #[derive(serde::Deserialize)]
@@ -570,11 +571,12 @@ pub(super) async fn resolve_source(
     };
     let checksum = SourceObjectChecksum::parse(source.source_object_checksum.clone())
         .map_err(|_| StartError::Invalid)?;
-    ResolvedPleQuestionJsonSource::resolve(
+    ResolvedPleQuestionJsonSource::resolve_with_images(
         objects,
         published_question_revision_tuple,
         ObjectId::from_uuid(object),
         checksum,
+        &presentation_images::question_html_image_bindings(&source.question_image_renditions),
     )
     .await
     .map_err(|_| StartError::Unavailable)

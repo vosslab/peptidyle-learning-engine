@@ -75,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
 	start.add_argument("--headless", action="store_true")
 	start.set_defaults(handler=local_stack_control.commands.start)
 
+	install_data = subparsers.add_parser("install-data", help="import complete BPW curriculum into a ready installation")
+	add_target_options(install_data)
+	install_data.add_argument("--without-live-demo", action="store_true")
+	install_data.set_defaults(handler=local_stack_control.commands.install_data)
+
 	open_browser = subparsers.add_parser(
 		"open", help="open the ready HTTPS origin of the fixed Developer Browser Suite"
 	)

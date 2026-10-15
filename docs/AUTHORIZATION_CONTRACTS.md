@@ -122,8 +122,7 @@ Student Work.
 Question Revisions and Blueprint Revisions are immutable. Question Pools are
 current membership with an Edit Number.
 A Published Question may be discoverable or archived.
-A Blueprint Course is Private, Public, or Archived. Private is owner-only and
-cannot be adopted. Public is shared and adoptable. Archived remains visible to
+A Blueprint Course is Public or Archived. Public is shared and adoptable. Archived remains visible to
 Instructors through explicit historical discovery, can be forked, and
 cannot be adopted. Exact historical Revision Tuples remain resolvable.
 
@@ -131,20 +130,19 @@ New Assessments and Blueprint Revision pins select exact available Question
 Revisions. A later Question publication, availability transition, correction,
 or worker action never advances an Assessment or retained Student Work pin.
 
-An active Instructor may own Private Blueprint Courses and their content Save and
-lifecycle operations. Complete valid creation atomically produces a Private
+An active Instructor may own Blueprint Courses and control their content Save and
+lifecycle operations. Complete valid creation atomically produces a Public
 Blueprint Course with Revision 1.
 Save requires the exact current Revision and creates its immutable successor
 only for changed canonical content; an unchanged Save returns the current
 Revision with `changed: false`. Unsaved browser state is not a server domain object, and this reset
 does not define a Blueprint collaborator relationship.
 
-Only the owner changes Blueprint lifecycle state. A Public Blueprint with no
-adoptions may return to Private; a Public Blueprint with an adoption remains
-Public. The owner may archive a Public Blueprint and restore their Archived
+Only the owner changes Blueprint lifecycle state. The owner may archive a
+Public Blueprint and restore their Archived
 Blueprint to Public. Every Instructor may read Public and Archived
 content, but only Public content may be adopted. Every Instructor may
-fork Public or Archived content into a new Private Blueprint they own.
+fork Public or Archived content into a new Public Blueprint they own.
 
 Adding a new Blueprint Assessment also triggers the Human-Guidance-required
 copy into daughter Course Instances as an Unreleased Assessment. That bounded

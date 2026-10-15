@@ -10,7 +10,7 @@ import {
   Actions,
   createResponseController,
   Status,
-  textFromBlocks,
+  QuestionResponseContent,
   type MultipleChoiceResponseFormat,
   type MultipleChoiceResponseProps,
 } from "./common";
@@ -152,7 +152,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
                 <span class="choice-number" aria-hidden="true">
                   {index() + 1}
                 </span>
-                <span>{textFromBlocks(choice.body)}</span>
+                <QuestionResponseContent blocks={choice.body} context={props} />
               </label>
             )}
           </For>

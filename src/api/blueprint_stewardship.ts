@@ -16,7 +16,7 @@ export interface BlueprintWatchProjection {
 }
 
 export interface BlueprintWatchEvent {
-  readonly kind: "revision" | "published" | "archived" | "restored";
+  readonly kind: "revision" | "archived" | "restored";
   readonly occurredAt: number;
 }
 

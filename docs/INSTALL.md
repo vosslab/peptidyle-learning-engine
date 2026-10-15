@@ -116,29 +116,29 @@ that freeze; see [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
 
 ## Installation content and Live Demo
 
-Automated initial Bloom Classification is deferred. PLE does not currently
-configure an AI provider. Publication persistence still requires a prepared
-Bloom receipt, so installation-data publication remains unavailable until that
-separate cutover is complete. Structural installation and ordinary
-non-publication runtime do not require an AI backend.
+The ready host imports complete Genetics, Biochemistry, Biotechnology, and
+Biostatistics collections through the shared Python importer. PG and PGML remain
+unchanged WeBWorK source. BBQ banks use the QPM CLI Native JSON export; PLE owns
+Native JSON interpretation and image rendering.
 
-After the Bloom publication cutover, installation data will publish the complete
-Genetics Blueprint through the ordinary content-publication path. It will remain
-installation content, not a fixture, SQL dump, or separate pilot deployment. The
-same operation will create the complete ordinary, removable Live Demo teaching graph:
+The default local startup imports curriculum and adopts the complete public
+Biochemistry Blueprint as BCHM 355, then provisions fictional enrollment and
+representative Student Work through ordinary delivery. To import into a ready
+local installation explicitly:
 
 ```bash
-cargo tools installation-data provision
+source source_me.sh && python3 local_stack.py install-data
+source source_me.sh && python3 local_stack.py install-data --without-live-demo
 ```
 
-The Genetics Blueprint will have eleven ordered topic Assessments and be reusable
-by active Instructors when Public. `--without-live-demo` will omit only the
-fictional Live Demo teaching graph. `provision` will run content publication and
-the database-owned Live Demo graph, then create cross-system Student Work and
-grading effects through their owning product paths. `apply` will remain the
-narrower convergent installation operation. The local-stack controller supplies
-the required migrator, publisher, storage, API, and worker capabilities. The
-graph is documented in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+The opt-out retains all curriculum, including bundled Genetics PGML, and uses a
+non-login PLE Example Content Instructor. It omits fictional Accounts, Course,
+enrollment, and Student Work on a fresh installation. Add `PLE_BPW_ROOT` and
+`PLE_QPM_CLI` to the selected stack configuration file when adjacent development
+checkouts or the `bbq-converter` executable on `PATH` are unavailable. The host uses
+the selected gateway CA for verified HTTPS; it keeps
+the ordinary temporary Instructor cookie in private pipes and revokes the session
+after completion or failure. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
 
 ## Verify install
 
@@ -164,13 +164,11 @@ itself prove the connected service or visible browser acceptance gates. See
 
 ## Production installation
 
-After the Bloom publication cutover and after the structural base, API, worker,
-publisher, object storage, and browser origin are ready, the short-lived audited
-administration environment runs
-`cargo tools installation-data provision` to publish the bundled Genetics example
-and create the complete known-good Live Demo. An installation owner can instead
-run `cargo tools installation-data provision --without-live-demo`; that still
-publishes the Genetics Blueprint while omitting the Live Demo. OpenTofu
-intentionally leaves this final product-data step to that audited workflow; it
-does not receive database or application secrets or create a one-shot
-provisioning subsystem.
+After the structural base, API, worker, publisher, object storage, and browser
+origin are ready, the audited installation environment brackets the shared Python
+importer with trusted `installation-data prepare`, `finalize`, and `revoke`
+phases. These internal phases receive private JSON through captured pipes. The
+host owns BPW and QPM; the Rust migrator owns trusted Account and enrollment
+provisioning. Every reusable content write and Course adoption uses ordinary
+HTTP routes. OpenTofu leaves this final product-data step to the audited host
+workflow and does not receive application or database secrets.

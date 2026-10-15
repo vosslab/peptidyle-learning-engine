@@ -25,7 +25,7 @@ pub(super) async fn read(
     .fetch_all(&mut *tx)
     .await
     .map_err(map_sqlx_error)?;
-    let sources = rows
+    let mut sources = rows
         .iter()
         .map(|row| {
             let position = positive_i32(row, "position", "History position")?;
@@ -56,6 +56,19 @@ pub(super) async fn read(
             })
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
+    for source in &mut sources {
+        if let Some(crate::StudentAssessmentAttemptPresentationSource::Ple { source, .. }) =
+            &mut source.presentation_source
+        {
+            source.question_image_renditions =
+                super::assessment_delivery::current_ready_question_image_renditions(
+                    &mut tx,
+                    source.question_id.as_str(),
+                    source.revision_number,
+                )
+                .await?;
+        }
+    }
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(sources)
 }

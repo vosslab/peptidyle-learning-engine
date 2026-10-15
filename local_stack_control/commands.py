@@ -20,6 +20,7 @@ import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.status
 import local_stack_control.lifecycle
+import local_stack_control.lifecycle_provision
 import local_stack_control.local_totp_authenticator
 import local_stack_control.service_singletons
 
@@ -731,3 +732,26 @@ def acceptance(
 		local_stack_control.process.current_environment()
 	)
 	return local_stack_control.acceptance_lanes.run(runner, repo_root, environment)
+
+
+#============================================
+def install_data(
+	args: argparse.Namespace,
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+) -> int:
+	"""Import curriculum through the host loader after the selected API is ready."""
+	target = target_from_args(args, runner, repo_root)
+	local_stack_control.compose.require_default_mutation_target(target)
+	local_stack_control.lifecycle_provision.provision_ready_installation_data(
+		target, runner, include_live_demo=not args.without_live_demo,
+	)
+	if not args.without_live_demo and local_stack_control.lifecycle.retains_live_demo_persona_configuration(target):
+		local_stack_control.lifecycle_provision.record_live_demo_persona_account_ids(target, runner)
+		local_stack_control.lifecycle.compose_run(target, runner,
+			["up", "-d", "--force-recreate", "--no-deps", "api"])
+		local_stack_control.lifecycle.wait_for_complete_ready(target, runner,
+			local_stack_control.lifecycle.LifecycleOptions(DEFAULT_LIFECYCLE_TIMEOUT_SECONDS, False, False, False))
+		local_stack_control.lifecycle_provision.provision_local_sysadmin_totp(target, runner)
+	print("Complete BPW curriculum imported.")
+	return 0

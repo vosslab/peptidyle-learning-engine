@@ -5,6 +5,7 @@
 
 #[path = "http_renderer/client.rs"]
 mod client;
+mod diagnostics;
 #[path = "http_renderer/grade.rs"]
 mod grade;
 #[path = "http_renderer/protocol.rs"]
@@ -13,3 +14,4 @@ mod protocol;
 mod response_shape;
 
 pub use client::{HttpWebworkRenderer, HttpWebworkRendererConfig, RendererConfigError};
+pub use diagnostics::WebworkSourceDiagnostics;

@@ -3,6 +3,7 @@
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
+import { questionHtmlText } from "../../components/question_html";
 
 function text(markdown: string): QuestionContentBlock {
   return { kind: "text", markdown };
@@ -14,6 +15,8 @@ function blockText(blocks: ReadonlyArray<QuestionContentBlock>): string {
       switch (block.kind) {
         case "text":
           return block.markdown;
+        case "html":
+          return questionHtmlText(block.html);
         case "math":
         case "image":
         case "table":

@@ -4,6 +4,7 @@ import local_stack_control.compose
 import local_stack_control.disposable_stack_cleanup
 import local_stack_control.env_file
 import local_stack_control.lifecycle_commands
+import local_stack_control.installation_import
 import local_stack_control.live_demo_seed
 import local_stack_control.models
 import local_stack_control.private_files
@@ -27,26 +28,11 @@ def selected_compose_target(target: LifecycleTarget) -> local_stack_control.mode
 def provision_ready_installation_data(
 	target: LifecycleTarget,
 	runner: local_stack_control.process.CommandRunner,
+	include_live_demo: bool = True,
 ) -> None:
 	"""Run canonical bundled-content provisioning after application readiness."""
 	selected = selected_compose_target(target)
-	command = [
-		"--profile", "migration", "run", "--rm", "--no-deps",
-		"database-migrator", "installation-data", "provision",
-	]
-	result = runner.run(
-		local_stack_control.compose.compose_argv(
-			selected, command,
-		),
-		local_stack_control.lifecycle_commands.child_environment(selected),
-		selected.repo_root,
-	)
-	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
-		selected.env_file
-	)
-	local_stack_control.lifecycle_commands.require_command(
-		result, "Installation content provisioning", private_values
-	)
+	local_stack_control.installation_import.provision(selected, runner, include_live_demo)
 
 
 #============================================

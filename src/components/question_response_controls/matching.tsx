@@ -11,6 +11,7 @@ import {
   createResponseController,
   Status,
   textFromBlocks,
+  QuestionResponseContent,
   type MatchingResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
@@ -185,8 +186,7 @@ export function MatchingResponse(
                     }}
                   >
                     <span class="matching-choice-content">
-                      {/* ASVS 1.2.1: authored labels remain escaped text, never injected markup. */}
-                      <span>{textFromBlocks(choice.body)}</span>
+                      <QuestionResponseContent blocks={choice.body} context={props} />
                       <span class="matching-choice-state">
                         {usageCount(choice.id) > 0
                           ? `Used in ${usageCount(choice.id)} ${usageCount(choice.id) === 1 ? "slot" : "slots"}${reuseChoices() ? "; reusable" : ""}.`
@@ -207,9 +207,9 @@ export function MatchingResponse(
                   role="group"
                   aria-labelledby={`${props.attemptId}-match-prompt-${index()}`}
                 >
-                  <p class="matching-prompt" id={`${props.attemptId}-match-prompt-${index()}`}>
-                    {textFromBlocks(prompt.body)}
-                  </p>
+                  <div class="matching-prompt" id={`${props.attemptId}-match-prompt-${index()}`}>
+                    <QuestionResponseContent blocks={prompt.body} context={props} />
+                  </div>
                   <div class="matching-slot-actions">
                     <button
                       type="button"

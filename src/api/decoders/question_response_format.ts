@@ -19,6 +19,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeIdentifier, decodeSha256, field, kind, requireOnlyFields } from "./shared";
+import { isQuestionSourceRelativeName } from "../../question_image_source";
 
 export function decodeQuestionImageAssetTuple(
   value: unknown,
@@ -49,6 +50,34 @@ export function decodeQuestionContentBlock(
       return {
         kind: block,
         markdown: decodeString(field(record, "markdown", path), `${path}.markdown`),
+      } satisfies QuestionContentBlock;
+    case "html":
+      if (strict) requireOnlyFields(record, path, ["kind", "html", "images"]);
+      return {
+        kind: block,
+        html: decodeString(field(record, "html", path), `${path}.html`),
+        images: decodeArray(field(record, "images", path), `${path}.images`, (value, imagePath) => {
+          const image = decodeRecord(value, imagePath);
+          if (strict)
+            requireOnlyFields(image, imagePath, ["sourceRelativeName", "questionImageAssetTuple"]);
+          const sourceRelativeName = decodeNonemptyString(
+            field(image, "sourceRelativeName", imagePath),
+            `${imagePath}.sourceRelativeName`,
+          );
+          if (!isQuestionSourceRelativeName(sourceRelativeName))
+            throw new DecodeError(
+              `${imagePath}.sourceRelativeName`,
+              "a content-relative image name",
+            );
+          return {
+            sourceRelativeName,
+            questionImageAssetTuple: decodeQuestionImageAssetTuple(
+              field(image, "questionImageAssetTuple", imagePath),
+              `${imagePath}.questionImageAssetTuple`,
+              strict,
+            ),
+          };
+        }),
       } satisfies QuestionContentBlock;
     case "math":
       if (strict) requireOnlyFields(record, path, ["kind", "latex", "description"]);

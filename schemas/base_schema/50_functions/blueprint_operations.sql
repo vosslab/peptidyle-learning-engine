@@ -104,7 +104,7 @@ BEGIN
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_blueprint_course_id, v_actor, p_short_name, p_long_name,
-        'private', v_blueprint_edit_number, v_now,
+        'public', v_blueprint_edit_number, v_now,
         p_discipline, p_subject, p_topic, p_subtopic, p_tags, p_theme
     );
     INSERT INTO ple_data.blueprint_course_create_receipt
@@ -339,7 +339,7 @@ DECLARE
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
        OR p_expected_blueprint_edit_number IS NULL
-       OR p_availability NOT IN ('private', 'public', 'archived')
+       OR p_availability NOT IN ('public', 'archived')
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint availability change is invalid';
@@ -357,24 +357,7 @@ BEGIN
     IF v_course.blueprint_edit_number <> p_expected_blueprint_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata Edit Number is stale';
     END IF;
-    -- Reusable content advances through one directed lifecycle. A Public
-    -- lineage may become Private only before its first Adoption, whether that
-    -- is a daughter or the originating source Course Instance. Every accepted
-    -- transition is recorded below as an immutable metadata event.
-    IF (v_course.availability = 'private' AND p_availability <> 'public')
-       OR (v_course.availability = 'public' AND p_availability = 'private'
-           AND (
-               EXISTS (
-                   SELECT 1 FROM ple_data.course_instance AS adoption
-                    WHERE adoption.blueprint_course_id = v_blueprint_course_id
-               )
-               OR EXISTS (
-                   SELECT 1 FROM ple_data.blueprint_course_instance_source AS source
-                    WHERE source.blueprint_course_id = v_blueprint_course_id
-               )
-           ))
-       OR (v_course.availability = 'public'
-           AND p_availability NOT IN ('private', 'archived'))
+    IF (v_course.availability = 'public' AND p_availability <> 'archived')
        OR (v_course.availability = 'archived' AND p_availability <> 'public') THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Blueprint lifecycle transition is not permitted';
@@ -676,10 +659,8 @@ BEGIN
             OR course.long_name ILIKE
             '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%')
        AND (
-           -- ASVS 8.2.2/8.3.1: opt-in history never exposes another owner's Private course.
+           -- Archived Blueprints enter discovery only when explicitly requested.
            course.availability = 'public'
-           OR (course.owner_account_id = ple_api.current_session_account_id()
-               AND course.availability = 'private')
            OR (p_include_archived AND course.availability = 'archived')
        )
     )
@@ -751,19 +732,14 @@ AS $$
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_id = course.blueprint_course_id
        AND revision.blueprint_revision_number = course.current_blueprint_revision_number
-      -- ASVS 8.2.2/3, 8.3.1/2: mask ancestry using current source visibility.
-      -- Roots and hidden sources share the same two null fields.
+      -- All Blueprint ancestors are readable by active Instructors; roots have no source.
       LEFT JOIN ple_data.blueprint_course AS source
         ON source.blueprint_course_id = course.parent_blueprint_course_id
-       AND (source.availability IN ('public', 'archived')
-            OR source.owner_account_id = ple_api.current_session_account_id())
+       AND source.availability IN ('public', 'archived')
      WHERE ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
        AND course.blueprint_course_id = p_blueprint_course_id
        AND ple_api.current_session_account_is_instructor()
-       AND (
-           course.owner_account_id = ple_api.current_session_account_id()
-           OR course.availability IN ('public', 'archived')
-       )
+       AND course.availability IN ('public', 'archived')
 $$;
 
 
@@ -787,10 +763,7 @@ AS $$
        AND course.blueprint_course_id = p_blueprint_course_id
        AND revision.blueprint_revision_number = p_blueprint_revision_number
        AND ple_api.current_session_account_is_instructor()
-       AND (
-           course.owner_account_id = ple_api.current_session_account_id()
-           OR course.availability IN ('public', 'archived')
-       )
+       AND course.availability IN ('public', 'archived')
 $$;
 
 

@@ -4,7 +4,7 @@
  * compiles the private Answer Key and Question Feedback binding.
  *
  * This type stays inside the authoring feature.  Student-facing code uses the
- * answer-free PLE Question JSON Public Preview from question_json_public_preview.ts instead.
+ * answer-free content compiled by the Question Backend for the saved Draft preview instead.
  */
 
 export const PLE_QUESTION_JSON_FORMAT = "pleQuestionJson";

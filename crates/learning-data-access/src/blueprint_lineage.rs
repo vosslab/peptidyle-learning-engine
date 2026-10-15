@@ -11,7 +11,6 @@ use std::collections::BTreeMap;
 use crate::{SessionTokenHash, StoreError, StoredBlueprintRevision};
 
 /// One direct fork readable by the caller, with its public owning Instructor name.
-/// Private children of another Instructor never appear, including to the source owner.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredKnownBlueprintFork {
     pub id: BlueprintCourseId,
@@ -45,7 +44,7 @@ pub struct BlueprintForkSource {
     pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
 }
 
-/// Receipt for an idempotent fork creating an actor-owned Private child.
+/// Receipt for an idempotent fork creating an actor-owned public child.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkBlueprintCourseReceipt {
     pub blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
@@ -77,7 +76,7 @@ pub trait BlueprintLineageStore: Send + Sync {
     ) -> Result<BlueprintComparisonSources, StoreError>;
 
     /// Forks one exact Public or Archived source Revision into a distinct,
-    /// actor-owned Private Blueprint with Revision 1. A checksum retry returns
+    /// actor-owned public Blueprint with Revision 1. A checksum retry returns
     /// the original child, and this operation never creates Stars or Watches.
     async fn fork_blueprint_course(
         &self,
