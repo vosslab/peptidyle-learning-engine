@@ -18,6 +18,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Bullet duplication is acceptable because many agents only skim read one section at a time.
 - Headings should identify their broader section when practical so they remain clear in isolation.
 - Avoid repeating that context when the immediate parent heading already makes it clear.
+- Simple diagrams may clarify relationships; use ASCII characters only.
 - Sections should contain less than 25 bulleted items; split a larger section with subheadings.
   `devel/markdown_section_sizes.py -i docs/HUMAN_GUIDANCE.md -m 25` lists any that grew past it.
 
@@ -155,6 +156,29 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Sysadmin**: A PLE administrator with full administrative authority over the system.
 - **Instructor**: A user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
 - **Student**: A user who enrolls in **Course Instances** and completes Coursework.
+
+### Collection interface vocabulary
+
+- **PageFrame**: The shared page layout for content, spacing, and page actions. It contains page-specific content, including SearchBlock when appropriate.
+- **SearchBlock**: The searchable collection interface. It combines page-supplied search criteria and controls with DataSheetControls and DataSheetBlock.
+- **DataSheetControls**: The controls for display modes, pagination, counts, sorting, filtering, and bulk actions associated with DataSheetBlock.
+- **DataSheetBlock**: The shared collection interface. It manages records, all display modes, shared collection interactions, and collection-level actions. It contains DataSheetTable in Compact and List modes and RecordItem instances in all modes.
+- **DataSheetTable**: The shared tabular presentation for Compact and List modes. It configures and manages column interactions and contains HeaderRow and RecordItem instances.
+- **HeaderRow**: The heading interface within DataSheetTable. It presents column headings, forwards sorting and filtering input to DataSheetBlock, and exposes DataSheetTable column interactions.
+- **RecordItem**: The individual record interface across all four DataSheetBlock modes, providing content, selection, previews, and direct actions.
+
+```text
+PageFrame
++-- SearchBlock
+    +-- Search criteria and controls
+    +-- DataSheetControls
+    +-- DataSheetBlock
+        +-- DataSheetTable (Compact and List)
+        |   +-- HeaderRow
+        |   +-- RecordItem x N
+        +-- Cards / Visual Boxes
+            +-- RecordItem x N
+```
 
 ### Course vocabulary
 
@@ -354,43 +378,74 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   or alongside that title.
 - Preserve readable text and reachable controls as users enlarge text or zoom the page.
 
-### Shared RecordList interface
+### DataSheetBlock interface
 
-- RecordList provides one modular interface for displaying collections throughout PLE.
-- RecordList supports Compact, List, and Visual boxes display modes.
-- RecordList preserves shared filtering, sorting, and record actions across its display modes.
-- RecordList owns spreadsheet column headings, filtering, sorting, and record presentation.
+#### Collection modes and shared interactions
+
+- DataSheetBlock provides PLE's shared collection interface across all four display modes.
+- The approved target collection interface has Compact, List, Cards, and Visual Boxes modes.
+- Compact and List use DataSheetTable.
+- Compact uses aligned, single-line rows; List uses a wrapping table with fewer, wider columns.
+- Cards are text-oriented panels; Visual Boxes are image-oriented tiles.
+- DataSheetBlock owns shared collection behavior across modes: sorting, filtering, selection, and
+  record actions.
+- DataSheetTable owns the Compact and List tabular presentation, column configuration, and column
+  interactions. It contains HeaderRow and RecordItem instances.
+- DataSheetControls provides surrounding controls such as display modes, pagination, counts, optional
+  bulk UI, and sort/filter interfaces where useful. It invokes the same DataSheetBlock interactions
+  through shared state and callbacks; it does not acquire a second query or presentation controller.
 - Compact mode uses dense spreadsheet-style rows with aligned columns.
 - Compact rows prioritize useful information and minimize vertical space.
-- RecordList supports resizing columns by dragging their edges.
-- RecordList supports hiding and showing individual columns.
-- RecordList supports rearranging columns by dragging their headings.
-- RecordList supports responsive column hiding based on available width.
-- RecordList supports different column configurations, including column widths, visibility,
-  and arrangement.
-- Default visible columns and their arrangement may be refined with use and available screen width.
-- RecordList column widths, visibility, and arrangement are temporary for the current view and
-  return to their defaults when the view is reopened.
-- RecordList supports sorting by clicking column headings, toggling between ascending and
-  descending order.
-- Sorting applies to the complete result set, not just the current page.
-- RecordList supports filtering through column headings by selecting one or more available values.
-- Column filters can be combined to narrow results.
-- Filtering remains available for columns that are currently hidden.
-- RecordList adapts its visible columns to the available space while preserving the same
-  filtering, sorting, display modes, and record actions.
+- Filters can be combined to narrow results.
+- The UI requests sorting and filtering through DataSheetBlock interactions. The data/query layer
+  applies those criteria across the complete matching collection before pagination: database-backed
+  collections use PostgreSQL `WHERE` and `ORDER BY`; complete local collections use equivalent
+  shared client-side processing. Page-only sorting or filtering is invalid.
+- Filtering, sorting, display modes, selection, and record actions remain available across the
+  collection presentations.
+
+#### Collection scope and selection
+
+- Every collection exposes all four modes: Compact, List, Cards, and Visual Boxes. Domain rules can
+  restrict an operation, such as display sorting for saved Assessment contents, without removing a
+  presentation mode.
 - Each collection supplies its relevant fields, records, and actions.
-- Shared RecordList improvements should apply consistently across PLE.
+- Selection remains unobtrusive and is shown when it supports meaningful bulk actions. Direct
+  record actions remain available without selecting a row.
+- Selection follows record identity when pages or display modes change. Query and filter changes
+  clear selection; sorting preserves it.
+- DataSheetBlock improvements should apply consistently across PLE.
+
+### DataSheetTable interface
+
+- DataSheetTable provides the shared tabular presentation and column interface for Compact and List.
+- DataSheetTable supports sorting through HeaderRow column headings, forwarding the selected sort
+  criteria to DataSheetBlock. Sorting toggles between ascending and descending order.
+- DataSheetTable supports filtering through HeaderRow column headings, forwarding the selected filter
+  criteria to DataSheetBlock. Instructors can select one or more available filter values.
+- HeaderRow presents column headings and forwards sorting and filtering input to DataSheetBlock;
+  DataSheetTable handles column mechanics, and HeaderRow is not an independent controller.
+- Filters remain available for columns that are currently hidden.
+- DataSheetTable supports resizing columns by dragging their edges in HeaderRow.
+- DataSheetTable supports hiding and showing individual columns through HeaderRow and controls.
+- DataSheetTable supports rearranging columns by dragging headings in HeaderRow.
+- DataSheetTable supports responsive column hiding based on available width.
+- DataSheetTable supports independent temporary Compact and List configurations for column widths,
+  visibility, and arrangement.
+- Default visible columns and their arrangement may be refined with use and available screen width.
+- Column widths, visibility, and arrangement return to their defaults when the view is reopened.
+- Preserve keyboard accessibility for column interactions and collection controls.
 
 ### Shared SearchBlock interface
 
-- SearchBlock provides the shared search interface throughout PLE.
+- SearchBlock composes page-supplied search criteria and controls, DataSheetControls, and its required
+  DataSheetBlock into PLE's complete searchable-collection interface.
 - Pages use SearchBlock to display searchable collections, including personal collections and
   library searches.
-- SearchBlock requires RecordList for record presentation, sorting, column filtering,
-  display modes, and record actions.
-- Each page supplies its search criteria and controls; each collection supplies its fields,
-  records, and actions to the shared RecordList.
+- DataSheetBlock manages shared collection interactions and record actions. DataSheetTable presents
+  Compact and List; HeaderRow forwards sorting and filtering input to DataSheetBlock.
+- Each page supplies its search criteria and controls to SearchBlock; DataSheetBlock receives the
+  collection's fields, records, and actions.
 - My Questions, My Pools, My Drafts, Starred, Watched, Search Question Library, and Browse
   Question Library use this same structure with different criteria and controls.
 - My Questions is a search with a predefined filter.
@@ -398,7 +453,36 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The page chooses the layout based on its purpose, not whether a search has run.
 - Controls beside results move above them when the available width is narrow.
 - Search terms and results are temporary and do not require confirmation when leaving.
-- Shared SearchBlock improvements should apply consistently across PLE.
+- Opening a result in another tab leaves the current query, results, page, selection, and scroll
+  position intact. Changes made elsewhere appear here after a new query or explicit refresh.
+- SearchBlock improvements should apply consistently across PLE.
+
+### Collection editors
+
+- Pool and Assessment editors show current contents and ordinary Library results in independent
+  collections, with contents on the left and Library results on the right.
+- The two collections keep independent queries, pages, modes, and column settings; narrow screens
+  stack them in that order.
+- Add and Remove are direct actions. Selection and optional bulk actions do not replace them.
+- The Library results include already-added Questions only when they match the current query;
+  show Included and disable Add when duplicates are not allowed.
+- Pool sorting and filtering change display only. Assessment contents preserve saved order while
+  searching and filtering. Disable display sorting for Assessment contents; reordering acts on
+  saved entry positions, not only visible filtered rows.
+- UnsavedChangesGuard protects meaningful authored changes. Search and selection are not unsaved
+  work, and a failed save retains the editor's draft.
+
+### Question thumbnails
+
+- Published WeBWorK Questions have a visual thumbnail that helps identify the question; its text
+  need not be readable.
+- A thumbnail represents the published Question Revision. Browsing a collection reads its
+  published thumbnail rather than starting a new render.
+- Thumbnail production follows the Question Thumbnail technical capture contract in
+  [CONTRACTS.md](CONTRACTS.md): Question thumbnails are always 256 x 256 pixels. Render the question
+  at sufficient source resolution to fill the thumbnail without raster upscaling. Preserve the
+  rendered content's proportions. Crop excess width symmetrically from both sides and excess height
+  from the bottom, keeping the content horizontally centered and vertically top-aligned.
 
 ### Interaction design
 
@@ -496,9 +580,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - PageFrame adapts to available screen width while preserving useful content and actions.
 - Page-specific content and actions fit within the shared PageFrame structure.
 - PageFrame displays ordinary page content directly; searchable collections and search results
-  go through SearchBlock and its RecordList.
+  go through SearchBlock, which composes DataSheetControls with DataSheetBlock.
 - PageFrame provides layout, spacing, actions, and content. The Ribbon and breadcrumbs provide
   page identification instead of PageFrame headings, short labels, or introductory text.
+- Evaluate content between breadcrumbs and primary work for necessity, redundancy, frequency,
+  priority, density, context, and responsive behavior. Keep an element ahead of the records when
+  it serves a demonstrated task need.
 - Shared PageFrame improvements should apply consistently across PLE.
 
 ### User top bar interface
@@ -680,16 +767,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Search Question Library** helps Instructors find specific Library Objects in a large library.
 - Search emphasizes finding and narrowing results; Browse emphasizes exploration and discovery.
 - Instructors can move naturally between Search and Browse as their goals change.
-- Search and Browse use the same modular RecordList with shared filtering, sorting,
-  Compact, List, and Visual boxes display modes, and record actions.
+- Search and Browse use the same SearchBlock and DataSheetBlock components, while providing distinct interfaces for finding specific Questions and exploring the Question Library.
 - Search and Browse are different paths into the same **Question Library**, not separate collections.
-- Search adds keyword search above RecordList and uses the full available width for results,
+- Search places keyword criteria above SearchBlock and uses the full available width for results,
   allowing more visible columns.
-- Browse places a compact classification sidebar beside RecordList, leaving a narrower results
+- Browse places a compact classification sidebar beside SearchBlock, leaving a narrower results
   area with fewer visible columns.
 - Search keeps keyword controls above results before and after a search. Browse places its
   classification navigator above results when the screen is too narrow for a sidebar.
-- Shared RecordList controls remain available in both Search and Browse.
+- Shared DataSheetControls remain available in both Search and Browse.
 - Temporary search terms and results do not require a leave confirmation. Pool creation and
   metadata editors protect meaningful unsaved edits independently of search activity.
 
@@ -705,7 +791,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Clearing all search terms and filters returns to the initial empty spreadsheet and its prompt.
 - Simple search returns the same advanced spreadsheet-style results, with the entered search and
   filters available for further refinement.
-- Search supports the shared Compact, List, and Visual boxes display modes.
+- Search supports the shared Compact, List, Cards, and Visual Boxes display modes.
 - Image-focused boxes can help Instructors find visual Questions.
 - Question Library search should work well with ordinary words by default.
 - Results should make it easy to scan many Library Objects quickly.
@@ -729,8 +815,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ##### Question Library filters
 
-- Search and Browse use RecordList's shared column filters to narrow Question Library results.
-- RecordList exposes Discipline, Subject, Topic, and Subtopic through spreadsheet column filters,
+- Search and Browse use DataSheetBlock's shared column filters to narrow Question Library results;
+  HeaderRow presents these filters and forwards selections through DataSheetTable to DataSheetBlock.
+- DataSheetBlock exposes Discipline, Subject, Topic, and Subtopic through spreadsheet column filters,
   following their classification relationships.
 - Keyword search and column filters work together to narrow the same results.
 - Tags should provide additional filters outside the hierarchy.
@@ -757,8 +844,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Browse Question Library** helps Instructors explore what the Question Library contains by navigating Discipline -> Subject -> Topic -> Subtopic and other groupings.
 - Browse should help Instructors understand what the Question Library contains.
-- Browse uses a narrow classification sidebar beside RecordList, leaving a narrower results area
-  with fewer visible columns while retaining RecordList's column filters, sorting, and display modes.
+- Browse uses a narrow classification sidebar beside SearchBlock, leaving a narrower results area
+  with fewer visible columns while retaining DataSheetControls, filtering, sorting, and
+  display modes.
 - Browse Question Library should be a compact, information-dense
   exploration interface, not a dashboard or reference manual.
 - Prioritize the Discipline -> Subject -> Topic -> Subtopic hierarchy.
