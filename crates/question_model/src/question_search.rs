@@ -62,6 +62,13 @@ pub enum LibraryObjectSearchSort {
     /// Order by Question Title, then stable public Question ID.
     #[default]
     TitleAscending,
+    TitleDescending,
+    KindAscending,
+    KindDescending,
+    DisciplineAscending,
+    DisciplineDescending,
+    QuestionTypeAscending,
+    QuestionTypeDescending,
     /// Order newest publication first, then stable public Question ID.
     PublishedNewest,
 }
@@ -175,29 +182,29 @@ pub struct LibraryObjectSearchRequest {
     pub subjects: Vec<String>,
     /// Structured topics; any normalized exact topic may match.
     pub topics: Vec<String>,
-    /// Optional global Discipline identity; unrestricted when absent.
+    /// Global Discipline identities; any selected value may match.
     #[serde(default)]
-    pub discipline_uuid: Option<Uuid>,
-    /// Optional global Subject identity; requires a selected Discipline.
+    pub discipline_uuids: Vec<Uuid>,
+    /// Global Subject identities; each requires a selected parent Discipline.
     #[serde(default)]
-    pub subject_uuid: Option<Uuid>,
-    /// Optional global Topic identity; requires a selected Subject.
+    pub subject_uuids: Vec<Uuid>,
+    /// Global Topic identities; each requires a selected parent Subject.
     #[serde(default)]
-    pub topic_uuid: Option<Uuid>,
-    /// Optional global Subtopic identity; requires a selected Topic.
+    pub topic_uuids: Vec<Uuid>,
+    /// Global Subtopic identities; each requires a selected parent Topic.
     #[serde(default)]
-    pub subtopic_uuid: Option<Uuid>,
+    pub subtopic_uuids: Vec<Uuid>,
     /// Includes the selected Subject across Disciplines, omitting only Discipline equality.
     ///
     /// Requires Discipline and Subject. Text and name filters remain additional predicates.
     #[serde(default)]
     pub cross_discipline: bool,
-    /// Optional exact Bloom Cognitive Process; unrestricted when absent.
+    /// Exact Bloom Cognitive Processes; any selected value may match.
     #[serde(default)]
-    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
-    /// Optional exact Bloom Knowledge Dimension; unrestricted when absent.
+    pub bloom_cognitive_processes: Vec<BloomCognitiveProcess>,
+    /// Exact Bloom Knowledge Dimensions; any selected value may match.
     #[serde(default)]
-    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
+    pub bloom_knowledge_dimensions: Vec<BloomKnowledgeDimension>,
     /// Immutable Question Types; any supplied type may match.
     pub question_types: Vec<QuestionType>,
     /// Required adapter capabilities; every supplied capability must be present.
@@ -240,19 +247,19 @@ pub struct LibraryObjectSearchFilter {
     pub subjects: Vec<String>,
     pub topics: Vec<String>,
     #[serde(default)]
-    pub discipline_uuid: Option<Uuid>,
+    pub discipline_uuids: Vec<Uuid>,
     #[serde(default)]
-    pub subject_uuid: Option<Uuid>,
+    pub subject_uuids: Vec<Uuid>,
     #[serde(default)]
-    pub topic_uuid: Option<Uuid>,
+    pub topic_uuids: Vec<Uuid>,
     #[serde(default)]
-    pub subtopic_uuid: Option<Uuid>,
+    pub subtopic_uuids: Vec<Uuid>,
     #[serde(default)]
     pub cross_discipline: bool,
     #[serde(default)]
-    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    pub bloom_cognitive_processes: Vec<BloomCognitiveProcess>,
     #[serde(default)]
-    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
+    pub bloom_knowledge_dimensions: Vec<BloomKnowledgeDimension>,
     pub question_types: Vec<QuestionType>,
     pub capabilities: Vec<Capability>,
     pub question_licenses: Vec<QuestionLicense>,
@@ -282,13 +289,13 @@ impl LibraryObjectSearchFilter {
             tags: query.tags,
             subjects: query.subjects,
             topics: query.topics,
-            discipline_uuid: query.discipline_uuid,
-            subject_uuid: query.subject_uuid,
-            topic_uuid: query.topic_uuid,
-            subtopic_uuid: query.subtopic_uuid,
+            discipline_uuids: query.discipline_uuids,
+            subject_uuids: query.subject_uuids,
+            topic_uuids: query.topic_uuids,
+            subtopic_uuids: query.subtopic_uuids,
             cross_discipline: query.cross_discipline,
-            bloom_cognitive_process: query.bloom_cognitive_process,
-            bloom_knowledge_dimension: query.bloom_knowledge_dimension,
+            bloom_cognitive_processes: query.bloom_cognitive_processes,
+            bloom_knowledge_dimensions: query.bloom_knowledge_dimensions,
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
@@ -315,13 +322,13 @@ impl From<LibraryObjectSearchFilter> for LibraryObjectSearchRequest {
             tags: filter.tags,
             subjects: filter.subjects,
             topics: filter.topics,
-            discipline_uuid: filter.discipline_uuid,
-            subject_uuid: filter.subject_uuid,
-            topic_uuid: filter.topic_uuid,
-            subtopic_uuid: filter.subtopic_uuid,
+            discipline_uuids: filter.discipline_uuids,
+            subject_uuids: filter.subject_uuids,
+            topic_uuids: filter.topic_uuids,
+            subtopic_uuids: filter.subtopic_uuids,
             cross_discipline: filter.cross_discipline,
-            bloom_cognitive_process: filter.bloom_cognitive_process,
-            bloom_knowledge_dimension: filter.bloom_knowledge_dimension,
+            bloom_cognitive_processes: filter.bloom_cognitive_processes,
+            bloom_knowledge_dimensions: filter.bloom_knowledge_dimensions,
             question_types: filter.question_types,
             capabilities: filter.capabilities,
             question_licenses: filter.question_licenses,
@@ -345,13 +352,13 @@ impl Default for LibraryObjectSearchRequest {
             tags: Vec::new(),
             subjects: Vec::new(),
             topics: Vec::new(),
-            discipline_uuid: None,
-            subject_uuid: None,
-            topic_uuid: None,
-            subtopic_uuid: None,
+            discipline_uuids: Vec::new(),
+            subject_uuids: Vec::new(),
+            topic_uuids: Vec::new(),
+            subtopic_uuids: Vec::new(),
             cross_discipline: false,
-            bloom_cognitive_process: None,
-            bloom_knowledge_dimension: None,
+            bloom_cognitive_processes: Vec::new(),
+            bloom_knowledge_dimensions: Vec::new(),
             question_types: Vec::new(),
             capabilities: Vec::new(),
             question_licenses: Vec::new(),
@@ -416,13 +423,14 @@ impl LibraryObjectSearchRequest {
     pub fn normalized(mut self) -> Result<Self, LibraryObjectSearchRequestError> {
         // ASVS 2.2.1 and 2.2.3: validate the selection structure without inferring parents.
         // The trusted service must additionally validate vocabulary identities and associations.
-        if (self.subject_uuid.is_some() && self.discipline_uuid.is_none())
-            || (self.topic_uuid.is_some() && self.subject_uuid.is_none())
-            || (self.subtopic_uuid.is_some() && self.topic_uuid.is_none())
+        if (!self.subject_uuids.is_empty() && self.discipline_uuids.is_empty())
+            || (!self.topic_uuids.is_empty() && self.subject_uuids.is_empty())
+            || (!self.subtopic_uuids.is_empty() && self.topic_uuids.is_empty())
         {
             return Err(LibraryObjectSearchRequestError::IncompleteClassificationChain);
         }
-        if self.cross_discipline && (self.discipline_uuid.is_none() || self.subject_uuid.is_none())
+        if self.cross_discipline
+            && (self.discipline_uuids.is_empty() || self.subject_uuids.is_empty())
         {
             return Err(LibraryObjectSearchRequestError::InvalidCrossDiscipline);
         }
@@ -446,6 +454,28 @@ impl LibraryObjectSearchRequest {
         {
             return Err(LibraryObjectSearchRequestError::TooLarge);
         }
+        // ASVS 2.2.1: bound each repeated exact selector before normalization.
+        if self.discipline_uuids.len() > 32
+            || self.subject_uuids.len() > 32
+            || self.topic_uuids.len() > 32
+            || self.subtopic_uuids.len() > 32
+            || self.bloom_cognitive_processes.len() > BloomCognitiveProcess::ALL.len()
+            || self.bloom_knowledge_dimensions.len() > BloomKnowledgeDimension::ALL.len()
+        {
+            return Err(LibraryObjectSearchRequestError::TooLarge);
+        }
+        self.discipline_uuids.sort();
+        self.discipline_uuids.dedup();
+        self.subject_uuids.sort();
+        self.subject_uuids.dedup();
+        self.topic_uuids.sort();
+        self.topic_uuids.dedup();
+        self.subtopic_uuids.sort();
+        self.subtopic_uuids.dedup();
+        self.bloom_cognitive_processes.sort();
+        self.bloom_cognitive_processes.dedup();
+        self.bloom_knowledge_dimensions.sort();
+        self.bloom_knowledge_dimensions.dedup();
         self.capabilities.sort();
         self.capabilities.dedup();
         self.question_licenses.sort();
@@ -573,4 +603,45 @@ pub struct QuestionSearchFacets {
     pub bloom_cognitive_processes: Vec<QuestionSearchBloomCognitiveProcessFacet>,
     /// Complete closed Bloom Knowledge Dimension counts in teaching-guide order.
     pub bloom_knowledge_dimensions: Vec<QuestionSearchBloomKnowledgeDimensionFacet>,
+}
+
+#[cfg(test)]
+mod library_multi_filter_tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_repeated_exact_selections_and_requires_parents() {
+        let discipline = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let another_discipline = Uuid::parse_str("00000000-0000-0000-0000-000000000003").unwrap();
+        let subject = Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
+        let query = LibraryObjectSearchRequest {
+            discipline_uuids: vec![another_discipline, discipline, discipline],
+            subject_uuids: vec![subject, subject],
+            bloom_cognitive_processes: vec![
+                BloomCognitiveProcess::Analyze,
+                BloomCognitiveProcess::Apply,
+                BloomCognitiveProcess::Apply,
+            ],
+            ..LibraryObjectSearchRequest::default()
+        };
+        let normalized = query.normalized().unwrap();
+        assert_eq!(
+            normalized.discipline_uuids,
+            vec![discipline, another_discipline]
+        );
+        assert_eq!(normalized.subject_uuids, vec![subject]);
+        assert_eq!(
+            normalized.bloom_cognitive_processes,
+            vec![BloomCognitiveProcess::Apply, BloomCognitiveProcess::Analyze]
+        );
+
+        let orphan = LibraryObjectSearchRequest {
+            subject_uuids: vec![subject],
+            ..LibraryObjectSearchRequest::default()
+        };
+        assert_eq!(
+            orphan.normalized(),
+            Err(LibraryObjectSearchRequestError::IncompleteClassificationChain)
+        );
+    }
 }

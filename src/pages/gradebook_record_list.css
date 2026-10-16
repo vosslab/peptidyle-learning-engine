@@ -1,4 +1,4 @@
-/* Dense Gradebook presentation built from the shared RecordTable contract. */
+/* Gradebook spacing around the shared collection. */
 
 .gradebook-export {
   margin-block-end: var(--ple-layout-gap);
@@ -10,17 +10,6 @@
   gap: var(--ple-layout-gap);
 }
 
-.gradebook-record-table {
-  --gradebook-student-column: 22%;
-  --gradebook-coursework-column: 34%;
-  --gradebook-progress-column: 27%;
-  --gradebook-score-column: 17%;
-}
-
-.gradebook-record-table .record-table {
-  min-inline-size: var(--ple-gradebook-table-min-inline);
-}
-
-.gradebook-record-table .record-table td:last-child {
+.gradebook-record-table [data-record-column-id="score"] {
   font-variant-numeric: tabular-nums;
 }

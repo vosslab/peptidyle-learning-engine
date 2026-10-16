@@ -55,6 +55,7 @@ pub(super) fn decode_search_entry(row: &PgRow) -> Result<Option<LibrarySearchEnt
         "question" => Ok(Some(LibrarySearchEntry::Question {
             entry: Box::new(decode_entry(row)?),
             owner_account_id,
+            starred_at_micros: row.try_get("starred_at_micros").map_err(map_sqlx_error)?,
         })),
         "pool" => {
             let metadata = QuestionPoolMetadata {
@@ -122,6 +123,9 @@ pub(super) fn decode_search_entry(row: &PgRow) -> Result<Option<LibrarySearchEnt
             };
             Ok(Some(LibrarySearchEntry::Pool {
                 summary: Box::new(summary),
+                subject_name: row.try_get("subject_name").map_err(map_sqlx_error)?,
+                topic_name: row.try_get("topic_name").map_err(map_sqlx_error)?,
+                subtopic_name: row.try_get("subtopic_name").map_err(map_sqlx_error)?,
                 created_at: Timestamp::from_unix_millis(
                     row.try_get("published_at_millis").map_err(map_sqlx_error)?,
                 ),

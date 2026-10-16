@@ -31,7 +31,7 @@ export function LibraryObjectDetailPage(): JSX.Element {
           when={resolved.error === undefined && resolved()}
           keyed
           fallback={
-            <PageFrame routeSurface="questionDetail" title="Library object unavailable">
+            <PageFrame routeSurface="questionDetail">
               <section class="route-error" role="alert">
                 <h2>Library object unavailable</h2>
                 <p>Return to the library and try again.</p>
@@ -53,7 +53,7 @@ export function LibraryObjectDetailPage(): JSX.Element {
         </Show>
       }
     >
-      <PageFrame routeSurface="questionDetail" title="Question Library">
+      <PageFrame routeSurface="questionDetail">
         <p class="loading-state" role="status">
           Loading Library detail...
         </p>

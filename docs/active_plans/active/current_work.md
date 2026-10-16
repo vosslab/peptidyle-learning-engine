@@ -1,6 +1,6 @@
 # Current planning work
 
-Updated 2026-10-11. Completed and historical material is in [archive](../../archive/).
+Updated 2026-10-16. Completed and historical material is in [archive](../../archive/).
 Archival preserves findings and deferrals; it does not certify every historical proposal as built.
 
 ## Active plans
@@ -13,6 +13,10 @@ Archival preserves findings and deferrals; it does not certify every historical 
   nearby Question navigation, and responsive usability outcomes; preserve already completed fixes.
 - [release_readiness_followup.md](release_readiness_followup.md): verify current preview,
   archive/restore, and local readiness behavior without reviving deferred daemon proposals.
+
+## Completed plans
+
+- [modular_ui_completion_plan.md](../../archive/modular_ui_completion_plan.md): M1-M32 verified and manager accepted on 2026-10-16 after fresh `/root/final_plan_integration_spec` and distinct `/root/final_plan_integration_quality` PASS. Canonical fast/full, native/visual acceptance, and temporary-probe cleanup passed. The completed plan is archived; its authorized `git mv` succeeded.
 
 ## Current audit inputs
 

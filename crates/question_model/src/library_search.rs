@@ -1,6 +1,7 @@
 //! Mixed Library discovery contracts. Exact Question projections remain Question-only.
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{AccountId, LibraryObjectKind, QuestionPoolLibrarySummary, QuestionSearchResult};
 
@@ -39,6 +40,20 @@ pub struct LibrarySearchCategoryCounts {
     pub pools: u64,
 }
 
+/// Current classification of one Library Object in mixed search.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LibrarySearchClassification {
+    pub discipline_uuid: Uuid,
+    pub discipline_name: String,
+    pub subject_uuid: Uuid,
+    pub subject_name: String,
+    pub topic_uuid: Option<Uuid>,
+    pub topic_name: Option<String>,
+    pub subtopic_uuid: Option<Uuid>,
+    pub subtopic_name: Option<String>,
+}
+
 /// One Library row. Question source/evidence is never required for a Pool row.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
@@ -51,8 +66,10 @@ pub enum LibrarySearchResult {
     Question {
         question: Box<QuestionSearchResult>,
         owner_account_id: AccountId,
+        classification: LibrarySearchClassification,
     },
     Pool {
         pool: Box<QuestionPoolLibrarySummary>,
+        classification: LibrarySearchClassification,
     },
 }

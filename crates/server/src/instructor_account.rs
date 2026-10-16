@@ -11,7 +11,8 @@ use axum::{
 };
 use learning_data_access::{
     CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountBrowse,
-    InstructorAccountState, InstructorAccountStore, SessionTokenHash, StoreError,
+    InstructorAccountSort, InstructorAccountState, InstructorAccountStore, SessionTokenHash,
+    StoreError,
     postgres::{PostgresInstructorAccountStore, PostgresSessionStore},
 };
 use question_model::{AccountId, UserRole};
@@ -78,7 +79,8 @@ async fn list_instructor_accounts(
             InstructorAccountBrowse {
                 query: None,
                 state: None,
-                after_account_id: None,
+                sort: InstructorAccountSort::IdAscending,
+                cursor: None,
                 page_size: None,
             },
         )
@@ -97,7 +99,8 @@ struct FindInstructorAccountsRequest {
     query: String,
     state: Option<InstructorAccountState>,
     page_size: i32,
-    after_account_id: Option<AccountId>,
+    sort: InstructorAccountSort,
+    cursor: Option<String>,
 }
 
 async fn find_instructor_accounts(
@@ -128,7 +131,8 @@ async fn find_instructor_accounts(
             InstructorAccountBrowse {
                 query: Some(request.query),
                 state: request.state,
-                after_account_id: request.after_account_id,
+                sort: request.sort,
+                cursor: request.cursor,
                 page_size: Some(request.page_size),
             },
         )

@@ -100,10 +100,13 @@ pub struct LiveStudentCourseProgressAssessment {
     pub assessment_score_is_latest_attempt: bool,
 }
 
-/// One self-only Attempt in a Course-wide, newest-first history page.
+/// One self-only Attempt in the Student's global history.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LiveStudentCourseAttemptHistoryEntry {
+pub struct LiveStudentAttemptHistoryEntry {
+    pub course_instance_id: CourseInstanceId,
+    pub course_short_name: String,
+    pub course_long_name: String,
     pub assessment_attempt_id: AssessmentAttemptId,
     pub assessment_id: AssessmentId,
     pub assessment_title: String,
@@ -113,6 +116,65 @@ pub struct LiveStudentCourseAttemptHistoryEntry {
     /// This Attempt's score only when grading is complete and disclosure permits it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assessment_score: Option<LiveAssessmentGradeContribution>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StudentAttemptHistoryState {
+    All,
+    Submitted,
+    InProgress,
+}
+
+impl StudentAttemptHistoryState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Submitted => "submitted",
+            Self::InProgress => "inProgress",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StudentAttemptHistorySort {
+    StartedNewest,
+    StartedOldest,
+    TitleAscending,
+    TitleDescending,
+    CourseAscending,
+    CourseDescending,
+}
+
+impl StudentAttemptHistorySort {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::StartedNewest => "startedNewest",
+            Self::StartedOldest => "startedOldest",
+            Self::TitleAscending => "titleAscending",
+            Self::TitleDescending => "titleDescending",
+            Self::CourseAscending => "courseAscending",
+            Self::CourseDescending => "courseDescending",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAttemptHistoryQuery {
+    pub search: String,
+    pub state: StudentAttemptHistoryState,
+    pub course_ids: Vec<CourseInstanceId>,
+    pub sort: StudentAttemptHistorySort,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAttemptHistoryFacetChoice {
+    pub key: String,
+    pub label: String,
+    pub count: u64,
 }
 
 /// The latest eligible resumable Attempt for the signed-in Student in a Course.
@@ -199,13 +261,23 @@ pub trait LiveStudentCourseLandingStore: Send + Sync {
         session_token_hash: SessionTokenHash,
     ) -> Result<Option<LiveStudentLatestFeedback>, StoreError>;
 
-    /// Lists the authenticated Student's Course Attempts by bounded keyset pages.
-    async fn list_live_student_course_attempt_history(
+    /// Lists the authenticated Student's global Attempts by bounded pages.
+    async fn list_student_attempt_history(
         &self,
         session_token_hash: SessionTokenHash,
-        course_instance_id: CourseInstanceId,
+        query: StudentAttemptHistoryQuery,
         page: crate::PageRequest,
-    ) -> Result<crate::Page<LiveStudentCourseAttemptHistoryEntry>, StoreError>;
+    ) -> Result<crate::Page<LiveStudentAttemptHistoryEntry>, StoreError>;
+
+    /// Counts whole-result facet choices under the same Student authorization.
+    async fn list_student_attempt_history_facet_choices(
+        &self,
+        session_token_hash: SessionTokenHash,
+        query: StudentAttemptHistoryQuery,
+        field: &str,
+        choice_search: &str,
+        page: crate::PageRequest,
+    ) -> Result<crate::Page<StudentAttemptHistoryFacetChoice>, StoreError>;
 
     /// Lists only the current Student's Course-scoped disclosed Question outcomes.
     async fn list_live_student_course_response_stats(

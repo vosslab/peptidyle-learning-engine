@@ -30,7 +30,6 @@ export function WasmRuntimeProvider(props: WasmRuntimeProviderProps): JSX.Elemen
       when={facade()}
       fallback={
         <main class="startup" aria-busy="true">
-          <p class="eyebrow">Preparing practice</p>
           <h1>Preparing your workspace...</h1>
         </main>
       }

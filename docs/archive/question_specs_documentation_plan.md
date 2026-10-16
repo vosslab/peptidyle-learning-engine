@@ -249,10 +249,10 @@ service routine can avoid duplicate implementation, but calling it directly is n
 system test. The Live Demo content loader and future importer use the same supported API path.
 
 Current source inspection on 2026-10-05 found that
-[publication.rs](../../crates/project-tools/src/pilot_content/publication.rs) already uses the
+`crates/project-tools/src/pilot_content/publication.rs` already uses the
 normal Question ID issuer and returns exact published Question references. It directly calls
 database-backed stores and the Question publisher.
-[installation_data_blueprint.rs](../../crates/project-tools/src/installation_data_blueprint.rs)
+`crates/project-tools/src/installation_data_blueprint.rs`
 already receives generated Blueprint and Assessment IDs from the Blueprint creation store, then
 passes IDs to the remaining demo SQL setup. Thus the known gap is API coverage, not a claim that
 every current Question or Blueprint ID is hard-coded. Preserve useful existing creation logic

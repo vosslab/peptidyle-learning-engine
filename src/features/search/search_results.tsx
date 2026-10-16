@@ -1,27 +1,38 @@
-import { Show, type JSX } from "solid-js";
+import { Show, type Accessor, type JSX } from "solid-js";
 
+import type { RecordCollectionEmptyState } from "../../components/record_list/record_collection_state";
 import {
   RecordList,
   type RecordListSelection,
   type RecordListState,
 } from "../../components/record_list/record_list";
+import type { RecordField, RecordListQuery } from "../../components/record_list/record_fields";
 import { RecordPageControls } from "../../components/record_list/record_page_controls";
 import type { SearchStateController } from "./search_state";
 import "./search.css";
 
-export type SearchResultsProps<Query, Row, FilterCounts, Sort extends string = never> = {
-  readonly state: SearchStateController<Query, Row, FilterCounts, Sort>;
+export type SearchResultsProps<
+  Query,
+  Row,
+  FilterCounts,
+  SortKey extends string = string,
+  FilterKey extends string = string,
+> = {
+  readonly state: SearchStateController<Query, Row, FilterCounts>;
   readonly ariaLabel: string;
-  readonly emptyState: { readonly title: string; readonly message: string };
+  readonly emptyState: RecordCollectionEmptyState;
   /** Content work, such as a bulk editor, can temporarily hold navigation still. */
   readonly disabled?: () => boolean;
   readonly selection?: () => RecordListSelection<Row> | undefined;
-  /** A caller can withhold rows until its discovery policy has enough filters. */
-  readonly rows?: () => ReadonlyArray<Row>;
+  readonly initialEmptyState?: RecordCollectionEmptyState;
+  readonly fields: ReadonlyArray<RecordField<Row, SortKey, FilterKey>>;
+  readonly query: RecordListQuery<SortKey, FilterKey>;
+  /** Caller-owned row content under the shared RecordList identity. */
+  readonly renderBody?: (row: Accessor<Row>) => JSX.Element;
 };
 
-function listState<Query, Row, FilterCounts, Sort extends string>(
-  state: SearchStateController<Query, Row, FilterCounts, Sort>,
+function listState<Query, Row, FilterCounts>(
+  state: SearchStateController<Query, Row, FilterCounts>,
 ): RecordListState {
   const current = state.state();
   if (current.kind === "loading") return { kind: "loading", label: "Loading results..." };
@@ -38,11 +49,14 @@ function listState<Query, Row, FilterCounts, Sort extends string>(
 }
 
 /** Shared current-page records and cursor navigation. */
-export function SearchResults<Query, Row, FilterCounts, Sort extends string = never>(
-  props: SearchResultsProps<Query, Row, FilterCounts, Sort>,
-): JSX.Element {
+export function SearchResults<
+  Query,
+  Row,
+  FilterCounts,
+  SortKey extends string = string,
+  FilterKey extends string = string,
+>(props: SearchResultsProps<Query, Row, FilterCounts, SortKey, FilterKey>): JSX.Element {
   const rows = (): ReadonlyArray<Row> => {
-    if (props.rows !== undefined) return props.rows();
     const current = props.state.state();
     return current.kind === "empty" ? [] : current.rows;
   };
@@ -55,22 +69,34 @@ export function SearchResults<Query, Row, FilterCounts, Sort extends string = ne
       current.nextCursor !== null
     );
   };
+  const common = {
+    get rows(): ReadonlyArray<Row> {
+      return rows();
+    },
+    content: props.state.definition.content,
+    recordId: props.state.definition.rowId,
+    renderBody: props.renderBody,
+    get selection(): RecordListSelection<Row> | undefined {
+      return props.selection?.();
+    },
+    get state(): RecordListState {
+      return listState(props.state);
+    },
+    ariaLabel: props.ariaLabel,
+    get emptyState(): RecordCollectionEmptyState {
+      return props.state.state().kind === "initial"
+        ? (props.initialEmptyState ?? props.emptyState)
+        : props.emptyState;
+    },
+  };
   return (
-    <Show when={props.state.state().kind !== "initial"}>
-      <section class="shared-search-results" aria-label={props.ariaLabel}>
-        <RecordList
-          rows={rows()}
-          content={props.state.definition.content}
-          recordId={props.state.definition.rowId}
-          presentation={props.state.display()}
-          selection={props.selection?.()}
-          state={listState(props.state)}
-          ariaLabel={props.ariaLabel}
-          emptyState={props.emptyState}
-        />
+    <section class="shared-search-results" aria-label={props.ariaLabel}>
+      <RecordList {...common} fields={props.fields} query={props.query} />
+      <Show when={props.state.state().kind !== "initial"}>
         <RecordPageControls
           ariaLabel={`${props.ariaLabel} pages`}
           pageSize={props.state.pageSize()}
+          maximumPageSize={props.state.definition.maximumPageSize}
           onPageSizeChange={(size) => void props.state.setPageSize(size)}
           hasPrevious={props.state.hasPrevious()}
           hasNext={hasNext()}
@@ -79,7 +105,7 @@ export function SearchResults<Query, Row, FilterCounts, Sort extends string = ne
           onPrevious={() => void props.state.previous()}
           onNext={() => void props.state.next()}
         />
-      </section>
-    </Show>
+      </Show>
+    </section>
   );
 }

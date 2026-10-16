@@ -1,15 +1,19 @@
-// Strict decoder for the self-only, cursor-paginated Course Attempt History.
+// Strict decoder for the self-only, global Attempt History.
 
-import type { StudentCourseAttemptHistoryPage } from "../student_course_attempt_history";
+import type {
+  StudentAttemptHistoryFacetPage,
+  StudentAttemptHistoryPage,
+} from "../student_course_attempt_history";
 import {
   DecodeError,
   decodeArray,
   decodeFiniteNumber,
+  decodeNonnegativeInteger,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
 } from "../decoder";
-import { parseAssessmentAttemptId } from "../../navigation/public_route";
+import { parseAssessmentAttemptId, parseCourseInstanceId } from "../../navigation/public_route";
 import {
   decodeAssessmentId,
   decodeAssessmentTitle,
@@ -35,7 +39,7 @@ function score(value: unknown, path: string): { pointsEarned: number; pointsPoss
   return { pointsEarned, pointsPossible };
 }
 
-function entry(value: unknown, path: string): StudentCourseAttemptHistoryPage["items"][number] {
+function entry(value: unknown, path: string): StudentAttemptHistoryPage["items"][number] {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "assessmentAttemptId",
@@ -45,6 +49,9 @@ function entry(value: unknown, path: string): StudentCourseAttemptHistoryPage["i
     "startedAt",
     "submittedAt",
     "assessmentScore",
+    "courseInstanceId",
+    "courseShortName",
+    "courseLongName",
   ]);
   const rawAttemptId = decodeString(
     field(record, "assessmentAttemptId", path),
@@ -53,6 +60,28 @@ function entry(value: unknown, path: string): StudentCourseAttemptHistoryPage["i
   const assessmentAttemptId = parseAssessmentAttemptId(rawAttemptId);
   if (assessmentAttemptId === null) {
     throw new DecodeError(`${path}.assessmentAttemptId`, "an Assessment Attempt UUID");
+  }
+  const courseInstanceId = parseCourseInstanceId(
+    decodeString(field(record, "courseInstanceId", path), `${path}.courseInstanceId`),
+  );
+  if (courseInstanceId === null) {
+    throw new DecodeError(`${path}.courseInstanceId`, "a canonical Course ID");
+  }
+  const courseShortName = decodeString(
+    field(record, "courseShortName", path),
+    `${path}.courseShortName`,
+  );
+  const courseLongName = decodeString(
+    field(record, "courseLongName", path),
+    `${path}.courseLongName`,
+  );
+  if (
+    !courseShortName.trim() ||
+    !courseLongName.trim() ||
+    [...courseShortName].length > 200 ||
+    [...courseLongName].length > 200
+  ) {
+    throw new DecodeError(path, "bounded Course names");
   }
   const startedAt = decodeTimestamp(field(record, "startedAt", path), `${path}.startedAt`);
   const submittedAt =
@@ -70,6 +99,9 @@ function entry(value: unknown, path: string): StudentCourseAttemptHistoryPage["i
     throw new DecodeError(path, "consistent Attempt dates and score disclosure");
   }
   return {
+    courseInstanceId,
+    courseShortName,
+    courseLongName,
     assessmentAttemptId,
     assessmentId: decodeAssessmentId(field(record, "assessmentId", path), `${path}.assessmentId`),
     assessmentTitle: decodeAssessmentTitle(
@@ -86,10 +118,10 @@ function entry(value: unknown, path: string): StudentCourseAttemptHistoryPage["i
   };
 }
 
-export function decodeStudentCourseAttemptHistoryPage(
+export function decodeStudentAttemptHistoryPage(
   value: unknown,
   path = "response",
-): StudentCourseAttemptHistoryPage {
+): StudentAttemptHistoryPage {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["items", "nextCursor"]);
   const items = decodeArray(field(record, "items", path), `${path}.items`, entry);
@@ -100,18 +132,45 @@ export function decodeStudentCourseAttemptHistoryPage(
   if (nextCursor !== undefined && (nextCursor.length === 0 || nextCursor.length > 512)) {
     throw new DecodeError(`${path}.nextCursor`, "an opaque cursor of at most 512 characters");
   }
-  const startedAtValues = items.map(({ startedAt }) => startedAt);
-  if (
-    startedAtValues.some((value, index) => {
-      const previous = startedAtValues[index - 1];
-      return previous !== undefined && value > previous;
-    })
-  ) {
-    throw new DecodeError(`${path}.items`, "newest-first Attempt ordering");
-  }
-  // Keep this import exercised as a cross-field invariant for wire integer parsing.
   if (items.length > 100) {
     throw new DecodeError(`${path}.items`, "a bounded page of at most 100 Attempts");
   }
   return { items, ...(nextCursor === undefined ? {} : { nextCursor }) };
+}
+
+export function decodeStudentAttemptHistoryFacetPage(
+  value: unknown,
+  path = "response",
+): StudentAttemptHistoryFacetPage {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["choices", "nextCursor"]);
+  const choices = decodeArray(
+    field(record, "choices", path),
+    `${path}.choices`,
+    (value, choicePath) => {
+      const choice = decodeRecord(value, choicePath);
+      requireOnlyFields(choice, choicePath, ["key", "label", "count"]);
+      const key = decodeString(field(choice, "key", choicePath), `${choicePath}.key`);
+      const label = decodeString(field(choice, "label", choicePath), `${choicePath}.label`);
+      if (!key || !label || key.length > 200 || label.length > 200) {
+        throw new DecodeError(choicePath, "bounded facet choice");
+      }
+      return {
+        key,
+        label,
+        count: decodeNonnegativeInteger(field(choice, "count", choicePath), `${choicePath}.count`),
+      };
+    },
+  );
+  if (choices.length > 50) {
+    throw new DecodeError(`${path}.choices`, "at most 50 facet choices");
+  }
+  const nextCursor =
+    record.nextCursor === undefined
+      ? undefined
+      : decodeString(record.nextCursor, `${path}.nextCursor`);
+  if (nextCursor !== undefined && (nextCursor.length === 0 || nextCursor.length > 512)) {
+    throw new DecodeError(`${path}.nextCursor`, "an opaque cursor of at most 512 characters");
+  }
+  return { choices, ...(nextCursor === undefined ? {} : { nextCursor }) };
 }

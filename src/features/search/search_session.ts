@@ -1,6 +1,8 @@
 import type { RecordContent } from "../../components/record_list/record_list";
-import type { RecordPageSize } from "../../components/record_list/record_page_controls";
-import type { RecordSortOption } from "../../components/record_list/record_sort_control";
+import {
+  RECORD_PAGE_SIZES,
+  type RecordPageSize,
+} from "../../components/record_list/record_page_sizes";
 
 /** One server page for a content-specific search definition. */
 export type SearchPage<Row, FilterCounts> = {
@@ -17,23 +19,19 @@ export type SearchAppliedFilter<Query> = {
   readonly clear: (query: Query) => Query;
 };
 
-/** A content-specific server order that the shared controls can present. */
-export type SearchSort<Query, Value extends string> = {
-  readonly label: string;
-  readonly options: ReadonlyArray<RecordSortOption<Value>>;
-  readonly get: (query: Query) => Value;
-  readonly set: (query: Query, value: Value) => Query;
-};
-
 /**
  * The small content-owned boundary around the reusable search machinery.
  *
  * Query cleanup and page decoding belong to the definition, before values reach this session.
  * The session only owns one page, its cursor stack, request ordering, and row-ID selection.
  */
-export type SearchDefinition<Query, Row, FilterCounts, Sort extends string = never> = {
+export type SearchDefinition<Query, Row, FilterCounts> = {
   readonly initialQuery: Query;
+  /** Largest page size supported by this query owner; defaults to the shared maximum. */
+  readonly maximumPageSize?: RecordPageSize;
   readonly cleanup: (query: Query) => Query;
+  /** Whether this cleaned query may request result rows. */
+  readonly isEligible: (query: Query) => boolean;
   readonly getText: (query: Query) => string;
   readonly setText: (query: Query, text: string) => Query;
   readonly fetchPage: (
@@ -43,7 +41,6 @@ export type SearchDefinition<Query, Row, FilterCounts, Sort extends string = nev
   ) => Promise<SearchPage<Row, FilterCounts>>;
   readonly rowId: (row: Row) => string;
   readonly content: (row: Row) => RecordContent;
-  readonly sort?: SearchSort<Query, Sort>;
   readonly appliedFilters?: (query: Query) => ReadonlyArray<SearchAppliedFilter<Query>>;
   readonly selection?: { readonly maximum: number };
 };
@@ -98,7 +95,7 @@ const DEFAULT_PAGE_SIZE: RecordPageSize = 50;
  * A later request always wins. Starting a replacement search clears all query-dependent
  * information immediately, while paging and retry retain the already verified page.
  */
-export class SearchSession<Query, Row, FilterCounts, Sort extends string = never> {
+export class SearchSession<Query, Row, FilterCounts> {
   #requestNumber = 0;
   #disposed = false;
   #query: Query;
@@ -115,7 +112,7 @@ export class SearchSession<Query, Row, FilterCounts, Sort extends string = never
   };
 
   public constructor(
-    private readonly definition: SearchDefinition<Query, Row, FilterCounts, Sort>,
+    private readonly definition: SearchDefinition<Query, Row, FilterCounts>,
     private readonly publish: (state: SearchState<Row, FilterCounts>) => void = () => {},
   ) {
     this.#query = definition.cleanup(definition.initialQuery);
@@ -152,6 +149,12 @@ export class SearchSession<Query, Row, FilterCounts, Sort extends string = never
     this.#currentCursor = null;
     this.#previousCursors = [];
     this.clearSelection();
+    if (!this.definition.isEligible(this.#query)) {
+      this.#requestNumber += 1;
+      this.#failedRequest = undefined;
+      this.setState({ kind: "initial", rows: [], filterCounts: undefined, nextCursor: null });
+      return;
+    }
     await this.load({
       query: this.#query,
       cursor: null,
@@ -163,7 +166,13 @@ export class SearchSession<Query, Row, FilterCounts, Sort extends string = never
 
   /** Starts page one at a new page size while retaining selections by stable row ID. */
   public async setPageSize(pageSize: RecordPageSize): Promise<void> {
-    if (this.#disposed || pageSize === this.#pageSize) return;
+    if (
+      this.#disposed ||
+      pageSize >
+        (this.definition.maximumPageSize ?? RECORD_PAGE_SIZES[RECORD_PAGE_SIZES.length - 1]!) ||
+      pageSize === this.#pageSize
+    )
+      return;
     this.#pageSize = pageSize;
     if (this.#state.kind === "initial") return;
     this.#currentCursor = null;

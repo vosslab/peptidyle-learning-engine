@@ -1,6 +1,5 @@
 /* Overview-first private Assessment Template editor. */
 
-.assessment-templates-header,
 .assessment-template-editor form,
 .assessment-template-settings,
 .assessment-template-setting-group,
@@ -9,8 +8,6 @@
   gap: var(--ple-compact-gap, 0.55rem);
 }
 
-.assessment-templates-header h1,
-.assessment-template-overview h2,
 .assessment-template-editor h2,
 .assessment-template-setting-group h3 {
   margin: 0;
@@ -30,7 +27,7 @@
 
 .assessment-templates-layout {
   display: grid;
-  grid-template-columns: minmax(16rem, 21rem) minmax(0, 1fr);
+  grid-template-columns: minmax(20rem, 32rem) minmax(0, 1fr);
   align-items: start;
   gap: var(--ple-card-gap, 1rem);
 }
@@ -189,8 +186,7 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .assessment-template-overview > h2,
-  .assessment-template-overview > .record-list,
+  .assessment-template-overview > .search-block,
   .assessment-template-create-disclosure,
   .assessment-template-create {
     grid-column: 1 / -1;
@@ -205,7 +201,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .assessment-template-overview > h2,
   .assessment-template-setting-group h3,
   .assessment-template-field--wide {
     grid-column: auto;

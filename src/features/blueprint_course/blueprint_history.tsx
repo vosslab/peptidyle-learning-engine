@@ -1,16 +1,29 @@
 // Lazy, read-only inspection of exact saved Blueprint content and recorded metadata.
-import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { For, Show, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintHistoryEntryView } from "../../../generated/api/BlueprintHistoryEntryView";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
-import type { BlueprintCourseClient } from "../../api/blueprint_course";
+import type {
+  BlueprintCourseClient,
+  BlueprintHistoryPage,
+  BlueprintHistoryQuery,
+} from "../../api/blueprint_course";
 import { ApiRequestError } from "../../api/http_client";
 import {
   assessmentDurationDefaultDescription,
   assessmentDurationDisplay,
 } from "../../assessment_duration";
-import { RecordList, type RecordContent } from "../../components/record_list/record_list";
+import type { RecordContent } from "../../components/record_list/record_list";
+import type {
+  RecordField,
+  RecordFilterChoices,
+  RecordListQuery,
+} from "../../components/record_list/record_fields";
+import { SearchBlock } from "../search/search_block";
+import { SearchControls } from "../search/search_controls";
+import { createSearchState } from "../search/search_state";
+import type { SearchDefinition } from "../search/search_session";
 import {
   RecordOutlineItem,
   RecordOutlineList,
@@ -68,7 +81,7 @@ function historicalEntryId(entry: BlueprintAssessmentEntryView): string {
 function historyEntryId(entry: BlueprintHistoryEntryView): string {
   return entry.kind === "savedRevision"
     ? `revision-${entry.revisionNumber}`
-    : `metadata-${entry.recordedAt}`;
+    : `metadata-${entry.blueprintEditNumber}`;
 }
 
 function historicalEntryContent(
@@ -253,44 +266,93 @@ interface HistoryPageProps {
   readonly onInspect: (revisionNumber: string) => void;
 }
 
-/** One bounded page at a time, with a retry tied to the exact failed continuation. */
+type HistorySortKey = "sequence" | "recordedAt" | "name";
+type HistoryFilterKey = "availability";
+
+type HistoryRow = BlueprintHistoryEntryView;
+
+function historyFields(
+  kind: "revisions" | "metadata",
+  formatDateTime: (timestamp: number | Date) => string,
+): ReadonlyArray<RecordField<HistoryRow, HistorySortKey, HistoryFilterKey>> {
+  if (kind === "revisions")
+    return [
+      {
+        id: "revision",
+        label: "Revision",
+        role: "identity",
+        sortKey: "sequence",
+        value: (row) => (row.kind === "savedRevision" ? `Revision ${row.revisionNumber}` : ""),
+        defaultColumn: { priority: 0, width: "12rem" },
+      },
+      {
+        id: "savedAt",
+        label: "Saved",
+        sortKey: "recordedAt",
+        value: (row) => (row.kind === "savedRevision" ? row.savedAt : null),
+        render: (row) =>
+          row.kind === "savedRevision" ? (
+            <time dateTime={new Date(row.savedAt).toISOString()}>
+              {formatDateTime(row.savedAt)}
+            </time>
+          ) : null,
+        defaultColumn: { priority: 1, width: "15rem" },
+      },
+    ];
+  return [
+    {
+      id: "name",
+      label: "Long name",
+      role: "identity",
+      sortKey: "name",
+      value: (row) => (row.kind === "metadataChange" ? row.longName : ""),
+      defaultColumn: { priority: 0, width: "18rem" },
+    },
+    {
+      id: "shortName",
+      label: "Short name",
+      value: (row) => (row.kind === "metadataChange" ? row.shortName : null),
+      defaultColumn: { priority: 1, width: "12rem" },
+    },
+    {
+      id: "availability",
+      label: "Availability",
+      filterKey: "availability",
+      value: (row) => (row.kind === "metadataChange" ? row.availability : null),
+      defaultColumn: { priority: 2, width: "10rem" },
+    },
+    {
+      id: "recordedAt",
+      label: "Recorded",
+      sortKey: "recordedAt",
+      value: (row) => (row.kind === "metadataChange" ? row.recordedAt : null),
+      render: (row) =>
+        row.kind === "metadataChange" ? (
+          <time dateTime={new Date(row.recordedAt).toISOString()}>
+            {formatDateTime(row.recordedAt)}
+          </time>
+        ) : null,
+      defaultColumn: { priority: 3, width: "15rem" },
+    },
+    {
+      id: "theme",
+      label: "Theme",
+      value: (row) => (row.kind === "metadataChange" ? row.theme : null),
+      defaultColumn: { priority: 4, width: "10rem", visible: false },
+    },
+  ];
+}
+
+/** Each independent history stream owns a complete-result query and stable keyset. */
 function HistoryPage(props: HistoryPageProps): JSX.Element {
-  const [items, setItems] = createSignal<BlueprintHistoryEntryView[]>([]);
-  const [nextCursor, setNextCursor] = createSignal<string | null>(null);
-  const [pageCursor, setPageCursor] = createSignal<string>();
-  const [busy, setBusy] = createSignal(false);
-  const [ready, setReady] = createSignal(false);
-  const [error, setError] = createSignal<string>();
-  let request = 0;
-  onCleanup(() => request++);
-  async function load(cursor?: string): Promise<void> {
-    const currentRequest = ++request;
-    setPageCursor(cursor);
-    setBusy(true);
-    setError(undefined);
-    setReady(false);
-    setItems([]);
-    setNextCursor(null);
-    try {
-      const page = await props.client.listBlueprintHistory(
-        props.blueprintCourseId,
-        props.kind,
-        cursor,
-        50,
-      );
-      if (currentRequest !== request) return;
-      setItems(page.items);
-      setNextCursor(page.nextCursor);
-      setReady(true);
-    } catch (failure: unknown) {
-      if (currentRequest === request) setError(historyError(failure));
-    } finally {
-      if (currentRequest === request) setBusy(false);
-    }
-  }
-  onMount(() => void load());
-  function historyEntryContent(entry: BlueprintHistoryEntryView): RecordContent {
-    if (entry.kind === "savedRevision") {
+  const initialQuery: BlueprintHistoryQuery = {
+    q: "",
+    sort: "sequence",
+    direction: "descending",
+    availability: [],
+  };
+  const content = (entry: HistoryRow): RecordContent => {
+    if (entry.kind === "savedRevision")
       return {
         title: `Revision ${entry.revisionNumber}${entry.revisionNumber === props.currentRevisionNumber ? " (latest saved)" : " (historical)"}`,
         details: [{ kind: "text", value: `Saved ${props.formatDateTime(entry.savedAt)}` }],
@@ -303,8 +365,6 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
           },
         ],
       };
-    }
-
     return {
       title: `${entry.longName} (${entry.shortName}) - ${entry.availability}`,
       details: [
@@ -314,53 +374,121 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
       ],
       actions: [],
     };
-  }
+  };
+  const definition: SearchDefinition<BlueprintHistoryQuery, HistoryRow, BlueprintHistoryPage> = {
+    initialQuery,
+    maximumPageSize: 100,
+    cleanup: (query) => ({
+      q: query.q.trim().toLowerCase().slice(0, 120),
+      sort: props.kind === "revisions" && query.sort === "name" ? "sequence" : query.sort,
+      direction: query.direction,
+      availability: props.kind === "metadata" ? [...new Set(query.availability)].sort() : [],
+    }),
+    isEligible: () => true,
+    getText: (query) => query.q,
+    setText: (query, q) => ({ ...query, q }),
+    rowId: historyEntryId,
+    content,
+    fetchPage: async (query, cursor, size) => {
+      const page = await props.client.listBlueprintHistory(
+        props.blueprintCourseId,
+        props.kind,
+        query,
+        cursor,
+        size,
+      );
+      return { items: page.items, nextCursor: page.nextCursor, filterCounts: page };
+    },
+    appliedFilters: (query) =>
+      query.availability.map((value) => ({
+        id: value,
+        label: `Availability: ${value}`,
+        clear: (current: BlueprintHistoryQuery): BlueprintHistoryQuery => ({
+          ...current,
+          availability: current.availability.filter((item) => item !== value),
+        }),
+      })),
+  };
+  const state = createSearchState(definition, { runOnMount: true });
+  const recordQuery: RecordListQuery<HistorySortKey, HistoryFilterKey> = {
+    kind: "paged",
+    sort: {
+      get value() {
+        return { key: state.query().sort, direction: state.query().direction };
+      },
+      onChange: (sort) =>
+        void state.apply((current) => ({ ...current, sort: sort.key, direction: sort.direction })),
+    },
+    ...(props.kind === "metadata"
+      ? {
+          filters: {
+            get values(): ReadonlyMap<HistoryFilterKey, ReadonlyArray<string>> {
+              return new Map<HistoryFilterKey, ReadonlyArray<string>>([
+                ["availability", state.query().availability],
+              ]);
+            },
+            onChange: (_key: HistoryFilterKey, values: ReadonlyArray<string>) =>
+              void state.apply((current) => ({
+                ...current,
+                availability: values.filter(
+                  (value): value is "public" | "archived" =>
+                    value === "public" || value === "archived",
+                ),
+              })),
+            onClear: () => void state.apply((current) => ({ ...current, availability: [] })),
+            choices: async (
+              _key: HistoryFilterKey,
+              search: string,
+            ): Promise<RecordFilterChoices> => {
+              const query = state.query();
+              const page = await props.client.listBlueprintHistory(
+                props.blueprintCourseId,
+                props.kind,
+                { ...query, availability: [] },
+                null,
+                1,
+              );
+              const choices = (["public", "archived"] as const).map((key) => ({
+                key,
+                label: key === "public" ? "Public" : "Archived",
+                count:
+                  key === "public"
+                    ? page.availabilityFacets.publicCount
+                    : page.availabilityFacets.archivedCount,
+              }));
+              const term = search.trim().toLowerCase();
+              return {
+                choices: choices.filter((choice) => choice.label.toLowerCase().includes(term)),
+                selected: choices.filter((choice) => query.availability.includes(choice.key)),
+                nextCursor: null,
+              };
+            },
+          },
+        }
+      : {}),
+  };
   return (
-    <section
-      aria-label={props.kind === "revisions" ? "Saved Revision page" : "Metadata change page"}
-      aria-busy={busy()}
-    >
-      <Show when={busy()}>
-        <p role="status">
-          Loading {props.kind === "revisions" ? "Revision history" : "recorded metadata changes"}.
-        </p>
-      </Show>
-      <Show when={error()}>
-        {(message) => (
-          <>
-            <p role="alert">{message()}</p>
-            <button type="button" onClick={() => void load(pageCursor())}>
-              Retry history page
-            </button>
-          </>
-        )}
-      </Show>
-      <Show when={ready()}>
-        <RecordList
-          rows={items()}
-          content={historyEntryContent}
-          recordId={historyEntryId}
-          state={{ kind: "ready" }}
-          ariaLabel={props.kind === "revisions" ? "Saved Revisions" : "Recorded metadata changes"}
-          emptyState={{
-            title: `No ${props.kind === "revisions" ? "saved Revisions" : "recorded metadata changes"}`,
-            message: "There are no records on this history page.",
-          }}
+    <SearchBlock
+      layout="above"
+      state={state}
+      controls={
+        <SearchControls
+          state={state}
+          textLabel={props.kind === "revisions" ? "Search Revisions" : "Search metadata changes"}
+          textPlaceholder={props.kind === "revisions" ? "Revision number" : "Name or theme"}
         />
-      </Show>
-      <Show when={nextCursor()}>
-        {(cursor) => (
-          <button type="button" disabled={busy()} onClick={() => void load(cursor())}>
-            Next history page
-          </button>
-        )}
-      </Show>
-      <Show when={pageCursor() !== undefined}>
-        <button type="button" class="quiet-action" disabled={busy()} onClick={() => void load()}>
-          Return to newest history page
-        </button>
-      </Show>
-    </section>
+      }
+      collection={{
+        ariaLabel: props.kind === "revisions" ? "Saved Revisions" : "Recorded metadata changes",
+        emptyState: {
+          title:
+            props.kind === "revisions" ? "No matching Revisions" : "No matching metadata changes",
+          message: "Try another search or filter.",
+        },
+        fields: historyFields(props.kind, props.formatDateTime),
+        query: recordQuery,
+      }}
+    />
   );
 }
 

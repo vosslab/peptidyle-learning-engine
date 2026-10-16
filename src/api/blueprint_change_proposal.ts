@@ -6,9 +6,21 @@ import type { BlueprintChangeProposalAcceptedView } from "../../generated/api/Bl
 import type { BlueprintChangeProposalCreateRequest } from "../../generated/api/BlueprintChangeProposalCreateRequest";
 import type { BlueprintChangeProposalDetailView } from "../../generated/api/BlueprintChangeProposalDetailView";
 import type { BlueprintChangeProposalPageView } from "../../generated/api/BlueprintChangeProposalPageView";
+import type { RecordFilterChoices } from "../components/record_list/record_fields";
+
+export type BlueprintProposalListQuery = {
+  readonly text: string;
+  readonly sort: "createdDescending" | "createdAscending";
+  readonly status: ReadonlyArray<"proposed" | "stale" | "accepted">;
+};
 
 /** Participant-only browser operations for immutable Change Proposal evidence. */
 export interface BlueprintChangeProposalClient {
+  readonly listBlueprintProposalStatusChoices: (
+    targetBlueprintCourseId: BlueprintCourseId | undefined,
+    text: string,
+    selected: BlueprintProposalListQuery["status"],
+  ) => Promise<RecordFilterChoices>;
   readonly createBlueprintChangeProposal: (
     targetBlueprintCourseId: BlueprintCourseId,
     request: BlueprintChangeProposalCreateRequest,
@@ -17,10 +29,12 @@ export interface BlueprintChangeProposalClient {
     targetBlueprintCourseId: BlueprintCourseId,
     cursor?: string,
     pageSize?: number,
+    query?: BlueprintProposalListQuery,
   ) => Promise<BlueprintChangeProposalPageView>;
   readonly listMyBlueprintChangeProposals: (
     cursor?: string,
     pageSize?: number,
+    query?: BlueprintProposalListQuery,
   ) => Promise<BlueprintChangeProposalPageView>;
   readonly getBlueprintChangeProposal: (
     proposalId: string,

@@ -342,6 +342,34 @@ BEGIN
 END
 $$;
 
+-- Resolve an exact stored or selected facet identity, including retired Disciplines.
+-- The API owner has no direct SELECT on the classification vocabulary tables.
+CREATE FUNCTION ple_private.content_classification_facet_name(p_field text, p_choice_key text)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE choice_name text;
+BEGIN
+    PERFORM ple_private.require_content_classification_reader();
+    CASE p_field
+        WHEN 'disciplineUuids' THEN
+            SELECT item.name INTO choice_name FROM ple_data.content_discipline AS item
+             WHERE item.content_discipline_id = p_choice_key::uuid;
+        WHEN 'subjectUuids' THEN
+            SELECT item.name INTO choice_name FROM ple_data.content_subject AS item
+             WHERE item.content_subject_id = p_choice_key::uuid;
+        WHEN 'topicUuids' THEN
+            SELECT item.name INTO choice_name FROM ple_data.content_topic AS item
+             WHERE item.content_topic_id = p_choice_key::uuid;
+        WHEN 'subtopicUuids' THEN
+            SELECT item.name INTO choice_name FROM ple_data.content_subtopic AS item
+             WHERE item.content_subtopic_id = p_choice_key::uuid;
+        ELSE
+            RAISE EXCEPTION 'invalid classification facet field' USING ERRCODE = '22023';
+    END CASE;
+    RETURN choice_name;
+END
+$$;
+
 CREATE FUNCTION ple_private.list_content_subjects(p_discipline_uuid uuid)
 RETURNS TABLE (content_subject_id uuid, name text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$

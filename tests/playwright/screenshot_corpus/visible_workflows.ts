@@ -17,6 +17,7 @@ import {
 export const COURSE_TITLE = "Biochemistry";
 // The imported catalog determines the representative released Assessment.
 export let ASSIGNMENT_TITLE = "";
+let assignmentId = "";
 // Card links and the overview entry button use the imported Assessment Type label.
 export let ASSESSMENT_TYPE_LABEL = "Unit Review Assignment";
 
@@ -36,14 +37,15 @@ export function courseCard(page: Page, title: string = COURSE_TITLE): Locator {
 }
 
 export function assignmentCard(page: Page, title: string = ASSIGNMENT_TITLE): Locator {
-  return page
-    .getByRole("listitem")
-    .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  const row = courseworkRow(page, title);
+  return title === ASSIGNMENT_TITLE && assignmentId !== ""
+    ? row.and(page.locator(`[data-record-id="${assignmentId}"]`))
+    : row;
 }
 
 export function courseworkRow(page: Page, title: string = ASSIGNMENT_TITLE): Locator {
-  return page.locator(".record-list__row").filter({
-    has: page.getByRole("heading", { name: title, exact: true }),
+  return page.locator("tr[data-record-id], .record-list__row[data-record-id]").filter({
+    has: page.getByText(title, { exact: true }),
   });
 }
 
@@ -105,10 +107,10 @@ export async function openInstructorCourse(
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true });
   await courses.click();
-  await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+  await page.getByRole("main", { name: "My Active Courses", exact: true }).waitFor();
   const card = courseCard(page, title);
   await followCaptureLink(page, card.getByRole("link", { name: "Open Course", exact: true }));
-  await page.getByRole("heading", { level: 1, name: title, exact: true }).waitFor();
+  await page.getByRole("main", { name: title, exact: true }).waitFor();
 }
 
 export async function openStudentCourse(page: Page, title: string = COURSE_TITLE): Promise<void> {
@@ -148,11 +150,11 @@ export async function openStudentCourseList(page: Page): Promise<void> {
 }
 
 function studentCourseHeading(page: Page, title: string): Locator {
-  return page.getByRole("heading", { level: 1, name: title, exact: true });
+  return page.getByRole("main", { name: title, exact: true });
 }
 
 function studentCourseListHeading(page: Page): Locator {
-  return page.getByRole("heading", { name: "Your courses", exact: true });
+  return page.getByRole("main", { name: "Courses", exact: true });
 }
 
 /** Matches the overview's entry button whether the Attempt is new or resumable. */
@@ -167,9 +169,14 @@ async function rememberDemoAssessment(page: Page, landingValue: Promise<unknown>
       : assessments.find((item) => item.title === ASSIGNMENT_TITLE);
   if (selected === undefined) throw new Error("The released Live Demo Assessment is unavailable.");
   ASSIGNMENT_TITLE = selected.title;
+  assignmentId = selected.id;
   ASSESSMENT_TYPE_LABEL = assessmentTypePresentation(selected.assessmentType).label;
   ASSESSMENT_ENTRY_BUTTON = new RegExp(`^(Start|Resume) ${ASSESSMENT_TYPE_LABEL}$`, "u");
-  await page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }).waitFor();
+  await page
+    .locator("[data-record-id]")
+    .filter({ has: page.getByText(ASSIGNMENT_TITLE, { exact: true }) })
+    .and(page.locator(`[data-record-id="${selected.id}"]`))
+    .waitFor();
 }
 
 /** The issued Attempt's visible position label supplies its complete Question count. */
@@ -213,7 +220,9 @@ export async function searchNativeMcLibraryQuestion(page: Page): Promise<Questio
   const membership = page.getByRole("combobox", { name: "Question membership", exact: true });
   await membership.selectOption("all");
   await page
-    .getByRole("heading", { name: summary.metadata.questionTitle, exact: true })
+    .locator("[data-record-id]")
+    .filter({ has: page.getByText(summary.metadata.questionTitle, { exact: true }) })
+    .filter({ has: page.getByRole("link", { name: "Open", exact: true }) })
     .first()
     .waitFor();
   return summary;
@@ -242,7 +251,7 @@ export async function resumeStudentAssignmentAttempt(page: Page): Promise<void> 
 
 export async function enterInstructor(page: Page): Promise<void> {
   await choosePersona(page, "Elena");
-  await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
+  await page.getByRole("main", { name: "Question Library", exact: true }).waitFor();
 }
 
 export async function openInstructorLibraryBrowse(page: Page): Promise<void> {
@@ -256,8 +265,8 @@ export async function openInstructorLibraryBrowse(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Ribbon tasks", exact: true })
     .getByRole("link", { name: "Browse Question Library", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Browse Question Library", exact: true }).waitFor();
-  await page.getByRole("heading", { name: "Subjects", exact: true }).waitFor();
+  await page.getByRole("main", { name: "Browse Question Library", exact: true }).waitFor();
+  await page.getByRole("region", { name: "Discipline", exact: true }).waitFor();
 }
 
 export async function enterSysadmin(page: Page): Promise<void> {
@@ -280,7 +289,7 @@ export async function enterSysadmin(page: Page): Promise<void> {
       throw new Error("Automated demonstration MFA requires the local HTTPS sign-in entry.");
     }
   }
-  const home = page.getByRole("heading", { name: "System administration", exact: true });
+  const home = page.getByRole("main", { name: "Courses", exact: true });
   const mfa = page.getByRole("heading", {
     level: 3,
     name: "Verify Morgan Delgado's administrator access",

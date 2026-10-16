@@ -46,14 +46,15 @@ async function instructorAccountJson<T>(
   return decoder(await boundedResponseJson(response, path), "response");
 }
 
-const instructorAccountPageSizes: ReadonlyArray<number> = [50, 100, 250];
+const instructorAccountPageSizes: ReadonlyArray<number> = [50, 100];
 
 /** ASVS 2.2.1: allow-list the list body before posting it. The server repeats the check. */
 function instructorAccountBrowseBody(browse: InstructorAccountBrowse): {
   readonly query: string;
   readonly state: InstructorAccountBrowse["state"];
   readonly pageSize: InstructorAccountBrowse["pageSize"];
-  readonly afterAccountId: InstructorAccountBrowse["afterAccountId"];
+  readonly sort: InstructorAccountBrowse["sort"];
+  readonly cursor: InstructorAccountBrowse["cursor"];
 } {
   const trimmed = browse.query.trim();
   if ([...trimmed].length > 320 || /[\p{Cc}]/u.test(trimmed)) {
@@ -62,14 +63,18 @@ function instructorAccountBrowseBody(browse: InstructorAccountBrowse): {
   if (!instructorAccountPageSizes.includes(browse.pageSize)) {
     throw new ApiProtocolError("Instructor Account list is invalid");
   }
-  if (browse.afterAccountId !== null && !isCanonicalAccountId(browse.afterAccountId)) {
+  if (browse.sort !== "idAscending" && browse.sort !== "idDescending") {
+    throw new ApiProtocolError("Instructor Account sort is invalid");
+  }
+  if (browse.cursor !== null && browse.cursor.length > 4096) {
     throw new ApiProtocolError("Instructor Account list is invalid");
   }
   return {
     query: trimmed,
     state: browse.state,
     pageSize: browse.pageSize,
-    afterAccountId: browse.afterAccountId,
+    sort: browse.sort,
+    cursor: browse.cursor,
   };
 }
 

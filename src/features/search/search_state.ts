@@ -1,12 +1,11 @@
-import { createSignal, onCleanup, type Accessor, type Setter } from "solid-js";
+import { createSignal, onCleanup, type Accessor } from "solid-js";
 
 import type { RecordPageSize } from "../../components/record_list/record_page_controls";
-import type { SearchResultDisplayMode } from "../../components/search_result_display";
 import { SearchSession, type SearchDefinition, type SearchState } from "./search_session";
 
 /** Reactive UI ownership around one plain SearchSession. */
-export type SearchStateController<Query, Row, FilterCounts, Sort extends string = never> = {
-  readonly definition: SearchDefinition<Query, Row, FilterCounts, Sort>;
+export type SearchStateController<Query, Row, FilterCounts> = {
+  readonly definition: SearchDefinition<Query, Row, FilterCounts>;
   readonly query: Accessor<Query>;
   readonly state: Accessor<SearchState<Row, FilterCounts>>;
   readonly typedText: Accessor<string>;
@@ -15,14 +14,14 @@ export type SearchStateController<Query, Row, FilterCounts, Sort extends string 
   readonly hasTypedDraft: Accessor<boolean>;
   /** True once this page has performed a user-directed search operation. */
   readonly searchUsed: Accessor<boolean>;
+  /** Advances when an accepted open or full clear replaces the current query. */
+  readonly replacementRevision: () => number;
   readonly pageSize: Accessor<RecordPageSize>;
   readonly selectedIds: Accessor<ReadonlySet<string>>;
   readonly hasPrevious: Accessor<boolean>;
-  readonly display: Accessor<SearchResultDisplayMode>;
-  readonly setDisplay: Setter<SearchResultDisplayMode>;
   readonly submit: () => Promise<void>;
   /** Applies user-directed query changes such as filters and sort. */
-  readonly apply: (query: Query) => Promise<void>;
+  readonly apply: (query: Query | ((current: Query) => Query | undefined)) => Promise<void>;
   /** Opens a starting query without turning on the leave warning. */
   readonly open: (query: Query) => Promise<void>;
   readonly setPageSize: (pageSize: RecordPageSize) => Promise<void>;
@@ -31,7 +30,8 @@ export type SearchStateController<Query, Row, FilterCounts, Sort extends string 
   readonly retry: () => Promise<void>;
   /** Reloads the current page without changing the applied query or selection. */
   readonly refresh: () => Promise<void>;
-  readonly clear: () => void;
+  /** Returns false when a content editor keeps its work instead of clearing search. */
+  readonly clear: () => Promise<boolean>;
   readonly select: (row: Row, selected: boolean) => void;
   readonly selectLoaded: () => void;
   readonly clearSelection: () => void;
@@ -42,16 +42,18 @@ export type SearchStateController<Query, Row, FilterCounts, Sort extends string 
 export type SearchStateOptions<Query> = {
   readonly initialQuery?: Query;
   readonly runOnMount?: boolean;
+  /** Ask before a query operation clears content-owned editors or selected rows. */
+  readonly beforeQueryChange?: () => Promise<boolean>;
 };
 
 /**
  * Connects the framework-neutral request session to one open Solid view.
  * Typing deliberately changes only local text; submit is the single search boundary.
  */
-export function createSearchState<Query, Row, FilterCounts, Sort extends string = never>(
-  definition: SearchDefinition<Query, Row, FilterCounts, Sort>,
+export function createSearchState<Query, Row, FilterCounts>(
+  definition: SearchDefinition<Query, Row, FilterCounts>,
   options: SearchStateOptions<Query> = {},
-): SearchStateController<Query, Row, FilterCounts, Sort> {
+): SearchStateController<Query, Row, FilterCounts> {
   const [query, setQuery] = createSignal(options.initialQuery ?? definition.initialQuery);
   const [state, setState] = createSignal<SearchState<Row, FilterCounts>>({
     kind: "initial",
@@ -66,7 +68,8 @@ export function createSearchState<Query, Row, FilterCounts, Sort extends string 
   const [pageSize, setPageSizeSignal] = createSignal<RecordPageSize>(50);
   const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(new Set());
   const [hasPrevious, setHasPrevious] = createSignal(false);
-  const [display, setDisplay] = createSignal<SearchResultDisplayMode>("compact");
+  let disposed = false;
+  let pendingUpdaterRevision = 0;
   const session = new SearchSession(definition, (next) => {
     setState(next);
     setQuery(() => session.query);
@@ -76,19 +79,40 @@ export function createSearchState<Query, Row, FilterCounts, Sort extends string 
   });
 
   async function open(nextQuery: Query): Promise<void> {
+    if (options.beforeQueryChange !== undefined && !(await options.beforeQueryChange())) return;
+    if (disposed) return;
+    pendingUpdaterRevision++;
     setTypedTextSignal(definition.getText(nextQuery));
     setTypedByUser(false);
     setSearchUsed(false);
     await session.apply(nextQuery);
   }
 
-  async function apply(nextQuery: Query): Promise<void> {
+  async function apply(nextQuery: Query | ((current: Query) => Query | undefined)): Promise<void> {
+    const updaterRevision = pendingUpdaterRevision;
+    if (options.beforeQueryChange !== undefined && !(await options.beforeQueryChange())) return;
+    if (disposed) return;
+    if (typeof nextQuery === "function" && updaterRevision !== pendingUpdaterRevision) return;
+    const current = session.query;
+    const resolvedQuery =
+      typeof nextQuery === "function"
+        ? (nextQuery as (current: Query) => Query | undefined)(current)
+        : nextQuery;
+    if (resolvedQuery === undefined) return;
+    const appliedText = definition.getText(current);
+    const cleanedQuery = definition.cleanup(resolvedQuery);
+    const nextText = definition.getText(cleanedQuery);
+    if (nextText !== appliedText) {
+      setTypedTextSignal(nextText);
+      setTypedByUser(false);
+    }
     setSearchUsed(true);
-    await session.apply(nextQuery);
+    await session.apply(cleanedQuery);
   }
 
   async function submit(): Promise<void> {
-    await apply(definition.setText(query(), typedText()));
+    const submittedText = typedText();
+    await apply((current) => definition.setText(current, submittedText));
   }
 
   function setTypedText(text: string): void {
@@ -96,19 +120,36 @@ export function createSearchState<Query, Row, FilterCounts, Sort extends string 
     setTypedByUser(true);
   }
 
-  function clear(): void {
-    setTypedTextSignal("");
+  async function clearNow(): Promise<void> {
+    pendingUpdaterRevision++;
+    const startingQuery = definition.cleanup(definition.initialQuery);
+    setTypedTextSignal(definition.getText(startingQuery));
     setTypedByUser(false);
     setSearchUsed(false);
     session.reset();
-    setQuery(() => definition.initialQuery);
+    setQuery(() => session.query);
     setPageSizeSignal(session.pageSize);
     setSelectedIds(new Set<string>());
     setHasPrevious(false);
+    if (definition.isEligible(startingQuery)) await session.apply(startingQuery);
+  }
+
+  function clear(): Promise<boolean> {
+    if (options.beforeQueryChange === undefined) {
+      if (disposed) return Promise.resolve(false);
+      return clearNow().then(() => true);
+    }
+    return options.beforeQueryChange().then((accepted) => {
+      if (!accepted || disposed) return false;
+      return clearNow().then(() => true);
+    });
   }
 
   if (options.runOnMount === true) void open(query());
-  onCleanup(() => session.dispose());
+  onCleanup(() => {
+    disposed = true;
+    session.dispose();
+  });
 
   return {
     definition,
@@ -118,11 +159,10 @@ export function createSearchState<Query, Row, FilterCounts, Sort extends string 
     setTypedText,
     hasTypedDraft,
     searchUsed,
+    replacementRevision: (): number => pendingUpdaterRevision,
     pageSize,
     selectedIds,
     hasPrevious,
-    display,
-    setDisplay,
     submit,
     apply,
     open,

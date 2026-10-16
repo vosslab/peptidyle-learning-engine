@@ -1,12 +1,15 @@
 // Public Blueprint Course rules supplied to the shared search interface.
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
+import type { Accessor } from "solid-js";
 import type {
   BlueprintCourseClassificationSearch,
   BlueprintCourseClient,
   BlueprintCourseListSort,
+  BlueprintCourseFacetFilters,
+  BlueprintCourseFacetField,
 } from "../api/blueprint_course";
 import type { SearchDefinition, SearchPage } from "../features/search/search_session";
-import { publicBlueprintContent } from "./blueprint_course_search_result";
+import { blueprintCourseContent } from "./blueprint_course_search_result";
 import { emptyBlueprintClassificationSearch } from "./blueprint_course_search_classification";
 
 /** One committed Public Blueprint Course search, owned beside its server definition. */
@@ -16,35 +19,44 @@ export type BlueprintCourseSearchQuery = {
   readonly classification: BlueprintCourseClassificationSearch;
   readonly classificationDescription: string;
   readonly sort: BlueprintCourseListSort;
-  readonly tag: string;
+  readonly includeArchived: boolean;
+  readonly facets: BlueprintCourseFacetFilters;
 };
 
-export function emptyBlueprintSearch(): BlueprintCourseSearchQuery {
+export function emptyBlueprintFacets(): BlueprintCourseFacetFilters {
+  return { disciplineUuids: [], subjectUuids: [], topicUuids: [], subtopicUuids: [], tags: [] };
+}
+
+export function emptyBlueprintSearch(includeArchived = false): BlueprintCourseSearchQuery {
   return {
     query: "",
     promotedOnly: false,
     classification: emptyBlueprintClassificationSearch(),
     classificationDescription: "",
     sort: "name",
-    tag: "",
+    includeArchived,
+    facets: emptyBlueprintFacets(),
   };
 }
 
 export function blueprintCourseSearchDefinition(
   client: Pick<BlueprintCourseClient, "listBlueprintCourses">,
-): SearchDefinition<
-  BlueprintCourseSearchQuery,
-  BlueprintCourseSummaryView,
-  undefined,
-  BlueprintCourseListSort
-> {
+  formatTimestamp: Accessor<(timestamp: number | Date) => string>,
+  scope: "public" | "all" = "public",
+): SearchDefinition<BlueprintCourseSearchQuery, BlueprintCourseSummaryView, undefined> {
   return {
-    initialQuery: emptyBlueprintSearch(),
-    cleanup: (query) => ({ ...query, query: query.query.trim(), tag: query.tag.trim() }),
+    initialQuery: emptyBlueprintSearch(scope === "all"),
+    cleanup: (query) => ({ ...query, query: query.query.trim() }),
+    isEligible: (query) =>
+      scope === "all" ||
+      query.query.length > 0 ||
+      query.promotedOnly ||
+      query.classification.disciplineUuid !== null ||
+      Object.values(query.facets).some((values) => values.length > 0),
     getText: (query) => query.query,
     setText: (query, text) => ({ ...query, query: text }),
     rowId: (course) => course.id,
-    content: publicBlueprintContent,
+    content: (course) => blueprintCourseContent(course, formatTimestamp()),
     fetchPage: async (
       query,
       cursor,
@@ -53,30 +65,34 @@ export function blueprintCourseSearchDefinition(
       const page = await client.listBlueprintCourses(
         cursor ?? undefined,
         pageSize,
-        false,
+        scope === "all" && query.includeArchived,
         query.query,
-        true,
+        scope === "public",
         query.promotedOnly,
         query.classification,
         query.sort,
-        query.tag,
+        "",
+        query.facets,
       );
       return { items: page.items, nextCursor: page.nextCursor, filterCounts: undefined };
     },
-    sort: {
-      label: "Sort Public Blueprint Courses",
-      options: [
-        { value: "name", label: "Name" },
-        { value: "adoptions", label: "Adoptions" },
-        { value: "students", label: "Students having taken the course" },
-        { value: "stars", label: "Stars" },
-        { value: "watches", label: "Watches" },
-        { value: "recentEdits", label: "Most recently edited" },
-      ],
-      get: (query) => query.sort,
-      set: (query, sort) => ({ ...query, sort }),
-    },
     appliedFilters: (query) => [
+      ...(
+        ["disciplineUuids", "subjectUuids", "topicUuids", "subtopicUuids", "tags"] as const
+      ).flatMap((field: BlueprintCourseFacetField) =>
+        query.facets[field].length === 0
+          ? []
+          : [
+              {
+                id: field,
+                label: `${field === "tags" ? "Tags" : field.replace("Uuids", "")}: ${query.facets[field].length}`,
+                clear: (current: BlueprintCourseSearchQuery) => ({
+                  ...current,
+                  facets: { ...current.facets, [field]: [] },
+                }),
+              },
+            ],
+      ),
       ...(query.promotedOnly
         ? [
             {
@@ -89,12 +105,15 @@ export function blueprintCourseSearchDefinition(
             },
           ]
         : []),
-      ...(query.tag !== ""
+      ...(scope === "all" && query.includeArchived
         ? [
             {
-              id: "tag",
-              label: `Tag: ${query.tag}`,
-              clear: (current: BlueprintCourseSearchQuery) => ({ ...current, tag: "" }),
+              id: "archived",
+              label: "Include Archived",
+              clear: (current: BlueprintCourseSearchQuery) => ({
+                ...current,
+                includeArchived: false,
+              }),
             },
           ]
         : []),

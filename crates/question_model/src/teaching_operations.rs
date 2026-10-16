@@ -12,17 +12,14 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CourseInstanceId, CourseInvitationId, LocalDateAndTime, MAX_ASSESSMENT_ATTEMPT_LIMIT,
-    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
+    CourseInstanceId, LocalDateAndTime, MAX_ASSESSMENT_ATTEMPT_LIMIT,
+    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS,
 };
 
 pub use crate::preview_plane::HypotheticalStudentViewScenarioModifiers;
 
 /// Maximum Unicode scalar count for an authorized account or membership label.
 pub const MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS: usize = 200;
-/// Maximum rows in one browser teaching-operations page.
-pub const MAX_TEACHING_PAGE_SIZE: u32 = 100;
-
 fn canonical_positive_postgres_bigint(value: &str) -> Result<NonZeroU64, &'static str> {
     if value.is_empty()
         || (value.len() > 1 && value.starts_with('0'))
@@ -36,54 +33,6 @@ fn canonical_positive_postgres_bigint(value: &str) -> Result<NonZeroU64, &'stati
         .filter(|value| *value <= i64::MAX as u64)
         .and_then(NonZeroU64::new)
         .ok_or("must fit a positive PostgreSQL bigint")
-}
-
-/// One Course Invitation's current lifecycle-state precondition, represented as canonical decimal JSON.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct CourseInvitationStatePrecondition(NonZeroU64);
-
-impl CourseInvitationStatePrecondition {
-    /// Creates a positive lifecycle-state precondition that fits PostgreSQL `BIGINT`.
-    pub fn new(value: u64) -> Option<Self> {
-        (value <= i64::MAX as u64)
-            .then(|| NonZeroU64::new(value))
-            .flatten()
-            .map(Self)
-    }
-
-    /// Returns the exact lifecycle-state precondition used in a strong conditional request.
-    pub fn value(self) -> u64 {
-        self.0.get()
-    }
-}
-
-impl std::fmt::Display for CourseInvitationStatePrecondition {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{}", self.value())
-    }
-}
-
-impl FromStr for CourseInvitationStatePrecondition {
-    type Err = &'static str;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        canonical_positive_postgres_bigint(value).map(Self)
-    }
-}
-
-impl TryFrom<String> for CourseInvitationStatePrecondition {
-    type Error = &'static str;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<CourseInvitationStatePrecondition> for String {
-    fn from(value: CourseInvitationStatePrecondition) -> Self {
-        value.to_string()
-    }
 }
 
 /// One Course Roster's current change number, represented as canonical decimal JSON.
@@ -322,53 +271,4 @@ pub struct AccommodationAdjustmentView {
     pub closes_at: TeachingTimeFieldPatch,
     pub assessment_attempt_time_limit_seconds: TeachingAssessmentAttemptTimeLimitFieldPatch,
     pub attempt_limit: TeachingAttemptLimitFieldPatch,
-}
-
-/// Pending account-owned invitation row. It intentionally contains no email.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PendingCourseInvitationView {
-    pub id: CourseInvitationId,
-    pub course_label: TeachingDisplayLabel,
-    pub state: CourseInvitationStateView,
-    pub expires_at: Timestamp,
-    /// Exact lifecycle-state precondition required by accept or decline `If-Match`.
-    #[serde(rename = "state_precondition")]
-    pub state_precondition: CourseInvitationStatePrecondition,
-}
-
-/// Closed pending-invitation lifecycle state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CourseInvitationStateView {
-    Pending,
-    Expired,
-    Accepted,
-    Declined,
-    Revoked,
-}
-
-/// Bounded pending invitation page.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PendingCourseInvitationsPage {
-    /// Authenticated Instructor's own IANA zone for rendering this page's instants.
-    pub display_time_zone: crate::AccountTimeZone,
-    pub invitations: Vec<PendingCourseInvitationView>,
-    pub next_cursor: Option<String>,
-}
-
-/// Closed terminal action for the authenticated invitation target.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CourseInvitationTerminalAction {
-    Accept,
-    Decline,
-}
-
-/// Strict terminal pending-invitation action.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CourseInvitationTerminalActionRequest {
-    pub action: CourseInvitationTerminalAction,
 }

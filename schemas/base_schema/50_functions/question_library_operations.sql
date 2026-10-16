@@ -161,13 +161,13 @@ SET LOCAL ROLE ple_private_owner;
 -- One authorized relation supplies both result kinds, their facets, and the global page.
 CREATE FUNCTION ple_private.search_question_library_entries(
     p_exact_question_id text, p_text_terms jsonb, p_author_names text[], p_backends text[],
-    p_tags text[], p_subjects text[], p_topics text[], p_discipline_id uuid, p_subject_id uuid,
-    p_topic_id uuid, p_subtopic_id uuid, p_cross_discipline boolean, p_bloom_cognitive_process text,
-    p_bloom_knowledge_dimension text, p_question_types text[], p_question_licenses text[],
+    p_tags text[], p_subjects text[], p_topics text[], p_discipline_ids uuid[], p_subject_ids uuid[],
+    p_topic_ids uuid[], p_subtopic_ids uuid[], p_cross_discipline boolean, p_bloom_cognitive_processes text[],
+    p_bloom_knowledge_dimensions text[], p_question_types text[], p_question_licenses text[],
     p_authored_by_current_account boolean,
     p_result_kind text, p_questions text, p_owner_account_id text,
     p_sort text, p_after_title text, p_after_published_at_millis bigint, p_after_public_id text,
-    p_limit integer
+    p_limit integer, p_scope text DEFAULT 'public', p_after_starred_at_micros bigint DEFAULT NULL
 ) RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[], author_account_ids text[],
@@ -181,7 +181,8 @@ CREATE FUNCTION ple_private.search_question_library_entries(
     row_kind text, public_id text, owner_account_id text, in_pool boolean,
     question_pool_edit_number bigint, question_pool_metadata_edit_number bigint, question_pool_member_count bigint,
     facets jsonb, language text, citation_text text,
-    parent_published_question_id text, parent_revision_number integer
+    parent_published_question_id text, parent_revision_number integer,
+    starred_at_micros bigint
 ) LANGUAGE plpgsql SECURITY DEFINER
 -- Interactive metadata search spends more on JIT compilation than on execution.
 -- Live Demo EXPLAIN measured 1465 ms compiling versus 22 ms without JIT.
@@ -195,116 +196,30 @@ BEGIN
             MESSAGE = 'Question Library requires an active Instructor or Sysadmin Account';
     END IF;
     IF p_limit NOT BETWEEN 1 AND 251
-       OR p_sort NOT IN ('title_ascending', 'published_newest')
+       OR p_sort NOT IN ('title_ascending', 'title_descending', 'kind_ascending', 'kind_descending',
+                         'discipline_ascending', 'discipline_descending',
+                         'question_type_ascending', 'question_type_descending', 'published_newest',
+                         'starred_date_ascending', 'starred_date_descending')
+       OR p_scope NOT IN ('public', 'current_starred')
+       OR (p_scope = 'public' AND p_sort IN ('starred_date_ascending', 'starred_date_descending'))
+       OR (p_scope = 'current_starred' AND (p_result_kind <> 'questions' OR NOT ple_api.current_session_account_is_instructor()))
        OR p_result_kind NOT IN ('both', 'questions', 'pools')
        OR p_questions NOT IN ('no_pool', 'all')
        OR jsonb_typeof(COALESCE(p_text_terms, '[]'::jsonb)) <> 'array'
-       OR (p_subject_id IS NOT NULL AND p_discipline_id IS NULL)
-       OR (p_topic_id IS NOT NULL AND p_subject_id IS NULL)
-       OR (p_subtopic_id IS NOT NULL AND p_topic_id IS NULL)
-       OR (p_cross_discipline AND (p_discipline_id IS NULL OR p_subject_id IS NULL)) THEN
+       OR (cardinality(p_subject_ids) > 0 AND cardinality(p_discipline_ids) = 0)
+       OR (cardinality(p_topic_ids) > 0 AND cardinality(p_subject_ids) = 0)
+       OR (cardinality(p_subtopic_ids) > 0 AND cardinality(p_topic_ids) = 0)
+       OR (p_cross_discipline AND (cardinality(p_discipline_ids) = 0 OR cardinality(p_subject_ids) = 0)) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question Library discovery request is invalid';
     END IF;
     RETURN QUERY
-    WITH question_rows AS MATERIALIZED (
-        SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name,
-               d.is_retired AS discipline_is_retired, st.name AS subtopic_name,
-               owner.owner_account_id::text AS owner_account_id,
-               EXISTS (SELECT 1 FROM ple_data.question_pool_member member
-                        WHERE member.published_question_id = q.published_question_id) AS in_pool,
-               'question'::text AS row_kind, q.published_question_id AS public_id,
-               NULL::bigint AS question_pool_edit_number,
-               NULL::bigint AS question_pool_metadata_edit_number,
-               NULL::bigint AS question_pool_member_count
-          FROM ple_private.question_library_entries(NULL, NULL, true) q
-          JOIN ple_data.question_current_owner owner USING (published_question_id)
-          JOIN LATERAL ple_private.list_content_disciplines_including_retired() d ON d.content_discipline_id = q.content_discipline_id
-          JOIN LATERAL ple_private.list_content_subjects(q.content_discipline_id) s ON s.content_subject_id = q.content_subject_id
-          LEFT JOIN LATERAL ple_private.list_content_topics(q.content_subject_id) t ON t.content_topic_id = q.content_topic_id
-          LEFT JOIN LATERAL ple_private.list_content_subtopics(q.content_topic_id) st ON st.content_subtopic_id = q.content_subtopic_id
-    ), pool_rows AS MATERIALIZED (
-        SELECT NULL::text AS published_question_id, NULL::integer AS revision_number,
-               pool.backend::text AS backend, NULL::text AS question_format, pool.question_type::text AS question_type,
-               floor(extract(epoch FROM pool.created_at) * 1000)::bigint AS published_at_millis,
-               pool.title AS question_title, pool.description AS question_description,
-               ARRAY[]::text[] AS author_names, ARRAY[]::text[] AS author_account_ids,
-               false AS authored_by_current_account, false AS viewer_may_archive,
-               false AS viewer_may_edit_metadata,
-               pool.license::text AS question_license, NULL::text AS availability,
-               NULL::bigint AS availability_edit_number, pool.question_pool_metadata_edit_number AS metadata_edit_number,
-               pool.tags, pool.content_discipline_id, pool.content_subject_id, pool.content_topic_id, pool.content_subtopic_id,
-               pool.bloom_cognitive_process::text AS bloom_cognitive_process,
-               pool.bloom_knowledge_dimension::text AS bloom_knowledge_dimension,
-               NULL::uuid AS source_object_record_id, NULL::text AS source_object_checksum,
-               NULL::text AS source_media_type, NULL::text AS webwork_pg_path,
-               NULL::text AS language, NULL::text AS citation_text,
-               NULL::text AS parent_published_question_id, NULL::integer AS parent_revision_number,
-               subject.name AS subject_name, topic.name AS topic_name, discipline.name AS discipline_name,
-               discipline.is_retired AS discipline_is_retired, subtopic.name AS subtopic_name,
-               pool.owner_account_id::text AS owner_account_id, false AS in_pool,
-               'pool'::text AS row_kind, pool.question_pool_id::text AS public_id,
-               pool.question_pool_edit_number, pool.question_pool_metadata_edit_number,
-               members.member_count AS question_pool_member_count
-          FROM ple_data.question_pool pool
-          JOIN LATERAL (SELECT count(*)::bigint AS member_count FROM ple_data.question_pool_member member
-                         WHERE member.question_pool_id = pool.question_pool_id) members ON members.member_count > 0
-          JOIN LATERAL ple_private.list_content_disciplines_including_retired() discipline ON discipline.content_discipline_id = pool.content_discipline_id
-          JOIN LATERAL ple_private.list_content_subjects(pool.content_discipline_id) subject ON subject.content_subject_id = pool.content_subject_id
-          LEFT JOIN LATERAL ple_private.list_content_topics(pool.content_subject_id) topic ON topic.content_topic_id = pool.content_topic_id
-          LEFT JOIN LATERAL ple_private.list_content_subtopics(pool.content_topic_id) subtopic ON subtopic.content_subtopic_id = pool.content_subtopic_id
-    ), entries AS MATERIALIZED (
-        SELECT * FROM question_rows UNION ALL SELECT * FROM pool_rows
-    ), eligible AS MATERIALIZED (
-        SELECT entry.* FROM entries entry
-         WHERE (p_exact_question_id IS NULL OR entry.public_id = p_exact_question_id)
-           AND (p_backends IS NULL OR entry.backend = ANY(p_backends))
-           AND (p_owner_account_id IS NULL OR entry.owner_account_id = p_owner_account_id)
-           AND (cardinality(p_tags) = 0 OR EXISTS (SELECT 1 FROM unnest(entry.tags) tag(value)
-                WHERE lower(btrim(regexp_replace(tag.value, '[[:space:]]+', ' ', 'g'))) = ANY(p_tags)))
-           AND (cardinality(p_subjects) = 0 OR lower(btrim(regexp_replace(entry.subject_name, '[[:space:]]+', ' ', 'g'))) = ANY(p_subjects))
-           AND (cardinality(p_topics) = 0 OR lower(btrim(regexp_replace(COALESCE(entry.topic_name, ''), '[[:space:]]+', ' ', 'g'))) = ANY(p_topics))
-           AND (p_cross_discipline OR p_discipline_id IS NULL OR entry.content_discipline_id = p_discipline_id)
-           AND (p_subject_id IS NULL OR entry.content_subject_id = p_subject_id)
-           AND (p_topic_id IS NULL OR entry.content_topic_id = p_topic_id)
-           AND (p_subtopic_id IS NULL OR entry.content_subtopic_id = p_subtopic_id)
-           AND (p_bloom_cognitive_process IS NULL OR entry.bloom_cognitive_process = p_bloom_cognitive_process)
-           AND (p_bloom_knowledge_dimension IS NULL OR entry.bloom_knowledge_dimension = p_bloom_knowledge_dimension)
-           AND (cardinality(p_question_types) = 0 OR entry.question_type = ANY(p_question_types))
-           AND (cardinality(p_question_licenses) = 0 OR entry.question_license = ANY(p_question_licenses))
-           AND (entry.row_kind = 'question' OR (cardinality(p_author_names) = 0
-                AND NOT p_authored_by_current_account
-                AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(p_text_terms, '[]'::jsonb)) term(value)
-                                WHERE term.value ->> 'field' = 'author'
-                                  AND COALESCE((term.value ->> 'excluded')::boolean, false) = false)))
-           AND (cardinality(p_author_names) = 0 OR EXISTS (SELECT 1 FROM unnest(entry.author_names) author(name)
-                WHERE lower(btrim(regexp_replace(author.name, '[[:space:]]+', ' ', 'g'))) = ANY(p_author_names)))
-           AND (NOT p_authored_by_current_account OR entry.authored_by_current_account)
-           AND NOT EXISTS (
-                SELECT 1 FROM jsonb_array_elements(COALESCE(p_text_terms, '[]'::jsonb)) term(value)
-                 WHERE COALESCE(term.value ->> 'value', '') = '' OR (
-                    COALESCE((term.value ->> 'excluded')::boolean, false) = CASE term.value ->> 'field'
-                    WHEN 'discipline' THEN strpos(lower(entry.discipline_name), lower(term.value ->> 'value')) > 0
-                    WHEN 'subtopic' THEN strpos(lower(COALESCE(entry.subtopic_name, '')), lower(term.value ->> 'value')) > 0
-                    WHEN 'subject' THEN strpos(lower(entry.subject_name), lower(term.value ->> 'value')) > 0
-                    WHEN 'topic' THEN strpos(lower(COALESCE(entry.topic_name, '')), lower(term.value ->> 'value')) > 0
-                    WHEN 'tags' THEN EXISTS (SELECT 1 FROM unnest(entry.tags) tag(value) WHERE strpos(lower(tag.value), lower(term.value ->> 'value')) > 0)
-                    WHEN 'question_type' THEN strpos(lower(CASE entry.question_type
-                        WHEN 'multipleChoice' THEN 'multiple choice' WHEN 'multipleAnswer' THEN 'multiple answer'
-                        WHEN 'fillInBlank' THEN 'fill in the blank' WHEN 'multipleFillInBlank' THEN 'multiple fill in the blank'
-                        ELSE entry.question_type END), lower(term.value ->> 'value')) > 0
-                    WHEN 'author' THEN EXISTS (SELECT 1 FROM unnest(entry.author_names) author(name) WHERE strpos(lower(author.name), lower(term.value ->> 'value')) > 0)
-                    WHEN 'any' THEN strpos(lower(entry.question_title), lower(term.value ->> 'value')) > 0
-                        OR strpos(lower(entry.question_description), lower(term.value ->> 'value')) > 0
-                        OR strpos(lower(entry.subject_name), lower(term.value ->> 'value')) > 0
-                        OR strpos(lower(COALESCE(entry.topic_name, '')), lower(term.value ->> 'value')) > 0
-                        OR EXISTS (SELECT 1 FROM unnest(entry.tags) tag(value) WHERE strpos(lower(tag.value), lower(term.value ->> 'value')) > 0)
-                        OR (entry.row_kind = 'question' AND EXISTS (SELECT 1 FROM unnest(entry.author_names) author(name) WHERE strpos(lower(author.name), lower(term.value ->> 'value')) > 0))
-                        OR strpos(lower(CASE entry.question_type
-                            WHEN 'multipleChoice' THEN 'multiple choice' WHEN 'multipleAnswer' THEN 'multiple answer'
-                            WHEN 'fillInBlank' THEN 'fill in the blank' WHEN 'multipleFillInBlank' THEN 'multiple fill in the blank'
-                            ELSE entry.question_type END), lower(term.value ->> 'value')) > 0
-                    ELSE false END)
-           )
+    WITH eligible AS MATERIALIZED (
+        SELECT * FROM ple_private.matching_question_library_entries(
+            p_exact_question_id, p_text_terms, p_author_names, p_backends, p_tags, p_subjects,
+            p_topics, p_discipline_ids, p_subject_ids, p_topic_ids, p_subtopic_ids,
+            p_cross_discipline, p_bloom_cognitive_processes, p_bloom_knowledge_dimensions,
+            p_question_types, p_question_licenses, p_authored_by_current_account,
+            p_owner_account_id, NULL, p_scope)
     ), filtered AS MATERIALIZED (
         SELECT * FROM eligible entry
          WHERE (p_result_kind = 'both' OR p_result_kind = CASE entry.row_kind WHEN 'question' THEN 'questions' ELSE 'pools' END)
@@ -355,14 +270,49 @@ BEGIN
         SELECT normalized_value, min(display_value) AS display_value, count(*)::bigint AS facet_count
           FROM topic_values
          GROUP BY normalized_value
+    ), keyed AS MATERIALIZED (
+        SELECT entry.*,
+               CASE
+                   WHEN p_sort IN ('title_ascending', 'title_descending') THEN entry.question_title
+                   WHEN p_sort IN ('kind_ascending', 'kind_descending') THEN
+                       CASE entry.row_kind WHEN 'question' THEN 'Published Question' ELSE 'Question Pool' END
+                   WHEN p_sort IN ('discipline_ascending', 'discipline_descending') THEN entry.discipline_name
+                   WHEN p_sort IN ('question_type_ascending', 'question_type_descending') THEN
+                       CASE entry.question_type
+                           WHEN 'multipleChoice' THEN 'Multiple choice'
+                           WHEN 'multipleAnswer' THEN 'Multiple answer'
+                           WHEN 'fillInBlank' THEN 'Fill in the blank'
+                           WHEN 'multipleFillInBlank' THEN 'Multiple fill in the blank'
+                           WHEN 'numeric' THEN 'Numeric'
+                           WHEN 'matching' THEN 'Matching'
+                           WHEN 'ordering' THEN 'Ordering'
+                           WHEN 'hotspot' THEN 'Hotspot'
+                       END
+               END AS sort_key
+          FROM filtered entry
     ), page AS MATERIALIZED (
-        SELECT * FROM filtered entry
+        SELECT * FROM keyed entry
          WHERE p_after_public_id IS NULL
-            OR (p_sort = 'title_ascending' AND (entry.question_title COLLATE "C", entry.public_id) > (p_after_title COLLATE "C", p_after_public_id))
+            OR (p_sort IN ('title_ascending', 'kind_ascending', 'discipline_ascending', 'question_type_ascending')
+                AND (entry.sort_key COLLATE "C" > p_after_title COLLATE "C"
+                     OR (entry.sort_key COLLATE "C" = p_after_title COLLATE "C" AND entry.public_id > p_after_public_id)))
+            OR (p_sort IN ('title_descending', 'kind_descending', 'discipline_descending', 'question_type_descending')
+                AND (entry.sort_key COLLATE "C" < p_after_title COLLATE "C"
+                     OR (entry.sort_key COLLATE "C" = p_after_title COLLATE "C" AND entry.public_id > p_after_public_id)))
             OR (p_sort = 'published_newest' AND (entry.published_at_millis < p_after_published_at_millis
                 OR (entry.published_at_millis = p_after_published_at_millis AND entry.public_id > p_after_public_id)))
-         ORDER BY CASE WHEN p_sort = 'title_ascending' THEN entry.question_title END COLLATE "C" ASC,
-                  CASE WHEN p_sort = 'published_newest' THEN entry.published_at_millis END DESC, entry.public_id ASC
+            OR (p_sort = 'starred_date_ascending' AND (entry.starred_at_micros > p_after_starred_at_micros
+                OR (entry.starred_at_micros = p_after_starred_at_micros AND entry.public_id > p_after_public_id)))
+            OR (p_sort = 'starred_date_descending' AND (entry.starred_at_micros < p_after_starred_at_micros
+                OR (entry.starred_at_micros = p_after_starred_at_micros AND entry.public_id > p_after_public_id)))
+         ORDER BY CASE WHEN p_sort IN ('title_ascending', 'kind_ascending', 'discipline_ascending', 'question_type_ascending')
+                       THEN entry.sort_key END COLLATE "C" ASC NULLS LAST,
+                  CASE WHEN p_sort IN ('title_descending', 'kind_descending', 'discipline_descending', 'question_type_descending')
+                       THEN entry.sort_key END COLLATE "C" DESC NULLS LAST,
+                  CASE WHEN p_sort = 'published_newest' THEN entry.published_at_millis END DESC NULLS LAST,
+                  CASE WHEN p_sort = 'starred_date_ascending' THEN entry.starred_at_micros END ASC NULLS LAST,
+                  CASE WHEN p_sort = 'starred_date_descending' THEN entry.starred_at_micros END DESC NULLS LAST,
+                  entry.public_id ASC
          LIMIT p_limit
     ), aggregates AS (
         SELECT jsonb_build_object(
@@ -457,10 +407,15 @@ BEGIN
            page.row_kind, page.public_id, page.owner_account_id, page.in_pool,
            page.question_pool_edit_number, page.question_pool_metadata_edit_number, page.question_pool_member_count,
            aggregates.facets, page.language, page.citation_text,
-           page.parent_published_question_id, page.parent_revision_number
+           page.parent_published_question_id, page.parent_revision_number, page.starred_at_micros
       FROM aggregates LEFT JOIN page ON true
-     ORDER BY CASE WHEN p_sort = 'title_ascending' THEN page.question_title END COLLATE "C" ASC NULLS LAST,
+     ORDER BY CASE WHEN p_sort IN ('title_ascending', 'kind_ascending', 'discipline_ascending', 'question_type_ascending')
+                   THEN page.sort_key END COLLATE "C" ASC NULLS LAST,
+              CASE WHEN p_sort IN ('title_descending', 'kind_descending', 'discipline_descending', 'question_type_descending')
+                   THEN page.sort_key END COLLATE "C" DESC NULLS LAST,
               CASE WHEN p_sort = 'published_newest' THEN page.published_at_millis END DESC NULLS LAST,
+              CASE WHEN p_sort = 'starred_date_ascending' THEN page.starred_at_micros END ASC NULLS LAST,
+              CASE WHEN p_sort = 'starred_date_descending' THEN page.starred_at_micros END DESC NULLS LAST,
               page.public_id ASC NULLS LAST;
 END
 $$;
@@ -469,13 +424,13 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.search_question_library_entries(
     p_exact_question_id text, p_text_terms jsonb, p_author_names text[], p_backends text[],
-    p_tags text[], p_subjects text[], p_topics text[], p_discipline_id uuid, p_subject_id uuid,
-    p_topic_id uuid, p_subtopic_id uuid, p_cross_discipline boolean, p_bloom_cognitive_process text,
-    p_bloom_knowledge_dimension text, p_question_types text[], p_question_licenses text[],
+    p_tags text[], p_subjects text[], p_topics text[], p_discipline_ids uuid[], p_subject_ids uuid[],
+    p_topic_ids uuid[], p_subtopic_ids uuid[], p_cross_discipline boolean, p_bloom_cognitive_processes text[],
+    p_bloom_knowledge_dimensions text[], p_question_types text[], p_question_licenses text[],
     p_authored_by_current_account boolean,
     p_result_kind text, p_questions text, p_owner_account_id text,
     p_sort text, p_after_title text, p_after_published_at_millis bigint, p_after_public_id text,
-    p_limit integer
+    p_limit integer, p_scope text DEFAULT 'public', p_after_starred_at_micros bigint DEFAULT NULL
 ) RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[], author_account_ids text[],
@@ -489,15 +444,16 @@ CREATE FUNCTION ple_api.search_question_library_entries(
     row_kind text, public_id text, owner_account_id text, in_pool boolean,
     question_pool_edit_number bigint, question_pool_metadata_edit_number bigint, question_pool_member_count bigint,
     facets jsonb, language text, citation_text text,
-    parent_published_question_id text, parent_revision_number integer
+    parent_published_question_id text, parent_revision_number integer,
+    starred_at_micros bigint
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.search_question_library_entries(
         p_exact_question_id, p_text_terms, p_author_names, p_backends, p_tags, p_subjects, p_topics,
-        p_discipline_id, p_subject_id, p_topic_id, p_subtopic_id, p_cross_discipline,
-        p_bloom_cognitive_process, p_bloom_knowledge_dimension, p_question_types, p_question_licenses,
+        p_discipline_ids, p_subject_ids, p_topic_ids, p_subtopic_ids, p_cross_discipline,
+        p_bloom_cognitive_processes, p_bloom_knowledge_dimensions, p_question_types, p_question_licenses,
         p_authored_by_current_account, p_result_kind, p_questions,
         p_owner_account_id, p_sort, p_after_title, p_after_published_at_millis,
-        p_after_public_id, p_limit)
+        p_after_public_id, p_limit, p_scope, p_after_starred_at_micros)
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -640,4 +596,99 @@ RETURNS TABLE (
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT *
       FROM ple_private.load_current_published_question_shared_metadata(p_question_ids)
+$$;
+
+-- ASVS 8.2.2: the data owner reads all current fixed Assessment pins for
+-- installation totals. The API owner's Assessment RLS sees only its Courses,
+-- so it cannot calculate these totals itself. No Course or Student rows enter
+-- this identity-free projection.
+SET LOCAL ROLE ple_data_owner;
+
+CREATE FUNCTION ple_data.question_use_global_counts(
+    p_published_question_id text, p_revision_number integer
+) RETURNS TABLE (course_count bigint, assessment_count bigint)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT count(DISTINCT assessment.course_instance_id),
+           count(DISTINCT assessment.assessment_id)
+      FROM ple_data.assessment AS assessment
+      JOIN ple_data.assessment_entry AS entry
+        ON entry.assessment_id = assessment.assessment_id
+       AND entry.availability = 'available'
+      JOIN ple_data.assessment_entry_question AS fixed
+        ON fixed.assessment_entry_id = entry.assessment_entry_id
+     WHERE fixed.published_question_id = p_published_question_id
+       AND fixed.question_revision_number = p_revision_number
+$$;
+
+SET LOCAL ROLE ple_api_owner;
+
+-- ASVS 8.2.1, 8.2.2, 8.3.1: the exact publication is selected by the
+-- authenticated Library route. Existing Assessment RLS limits named Courses
+-- to current Instructors, including co-Instructors. Counts describe current
+-- fixed Assessment entries; Pool membership is a separate reference.
+CREATE FUNCTION ple_api.read_question_use_details(
+    p_published_question_id text, p_revision_number integer
+) RETURNS TABLE (
+    global_course_count bigint,
+    global_assessment_count bigint,
+    own_course_count bigint,
+    own_assessment_count bigint,
+    own_course_instance_id text,
+    own_course_title text,
+    own_course_assessment_count bigint
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+BEGIN
+    IF NOT (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_has_platform_administration()) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question Library requires an active Instructor or Sysadmin Account';
+    END IF;
+    IF p_published_question_id IS NULL OR p_revision_number IS NULL
+       OR p_revision_number <= 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question use selection is invalid';
+    END IF;
+
+    RETURN QUERY
+    WITH own_assessments AS (
+        SELECT DISTINCT assessment.course_instance_id,
+                        assessment.assessment_id
+          FROM ple_data.assessment AS assessment
+          JOIN ple_data.assessment_entry AS entry
+            ON entry.assessment_id = assessment.assessment_id
+           AND entry.availability = 'available'
+          JOIN ple_data.assessment_entry_question AS fixed
+            ON fixed.assessment_entry_id = entry.assessment_entry_id
+         WHERE fixed.published_question_id = p_published_question_id
+           AND fixed.question_revision_number = p_revision_number
+           AND ple_api.current_session_account_is_course_instructor(
+                   assessment.course_instance_id)
+    ), own_courses AS (
+        SELECT course.course_instance_id::text AS course_instance_id,
+               course.course_long_name AS title,
+               count(*)::bigint AS assessment_count
+          FROM own_assessments AS matching
+          JOIN ple_data.course_instance AS course
+            ON course.course_instance_id = matching.course_instance_id
+         GROUP BY course.course_instance_id, course.course_long_name
+    ), own_totals AS (
+        SELECT count(*)::bigint AS course_count,
+               COALESCE(sum(assessment_count), 0)::bigint AS assessment_count
+          FROM own_courses
+    )
+    SELECT global_counts.course_count,
+           global_counts.assessment_count,
+           own_totals.course_count,
+           own_totals.assessment_count,
+           own_courses.course_instance_id,
+           own_courses.title,
+           own_courses.assessment_count
+      FROM ple_data.question_use_global_counts(
+               p_published_question_id, p_revision_number) AS global_counts
+      CROSS JOIN own_totals
+      LEFT JOIN own_courses ON true
+     ORDER BY own_courses.title, own_courses.course_instance_id;
+END
 $$;

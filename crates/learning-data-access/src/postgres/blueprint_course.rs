@@ -322,6 +322,14 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         self.list_discovery_page(session, request).await
     }
 
+    async fn list_blueprint_course_facet_choices(
+        &self,
+        session: SessionTokenHash,
+        request: crate::BlueprintCourseFacetChoiceRequest,
+    ) -> Result<crate::BlueprintCourseFacetChoiceResult, StoreError> {
+        self.list_facet_choices(session, request).await
+    }
+
     async fn load_blueprint_course(
         &self,
         session: SessionTokenHash,

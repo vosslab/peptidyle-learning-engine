@@ -41,11 +41,23 @@ export interface RecoverySelection {
   readonly courseInstanceId: CourseInstanceId;
   readonly attempts: ReadonlyArray<RecoverySummary>;
   readonly nextCursor: string | null;
+  readonly assessmentChoices: ReadonlyArray<{
+    readonly key: AssessmentId;
+    readonly label: string;
+    readonly count: number;
+  }>;
+}
+export interface RecoveryBrowse {
+  readonly search: string;
+  readonly assessmentIds: ReadonlyArray<AssessmentId>;
+  readonly sort: "attemptAscending" | "attemptDescending";
+  readonly cursor: string | null;
+  readonly pageSize: 50 | 100;
 }
 export interface CourseStudentWorkRecoveryClient {
   readonly selectArchivedStudentWork: (
     courseInstanceId: CourseInstanceId,
-    cursor: string | null,
+    browse: RecoveryBrowse,
   ) => Promise<RecoverySelection>;
   readonly recoverArchivedStudentWork: (
     courseInstanceId: CourseInstanceId,

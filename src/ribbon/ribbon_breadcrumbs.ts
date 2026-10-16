@@ -87,15 +87,11 @@ function pageTrail(
       return [page("Profile settings")];
     case "instructorProfile":
       return [page("Instructor Profile")];
-    case "pendingCourseInvitations":
     case "studentCourseInvitations":
       return [page("Course Invitations")];
     case "studentCourseInvitation":
       return [
-        ...collectionTrail(
-          "Course Invitations",
-          userRole === "student" ? "studentCourseInvitations" : "pendingCourseInvitations",
-        ),
+        ...collectionTrail("Course Invitations", "studentCourseInvitations"),
         page("Course Invitation"),
       ];
     case "studentCourses":
@@ -117,10 +113,12 @@ function pageTrail(
       return [page("Watch notifications")];
     case "myQuestions":
       return [page("My Questions")];
+    case "myPools":
+      return [page("My Pools")];
     case "starredQuestions":
       return [page("Starred")];
     case "questionDrafts":
-      return [page("My Draft Questions")];
+      return [page("My Drafts")];
     case "questionDetail":
       return [page(libraryObjectLabel)];
     case "questionDraftEditor":
@@ -128,7 +126,7 @@ function pageTrail(
     case "blueprintCourses":
       return [page("My Blueprint Courses")];
     case "publicBlueprintSearch":
-      return [page("Search Public Blueprint Courses")];
+      return [page("Search Blueprint Courses")];
     case "blueprintCourseDetail":
       return [page(labels.blueprintCourseTitle ?? "Blueprint Course")];
     case "myChangeProposals":

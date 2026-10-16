@@ -1,8 +1,14 @@
 // Strict same-origin transport for frozen Blueprint Change Proposal evidence.
 
 import type { ApiClient } from "../client";
-import type { BlueprintChangeProposalClient } from "../blueprint_change_proposal";
+import type {
+  BlueprintChangeProposalClient,
+  BlueprintProposalListQuery,
+} from "../blueprint_change_proposal";
 import type { BlueprintChangeProposalDetailView } from "../../../generated/api/BlueprintChangeProposalDetailView";
+import type { RecordFilterChoices } from "../../components/record_list/record_fields";
+import { decodeNonnegativeInteger, decodeRecord } from "../decoder";
+import { field, requireOnlyFields } from "../decoders/shared";
 import { decodeBlueprintCourseId } from "../decoders/blueprint_course";
 import { decodeCursor } from "../decoders/shared";
 import {
@@ -28,7 +34,12 @@ function targetPath(target: string): string {
   return `/api/course-blueprints/${encodeURIComponent(decodeBlueprintCourseId(target, "target"))}/change-proposals`;
 }
 
-function pagePath(path: string, cursor?: string, pageSize?: number): string {
+function pagePath(
+  path: string,
+  cursor?: string,
+  pageSize?: number,
+  options?: BlueprintProposalListQuery,
+): string {
   if (pageSize !== undefined && (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100))
     throw new ApiProtocolError(
       "Blueprint Change Proposal page size must be an integer from 1 through 100",
@@ -36,6 +47,13 @@ function pagePath(path: string, cursor?: string, pageSize?: number): string {
   const query = new URLSearchParams();
   if (cursor !== undefined) query.set("cursor", decodeCursor(cursor, "cursor"));
   if (pageSize !== undefined) query.set("pageSize", String(pageSize));
+  if (options !== undefined) {
+    if (options.text.length > 160 || /[%_\\]/u.test(options.text))
+      throw new ApiProtocolError("Blueprint Proposal search text is invalid");
+    query.set("text", options.text.trim());
+    query.set("sort", options.sort);
+    query.set("status", [...new Set(options.status)].sort().join(","));
+  }
   return query.size === 0 ? path : `${path}${path.includes("?") ? "&" : "?"}${query.toString()}`;
 }
 
@@ -63,6 +81,48 @@ export function createBlueprintChangeProposalClient(
   basePath: string,
 ): Pick<ApiClient, keyof BlueprintChangeProposalClient> {
   return {
+    listBlueprintProposalStatusChoices: async (
+      target,
+      text,
+      selected,
+    ): Promise<RecordFilterChoices> => {
+      if (text.length > 160 || /[%_\\]/u.test(text))
+        throw new ApiProtocolError("Blueprint Proposal search text is invalid");
+      const path =
+        target === undefined
+          ? "/api/blueprint-change-proposals/facet-choices/state?scope=mine"
+          : `${targetPath(target)}/facet-choices/state`;
+      const counts = await proposalJson(
+        fetchImplementation,
+        basePath,
+        `${path}${path.includes("?") ? "&" : "?"}text=${encodeURIComponent(text.trim())}`,
+        (value, location = "response") => {
+          const record = decodeRecord(value, location);
+          requireOnlyFields(record, location, ["proposed", "stale", "accepted"]);
+          return {
+            proposed: decodeNonnegativeInteger(
+              field(record, "proposed", location),
+              `${location}.proposed`,
+            ),
+            stale: decodeNonnegativeInteger(field(record, "stale", location), `${location}.stale`),
+            accepted: decodeNonnegativeInteger(
+              field(record, "accepted", location),
+              `${location}.accepted`,
+            ),
+          };
+        },
+      );
+      const choices = (["proposed", "stale", "accepted"] as const).map((key) => ({
+        key,
+        label: key === "stale" ? "Older target basis" : key[0]!.toUpperCase() + key.slice(1),
+        count: counts[key],
+      }));
+      return {
+        choices,
+        selected: choices.filter((choice) => selected.includes(choice.key)),
+        nextCursor: null,
+      };
+    },
     createBlueprintChangeProposal: async (
       target,
       request,
@@ -82,18 +142,18 @@ export function createBlueprintChangeProposalClient(
         201,
       );
     },
-    listBlueprintChangeProposalsForTarget: (target, cursor, pageSize) =>
+    listBlueprintChangeProposalsForTarget: (target, cursor, pageSize, query) =>
       proposalJson(
         fetchImplementation,
         basePath,
-        pagePath(targetPath(target), cursor, pageSize),
+        pagePath(targetPath(target), cursor, pageSize, query),
         decodeBlueprintChangeProposalPageView,
       ),
-    listMyBlueprintChangeProposals: (cursor, pageSize) =>
+    listMyBlueprintChangeProposals: (cursor, pageSize, query) =>
       proposalJson(
         fetchImplementation,
         basePath,
-        pagePath("/api/blueprint-change-proposals?scope=mine", cursor, pageSize),
+        pagePath("/api/blueprint-change-proposals?scope=mine", cursor, pageSize, query),
         decodeBlueprintChangeProposalPageView,
       ),
     getBlueprintChangeProposal: (id) =>

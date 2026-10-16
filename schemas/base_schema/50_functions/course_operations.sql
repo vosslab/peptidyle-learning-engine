@@ -499,7 +499,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
         ON membership.account_id = account.account_id
        AND membership.role = 'student'
        AND ple_data.course_membership_is_active(membership.course_membership_id)
-      JOIN ple_data.course_instance AS course ON course.course_instance_id = membership.course_instance_id
+      JOIN ple_data.course_instance AS course
+        ON course.course_instance_id = membership.course_instance_id
+       AND course.retention_lifecycle_state = 'active'
      WHERE account.account_id = ple_api.current_session_account_id()
        AND account.user_role = 'student'
      ORDER BY course.course_long_name, course.course_instance_id

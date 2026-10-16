@@ -12,7 +12,10 @@ import { recognitionTitlesResource } from "../features/recognition_titles_load";
 import { ApiRequestError } from "../api/http_client/error";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { RecordDetailList } from "./record_list/record_detail_list";
-import { RecordList, type RecordContent, type RecordFact } from "./record_list/record_list";
+import { type RecordContent, type RecordFact } from "./record_list/record_list";
+import type { RecordField, RecordListQuery, RecordSort } from "./record_list/record_fields";
+import { SearchBlock } from "../features/search/search_block";
+import { createSearchState } from "../features/search/search_state";
 import { formatAssessmentActivity } from "./student_assessment_presentation";
 
 function formatRecoveryInstant(
@@ -106,8 +109,11 @@ export function CourseStudentWorkRecovery(props: {
   const formatDateTime = createDisplayDateTimeFormatter(props.displayTimeZone);
   const [opened, setOpened] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
-  const [selection, setSelection] = createSignal<RecoverySelection>();
+  const [assessmentChoices, setAssessmentChoices] = createSignal<
+    RecoverySelection["assessmentChoices"]
+  >([]);
   const [selected, setSelected] = createSignal("");
+  const [selectedSummary, setSelectedSummary] = createSignal<RecoverySummary>();
   const [evidence, setEvidence] = createSignal<RecoveredAttempt>();
   const [message, setMessage] = createSignal("");
   const recognition = recognitionTitlesResource(
@@ -120,6 +126,118 @@ export function CourseStudentWorkRecovery(props: {
     }),
   );
   type RecoveryAttempt = RecoverySelection["attempts"][number];
+  type RecoveryQuery = {
+    search: string;
+    assessmentIds: ReadonlyArray<RecoverySummary["assessmentId"]>;
+    sort: "attemptAscending" | "attemptDescending";
+  };
+  type RecoverySortKey = "attempt";
+  type RecoveryFilterKey = "assessment";
+  const fields: ReadonlyArray<RecordField<RecoveryAttempt, RecoverySortKey, RecoveryFilterKey>> = [
+    {
+      id: "attempt",
+      label: "Attempt",
+      role: "identity",
+      value: (attempt) => `${attempt.assessmentTitle}: Attempt ${attempt.assessmentAttemptNumber}`,
+      defaultColumn: { priority: 0, width: "18rem" },
+    },
+    {
+      id: "attempt_id",
+      label: "Attempt ID",
+      sortKey: "attempt",
+      value: (attempt) => attempt.assessmentAttemptId,
+      defaultColumn: { priority: 1, width: "12rem", visible: false },
+    },
+    {
+      id: "assessment",
+      label: "Assessment",
+      filterKey: "assessment",
+      value: (attempt) => attempt.assessmentId,
+      defaultColumn: { priority: 2, width: "12rem" },
+    },
+    {
+      id: "roster",
+      label: "Roster ID",
+      value: (attempt) => attempt.courseRosterTuple?.rosterId ?? null,
+      defaultColumn: { priority: 3, width: "10rem" },
+    },
+    {
+      id: "started",
+      label: "Started",
+      value: (attempt) => attempt.startedAt,
+      defaultColumn: { priority: 4, width: "13rem" },
+    },
+    {
+      id: "submitted",
+      label: "Submitted",
+      value: (attempt) => attempt.submittedAt,
+      defaultColumn: { priority: 5, width: "13rem" },
+    },
+  ];
+  const searchState = createSearchState<RecoveryQuery, RecoveryAttempt, undefined>(
+    {
+      initialQuery: { search: "", assessmentIds: [], sort: "attemptAscending" },
+      maximumPageSize: 100,
+      cleanup: (query) => ({ ...query, search: query.search.trim() }),
+      isEligible: () => true,
+      getText: (query) => query.search,
+      setText: (query, text) => ({ ...query, search: text }),
+      rowId: (attempt) => attempt.assessmentAttemptId,
+      content: attemptContent,
+      fetchPage: async (query, cursor, pageSize) => {
+        const result = await props.client.selectArchivedStudentWork(props.courseInstanceId, {
+          ...query,
+          cursor,
+          pageSize: pageSize === 250 ? 100 : pageSize,
+        });
+        setAssessmentChoices(result.assessmentChoices);
+        return { items: result.attempts, nextCursor: result.nextCursor, filterCounts: undefined };
+      },
+    },
+    {},
+  );
+  const recordQuery: RecordListQuery<RecoverySortKey, RecoveryFilterKey> = {
+    kind: "paged",
+    sort: {
+      get value(): RecordSort<RecoverySortKey> {
+        return {
+          key: "attempt",
+          direction: searchState.query().sort === "attemptAscending" ? "ascending" : "descending",
+        };
+      },
+      onChange: (value) =>
+        void searchState.apply((current) => ({
+          ...current,
+          sort: value.direction === "ascending" ? "attemptAscending" : "attemptDescending",
+        })),
+    },
+    filters: {
+      get values() {
+        return new Map<RecoveryFilterKey, ReadonlyArray<string>>([
+          ["assessment", searchState.query().assessmentIds],
+        ]);
+      },
+      onChange: (_field, values) =>
+        void searchState.apply((current) => ({
+          ...current,
+          assessmentIds: values,
+        })),
+      onClear: () => void searchState.apply((current) => ({ ...current, assessmentIds: [] })),
+      choices: (_field, choiceSearch, _cursor, signal) =>
+        Promise.resolve({
+          choices: signal.aborted
+            ? []
+            : assessmentChoices()
+                .filter((choice) => choice.label.toLowerCase().includes(choiceSearch.toLowerCase()))
+                .map((choice) => ({ key: choice.key, label: choice.label, count: choice.count })),
+          selected: searchState.query().assessmentIds.map((id) => {
+            const choice = assessmentChoices().find((entry) => entry.key === id);
+            return { key: id, label: choice?.label ?? id, count: choice?.count ?? 0 };
+          }),
+          nextCursor: null,
+        }),
+    },
+  };
   const selectedAttemptIds = (): ReadonlySet<string> =>
     selected() === "" ? new Set() : new Set([selected()]);
   function attemptContent(attempt: RecoveryAttempt): RecordContent {
@@ -133,8 +251,9 @@ export function CourseStudentWorkRecovery(props: {
     generation += 1;
     setOpened(false);
     setBusy(false);
-    setSelection(undefined);
     setSelected("");
+    setSelectedSummary(undefined);
+    setAssessmentChoices([]);
     setEvidence(undefined);
     setMessage("");
   }
@@ -149,8 +268,8 @@ export function CourseStudentWorkRecovery(props: {
   }
   function failure(error: unknown): void {
     // ASVS 16.5.1: do not disclose protocol, SQL or retained evidence in errors.
-    setSelection(undefined);
     setSelected("");
+    setSelectedSummary(undefined);
     setEvidence(undefined);
     setMessage(
       error instanceof ApiRequestError && error.status === 404
@@ -158,30 +277,9 @@ export function CourseStudentWorkRecovery(props: {
         : "Archived Student Work could not be loaded. Try again.",
     );
   }
-  async function load(cursor: string | null): Promise<void> {
-    if (busy()) return;
-    const token = ++generation;
-    setOpened(true);
-    setBusy(true);
-    setMessage("");
-    setSelected("");
-    setEvidence(undefined);
-    setSelection(undefined);
-    try {
-      const result = await props.client.selectArchivedStudentWork(props.courseInstanceId, cursor);
-      if (token !== generation) return;
-      setSelection(result);
-      queueMicrotask(() => heading?.focus());
-    } catch (error: unknown) {
-      if (token === generation) failure(error);
-    } finally {
-      if (token === generation) setBusy(false);
-    }
-  }
   async function recover(): Promise<void> {
     const attempt = selected();
-    if (busy() || !selection()?.attempts.some((item) => item.assessmentAttemptId === attempt))
-      return;
+    if (busy() || selectedSummary()?.assessmentAttemptId !== attempt) return;
     const token = ++generation;
     setBusy(true);
     setMessage("");
@@ -205,7 +303,12 @@ export function CourseStudentWorkRecovery(props: {
         type="button"
         class="quiet-button"
         disabled={busy()}
-        onClick={() => void load(null)}
+        onClick={() => {
+          clear();
+          setOpened(true);
+          void searchState.open(searchState.definition.initialQuery);
+          queueMicrotask(() => heading?.focus());
+        }}
       >
         Recover archived Student Work
       </button>
@@ -232,58 +335,69 @@ export function CourseStudentWorkRecovery(props: {
           <Show when={message() !== ""}>
             <p role="alert">{message()}</p>
           </Show>
-          <Show when={message() !== ""}>
-            <button type="button" disabled={busy()} onClick={() => void load(null)}>
-              Try again
-            </button>
-          </Show>
-          <Show when={selection()}>
-            {(page) => (
-              <>
-                <Show
-                  when={page().attempts.length > 0}
-                  fallback={<p>No retained archived Attempts are available.</p>}
-                >
-                  <fieldset disabled={busy()}>
-                    <legend>Select a retained Assessment Attempt</legend>
-                    <RecordList
-                      ariaLabel="Retained Assessment Attempts"
-                      content={attemptContent}
-                      emptyState={{ title: "No retained archived Attempts are available." }}
-                      recordId={(attempt) => attempt.assessmentAttemptId}
-                      rows={page().attempts}
-                      selection={{
-                        kind: "radio",
-                        selectedIds: selectedAttemptIds,
-                        onChange: (attempt, isSelected) => {
-                          if (!isSelected) return;
-                          setSelected(attempt.assessmentAttemptId);
-                          setEvidence(undefined);
-                        },
-                      }}
-                      state={{ kind: "ready" }}
-                    />
-                  </fieldset>
-                  <button
-                    type="button"
-                    class="primary-button"
-                    disabled={busy() || selected() === ""}
-                    onClick={() => void recover()}
-                  >
-                    Recover selected Attempt
-                  </button>
-                </Show>
-                <Show when={page().nextCursor !== null}>
-                  <button
-                    type="button"
-                    class="quiet-button"
+          <SearchBlock
+            layout="above"
+            state={searchState}
+            controls={
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const value = searchState.typedText().trim();
+                  if (value.length > 200 || /\p{Cc}/u.test(value)) {
+                    setMessage("Enter an Assessment title within 200 characters.");
+                    return;
+                  }
+                  setMessage("");
+                  void searchState.submit();
+                }}
+              >
+                <label for="recovery-assessment-search">
+                  Assessment title
+                  <input
+                    id="recovery-assessment-search"
+                    type="search"
+                    value={searchState.typedText()}
+                    onInput={(event) => searchState.setTypedText(event.currentTarget.value)}
+                    maxlength={200}
                     disabled={busy()}
-                    onClick={() => void load(page().nextCursor)}
-                  >
-                    Next retained Attempts
-                  </button>
-                </Show>
-              </>
+                  />
+                </label>
+                <button type="submit" disabled={busy()}>
+                  Find retained Attempts
+                </button>
+              </form>
+            }
+            collection={{
+              ariaLabel: "Retained Assessment Attempts",
+              fields,
+              query: recordQuery,
+              emptyState: { title: "No retained archived Attempts are available." },
+              disabled: busy,
+              selection: () => ({
+                kind: "radio",
+                selectedIds: selectedAttemptIds,
+                onChange: (attempt, isSelected): void => {
+                  if (!isSelected) return;
+                  setSelected(attempt.assessmentAttemptId);
+                  setSelectedSummary(attempt);
+                  setEvidence(undefined);
+                },
+              }),
+            }}
+          />
+          <button
+            type="button"
+            class="primary-button"
+            disabled={busy() || selected() === ""}
+            onClick={() => void recover()}
+          >
+            Recover selected Attempt
+          </button>
+          <Show when={selectedSummary()}>
+            {(attempt) => (
+              <p role="status">
+                Selected: {attempt().assessmentTitle}, Attempt {attempt().assessmentAttemptNumber}.
+              </p>
             )}
           </Show>
           <Show when={evidence()}>

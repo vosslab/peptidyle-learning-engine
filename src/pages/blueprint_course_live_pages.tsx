@@ -23,6 +23,13 @@ interface BlueprintCourseRouteComposition {
   readonly client: ReturnType<typeof useApplicationApi>["client"];
   readonly pickerRepository: ReturnType<typeof questionLibraryPickerRepository>;
   readonly pickerSources: ReturnType<typeof questionLibraryPickerSources>;
+  readonly loadQuestionInspection: ReturnType<
+    typeof useApplicationApi
+  >["client"]["getQuestionRevision"];
+  readonly questionRevisionPreviewDocumentUrl: ReturnType<
+    typeof useApplicationApi
+  >["client"]["questionRevisionPreviewDocumentUrl"];
+  readonly questionImageUrl: ReturnType<typeof useApplicationApi>["client"]["questionImageUrl"];
 }
 
 /** Connects available Question Library sources for Blueprint Course Content editors. */
@@ -35,6 +42,9 @@ function useBlueprintCourseRouteComposition(): BlueprintCourseRouteComposition {
     client: runtime.client,
     pickerRepository: questionLibraryPickerRepository(questionLibrary, myQuestions),
     pickerSources: questionLibraryPickerSources(true),
+    loadQuestionInspection: runtime.client.getQuestionRevision,
+    questionRevisionPreviewDocumentUrl: runtime.client.questionRevisionPreviewDocumentUrl,
+    questionImageUrl: runtime.client.questionImageUrl,
   };
 }
 
@@ -47,6 +57,9 @@ export function BlueprintCoursesLivePage(): JSX.Element {
       proposalClient={composition.client}
       pickerRepository={composition.pickerRepository}
       pickerSources={composition.pickerSources}
+      loadQuestionInspection={composition.loadQuestionInspection}
+      questionRevisionPreviewDocumentUrl={composition.questionRevisionPreviewDocumentUrl}
+      questionImageUrl={composition.questionImageUrl}
     />
   );
 }
@@ -61,6 +74,9 @@ export function BlueprintCourseDetailLivePage(): JSX.Element {
       proposalClient={composition.client}
       pickerRepository={composition.pickerRepository}
       pickerSources={composition.pickerSources}
+      loadQuestionInspection={composition.loadQuestionInspection}
+      questionRevisionPreviewDocumentUrl={composition.questionRevisionPreviewDocumentUrl}
+      questionImageUrl={composition.questionImageUrl}
       blueprintCourseId={params["blueprintCourseId"] ?? ""}
     />
   );

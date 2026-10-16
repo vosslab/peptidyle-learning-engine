@@ -3019,7 +3019,7 @@ Indexes:
 ### ple_data.library_watch_event
 
 - Role: event
-- Comment: role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.
+- Comment: role: event, retained independently of Watch unsubscribe until event retention. HUMAN_GUIDANCE.md Library Watch.
 
 Columns:
 
@@ -3053,7 +3053,7 @@ Indexes:
 ### ple_data.library_watch_event_recipient
 
 - Role: event
-- Comment: role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.
+- Comment: role: event, a frozen notification recipient retained until event retention. HUMAN_GUIDANCE.md Library Watch.
 
 Columns:
 

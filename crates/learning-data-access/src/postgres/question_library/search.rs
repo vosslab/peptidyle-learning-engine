@@ -10,7 +10,7 @@ use super::{PostgresQuestionLibraryStore, invalid, map_sqlx_error};
 use crate::question_library::{
     QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
     QuestionLibrarySearchFacets, QuestionLibrarySearchPage, QuestionLibrarySearchRequest,
-    QuestionLibrarySearchSort, QuestionLibraryTextField,
+    QuestionLibrarySearchScope, QuestionLibrarySearchSort, QuestionLibraryTextField,
 };
 use crate::{SessionTokenHash, StoreError};
 
@@ -28,7 +28,7 @@ impl PostgresQuestionLibraryStore {
         let rows = sqlx::query(
             "SELECT * FROM ple_api.search_question_library_entries(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, \
-                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)",
+                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)",
         )
         .bind(
             request
@@ -42,16 +42,24 @@ impl PostgresQuestionLibraryStore {
         .bind(&request.tags)
         .bind(&request.subjects)
         .bind(&request.topics)
-        .bind(request.discipline_uuid)
-        .bind(request.subject_uuid)
-        .bind(request.topic_uuid)
-        .bind(request.subtopic_uuid)
+        .bind(&request.discipline_uuids)
+        .bind(&request.subject_uuids)
+        .bind(&request.topic_uuids)
+        .bind(&request.subtopic_uuids)
         .bind(request.cross_discipline)
-        .bind(request.bloom_cognitive_process.map(|value| value.as_str()))
         .bind(
             request
-                .bloom_knowledge_dimension
-                .map(|value| value.as_str()),
+                .bloom_cognitive_processes
+                .iter()
+                .map(|value| value.as_str())
+                .collect::<Vec<_>>(),
+        )
+        .bind(
+            request
+                .bloom_knowledge_dimensions
+                .iter()
+                .map(|value| value.as_str())
+                .collect::<Vec<_>>(),
         )
         .bind(question_types(&request.question_types)?)
         .bind(question_licenses(&request.question_licenses)?)
@@ -72,10 +80,12 @@ impl PostgresQuestionLibraryStore {
                 .map(question_model::AccountId::as_str),
         )
         .bind(sort_name(request.sort))
-        .bind(after_title(request.after.as_ref()))
+        .bind(after_text_key(request.after.as_ref()))
         .bind(after_published_at(request.after.as_ref()))
         .bind(after_id(request.after.as_ref()))
         .bind(i32::from(request.page_size) + 1)
+        .bind(scope_name(request.scope))
+        .bind(after_starred_at(request.after.as_ref()))
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -124,20 +134,44 @@ fn validate_request(request: &QuestionLibrarySearchRequest) -> Result<(), StoreE
         | (
             QuestionLibrarySearchSort::PublishedNewest,
             Some(QuestionLibrarySearchCursorPosition::PublishedNewest { .. }),
+        )
+        | (
+            QuestionLibrarySearchSort::StarredDateAscending
+            | QuestionLibrarySearchSort::StarredDateDescending,
+            Some(QuestionLibrarySearchCursorPosition::StarredDate { .. }),
         ) => true,
         (
-            QuestionLibrarySearchSort::TitleAscending,
-            Some(QuestionLibrarySearchCursorPosition::TitleAscending { title, .. }),
-        ) => !title.is_empty(),
+            sort,
+            Some(QuestionLibrarySearchCursorPosition::Text {
+                sort: position_sort,
+                key,
+                ..
+            }),
+        ) => {
+            sort == *position_sort
+                && sort != QuestionLibrarySearchSort::PublishedNewest
+                && sort != QuestionLibrarySearchSort::StarredDateAscending
+                && sort != QuestionLibrarySearchSort::StarredDateDescending
+                && !key.is_empty()
+        }
         _ => false,
     };
-    if !cursor_matches_sort {
+    if !cursor_matches_sort
+        || (request.scope == QuestionLibrarySearchScope::Public
+            && matches!(
+                request.sort,
+                QuestionLibrarySearchSort::StarredDateAscending
+                    | QuestionLibrarySearchSort::StarredDateDescending
+            ))
+        || (request.scope == QuestionLibrarySearchScope::CurrentStarred
+            && request.kind != LibrarySearchKind::Questions)
+    {
         return Err(invalid("Question Library cursor"));
     }
     Ok(())
 }
 
-fn text_terms_json(
+pub(super) fn text_terms_json(
     request: &QuestionLibrarySearchRequest,
 ) -> Result<serde_json::Value, StoreError> {
     let terms = request
@@ -163,7 +197,9 @@ fn text_terms_json(
     Ok(serde_json::Value::Array(terms))
 }
 
-fn backends(restriction: &QuestionLibraryBackendRestriction) -> Option<Vec<&'static str>> {
+pub(super) fn backends(
+    restriction: &QuestionLibraryBackendRestriction,
+) -> Option<Vec<&'static str>> {
     match restriction {
         QuestionLibraryBackendRestriction::Any => None,
         QuestionLibraryBackendRestriction::Only(values) => Some(
@@ -176,7 +212,7 @@ fn backends(restriction: &QuestionLibraryBackendRestriction) -> Option<Vec<&'sta
     }
 }
 
-fn question_types(values: &[QuestionType]) -> Result<Vec<String>, StoreError> {
+pub(super) fn question_types(values: &[QuestionType]) -> Result<Vec<String>, StoreError> {
     values
         .iter()
         .map(|value| serde_json::to_value(value).map_err(|_| invalid("Question type")))
@@ -191,7 +227,7 @@ fn question_types(values: &[QuestionType]) -> Result<Vec<String>, StoreError> {
         .collect()
 }
 
-fn question_licenses(values: &[QuestionLicense]) -> Result<Vec<String>, StoreError> {
+pub(super) fn question_licenses(values: &[QuestionLicense]) -> Result<Vec<String>, StoreError> {
     values
         .iter()
         .map(|value| serde_json::to_value(value).map_err(|_| invalid("Question license")))
@@ -209,13 +245,38 @@ fn question_licenses(values: &[QuestionLicense]) -> Result<Vec<String>, StoreErr
 fn sort_name(sort: QuestionLibrarySearchSort) -> &'static str {
     match sort {
         QuestionLibrarySearchSort::TitleAscending => "title_ascending",
+        QuestionLibrarySearchSort::TitleDescending => "title_descending",
+        QuestionLibrarySearchSort::KindAscending => "kind_ascending",
+        QuestionLibrarySearchSort::KindDescending => "kind_descending",
+        QuestionLibrarySearchSort::DisciplineAscending => "discipline_ascending",
+        QuestionLibrarySearchSort::DisciplineDescending => "discipline_descending",
+        QuestionLibrarySearchSort::QuestionTypeAscending => "question_type_ascending",
+        QuestionLibrarySearchSort::QuestionTypeDescending => "question_type_descending",
         QuestionLibrarySearchSort::PublishedNewest => "published_newest",
+        QuestionLibrarySearchSort::StarredDateAscending => "starred_date_ascending",
+        QuestionLibrarySearchSort::StarredDateDescending => "starred_date_descending",
     }
 }
 
-fn after_title(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<&str> {
+pub(super) fn scope_name(scope: QuestionLibrarySearchScope) -> &'static str {
+    match scope {
+        QuestionLibrarySearchScope::Public => "public",
+        QuestionLibrarySearchScope::CurrentStarred => "current_starred",
+    }
+}
+
+fn after_starred_at(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<i64> {
     match after {
-        Some(QuestionLibrarySearchCursorPosition::TitleAscending { title, .. }) => Some(title),
+        Some(QuestionLibrarySearchCursorPosition::StarredDate {
+            starred_at_micros, ..
+        }) => Some(*starred_at_micros),
+        _ => None,
+    }
+}
+
+fn after_text_key(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<&str> {
+    match after {
+        Some(QuestionLibrarySearchCursorPosition::Text { key, .. }) => Some(key),
         _ => None,
     }
 }
@@ -232,8 +293,9 @@ fn after_published_at(after: Option<&QuestionLibrarySearchCursorPosition>) -> Op
 
 fn after_id(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<&str> {
     match after {
-        Some(QuestionLibrarySearchCursorPosition::TitleAscending { public_id, .. })
-        | Some(QuestionLibrarySearchCursorPosition::PublishedNewest { public_id, .. }) => {
+        Some(QuestionLibrarySearchCursorPosition::Text { public_id, .. })
+        | Some(QuestionLibrarySearchCursorPosition::PublishedNewest { public_id, .. })
+        | Some(QuestionLibrarySearchCursorPosition::StarredDate { public_id, .. }) => {
             Some(public_id.as_str())
         }
         None => None,
@@ -249,17 +311,68 @@ fn cursor_position(
         .parse()
         .map_err(|_| invalid("Library cursor ID"))?;
     Ok(match sort {
-        QuestionLibrarySearchSort::TitleAscending => {
-            QuestionLibrarySearchCursorPosition::TitleAscending {
-                title: item.title().to_owned(),
-                public_id,
-            }
-        }
         QuestionLibrarySearchSort::PublishedNewest => {
             QuestionLibrarySearchCursorPosition::PublishedNewest {
                 published_at_millis: item.sort_time().as_unix_millis(),
                 public_id,
             }
         }
+        QuestionLibrarySearchSort::StarredDateAscending
+        | QuestionLibrarySearchSort::StarredDateDescending => {
+            QuestionLibrarySearchCursorPosition::StarredDate {
+                starred_at_micros: item
+                    .starred_at_micros()
+                    .ok_or_else(|| invalid("Starred date"))?,
+                public_id,
+            }
+        }
+        sort => QuestionLibrarySearchCursorPosition::Text {
+            sort,
+            key: sort_text_key(item, sort).to_owned(),
+            public_id,
+        },
     })
+}
+
+fn sort_text_key(item: &crate::LibrarySearchEntry, sort: QuestionLibrarySearchSort) -> &str {
+    match sort {
+        QuestionLibrarySearchSort::TitleAscending | QuestionLibrarySearchSort::TitleDescending => {
+            item.title()
+        }
+        QuestionLibrarySearchSort::KindAscending | QuestionLibrarySearchSort::KindDescending => {
+            match item {
+                crate::LibrarySearchEntry::Question { .. } => "Published Question",
+                crate::LibrarySearchEntry::Pool { .. } => "Question Pool",
+            }
+        }
+        QuestionLibrarySearchSort::DisciplineAscending
+        | QuestionLibrarySearchSort::DisciplineDescending => match item {
+            crate::LibrarySearchEntry::Question { entry, .. } => &entry.discipline_name,
+            crate::LibrarySearchEntry::Pool { summary, .. } => &summary.metadata.discipline_name,
+        },
+        QuestionLibrarySearchSort::QuestionTypeAscending
+        | QuestionLibrarySearchSort::QuestionTypeDescending => {
+            let question_type = match item {
+                crate::LibrarySearchEntry::Question { entry, .. } => entry.question_type,
+                crate::LibrarySearchEntry::Pool { summary, .. } => summary.question_type,
+            };
+            match question_type {
+                QuestionType::MultipleChoice => "Multiple choice",
+                QuestionType::MultipleAnswer => "Multiple answer",
+                QuestionType::FillInBlank => "Fill in the blank",
+                QuestionType::MultipleFillInBlank => "Multiple fill in the blank",
+                QuestionType::Numeric => "Numeric",
+                QuestionType::Matching => "Matching",
+                QuestionType::Ordering => "Ordering",
+                QuestionType::Hotspot => "Hotspot",
+            }
+        }
+        QuestionLibrarySearchSort::PublishedNewest => {
+            unreachable!("timestamp sort has no text key")
+        }
+        QuestionLibrarySearchSort::StarredDateAscending
+        | QuestionLibrarySearchSort::StarredDateDescending => {
+            unreachable!("timestamp sort has no text key")
+        }
+    }
 }

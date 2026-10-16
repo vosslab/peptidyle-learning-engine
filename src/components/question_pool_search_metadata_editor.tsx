@@ -10,6 +10,7 @@ import type {
   QuestionPoolSearchMetadataUpdateResult,
 } from "../api/question_pool_search_metadata";
 import { ContentClassificationSelect } from "./content_classification_select";
+import { UnsavedChangesGuard, trackEditorSave } from "./unsaved_changes_guard";
 import "./question_bulk_metadata_editor.css";
 
 type EditMode = "keep" | "replace" | "clear";
@@ -91,7 +92,9 @@ export function QuestionPoolSearchMetadataEditor(props: {
   readonly client: QuestionPoolSearchMetadataClient;
   readonly classificationClient: ContentClassificationClient;
   readonly targets: ReadonlyArray<QuestionPoolSearchMetadataTarget>;
+  readonly guardScope: symbol;
   readonly disabled?: boolean;
+  readonly onCancel: () => void;
   readonly onSuccess: (results: ReadonlyArray<QuestionPoolSearchMetadataUpdateResult>) => void;
 }): JSX.Element {
   const [topicMode, setTopicMode] = createSignal<EditMode>("keep");
@@ -101,7 +104,43 @@ export function QuestionPoolSearchMetadataEditor(props: {
   const [subtopicUuid, setSubtopicUuid] = createSignal<string | null>(null);
   const [tagsText, setTagsText] = createSignal("");
   const [saving, setSaving] = createSignal(false);
+  const [saved, setSaved] = createSignal(false);
+  const [closeRequested, setCloseRequested] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const dirty = (): boolean => {
+    if (saved()) return false;
+    if (topicMode() === "replace") {
+      if (topicUuid() === null || props.targets.some((target) => target.topicUuid !== topicUuid()))
+        return true;
+      if (subtopicMode() === "keep" && props.targets.some((target) => target.subtopicUuid !== null))
+        return true;
+    } else if (topicMode() === "clear" && props.targets.some((target) => target.topicUuid !== null))
+      return true;
+    if (subtopicMode() === "replace") {
+      if (
+        subtopicUuid() === null ||
+        props.targets.some((target) => target.subtopicUuid !== subtopicUuid())
+      )
+        return true;
+    } else if (
+      subtopicMode() === "clear" &&
+      props.targets.some((target) => target.subtopicUuid !== null)
+    )
+      return true;
+    if (tagsMode() === "replace") {
+      const tags = tagsText()
+        .split("\n")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      if (
+        tags.length === 0 ||
+        props.targets.some((target) => JSON.stringify(target.tags) !== JSON.stringify(tags))
+      )
+        return true;
+    } else if (tagsMode() === "clear" && props.targets.some((target) => target.tags.length > 0))
+      return true;
+    return false;
+  };
   const sharedSubject = (): string | null => {
     const subjects = new Set(props.targets.map((target) => target.subjectUuid));
     return subjects.size === 1 ? (props.targets[0]?.subjectUuid ?? null) : null;
@@ -117,8 +156,7 @@ export function QuestionPoolSearchMetadataEditor(props: {
     return keptTopic();
   };
 
-  async function submit(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
+  async function submit(): Promise<boolean> {
     setError(null);
     setSaving(true);
     try {
@@ -166,26 +204,57 @@ export function QuestionPoolSearchMetadataEditor(props: {
         selection,
         patch,
       });
+      setSaved(true);
       props.onSuccess(results);
+      return true;
     } catch (cause) {
       if (cause instanceof ApiRequestError) {
         setError("Could not update the selected Pools. Check the fields and try again.");
       } else {
         setError(cause instanceof Error ? cause.message : "Could not update the selected Pools.");
       }
+      return false;
     } finally {
       setSaving(false);
     }
   }
+  const trackedSave = trackEditorSave(submit);
 
   return (
     <form
       class="bulk-metadata-editor"
       aria-label="Pool shared search fields"
-      onSubmit={(event) => void submit(event)}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void trackedSave.save();
+      }}
     >
+      <UnsavedChangesGuard
+        scope={props.guardScope}
+        dirty={dirty}
+        save={trackedSave.save}
+        inFlightSave={trackedSave.inFlightSave}
+        manualLeave={{
+          requested: closeRequested,
+          clearRequest: () => setCloseRequested(false),
+          continue: props.onCancel,
+        }}
+        copy={{
+          heading: "Save Pool search field changes?",
+          description: "Your selected Pool search field changes have not been saved.",
+          saveFailureMessage: "Pool search fields were not saved. Review the fields and try again.",
+        }}
+      />
       <div class="bulk-metadata-heading">
         <h3>Update shared search fields</h3>
+        <button
+          type="button"
+          class="quiet-action"
+          disabled={props.disabled || saving()}
+          onClick={() => setCloseRequested(true)}
+        >
+          Close editor
+        </button>
         <p>
           Discipline and Subject stay the values established by each Pool's first member Question.
           This command updates Topic, Subtopic, and Tags for {props.targets.length} selected Pools

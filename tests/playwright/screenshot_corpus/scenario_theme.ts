@@ -40,20 +40,14 @@ export async function persistScenarioCourseTheme(
   const page = await context.newPage();
   try {
     await page.goto(entryUrl.href, { waitUntil: "commit" });
-    await page
-      .getByRole("heading", {
-        level: 1,
-        name: "Sign in to Peptidyle Learning Engine",
-        exact: true,
-      })
-      .waitFor();
+    await page.getByRole("main", { name: "Learning content", exact: true }).waitFor();
     await enterInstructor(page);
     await openInstructorCourse(page);
     await page
       .getByRole("navigation", { name: "Course actions", exact: true })
       .getByRole("link", { name: "Appearance", exact: true })
       .click();
-    await page.getByRole("heading", { level: 1, name: "Course Appearance", exact: true }).waitFor();
+    await page.getByRole("main", { name: "Appearance", exact: true }).waitFor();
     await persistDisplayMode(page, "light");
     const selection = page.locator(`[data-course-theme-option="${theme}"]`);
     await selection.getByRole("radio").check();

@@ -321,11 +321,11 @@ historical-reference rows have deliberately narrower review depth. Evidence is s
 | [Cargo.toml](../../../crates/project-tools/Cargo.toml) | good | full-source | Maintainer runtime features are explicitly opt-in and distinct from source-only tsgen. |  |
 | [application.rs](../../../crates/project-tools/src/application.rs) | good | full-source | CLI dispatch remains outside product crates. | command-specific entry points |
 | [tsgen.rs](../../../crates/project-tools/src/bin/tsgen.rs) | good | full-source | Source-only TypeScript generator has a separate binary capability. | does not enable runtime tools |
-| [curriculum_content.rs](../../../crates/project-tools/src/curriculum_content.rs) | good | full-source | Checked-in curriculum input validation is explicit and bounded. | manifest validation |
-| [parameterized_publication.rs](../../../crates/project-tools/src/curriculum_content/parameterized_publication.rs) | refine | full-source | Publication provenance also compares mutable Library title and description as if they were source identity. | existing_publication lines 366-380 compare entry.question_title and question_description |
-| [publication.rs](../../../crates/project-tools/src/curriculum_content/publication.rs) | refine | full-source | Same mutable-metadata provenance assumption appears in the canonical Blueprint reuse path. | ensure_source_entry_compatible lines 245-255 |
-| [blueprint_input.rs](../../../crates/project-tools/src/curriculum_content/publication/blueprint_input.rs) | good | full-source | Transforms one manifest into typed Blueprint input. | no persistence logic |
-| [receipt.rs](../../../crates/project-tools/src/curriculum_content/publication/receipt.rs) | good | full-source | Receipt is derived from resolved publication identities. | typed revision tuples |
+| `crates/project-tools/src/curriculum_content.rs` | good | full-source | Checked-in curriculum input validation is explicit and bounded. | manifest validation |
+| `crates/project-tools/src/curriculum_content/parameterized_publication.rs` | refine | full-source | Publication provenance also compares mutable Library title and description as if they were source identity. | existing_publication lines 366-380 compare entry.question_title and question_description |
+| `crates/project-tools/src/curriculum_content/publication.rs` | refine | full-source | Same mutable-metadata provenance assumption appears in the canonical Blueprint reuse path. | ensure_source_entry_compatible lines 245-255 |
+| `crates/project-tools/src/curriculum_content/publication/blueprint_input.rs` | good | full-source | Transforms one manifest into typed Blueprint input. | no persistence logic |
+| `crates/project-tools/src/curriculum_content/publication/receipt.rs` | good | full-source | Receipt is derived from resolved publication identities. | typed revision tuples |
 | [database.rs](../../../crates/project-tools/src/database.rs) | good | full-source | Database tool operations use an explicit connection boundary. | bounded command ownership |
 | [database_coordinator.rs](../../../crates/project-tools/src/database_coordinator.rs) | good | full-source | External database coordination is isolated from product code. | process boundary |
 | [crates/project-tools/src/fixtures.rs](https://github.com/vosslab/peptidyle-learning-engine/blob/a0269209a7703837984c29b3deb18919c807e347/crates/project-tools/src/fixtures.rs) | good | full-source | Fixture validation checks bounded files, paths, checksums, and domain relationships. | canonical root check |
@@ -334,13 +334,13 @@ historical-reference rows have deliberately narrower review depth. Evidence is s
 | [installation_data_activity_converge.rs](../../../crates/project-tools/src/installation_data_activity_converge.rs) | good | full-source | Convergence logic is explicit rather than hidden in fixture mutation. | focused convergence module |
 | [installation_data_activity_http.rs](../../../crates/project-tools/src/installation_data_activity_http.rs) | good | full-source | HTTP interaction is separated from seeding decisions. | focused HTTP adapter |
 | [installation_data_activity_response.rs](../../../crates/project-tools/src/installation_data_activity_response.rs) | good | full-source | Response decoding has its own bounded representation. | focused response module |
-| [installation_data_blueprint.rs](../../../crates/project-tools/src/installation_data_blueprint.rs) | good | full-source | Blueprint seed data is kept in a dedicated module. | installation boundary |
+| `crates/project-tools/src/installation_data_blueprint.rs` | good | full-source | Blueprint seed data is kept in a dedicated module. | installation boundary |
 | [lib.rs](../../../crates/project-tools/src/lib.rs) | good | full-source | Tool package exports only tool modules. | package structure |
 | [libpq_environment.rs](../../../crates/project-tools/src/libpq_environment.rs) | good | full-source | Derives a small allowlisted libpq environment without passing database URL via argv. | allowed_options; newline rejection |
 | [main.rs](../../../crates/project-tools/src/main.rs) | good | full-source | Thin CLI entry point. | delegates application |
-| [pilot_content.rs](../../../crates/project-tools/src/pilot_content.rs) | good | full-source | Pilot content validator owns manifest/source relationships and limits. | manifest and checksum validation |
-| [command.rs](../../../crates/project-tools/src/pilot_content/command.rs) | good | full-source | Pilot command parsing is distinct from validation/publication. | focused command module |
-| [publication.rs](../../../crates/project-tools/src/pilot_content/publication.rs) | good | full-source | Pilot publisher follows ordinary typed lifecycles rather than special database writes. | publication module |
+| `crates/project-tools/src/pilot_content.rs` | good | full-source | Pilot content validator owns manifest/source relationships and limits. | manifest and checksum validation |
+| `crates/project-tools/src/pilot_content/command.rs` | good | full-source | Pilot command parsing is distinct from validation/publication. | focused command module |
+| `crates/project-tools/src/pilot_content/publication.rs` | good | full-source | Pilot publisher follows ordinary typed lifecycles rather than special database writes. | publication module |
 | [tsgen.rs](../../../crates/project-tools/src/tsgen.rs) | good | full-source | Generator owns declaration discovery and output validation separately from runtime tooling. | source-only command |
 | [model.rs](../../../crates/project-tools/src/tsgen/model.rs) | good | full-source | Rust syntax model is isolated from filesystem/output handling. | model module |
 | [output.rs](../../../crates/project-tools/src/tsgen/output.rs) | good | full-source | Output owns deterministic rendering. | output module |

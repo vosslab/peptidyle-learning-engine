@@ -65,11 +65,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
   }
 
   return (
-    <PageFrame
-      routeSurface="studentCourseInvitation"
-      eyebrow="Course invitation"
-      title={acceptedCourse() === course() ? "You joined this course" : "Course invitation"}
-    >
+    <PageFrame routeSurface="studentCourseInvitation">
       <Show
         when={acceptedCourse() === course() ? acceptedCourse() : null}
         fallback={

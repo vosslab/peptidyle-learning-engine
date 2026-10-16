@@ -17,9 +17,7 @@ async function instructorPools(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Questions", exact: true })
       .click();
-    await page
-      .getByRole("heading", { level: 1, name: "Search Question Library", exact: true })
-      .waitFor();
+    await page.getByRole("main", { name: "Question Library", exact: true }).waitFor();
     await page.getByRole("button", { name: "Create Question Pool", exact: true }).click();
     await page
       .getByRole("heading", {

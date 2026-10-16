@@ -3,11 +3,13 @@
 use async_trait::async_trait;
 use question_model::{LibraryObjectId, QuestionPoolEditNumber, QuestionRevisionNumber, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
+use uuid::Uuid;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification, LibraryWatchTargetKind,
-    SessionTokenHash, StoreError,
+    LibraryWatchActivity, LibraryWatchCursorPosition, LibraryWatchDirection, LibraryWatchEventKind,
+    LibraryWatchFacetCount, LibraryWatchInboxPage, LibraryWatchInboxQuery, LibraryWatchInboxStore,
+    LibraryWatchNotification, LibraryWatchTargetKind, SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
@@ -25,6 +27,11 @@ impl PostgresLibraryWatchNotificationStore {
         token: SessionTokenHash,
     ) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
+        // The page and whole-query facet counts describe one database snapshot.
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         sqlx::query("SET LOCAL ROLE ple_auth")
             .execute(&mut *transaction)
             .await
@@ -147,6 +154,7 @@ fn notification(row: &sqlx::postgres::PgRow) -> Result<LibraryWatchNotification,
         row.try_get("forked_public_id").map_err(map_sqlx_error)?,
     )?;
     Ok(LibraryWatchNotification {
+        event_id: row.try_get("event_id").map_err(map_sqlx_error)?,
         target_kind,
         target_public_id: library_object_id(
             row.try_get("target_public_id").map_err(map_sqlx_error)?,
@@ -157,27 +165,111 @@ fn notification(row: &sqlx::postgres::PgRow) -> Result<LibraryWatchNotification,
     })
 }
 
+fn target_kind_key(value: LibraryWatchTargetKind) -> &'static str {
+    match value {
+        LibraryWatchTargetKind::Question => "question",
+        LibraryWatchTargetKind::QuestionPool => "question_pool",
+    }
+}
+
+fn event_kind_key(value: LibraryWatchEventKind) -> &'static str {
+    match value {
+        LibraryWatchEventKind::Revision => "revision",
+        LibraryWatchEventKind::MembersChanged => "members_changed",
+        LibraryWatchEventKind::Fork => "fork",
+    }
+}
+
 #[async_trait]
 impl LibraryWatchInboxStore for PostgresLibraryWatchNotificationStore {
     async fn library_watch_notifications(
         &self,
         session_token_hash: SessionTokenHash,
-        limit: u16,
-    ) -> Result<Vec<LibraryWatchNotification>, StoreError> {
-        if limit == 0 || limit > 100 {
+        query: LibraryWatchInboxQuery,
+    ) -> Result<LibraryWatchInboxPage, StoreError> {
+        if query.limit == 0 || query.limit > 250 {
             return Err(StoreError::InvalidRecord(
                 "Library Watch inbox limit is invalid".to_owned(),
             ));
         }
         let mut transaction = self.begin_inbox(session_token_hash).await?;
-        let rows =
-            sqlx::query("SELECT * FROM ple_api.read_current_library_watch_notifications($1)")
-                .bind(i32::from(limit))
+        let target_kinds: Vec<String> = query
+            .target_kinds
+            .into_iter()
+            .map(|kind| target_kind_key(kind).to_owned())
+            .collect();
+        let event_kinds: Vec<String> = query
+            .event_kinds
+            .into_iter()
+            .map(|kind| event_kind_key(kind).to_owned())
+            .collect();
+        let after_at = query
+            .after
+            .as_ref()
+            .map(|position| position.occurred_at.as_str());
+        let after_id: Option<Uuid> = query.after.as_ref().map(|position| position.event_id);
+        let rows = sqlx::query(
+            "SELECT * FROM ple_api.read_current_library_watch_notifications(\
+             $1, $2, $3, $4, $5::timestamptz, $6, $7)",
+        )
+        .bind(&query.search)
+        .bind(&target_kinds)
+        .bind(&event_kinds)
+        .bind(query.direction == LibraryWatchDirection::Ascending)
+        .bind(after_at)
+        .bind(after_id)
+        .bind(i32::from(query.limit) + 1)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let next_position = if rows.len() > usize::from(query.limit) {
+            let row = &rows[usize::from(query.limit) - 1];
+            Some(LibraryWatchCursorPosition {
+                occurred_at: row.try_get("occurred_at_cursor").map_err(map_sqlx_error)?,
+                event_id: row.try_get("event_id").map_err(map_sqlx_error)?,
+            })
+        } else {
+            None
+        };
+        let notifications = rows
+            .into_iter()
+            .take(usize::from(query.limit))
+            .map(|row| notification(&row))
+            .collect::<Result<Vec<_>, _>>()?;
+        let facets =
+            sqlx::query("SELECT * FROM ple_api.read_current_library_watch_facets($1, $2, $3)")
+                .bind(&query.search)
+                .bind(&target_kinds)
+                .bind(&event_kinds)
                 .fetch_all(&mut *transaction)
                 .await
                 .map_err(map_sqlx_error)?;
-        let values = rows.into_iter().map(|row| notification(&row)).collect();
+        let mut target_kind_facets = Vec::new();
+        let mut event_kind_facets = Vec::new();
+        for row in facets {
+            let count: i64 = row.try_get("facet_count").map_err(map_sqlx_error)?;
+            let facet = LibraryWatchFacetCount {
+                value: row.try_get("facet_value").map_err(map_sqlx_error)?,
+                count: u64::try_from(count).map_err(|_| {
+                    StoreError::InvalidRecord("Library Watch facet count".to_owned())
+                })?,
+            };
+            match row
+                .try_get::<String, _>("facet_field")
+                .map_err(map_sqlx_error)?
+                .as_str()
+            {
+                "target_kind" => target_kind_facets.push(facet),
+                "event_kind" => event_kind_facets.push(facet),
+                _ => return Err(StoreError::InvalidRecord("Library Watch facet".to_owned())),
+            }
+        }
         transaction.commit().await.map_err(map_sqlx_error)?;
-        values
+        Ok(LibraryWatchInboxPage {
+            notifications,
+            next_position,
+            target_kind_facets,
+            event_kind_facets,
+        })
     }
 }

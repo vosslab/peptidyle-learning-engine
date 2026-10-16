@@ -42,11 +42,11 @@ Ribbon's canonical primary destination names. **Profile** and Account controls
 remain Context Controls. **Question Library** is the canonical name for the
 Question discovery capability, not a required top-level tab.
 
-**My Blueprint Courses**, **My Active Courses**, **My Inactive Courses**, and
-**Search Public Blueprint Courses** name the Courses tasks. **My Questions**,
-**My Draft Questions**, **Starred**, **Watched**, **Search Question Library**,
-and **Browse Question Library** name the Questions tasks. **Assessments Due
-Soon** and **My Assessment Templates** name the Assessments tasks. A retained
+**My Blueprint Courses**, **My Active Courses**, **My Inactive Courses**,
+**Search Blueprint Courses**, and **My Change Proposals** name the Courses tasks.
+**My Questions**, **My Pools**, **My Drafts**, **Starred**, **Watched**,
+**Search Question Library**, and **Browse Question Library** name the Questions tasks.
+**Assessments Due Soon** and **My Assessment Templates** name the Assessments tasks. A retained
 name does not itself claim a backed capability.
 
 **Questions in no Pool** names a search filter for Published Questions with no Pool

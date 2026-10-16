@@ -15,13 +15,7 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
     assessmentWorkspacePath(workspace.courseInstanceId, workspace.assessmentId, section);
 
   return (
-    <PageFrame
-      routeSurface="assessmentWorkspace"
-      headingId="assessment-workspace-heading"
-      eyebrow="Assessment workspace"
-      title={assessment().title}
-      lede={`Current edit ${assessment().assessmentEditNumber}`}
-    >
+    <PageFrame routeSurface="assessmentWorkspace">
       <div class="assessment-workspace-grid">
         <section
           class="course-card assessment-workspace-card"

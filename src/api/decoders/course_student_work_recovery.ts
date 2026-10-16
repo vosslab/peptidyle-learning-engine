@@ -137,7 +137,13 @@ function question(value: unknown, path: string): RecoveredQuestion {
 // ASVS 1.5.2: closed objects; retained evidence stays text, never executable markup.
 export function decodeRecoverySelection(value: unknown, path = "response"): RecoverySelection {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["action", "courseInstanceId", "attempts", "nextCursor"]);
+  requireOnlyFields(record, path, [
+    "action",
+    "courseInstanceId",
+    "attempts",
+    "nextCursor",
+    "assessmentChoices",
+  ]);
   if (field(record, "action", path) !== "select") throw new DecodeError(`${path}.action`, "select");
   return {
     action: "select",
@@ -147,6 +153,19 @@ export function decodeRecoverySelection(value: unknown, path = "response"): Reco
     ),
     attempts: decodeArray(field(record, "attempts", path), `${path}.attempts`, summary),
     nextCursor: nullableText(field(record, "nextCursor", path), `${path}.nextCursor`),
+    assessmentChoices: decodeArray(
+      field(record, "assessmentChoices", path),
+      `${path}.assessmentChoices`,
+      (value, at) => {
+        const choice = decodeRecord(value, at);
+        requireOnlyFields(choice, at, ["key", "label", "count"]);
+        return {
+          key: decodeAssessmentId(field(choice, "key", at), `${at}.key`),
+          label: decodeString(field(choice, "label", at), `${at}.label`),
+          count: decodeNonnegativeInteger(field(choice, "count", at), `${at}.count`),
+        };
+      },
+    ),
   };
 }
 export function decodeRecoveredAttempt(value: unknown, path = "response"): RecoveredAttempt {

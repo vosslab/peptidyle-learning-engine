@@ -15,7 +15,7 @@ import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/
 import type { Theme } from "../../../generated/api/Theme";
 import { useAppearance } from "../../appearance/appearance_context";
 import { ThemeChooser } from "../../appearance/theme_chooser";
-import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
+import { UnsavedChangesGuard, trackEditorSave } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
 import { PageFrame } from "../../components/page_frame";
 import { useSelectedDisplayDateTimeFormatter } from "../../selected_display_zone";
@@ -170,15 +170,45 @@ export function BlueprintCourseDetailWorkspace(
       invalidDraft() || (loaded !== undefined && !sameContent(loaded.content, loaded.savedContent))
     );
   };
-  const hasUnsavedForkChanges = (): boolean => {
+  const namesDirty = (): boolean => {
     const loaded = current();
     return (
-      dirty() ||
-      (loaded !== undefined &&
-        (shortName() !== loaded.view.short_name || longName() !== loaded.view.long_name))
+      loaded !== undefined &&
+      (shortName() !== loaded.view.short_name || longName() !== loaded.view.long_name)
     );
   };
-  async function load(keepLocalContent: boolean, keepVisible = false): Promise<void> {
+  const themeDirty = (): boolean => {
+    const loaded = current();
+    return loaded !== undefined && themeDraft() !== loaded.view.theme;
+  };
+  const hasUnsavedForkChanges = (): boolean => {
+    return dirty() || namesDirty() || themeDirty();
+  };
+  /** Refresh server baselines while retaining each independent unsaved metadata draft. */
+  function mergeServerView(
+    view: BlueprintCourseView,
+    content?: Pick<LoadedBlueprintCourse, "content" | "savedContent">,
+  ): void {
+    const prior = current();
+    const preserveShortName = prior !== undefined && shortName() !== prior.view.short_name;
+    const preserveLongName = prior !== undefined && longName() !== prior.view.long_name;
+    const preserveTheme = themeDirty();
+    setCurrent({
+      view,
+      content:
+        content?.content ?? prior?.content ?? replacementContentFromBlueprintModules(view.modules),
+      savedContent:
+        content?.savedContent ??
+        prior?.savedContent ??
+        replacementContentFromBlueprintModules(view.modules),
+    });
+    if (!preserveShortName) setShortName(view.short_name);
+    if (!preserveLongName) setLongName(view.long_name);
+    if (!preserveTheme) setThemeDraft(view.theme);
+    publishBlueprintLabels(view);
+  }
+
+  async function load(scope: "initial" | "refresh" | "discardStructure"): Promise<void> {
     const publication = routeScopePublication();
     activePublication = publication;
     clearRouteScopeLabels(publication);
@@ -188,30 +218,18 @@ export function BlueprintCourseDetailWorkspace(
       return;
     }
     setRefreshFailed(false);
-    if (!keepVisible) setState("loading");
+    if (scope === "initial") setState("loading");
     try {
       const result = await props.client.getBlueprintCourse(props.blueprintCourseId);
       const prior = current();
       const savedContent = replacementContentFromBlueprintModules(result.blueprintCourse.modules);
-      const preserveContent = keepLocalContent || (keepVisible && dirty());
-      const preserveNames =
-        preserveContent ||
-        (keepVisible &&
-          prior !== undefined &&
-          (shortName() !== prior.view.short_name || longName() !== prior.view.long_name));
-      const content = preserveContent && prior !== undefined ? prior.content : savedContent;
-      setCurrent({
-        view: result.blueprintCourse,
+      const content =
+        scope === "refresh" && prior !== undefined && dirty() ? prior.content : savedContent;
+      mergeServerView(result.blueprintCourse, {
         content,
         savedContent,
       });
-      publishBlueprintLabels(result.blueprintCourse);
-      if (!preserveNames || prior === undefined) {
-        setShortName(result.blueprintCourse.short_name);
-        setLongName(result.blueprintCourse.long_name);
-        setThemeDraft(result.blueprintCourse.theme);
-      }
-      if (!keepLocalContent) setConflict(false);
+      setConflict(false);
       setState("ready");
       setNotice({
         kind: "status",
@@ -222,13 +240,14 @@ export function BlueprintCourseDetailWorkspace(
       });
     } catch (error: unknown) {
       clearRouteScopeLabels(publication);
-      if (keepVisible && current() !== undefined) setRefreshFailed(true);
+      if (scope !== "initial" && current() !== undefined) setRefreshFailed(true);
       else setState("error");
       setNotice({
         kind: "alert",
-        text: keepVisible
-          ? `The Blueprint Course refresh failed. Your local edits remain available. ${errorMessage(error, "Try again.")}`
-          : errorMessage(error, "This Blueprint Course could not load. Try again."),
+        text:
+          scope !== "initial"
+            ? `The Blueprint Course refresh failed. Your local edits remain available. ${errorMessage(error, "Try again.")}`
+            : errorMessage(error, "This Blueprint Course could not load. Try again."),
       });
     }
   }
@@ -291,12 +310,12 @@ export function BlueprintCourseDetailWorkspace(
         crypto.randomUUID(),
       );
       const savedContent = replacementContentFromBlueprintModules(saved.blueprintCourse.modules);
-      setCurrent({
-        view: saved.blueprintCourse,
-        content: savedContent,
+      mergeServerView(saved.blueprintCourse, {
+        content: sameContent(current()?.content ?? loaded.content, loaded.content)
+          ? savedContent
+          : current()!.content,
         savedContent,
       });
-      publishBlueprintLabels(saved.blueprintCourse);
       setConflict(false);
       setNotice({
         kind: "status",
@@ -319,8 +338,9 @@ export function BlueprintCourseDetailWorkspace(
       setSaving(false);
     }
   }
+  const trackedSave = trackEditorSave(save);
 
-  function applyMetadata(
+  function applySavedNames(
     metadata: Awaited<ReturnType<BlueprintCourseClient["renameBlueprintCourse"]>>,
   ): void {
     if (current() === undefined) return;
@@ -343,12 +363,24 @@ export function BlueprintCourseDetailWorkspace(
       theme: metadata.metadata.theme,
       blueprint_edit_number: metadata.metadata.blueprint_edit_number,
     };
-    setCurrent({
-      ...loaded,
-      view,
-    });
-    publishBlueprintLabels(view);
+    mergeServerView(view);
     if (metadata.metadata.availability === "archived") setEditing(false);
+    setMetadataConflict(false);
+  }
+
+  function refreshMetadataView(latest: BlueprintCourseView): void {
+    const prior = current();
+    if (prior === undefined || prior.view.id !== latest.id) return;
+    const view = {
+      ...prior.view,
+      short_name: latest.short_name,
+      long_name: latest.long_name,
+      availability: latest.availability,
+      classification: latest.classification,
+      theme: latest.theme,
+      blueprint_edit_number: latest.blueprint_edit_number,
+    };
+    mergeServerView(view);
     setMetadataConflict(false);
   }
 
@@ -365,14 +397,14 @@ export function BlueprintCourseDetailWorkspace(
     return true;
   }
 
-  async function saveNames(): Promise<void> {
+  async function saveNames(): Promise<boolean> {
     const loaded = current();
     if (
       loaded === undefined ||
       !blueprintLifecyclePresentation(loaded.view.availability, loaded.view.read_access).canEdit ||
       !validNames()
     ) {
-      return;
+      return false;
     }
     setMetadataSaving(true);
     try {
@@ -381,11 +413,12 @@ export function BlueprintCourseDetailWorkspace(
         { short_name: shortName(), long_name: longName() },
         loaded.view.blueprint_edit_number,
       );
-      applyMetadata(metadata);
+      applySavedNames(metadata);
       setNotice({
         kind: "status",
         text: "Blueprint Course names saved. Revision content is unchanged.",
       });
+      return true;
     } catch (error: unknown) {
       setMetadataConflict(error instanceof BlueprintCourseConflictError);
       setNotice({
@@ -398,10 +431,12 @@ export function BlueprintCourseDetailWorkspace(
                 "Blueprint Course names could not save. Your typed names remain available.",
               ),
       });
+      return false;
     } finally {
       setMetadataSaving(false);
     }
   }
+  const trackedNamesSave = trackEditorSave(saveNames);
 
   async function archive(): Promise<void> {
     const loaded = current();
@@ -424,7 +459,7 @@ export function BlueprintCourseDetailWorkspace(
         archiveConfirmation(),
         loaded.view.blueprint_edit_number,
       );
-      applyMetadata(metadata);
+      applyMetadataState(metadata);
       setArchiveConfirmation("");
       setNotice({
         kind: "status",
@@ -460,7 +495,7 @@ export function BlueprintCourseDetailWorkspace(
         loaded.view.id,
         loaded.view.blueprint_edit_number,
       );
-      applyMetadata(metadata);
+      applyMetadataState(metadata);
       setNotice({
         kind: "status",
         text: "Blueprint Course restored. Its saved Revisions are unchanged.",
@@ -485,22 +520,7 @@ export function BlueprintCourseDetailWorkspace(
     setMetadataSaving(true);
     try {
       const result = await props.client.getBlueprintCourse(loaded.view.id);
-      const prior = current();
-      if (prior === undefined || prior.view.id !== result.blueprintCourse.id) return;
-      const view = {
-        ...prior.view,
-        short_name: result.blueprintCourse.short_name,
-        long_name: result.blueprintCourse.long_name,
-        availability: result.blueprintCourse.availability,
-        classification: result.blueprintCourse.classification,
-        blueprint_edit_number: result.blueprintCourse.blueprint_edit_number,
-      };
-      setCurrent({
-        ...prior,
-        view,
-      });
-      publishBlueprintLabels(view);
-      setMetadataConflict(false);
+      refreshMetadataView(result.blueprintCourse);
       setNotice({
         kind: "status",
         text: "Current Blueprint Course metadata loaded. Your typed names remain available.",
@@ -515,40 +535,43 @@ export function BlueprintCourseDetailWorkspace(
     }
   }
 
-  async function saveTheme(view: BlueprintCourseView): Promise<void> {
+  async function saveTheme(): Promise<boolean> {
+    const loaded = current();
+    if (
+      loaded === undefined ||
+      !blueprintLifecyclePresentation(loaded.view.availability, loaded.view.read_access).canEdit
+    )
+      return false;
     setMetadataSaving(true);
     try {
       const transition = await props.client.updateBlueprintCourseTheme(
-        view.id,
+        loaded.view.id,
         { theme: themeDraft() },
-        view.blueprint_edit_number,
+        loaded.view.blueprint_edit_number,
       );
       applyMetadataState(transition);
       setThemeDraft(transition.metadata.theme);
       setNotice({ kind: "status", text: "Blueprint Theme saved." });
+      return true;
     } catch (error: unknown) {
+      setMetadataConflict(error instanceof BlueprintCourseConflictError);
       setNotice({
         kind: "alert",
         text: errorMessage(error, "Blueprint Theme could not be saved."),
       });
+      return false;
     } finally {
       setMetadataSaving(false);
     }
   }
+  const trackedThemeSave = trackEditorSave(saveTheme);
 
-  onMount(() => void load(false));
+  onMount(() => void load("initial"));
   onCleanup(() => {
     if (activePublication !== undefined) clearRouteScopeLabels(activePublication);
   });
   return (
     <PageFrame
-      eyebrow="Blueprint Course"
-      title={current()?.view.long_name ?? "Blueprint Course"}
-      lede={
-        current() === undefined
-          ? undefined
-          : `Reusable course structure without Students, deadlines, or course delivery settings. Current Revision ${current()!.view.current_revision_tuple.revisionNumber}.`
-      }
       routeSurface="blueprintCourseDetail"
       actions={
         <A class="quiet-link" href={blueprintCollection().href}>
@@ -560,7 +583,7 @@ export function BlueprintCourseDetailWorkspace(
         {notice().text}
       </p>
       <Show when={refreshFailed()}>
-        <button type="button" onClick={() => void load(hasUnsavedForkChanges(), true)}>
+        <button type="button" onClick={() => void load("refresh")}>
           Retry refreshing Blueprint Course
         </button>
       </Show>
@@ -569,7 +592,7 @@ export function BlueprintCourseDetailWorkspace(
           <p>Loading Blueprint Course.</p>
         </Match>
         <Match when={state() === "error"}>
-          <button type="button" onClick={() => void load(false)}>
+          <button type="button" onClick={() => void load("initial")}>
             Retry loading Blueprint Course
           </button>
         </Match>
@@ -602,8 +625,8 @@ export function BlueprintCourseDetailWorkspace(
                 saving={saving()}
                 dirty={dirty()}
                 conflict={conflict()}
-                onSave={() => void save()}
-                onDiscard={() => void load(false)}
+                onSave={() => void trackedSave.save()}
+                onDiscard={() => void load("discardStructure")}
                 shortName={shortName()}
                 longName={longName()}
                 savedShortName={loaded().view.short_name}
@@ -612,7 +635,7 @@ export function BlueprintCourseDetailWorkspace(
                 onLongNameInput={setLongName}
                 metadataSaving={metadataSaving()}
                 metadataConflict={metadataConflict()}
-                onSaveNames={() => void saveNames()}
+                onSaveNames={() => void trackedNamesSave.save()}
                 onReloadMetadata={() => void reloadMetadata()}
                 modules={loaded().content.modules}
                 courseLongName={loaded().view.long_name}
@@ -665,21 +688,7 @@ export function BlueprintCourseDetailWorkspace(
                 }}
                 reload={async () => {
                   const latest = await props.client.getBlueprintCourse(loaded().view.id);
-                  const prior = current();
-                  if (prior !== undefined)
-                    setCurrent({
-                      ...prior,
-                      view: {
-                        ...prior.view,
-                        short_name: latest.blueprintCourse.short_name,
-                        long_name: latest.blueprintCourse.long_name,
-                        availability: latest.blueprintCourse.availability,
-                        classification: latest.blueprintCourse.classification,
-                        theme: latest.blueprintCourse.theme,
-                        blueprint_edit_number: latest.blueprintCourse.blueprint_edit_number,
-                      },
-                    });
-                  setThemeDraft(latest.blueprintCourse.theme);
+                  refreshMetadataView(latest.blueprintCourse);
                   return {
                     classification: latest.blueprintCourse.classification,
                     editNumber: latest.blueprintCourse.blueprint_edit_number,
@@ -707,7 +716,7 @@ export function BlueprintCourseDetailWorkspace(
                   type="button"
                   disabled={themeDraft() === loaded().view.theme}
                   onClick={() => {
-                    void saveTheme(loaded().view);
+                    void trackedThemeSave.save();
                   }}
                 >
                   Save Blueprint Theme
@@ -733,14 +742,14 @@ export function BlueprintCourseDetailWorkspace(
                 client={props.client}
                 view={loaded().view}
                 hasUnsavedChanges={hasUnsavedForkChanges()}
-                onApplied={() => void load(hasUnsavedForkChanges(), true)}
+                onApplied={() => void load("refresh")}
               />
               <BlueprintKnownForks
                 client={props.client}
                 blueprintCourseId={loaded().view.id}
                 sourceCurrentRevision={loaded().view.current_revision_tuple.revisionNumber}
                 hasUnsavedChanges={hasUnsavedForkChanges()}
-                onApplied={() => void load(hasUnsavedForkChanges(), true)}
+                onApplied={() => void load("refresh")}
               />
               <BlueprintCourseLifecycleControls
                 view={loaded().view}
@@ -763,7 +772,8 @@ export function BlueprintCourseDetailWorkspace(
       </Switch>
       <UnsavedChangesGuard
         dirty={dirty}
-        save={save}
+        save={trackedSave.save}
+        inFlightSave={trackedSave.inFlightSave}
         copy={{
           heading: "Save Blueprint Course changes?",
           description: "Your reusable Blueprint Course changes have not been saved as a Revision.",
@@ -771,6 +781,32 @@ export function BlueprintCourseDetailWorkspace(
           savingActionLabel: "Saving Blueprint Course...",
           saveFailureMessage:
             "Blueprint Course changes were not saved. Resolve the save error, then try again or stay here.",
+        }}
+      />
+      <UnsavedChangesGuard
+        dirty={namesDirty}
+        save={trackedNamesSave.save}
+        inFlightSave={trackedNamesSave.inFlightSave}
+        copy={{
+          heading: "Save Blueprint Course names?",
+          description: "Your Blueprint Course names have not been saved.",
+          saveActionLabel: "Save names and continue",
+          savingActionLabel: "Saving names...",
+          saveFailureMessage:
+            "Blueprint Course names were not saved. Correct the names or resolve the metadata error before leaving.",
+        }}
+      />
+      <UnsavedChangesGuard
+        dirty={themeDirty}
+        save={trackedThemeSave.save}
+        inFlightSave={trackedThemeSave.inFlightSave}
+        copy={{
+          heading: "Save Blueprint Theme?",
+          description: "Your Blueprint Theme selection has not been saved.",
+          saveActionLabel: "Save Theme and continue",
+          savingActionLabel: "Saving Theme...",
+          saveFailureMessage:
+            "Blueprint Theme was not saved. Resolve the metadata error before leaving.",
         }}
       />
     </PageFrame>

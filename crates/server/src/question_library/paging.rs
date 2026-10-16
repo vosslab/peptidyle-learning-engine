@@ -9,7 +9,7 @@ use question_model::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-const CURSOR_VERSION: u8 = 3;
+const CURSOR_VERSION: u8 = 4;
 const MAX_CURSOR_BYTES: usize = 4_096;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -21,10 +21,11 @@ struct Cursor {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "sort", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "camelCase")]
 enum CursorPosition {
-    TitleAscending {
-        title: String,
+    Text {
+        sort: LibraryObjectSearchSort,
+        key: String,
         public_id: LibraryObjectId,
     },
     PublishedNewest {
@@ -44,9 +45,15 @@ pub(super) fn decode_position(
         .transpose()
         .map(|cursor| {
             cursor.map(|cursor| match cursor.position {
-                CursorPosition::TitleAscending { title, public_id } => {
-                    QuestionLibrarySearchCursorPosition::TitleAscending { title, public_id }
-                }
+                CursorPosition::Text {
+                    sort,
+                    key,
+                    public_id,
+                } => QuestionLibrarySearchCursorPosition::Text {
+                    sort: store_sort(sort),
+                    key,
+                    public_id,
+                },
                 CursorPosition::PublishedNewest {
                     published_at_millis,
                     public_id,
@@ -65,9 +72,15 @@ pub(super) fn encode_position(
     query: &LibraryObjectSearchRequest,
 ) -> String {
     let position = match position {
-        QuestionLibrarySearchCursorPosition::TitleAscending { title, public_id } => {
-            CursorPosition::TitleAscending { title, public_id }
-        }
+        QuestionLibrarySearchCursorPosition::Text {
+            sort,
+            key,
+            public_id,
+        } => CursorPosition::Text {
+            sort: public_sort(sort),
+            key,
+            public_id,
+        },
         QuestionLibrarySearchCursorPosition::PublishedNewest {
             published_at_millis,
             public_id,
@@ -75,6 +88,9 @@ pub(super) fn encode_position(
             published_at_millis,
             public_id,
         },
+        QuestionLibrarySearchCursorPosition::StarredDate { .. } => {
+            unreachable!("private Starred cursor is outside public Library transport")
+        }
     };
     let cursor = Cursor {
         version: CURSOR_VERSION,
@@ -94,8 +110,17 @@ fn decode_cursor(value: &str, query: &LibraryObjectSearchRequest) -> Result<Curs
     }
     let cursor = serde_json::from_slice::<Cursor>(&bytes).map_err(|_| ())?;
     let valid_position = match (query.sort, &cursor.position) {
-        (LibraryObjectSearchSort::TitleAscending, CursorPosition::TitleAscending { title, .. }) => {
-            !title.is_empty()
+        (
+            sort,
+            CursorPosition::Text {
+                sort: position_sort,
+                key,
+                ..
+            },
+        ) => {
+            sort == *position_sort
+                && sort != LibraryObjectSearchSort::PublishedNewest
+                && !key.is_empty()
         }
         (LibraryObjectSearchSort::PublishedNewest, CursorPosition::PublishedNewest { .. }) => true,
         _ => false,
@@ -110,8 +135,67 @@ fn decode_cursor(value: &str, query: &LibraryObjectSearchRequest) -> Result<Curs
     Ok(cursor)
 }
 
+pub(super) fn store_sort(
+    sort: LibraryObjectSearchSort,
+) -> learning_data_access::QuestionLibrarySearchSort {
+    use learning_data_access::QuestionLibrarySearchSort as Store;
+    match sort {
+        LibraryObjectSearchSort::TitleAscending => Store::TitleAscending,
+        LibraryObjectSearchSort::TitleDescending => Store::TitleDescending,
+        LibraryObjectSearchSort::KindAscending => Store::KindAscending,
+        LibraryObjectSearchSort::KindDescending => Store::KindDescending,
+        LibraryObjectSearchSort::DisciplineAscending => Store::DisciplineAscending,
+        LibraryObjectSearchSort::DisciplineDescending => Store::DisciplineDescending,
+        LibraryObjectSearchSort::QuestionTypeAscending => Store::QuestionTypeAscending,
+        LibraryObjectSearchSort::QuestionTypeDescending => Store::QuestionTypeDescending,
+        LibraryObjectSearchSort::PublishedNewest => Store::PublishedNewest,
+    }
+}
+
+fn public_sort(sort: learning_data_access::QuestionLibrarySearchSort) -> LibraryObjectSearchSort {
+    use learning_data_access::QuestionLibrarySearchSort as Store;
+    match sort {
+        Store::TitleAscending => LibraryObjectSearchSort::TitleAscending,
+        Store::TitleDescending => LibraryObjectSearchSort::TitleDescending,
+        Store::KindAscending => LibraryObjectSearchSort::KindAscending,
+        Store::KindDescending => LibraryObjectSearchSort::KindDescending,
+        Store::DisciplineAscending => LibraryObjectSearchSort::DisciplineAscending,
+        Store::DisciplineDescending => LibraryObjectSearchSort::DisciplineDescending,
+        Store::QuestionTypeAscending => LibraryObjectSearchSort::QuestionTypeAscending,
+        Store::QuestionTypeDescending => LibraryObjectSearchSort::QuestionTypeDescending,
+        Store::PublishedNewest => LibraryObjectSearchSort::PublishedNewest,
+        Store::StarredDateAscending | Store::StarredDateDescending => {
+            unreachable!("private Starred sort is outside public Library cursor")
+        }
+    }
+}
+
 fn query_digest(query: &LibraryObjectSearchRequest) -> [u8; 32] {
     let filter = LibraryObjectSearchFilter::from_query(query.clone())
         .expect("normalized Question Library query remains a valid filter");
     Sha256::digest(serde_json::to_vec(&filter).expect("Question Library filter serializes")).into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use question_model::BloomCognitiveProcess;
+
+    #[test]
+    fn normalized_multi_value_filters_bind_cursor_digest() {
+        let discipline = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let second = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
+        let first = LibraryObjectSearchRequest {
+            discipline_uuids: vec![second, discipline],
+            bloom_cognitive_processes: vec![BloomCognitiveProcess::Apply],
+            ..LibraryObjectSearchRequest::default()
+        };
+        let first = first.normalized().unwrap();
+        let mut same = first.clone();
+        same.discipline_uuids.reverse();
+        assert_eq!(query_digest(&first), query_digest(&same));
+        same.bloom_cognitive_processes
+            .push(BloomCognitiveProcess::Analyze);
+        assert_ne!(query_digest(&first), query_digest(&same));
+    }
 }

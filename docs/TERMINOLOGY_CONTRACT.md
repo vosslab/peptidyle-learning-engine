@@ -746,9 +746,9 @@ Instructor primary Ribbon tabs are **Courses**, **Questions**, and
 **Assessments**.
 
 Course tasks are **My Blueprint Courses**, **My Active Courses**, **My Inactive
-Courses**, and **Search Public Blueprint Courses**.
+Courses**, **Search Blueprint Courses**, and **My Change Proposals**.
 
-Question tasks are **My Questions**, **My Draft Questions**, **Starred**,
+Question tasks are **My Questions**, **My Pools**, **My Drafts**, **Starred**,
 **Watched**, **Search Question Library**, and **Browse Question Library**.
 
 Assessment tasks are **Assessments Due Soon** and **My Assessment Templates**.

@@ -129,11 +129,21 @@ pub struct BlueprintChangeProposalReview {
 /// receiving owner, without granting editing authority on its source.
 #[async_trait]
 pub trait BlueprintChangeProposalStore: Send + Sync {
+    async fn blueprint_change_proposal_status_counts(
+        &self,
+        session: SessionTokenHash,
+        scope: BlueprintChangeProposalListScope,
+        text: &str,
+    ) -> Result<[i64; 3], StoreError>;
+
     async fn list_blueprint_change_proposals(
         &self,
         session: SessionTokenHash,
         scope: BlueprintChangeProposalListScope,
         page: PageRequest,
+        text: &str,
+        ascending: bool,
+        status: &str,
     ) -> Result<Page<BlueprintChangeProposalSummary>, StoreError>;
 
     /// Loads original review and any accepted evidence under one authenticated transaction.

@@ -1,17 +1,18 @@
 //! PostgreSQL implementation of the Instructor Question Library read boundary.
 
+mod facet_choices;
 mod mixed;
 mod search;
 
 use async_trait::async_trait;
 use question_model::{
     AccountId, BloomClassificationView, BloomCognitiveProcess, BloomKnowledgeDimension,
-    MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId, PublishedQuestionId,
-    PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata, QuestionAuthor,
-    QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
+    CourseInstanceId, CourseQuestionUse, MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata,
+    QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
     QuestionAvailabilityEditNumber, QuestionBackend, QuestionRevisionNumber,
-    QuestionRevisionUsageStatistics, QuestionType, QuestionUsageTotals, SourceObjectChecksum, Tag,
-    Timestamp,
+    QuestionRevisionUsageStatistics, QuestionType, QuestionUsageTotals, QuestionUseDetails,
+    QuestionUseSummary, SourceObjectChecksum, Tag, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -64,6 +65,15 @@ impl PostgresQuestionLibraryStore {
 
 #[async_trait]
 impl QuestionLibraryStore for PostgresQuestionLibraryStore {
+    async fn list_question_library_facet_choices(
+        &self,
+        session_token_hash: SessionTokenHash,
+        request: crate::QuestionLibraryFacetChoiceRequest,
+    ) -> Result<crate::QuestionLibraryFacetChoiceResult, StoreError> {
+        self.list_question_library_facet_choices(session_token_hash, request)
+            .await
+    }
+
     async fn search_published_question_library_entries(
         &self,
         session_token_hash: SessionTokenHash,
@@ -329,6 +339,82 @@ impl PostgresQuestionLibraryStore {
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(items)
+    }
+
+    /// Current fixed Assessment uses for one exact Published Question Revision.
+    pub async fn load_question_use_details(
+        &self,
+        session_token_hash: SessionTokenHash,
+        publication: &PublishedQuestionRevisionTuple,
+    ) -> Result<QuestionUseDetails, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        // ASVS 1.2.4, 8.2.2: bind the validated exact Revision tuple; the SQL
+        // boundary derives each visible Course from the installed session.
+        let rows = sqlx::query(
+            "SELECT global_course_count, global_assessment_count, \
+                    own_course_count, own_assessment_count, own_course_instance_id, \
+                    own_course_title, own_course_assessment_count \
+             FROM ple_api.read_question_use_details($1, $2)",
+        )
+        .bind(publication.published_question_id.as_str())
+        .bind(
+            i32::try_from(publication.revision_number.get())
+                .map_err(|_| invalid("Question Revision Number"))?,
+        )
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let first = rows
+            .first()
+            .ok_or_else(|| invalid("Question use details"))?;
+        let summary = QuestionUseSummary {
+            global_course_count: count_u64(first, "global_course_count")?,
+            global_assessment_count: count_u64(first, "global_assessment_count")?,
+            own_course_count: count_u64(first, "own_course_count")?,
+            own_assessment_count: count_u64(first, "own_assessment_count")?,
+        };
+        let mut own_courses = Vec::with_capacity(rows.len());
+        let mut own_assessment_count = 0_u64;
+        for row in &rows {
+            let id: Option<String> = row
+                .try_get("own_course_instance_id")
+                .map_err(map_sqlx_error)?;
+            let title: Option<String> = row.try_get("own_course_title").map_err(map_sqlx_error)?;
+            let count: Option<i64> = row
+                .try_get("own_course_assessment_count")
+                .map_err(map_sqlx_error)?;
+            match (id, title, count) {
+                (Some(id), Some(title), Some(count)) => {
+                    let assessment_count = u64::try_from(count)
+                        .map_err(|_| invalid("Question use assessment count"))?;
+                    own_assessment_count = own_assessment_count
+                        .checked_add(assessment_count)
+                        .ok_or_else(|| invalid("Question use assessment count"))?;
+                    own_courses.push(CourseQuestionUse {
+                        course_instance_id: CourseInstanceId::new(id)
+                            .map_err(|_| invalid("Course Instance ID"))?,
+                        title,
+                        assessment_count,
+                    });
+                }
+                (None, None, None) if rows.len() == 1 => {}
+                _ => return Err(invalid("Question use Course row")),
+            }
+        }
+        if own_courses.len() as u64 != summary.own_course_count
+            || own_assessment_count != summary.own_assessment_count
+            || summary.own_course_count > summary.global_course_count
+            || summary.own_assessment_count > summary.global_assessment_count
+        {
+            return Err(invalid("Question use totals"));
+        }
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(QuestionUseDetails {
+            summary,
+            own_courses,
+        })
     }
 
     async fn set_published_question_availability(

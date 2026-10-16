@@ -8,6 +8,8 @@ import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { LibraryObjectSearchPage } from "../../generated/api/LibraryObjectSearchPage";
 import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
+import type { LibraryFacetChoicePage } from "../../generated/api/LibraryFacetChoicePage";
+import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
 import type { LibraryObjectKindResponse } from "../../generated/api/LibraryObjectKindResponse";
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
@@ -32,10 +34,6 @@ import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionI
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
 import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
-import type { CourseInvitationId } from "../../generated/api/CourseInvitationId";
-import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
-import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
-import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type {
   StudentAssessmentDetail,
@@ -63,7 +61,7 @@ import type { StudentAssessmentAttemptNavigationClient } from "./assessment_atte
 import type { InstructorAccountClient } from "./instructor_account";
 import type { CourseGradebookClient } from "./live_gradebook";
 import type { LiveStudentCourseLandingClient } from "./live_student_course_landing";
-import type { StudentCourseAttemptHistoryClient } from "./student_course_attempt_history";
+import type { StudentAttemptHistoryClient } from "./student_course_attempt_history";
 import type { StudentCourseResponseStatsClient } from "./student_course_response_stats";
 import type { StudentQuestionDisplayDurationClient } from "./student_question_display_duration";
 import type { QuestionAvailabilityClient } from "./question_availability";
@@ -106,7 +104,7 @@ export interface ApiClient
     InstructorAccountClient,
     CourseGradebookClient,
     LiveStudentCourseLandingClient,
-    StudentCourseAttemptHistoryClient,
+    StudentAttemptHistoryClient,
     StudentCourseResponseStatsClient,
     StudentQuestionDisplayDurationClient,
     QuestionAvailabilityClient,
@@ -157,15 +155,6 @@ export interface ApiClient
   ) => Promise<ProfileAvatarView>;
   /** Fetches a signed-in viewer's authorized Instructor Profile image rendition. */
   readonly fetchProfileAvatarImage: (profileImageId: string) => Promise<Blob>;
-  readonly listPendingCourseInvitations: (
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<PendingCourseInvitationsPage>;
-  readonly respondToCourseInvitation: (
-    invitation: CourseInvitationId,
-    request: CourseInvitationTerminalActionRequest,
-    statePrecondition: CourseInvitationStatePrecondition,
-  ) => Promise<void>;
   readonly getSession: () => Promise<AuthenticatedSession>;
   /** Resolves a compact visible ID inside the current authorization boundary. */
   readonly resolveNavigation: (id: NavigationRouteId) => Promise<NavigationResolution>;
@@ -176,6 +165,11 @@ export interface ApiClient
   readonly searchLibraryObjects: (
     query: LibraryObjectSearchRequest,
   ) => Promise<LibraryObjectSearchPage>;
+  readonly listLibraryFacetChoices: (
+    field: LibraryFacetField,
+    query: LibraryObjectSearchRequest,
+    choiceSearch?: string | null,
+  ) => Promise<LibraryFacetChoicePage>;
   /** Resolves the authorized Library object kind for the shared detail route. */
   readonly getLibraryObjectKind: (publicId: string) => Promise<LibraryObjectKindResponse>;
   /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */

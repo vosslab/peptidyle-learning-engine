@@ -52,6 +52,8 @@ export interface PleQuestionJsonEditorPageProps {
   readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;
   /** Exact Published Revision this ordinary Draft corrects, when opened from the Owner action. */
   readonly correctionParent?: PublishedQuestionRevisionTuple;
+  /** The current Draft has no published parent, so its reviewed author may be linked. */
+  readonly allowSelfAuthorship: boolean;
   /** Same-route QTI conversion may move focus into the newly replaced draft. */
   readonly focusHeadingOnMount?: boolean;
   /** Clears the route's one-shot focus request after the unlocked heading receives it. */

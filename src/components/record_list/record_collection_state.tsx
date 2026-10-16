@@ -14,10 +14,21 @@ export type RecordCollectionState =
       readonly retryLabel?: string;
     };
 
-export type RecordCollectionEmptyState = {
-  readonly title: string;
-  readonly message?: string;
-};
+export type RecordCollectionEmptyState =
+  | { readonly title: string; readonly message?: string }
+  | { readonly message: string; readonly title?: never };
+
+/** One empty notice for collection presentations, including table cells. */
+export function RecordCollectionEmptyNotice(props: {
+  readonly emptyState: RecordCollectionEmptyState;
+}): JSX.Element {
+  return (
+    <section class="record-collection__state record-collection__state--empty" role="status">
+      <Show when={props.emptyState.title}>{(title) => <h2>{title()}</h2>}</Show>
+      <Show when={props.emptyState.message}>{(message) => <p>{message()}</p>}</Show>
+    </section>
+  );
+}
 
 export type RecordCollectionStateProps = {
   readonly state: RecordCollectionState;
@@ -81,10 +92,7 @@ export function RecordCollectionStateView(props: RecordCollectionStateProps): JS
             </Show>
           }
         >
-          <section class="record-collection__state record-collection__state--empty" role="status">
-            <h2>{props.emptyState.title}</h2>
-            <Show when={props.emptyState.message}>{(message) => <p>{message()}</p>}</Show>
-          </section>
+          <RecordCollectionEmptyNotice emptyState={props.emptyState} />
         </Show>
       }
     >

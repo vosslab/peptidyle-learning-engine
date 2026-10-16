@@ -156,8 +156,6 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
             // Creation-form selectors plus the failure card. PageFrame owns the stack.
             contentClass="assessment-workspace-create route-error"
             routeSurface="assessmentCreate"
-            eyebrow="Instructor assessment workspace"
-            title="This assessment workspace is unavailable"
           >
             <p>Return to a course you manage to create an assessment.</p>
             <A class="primary-link" href="/">
@@ -171,9 +169,6 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
         // Scopes the creation method and template fieldsets. PageFrame owns the stack.
         contentClass="assessment-workspace-create"
         routeSurface="assessmentCreate"
-        eyebrow="New assessment"
-        title="Create an Assessment"
-        lede="Choose an Assessment Type and enter a title. Questions and Assessment Properties have their own focused steps next."
       >
         <form
           class="assessment-editor-panel"

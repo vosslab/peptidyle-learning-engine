@@ -115,11 +115,9 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
   if (props.state.kind === "loading") {
     return (
       <div data-session-state="loading" aria-live="polite">
-        <PageFrame
-          eyebrow="Opening your learning space"
-          title="Loading your session"
-          lede="We are confirming your signed-in learning space."
-        />
+        <PageFrame>
+          <p role="status">We are confirming your signed-in learning space.</p>
+        </PageFrame>
       </div>
     );
   }
@@ -140,7 +138,6 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
 
   return (
     <section class="route-error" data-session-state={props.state.kind} aria-live="polite">
-      <p class="eyebrow">Session recovery</p>
       <h1>{title}</h1>
       <p>{description}</p>
       <Show when={needsSignIn}>

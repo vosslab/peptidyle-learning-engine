@@ -1,21 +1,40 @@
 //! PostgreSQL persistence for Sysadmin Instructor Account management.
 
 use async_trait::async_trait;
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use question_model::{AccountId, AccountTimeZone, Timestamp};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
     AuthenticationEmail, CreateInstructorAccountInput, CreatedInstructorAccount,
     DeactivateInstructorAccountInput, InstructorAccountBrowse, InstructorAccountList,
-    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary, ProvidedAvatarId,
-    SessionTokenHash, StoreError,
+    InstructorAccountSort, InstructorAccountState, InstructorAccountStateChoice,
+    InstructorAccountStore, InstructorAccountSummary, ProvidedAvatarId, SessionTokenHash,
+    StoreError,
 };
 
 /// PostgreSQL Store for the deliberate Sysadmin-only Instructor Accounts surface.
 #[derive(Clone)]
 pub struct PostgresInstructorAccountStore {
     pool: Pool,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AccountCursor {
+    query_fingerprint: String,
+    state: Option<InstructorAccountState>,
+    sort: InstructorAccountSort,
+    page_size: i32,
+    account_id: AccountId,
+}
+
+fn query_fingerprint(query: Option<&str>) -> String {
+    let digest = Sha256::digest(query.unwrap_or("").as_bytes());
+    URL_SAFE_NO_PAD.encode(digest)
 }
 
 impl PostgresInstructorAccountStore {
@@ -61,18 +80,47 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         let query = normalize_find_query(browse.query.as_deref())?;
         let page_size = normalize_page_size(browse.page_size)?;
         let state = browse.state.map(state_name);
-        let after_account_id = browse.after_account_id.map(|id| id.as_string());
+        let after_account_id = browse
+            .cursor
+            .as_deref()
+            .map(|cursor| {
+                if cursor.len() > 4096 {
+                    return Err(invalid("Instructor Account cursor"));
+                }
+                let bytes = URL_SAFE_NO_PAD
+                    .decode(cursor)
+                    .map_err(|_| invalid("Instructor Account cursor"))?;
+                if URL_SAFE_NO_PAD.encode(&bytes) != cursor {
+                    return Err(invalid("Instructor Account cursor"));
+                }
+                let position: AccountCursor = serde_json::from_slice(&bytes)
+                    .map_err(|_| invalid("Instructor Account cursor"))?;
+                if position.query_fingerprint != query_fingerprint(query.as_deref())
+                    || position.state != browse.state
+                    || position.sort != browse.sort
+                    || Some(position.page_size) != page_size
+                {
+                    return Err(invalid("Instructor Account cursor"));
+                }
+                Ok(position.account_id.as_string())
+            })
+            .transpose()?;
+        let sort = match browse.sort {
+            InstructorAccountSort::IdAscending => "idAscending",
+            InstructorAccountSort::IdDescending => "idDescending",
+        };
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query(
             "SELECT account_id, state, provided_avatar_id, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
              AS last_successful_sign_in_millis \
-             FROM ple_api.list_instructor_account_avatar_summaries($1, $2, $3, $4)",
+             FROM ple_api.list_instructor_account_avatar_summaries($1, $2, $3, $4, $5)",
         )
-        .bind(query)
+        .bind(query.as_deref())
         .bind(state)
         .bind(after_account_id)
         .bind(page_size)
+        .bind(sort)
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -86,13 +134,53 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
                     usize::try_from(limit).map_err(|_| invalid("Instructor Account list"))?;
                 if records.len() > limit {
                     records.truncate(limit);
-                    records.last().map(|account| account.id.clone())
+                    records
+                        .last()
+                        .map(|account| AccountCursor {
+                            query_fingerprint: query_fingerprint(query.as_deref()),
+                            state: browse.state,
+                            sort: browse.sort,
+                            page_size: limit as i32,
+                            account_id: account.id.clone(),
+                        })
+                        .map(|cursor| {
+                            serde_json::to_vec(&cursor)
+                                .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
+                                .map_err(|_| invalid("Instructor Account cursor"))
+                        })
+                        .transpose()?
                 } else {
                     None
                 }
             }
             None => None,
         };
+        let choice_rows = sqlx::query(
+            "SELECT state, matching_count FROM ple_api.instructor_account_state_choices($1)",
+        )
+        .bind(query.as_deref())
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let state_choices = choice_rows
+            .iter()
+            .map(|row| {
+                let key = match row
+                    .try_get::<String, _>("state")
+                    .map_err(map_sqlx_error)?
+                    .as_str()
+                {
+                    "active" => InstructorAccountState::Active,
+                    "deactivated" => InstructorAccountState::Deactivated,
+                    "closed" => InstructorAccountState::Closed,
+                    _ => return Err(invalid("Instructor Account state choice")),
+                };
+                Ok(InstructorAccountStateChoice {
+                    key,
+                    count: row.try_get("matching_count").map_err(map_sqlx_error)?,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
         // ASVS 8.2.2 and 8.3.1: this function derives the display preference
         // from the installed session rather than accepting a target Account ID.
         let display_time_zone =
@@ -113,6 +201,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
             accounts: records,
             display_time_zone,
             next_cursor,
+            state_choices,
         })
     }
 

@@ -25,7 +25,7 @@ function compareText(left: string, right: string): number {
   return left.localeCompare(right, "en", { numeric: true, sensitivity: "base" });
 }
 
-function compareMembers(
+export function compareQuestionPoolMemberRows(
   left: QuestionPoolMemberSortEntry,
   right: QuestionPoolMemberSortEntry,
   sort: QuestionPoolMemberSort,
@@ -65,7 +65,7 @@ export function sortQuestionPoolMemberRows<T extends QuestionPoolMemberSortEntry
   return members
     .map((member, originalIndex) => ({ member, originalIndex }))
     .sort((left, right) => {
-      const comparison = compareMembers(left.member, right.member, sort);
+      const comparison = compareQuestionPoolMemberRows(left.member, right.member, sort);
       return comparison === 0 ? left.originalIndex - right.originalIndex : comparison;
     })
     .map(({ member }) => member);

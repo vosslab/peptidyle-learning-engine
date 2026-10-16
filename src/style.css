@@ -341,7 +341,6 @@ details:not([open]) > :not(summary) {
   padding: var(--ple-shell-padding-block-start) 0 var(--ple-shell-padding-block-end);
 }
 
-.eyebrow,
 .card-kicker {
   margin: 0 0 0.3rem;
   color: var(--ple-accent-strong);

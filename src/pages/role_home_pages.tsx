@@ -25,20 +25,7 @@ export function RoleHomeResolutionPage(): JSX.Element {
   });
 
   return (
-    <PageFrame
-      routeSurface="roleHomeResolution"
-      title={
-        session.state().kind === "error"
-          ? "Your workspace could not be opened"
-          : "Choose your teaching workspace"
-      }
-      eyebrow="Peptidyle"
-      lede={
-        session.state().kind === "error"
-          ? undefined
-          : "Sign in to open the dashboard for your User Role."
-      }
-    >
+    <PageFrame routeSurface="roleHomeResolution">
       <Show
         when={session.state().kind === "loading"}
         fallback={
@@ -81,13 +68,7 @@ export function StudentHomePage(): JSX.Element {
 export function SysadminHomePage(): JSX.Element {
   const runtime = useApplicationApi();
   return (
-    <PageFrame
-      routeSurface="sysadminHome"
-      headingId="sysadmin-home-heading"
-      eyebrow="System administration"
-      title="System administration"
-      lede="Create a Course for an Instructor to teach, find Courses across the installation, or manage Instructor Accounts."
-    >
+    <PageFrame routeSurface="sysadminHome">
       <SysadminCourseCreation />
       <nav class="card-grid" aria-label="System administration tools">
         <article class="course-card">

@@ -1,173 +1,223 @@
-// library_browse_controls.tsx - exact-facet navigation for the Question Library browse surface.
+// library_browse_controls.tsx - progressive navigation over the shared Library query.
 
 import { A } from "@solidjs/router";
-import { For, Show, type Accessor, type JSX } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  type Accessor,
+  type JSX,
+} from "solid-js";
 
+import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
+import { checkboxChange } from "../components/controlled_form_change";
 import type {
-  QuestionLibraryBrowseQuery,
-  LibrarySearchState,
-  QuestionLibraryFacetTruncation,
-} from "./library_page_model";
+  RecordFilterBinding,
+  RecordFilterChoice,
+  RecordFilterChoices,
+} from "../components/record_list/record_fields";
+import type { QuestionLibraryBrowseQuery } from "./library_page_model";
 
-type BrowseFacet = "subject" | "topic" | "tag" | "questionType";
+type ClassificationField = "disciplineUuids" | "subjectUuids" | "topicUuids" | "subtopicUuids";
+
+const levels: ReadonlyArray<{ readonly field: ClassificationField; readonly label: string }> = [
+  { field: "disciplineUuids", label: "Discipline" },
+  { field: "subjectUuids", label: "Subject" },
+  { field: "topicUuids", label: "Topic" },
+  { field: "subtopicUuids", label: "Subtopic" },
+];
 
 export interface LibraryBrowseControlsProps {
   readonly query: Accessor<QuestionLibraryBrowseQuery>;
-  readonly hasExactBrowseFilters: () => boolean;
+  readonly filters: RecordFilterBinding<LibraryFacetField>;
+  readonly hasCriteria: () => boolean;
   readonly searchWithinResultsPath: () => string;
-  readonly browsingState: Accessor<LibrarySearchState>;
-  readonly browseFacets: (
-    facet: BrowseFacet,
-  ) => () => ReadonlyArray<{ readonly value: string; readonly count: number }>;
-  readonly facetTruncation: () => QuestionLibraryFacetTruncation;
-  readonly questionTypeLabel: (value: string) => string;
+  readonly disabled: () => boolean;
   readonly changeQuery: (change: Partial<QuestionLibraryBrowseQuery>) => void;
   readonly startOver: () => void;
 }
 
-export function LibraryBrowseControls(props: LibraryBrowseControlsProps): JSX.Element {
-  function browsingGroupsState(): "loading" | "ready" | "empty" | "error" {
-    const current = props.browsingState();
-    if ("rows" in current && current.rows.length > 0) return "ready";
-    return current.kind === "initial" ? "loading" : current.kind;
+function BrowseLevel(props: {
+  readonly field: ClassificationField;
+  readonly label: string;
+  readonly query: Accessor<QuestionLibraryBrowseQuery>;
+  readonly filters: RecordFilterBinding<LibraryFacetField>;
+  readonly disabled: () => boolean;
+}): JSX.Element {
+  const [search, setSearch] = createSignal("");
+  const [page, setPage] = createSignal<RecordFilterChoices | null>(null);
+  const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal(false);
+  const [retry, setRetry] = createSignal(0);
+  let request: AbortController | undefined;
+  let requestNumber = 0;
+
+  const selectedKeys = (): ReadonlyArray<string> => props.filters.values.get(props.field) ?? [];
+  const visibleChoices = createMemo(() => {
+    const current = page();
+    if (current === null) return [];
+    const byKey = new Map<string, RecordFilterChoice>();
+    for (const choice of current.selected) byKey.set(choice.key, choice);
+    for (const choice of current.choices) {
+      if (choice.count > 0 || selectedKeys().includes(choice.key)) byKey.set(choice.key, choice);
+    }
+    return [...byKey.values()];
+  });
+
+  function load(cursor: string | null, append: boolean): void {
+    request?.abort();
+    const currentRequest = new AbortController();
+    request = currentRequest;
+    const number = ++requestNumber;
+    setLoading(true);
+    setError(false);
+    void props.filters.choices(props.field, search(), cursor, currentRequest.signal).then(
+      (result) => {
+        if (currentRequest.signal.aborted || number !== requestNumber) return;
+        const previous = page();
+        const byKey = new Map<string, RecordFilterChoice>();
+        for (const choice of append ? (previous?.choices ?? []) : []) byKey.set(choice.key, choice);
+        for (const choice of result.choices) byKey.set(choice.key, choice);
+        setPage({ ...result, choices: [...byKey.values()] });
+        setLoading(false);
+      },
+      () => {
+        if (currentRequest.signal.aborted || number !== requestNumber) return;
+        setError(true);
+        setLoading(false);
+      },
+    );
+  }
+
+  createEffect(() => {
+    props.query();
+    search();
+    retry();
+    setPage(null);
+    load(null, false);
+    onCleanup(() => {
+      request?.abort();
+      requestNumber++;
+    });
+  });
+
+  function choose(key: string): void {
+    const selected = selectedKeys();
+    props.filters.onChange(
+      props.field,
+      selected.includes(key) ? selected.filter((value) => value !== key) : [key],
+    );
   }
 
   return (
-    <section class="question-library-browse-controls" aria-label="Browse Question Library">
-      <div class="question-library-browse-heading">
-        <div>
-          <h2>{props.hasExactBrowseFilters() ? "Narrow these results" : "Choose a path"}</h2>
-          <p>
-            Counts describe all authorized Questions matching the current choices, not only the rows
-            loaded below.
-          </p>
-        </div>
-        <Show when={props.hasExactBrowseFilters()}>
-          <A class="primary-action" href={props.searchWithinResultsPath()}>
-            Search within results
-          </A>
-        </Show>
-      </div>
-      <Show when={browsingGroupsState() === "loading"}>
-        <p class="loading-state" role="status">
-          Loading Question Library groups...
-        </p>
+    <section class="question-library-browse-level" aria-label={props.label}>
+      <label>
+        {props.label}
+        <input
+          type="search"
+          value={search()}
+          placeholder={`Find ${props.label.toLowerCase()}`}
+          aria-label={`Find ${props.label.toLowerCase()}`}
+          disabled={props.disabled()}
+          onInput={(event) => setSearch(event.currentTarget.value)}
+        />
+      </label>
+      <Show when={loading() && page() === null}>
+        <p role="status">Loading {props.label.toLowerCase()} choices...</p>
       </Show>
-      <Show when={props.hasExactBrowseFilters()}>
-        <div class="question-library-browse-active" aria-label="Current browse filters">
-          <span>Browsing:</span>
-          <For each={props.query().subjects}>{(subject) => <strong>{subject}</strong>}</For>
-          <For each={props.query().topics}>{(topic) => <strong>{topic}</strong>}</For>
-          <Show when={props.query().tag}>{(tag) => <strong>Tag: {tag()}</strong>}</Show>
-          <Show when={props.query().questionType}>
-            {(questionType) => <strong>{props.questionTypeLabel(questionType())}</strong>}
-          </Show>
-          <button class="quiet-action" type="button" onClick={props.startOver}>
+      <Show when={error()}>
+        <p role="alert">Could not load {props.label.toLowerCase()} choices.</p>
+        <button
+          type="button"
+          disabled={props.disabled()}
+          onClick={() => setRetry((value) => value + 1)}
+        >
+          Retry
+        </button>
+      </Show>
+      <div class="question-library-browse-choices">
+        <For each={visibleChoices()}>
+          {(choice) => (
+            <button
+              type="button"
+              aria-pressed={selectedKeys().includes(choice.key)}
+              disabled={props.disabled()}
+              onClick={() => choose(choice.key)}
+            >
+              <span>{choice.label}</span>
+              <strong>{choice.count}</strong>
+            </button>
+          )}
+        </For>
+      </div>
+      <Show when={!loading() && !error() && page() !== null && visibleChoices().length === 0}>
+        <p>No matching {props.label.toLowerCase()} choices.</p>
+      </Show>
+      <Show when={page()?.nextCursor && !error()}>
+        <button
+          type="button"
+          disabled={loading() || props.disabled()}
+          onClick={() => load(page()!.nextCursor, true)}
+        >
+          Load more
+        </button>
+      </Show>
+    </section>
+  );
+}
+
+export function LibraryBrowseControls(props: LibraryBrowseControlsProps): JSX.Element {
+  const visibleLevels = createMemo(() => {
+    const query = props.query();
+    return levels.filter(({ field }) => {
+      if (field === "subjectUuids") return query.discipline_uuids.length > 0;
+      if (field === "topicUuids") return query.subject_uuids.length > 0;
+      if (field === "subtopicUuids") return query.topic_uuids.length > 0;
+      return true;
+    });
+  });
+
+  return (
+    <section class="question-library-browse-controls" aria-label="Browse Question Library">
+      <Show when={props.hasCriteria()}>
+        <div class="question-library-browse-actions">
+          <A href={props.searchWithinResultsPath()}>Search within results</A>
+          <button type="button" disabled={props.disabled()} onClick={props.startOver}>
             Start over
           </button>
         </div>
       </Show>
-      <div class="question-library-browse-groups" hidden={browsingGroupsState() !== "ready"}>
-        <section aria-labelledby="question-library-subjects-heading">
-          <h3 id="question-library-subjects-heading">Subjects</h3>
-          <div class="question-library-facet-choices">
-            <For
-              each={props.browseFacets("subject")()}
-              fallback={
-                <p class="question-library-facet-empty">
-                  No Subject groups are available in this view. Browse with Tags or Question Types,
-                  or use <A href={props.searchWithinResultsPath()}>Search Question Library</A>.
-                </p>
-              }
-            >
-              {(facet) => (
-                <button
-                  type="button"
-                  aria-pressed={props.query().subjects.includes(facet.value)}
-                  onClick={() =>
-                    props.changeQuery({
-                      subjects: [facet.value],
-                      topics: [],
-                    })
-                  }
-                >
-                  <span>{facet.value}</span>
-                  <strong>{facet.count}</strong>
-                </button>
-              )}
-            </For>
-          </div>
-          <Show when={props.facetTruncation().subjects}>
-            <p class="question-library-facet-truncated">
-              More subjects are available. Choose one shown here or use Search Question Library to
-              find a narrower match.
-            </p>
-          </Show>
-        </section>
-        <Show when={props.query().subjects.length > 0}>
-          <section aria-labelledby="question-library-topics-heading">
-            <h3 id="question-library-topics-heading">Topics in this subject</h3>
-            <div class="question-library-facet-choices">
-              <For each={props.browseFacets("topic")()}>
-                {(facet) => (
-                  <button
-                    type="button"
-                    aria-pressed={props.query().topics.includes(facet.value)}
-                    onClick={() => props.changeQuery({ topics: [facet.value] })}
-                  >
-                    <span>{facet.value}</span>
-                    <strong>{facet.count}</strong>
-                  </button>
-                )}
-              </For>
-            </div>
-            <Show when={props.facetTruncation().topics}>
-              <p class="question-library-facet-truncated">
-                More topics match. Search within these results to reach a topic not shown here.
-              </p>
-            </Show>
-          </section>
-        </Show>
-        <section aria-labelledby="question-library-tags-heading">
-          <h3 id="question-library-tags-heading">Tags</h3>
-          <div class="question-library-facet-choices">
-            <For each={props.browseFacets("tag")()}>
-              {(facet) => (
-                <button
-                  type="button"
-                  aria-pressed={props.query().tag === facet.value}
-                  onClick={() => props.changeQuery({ tag: facet.value })}
-                >
-                  <span>{facet.value}</span>
-                  <strong>{facet.count}</strong>
-                </button>
-              )}
-            </For>
-          </div>
-          <Show when={props.facetTruncation().tags}>
-            <p class="question-library-facet-truncated">
-              More tags match. Search within these results to reach a tag not shown here.
-            </p>
-          </Show>
-        </section>
-        <section aria-labelledby="question-library-types-heading">
-          <h3 id="question-library-types-heading">Question Types</h3>
-          <div class="question-library-facet-choices">
-            <For each={props.browseFacets("questionType")()}>
-              {(facet) => (
-                <button
-                  type="button"
-                  aria-pressed={props.query().questionType === facet.value}
-                  onClick={() => props.changeQuery({ questionType: facet.value })}
-                >
-                  <span>{props.questionTypeLabel(facet.value)}</span>
-                  <strong>{facet.count}</strong>
-                </button>
-              )}
-            </For>
-          </div>
-        </section>
+      <div class="question-library-browse-levels">
+        <For each={visibleLevels()}>
+          {(level) => (
+            <BrowseLevel
+              field={level.field}
+              label={level.label}
+              query={props.query}
+              filters={props.filters}
+              disabled={props.disabled}
+            />
+          )}
+        </For>
       </div>
+      <Show when={props.query().subject_uuids.length > 0}>
+        <label class="question-library-browse-cross-discipline">
+          <input
+            type="checkbox"
+            checked={props.query().cross_discipline}
+            disabled={props.disabled()}
+            onChange={(event) =>
+              checkboxChange(event.currentTarget, props.query().cross_discipline, (checked) =>
+                props.changeQuery({ cross_discipline: checked }),
+              )
+            }
+          />
+          Include this Subject across Disciplines
+        </label>
+      </Show>
     </section>
   );
 }

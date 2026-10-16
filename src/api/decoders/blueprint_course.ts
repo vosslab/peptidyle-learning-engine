@@ -40,13 +40,13 @@ import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./qu
 import {
   decodeAccountId,
   decodeBoundedArray,
-  decodeCursor,
   decodePublishedQuestionRevisionTuple,
   field,
   requireOnlyFields,
 } from "./shared";
 import { validateCanonicalPublicId, validateCanonicalQuestionIdSyntax } from "../../question_id";
 import { decodeCourseClassification } from "./course_classification";
+import { decodeBlueprintCourseCursor } from "./blueprint_course_facets";
 
 const MAX_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
@@ -191,21 +191,27 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
   }
   requireOnlyFields(record, path, [
     "kind",
-    "pool",
+    "question_pool_id",
     "selection_count",
     "points_per_item",
     "scoring_rule",
     "question_attempt_limit",
     "question_attempt_time_limit",
   ]);
+  questionPoolId(field(record, "question_pool_id", path), `${path}.question_pool_id`);
   const selectionCount = decodePositiveInteger(
     field(record, "selection_count", path),
     `${path}.selection_count`,
   );
   if (selectionCount > 4_294_967_295)
     throw new DecodeError(`${path}.selection_count`, "a positive u32 selection count");
-  authoringPool(field(record, "pool", path), `${path}.pool`);
   pointValue(field(record, "points_per_item", path), `${path}.points_per_item`);
+  decodeStringEnum(field(record, "scoring_rule", path), `${path}.scoring_rule`, [
+    "normal",
+    "fullCredit",
+    "extraCredit",
+    "excluded",
+  ]);
   decodeQuestionAttemptLimit(
     field(record, "question_attempt_limit", path),
     `${path}.question_attempt_limit`,
@@ -217,13 +223,6 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
     true,
   );
   return { kind };
-}
-
-function authoringPool(value: unknown, path: string): void {
-  // ASVS 1.5.2, 2.2.1: a Blueprint keeps the ordinary Pool identity and local draw policy.
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["question_pool_id"]);
-  questionPoolId(field(record, "question_pool_id", path), `${path}.question_pool_id`);
 }
 
 export function assessmentType(value: unknown, path: string): AssessmentType {
@@ -814,7 +813,7 @@ export function decodeBlueprintCoursePage(
     nextCursor: decodeNullable(
       field(record, "nextCursor", path),
       `${path}.nextCursor`,
-      decodeCursor,
+      decodeBlueprintCourseCursor,
     ),
   };
 }

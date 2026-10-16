@@ -50,6 +50,10 @@ export interface PleQuestionJsonEditorWorkspaceProps {
   readonly showInstructorCheck: Accessor<boolean>;
   readonly review: Accessor<PleQuestionJsonPublishReview | null>;
   readonly authorshipText: Accessor<string>;
+  readonly reviewDirty: Accessor<boolean>;
+  readonly onDiscardReviewChanges: () => void;
+  readonly selfAuthorPosition: Accessor<number | null>;
+  readonly allowSelfAuthorship: boolean;
   readonly disciplineUuid: Accessor<string | null>;
   readonly subjectUuid: Accessor<string | null>;
   readonly topicUuid: Accessor<string | null>;
@@ -79,11 +83,12 @@ export interface PleQuestionJsonEditorWorkspaceProps {
   readonly onInspectInstructorAnswer: () => void;
   readonly onOpenPublishReview: () => void;
   readonly onAuthorshipTextChange: Setter<string>;
+  readonly onSelfAuthorPositionChange: (position: number | null) => void;
   readonly onAuthorshipInput: (element: HTMLTextAreaElement) => void;
   readonly onDisciplineChange: (uuid: string | null) => void;
   readonly onSubjectChange: (uuid: string | null) => void;
   readonly onTopicChange: (uuid: string | null) => void;
-  readonly onSubtopicChange: Setter<string | null>;
+  readonly onSubtopicChange: (uuid: string | null) => void;
   readonly onPublish: () => void;
 }
 
@@ -274,19 +279,24 @@ export function PleQuestionJsonEditorWorkspace(
                       changed={activeReview().changed}
                       isSaved={props.isSaved}
                       isLocked={props.isLocked}
+                      reviewDirty={props.reviewDirty}
                       authorshipText={props.authorshipText()}
+                      selfAuthorPosition={props.selfAuthorPosition()}
+                      allowSelfAuthorship={props.allowSelfAuthorship}
                       disciplineUuid={props.disciplineUuid()}
                       subjectUuid={props.subjectUuid()}
                       topicUuid={props.topicUuid()}
                       subtopicUuid={props.subtopicUuid()}
                       classificationClient={props.classificationClient}
                       onAuthorshipTextChange={props.onAuthorshipTextChange}
+                      onSelfAuthorPositionChange={props.onSelfAuthorPositionChange}
                       onAuthorshipInput={props.onAuthorshipInput}
                       onDisciplineChange={props.onDisciplineChange}
                       onSubjectChange={props.onSubjectChange}
                       onTopicChange={props.onTopicChange}
                       onSubtopicChange={props.onSubtopicChange}
                       onPublish={props.onPublish}
+                      onDiscardReviewChanges={props.onDiscardReviewChanges}
                     />
                   )}
                 </Show>

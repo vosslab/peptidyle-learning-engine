@@ -446,6 +446,15 @@ export function createPleQuestionJsonClient(
         "PLE Question JSON publication requires one to sixteen reviewed Question Authors",
       );
     }
+    // ASVS 2.2.1: accept only an index into these exact reviewed names; the server binds the account.
+    if (
+      request.selfAuthorPosition !== null &&
+      (!Number.isInteger(request.selfAuthorPosition) ||
+        request.selfAuthorPosition < 0 ||
+        request.selfAuthorPosition >= request.authorship.authors.length)
+    ) {
+      throw new PleQuestionJsonProtocolError("Select a reviewed Question Author or None");
+    }
     const path = publishPath(draftQuestion);
     // ASVS 2.2.1-2: validate identities; the server validates the resulting hierarchy.
     const disciplineUuid = publicationUuid(request.disciplineUuid, "publication.disciplineUuid");
@@ -470,6 +479,7 @@ export function createPleQuestionJsonClient(
         },
         JSON.stringify({
           authors: request.authorship.authors.map((author) => author.displayName),
+          selfAuthorPosition: request.selfAuthorPosition,
           disciplineUuid,
           subjectUuid,
           topicUuid,

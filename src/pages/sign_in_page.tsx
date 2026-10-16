@@ -223,12 +223,7 @@ export function SignInPage(): JSX.Element {
   onMount(() => void loadSeededDemoAccounts());
 
   return (
-    <PageFrame
-      routeSurface="signIn"
-      eyebrow="Sign in"
-      title="Sign in to Peptidyle Learning Engine"
-      lede="Students and Instructors can use a code sent to their email address."
-    >
+    <PageFrame routeSurface="signIn">
       <section class="auth-panel email-code-panel" aria-labelledby="email-code-heading">
         <h2 id="email-code-heading">Sign in with email</h2>
         <Show

@@ -9,7 +9,10 @@ CREATE FUNCTION ple_api.list_installation_courses(
     p_query text,
     p_after_long_name text,
     p_after_course_instance_id text,
-    p_page_size integer
+    p_page_size integer,
+    p_sort text DEFAULT 'nameAscending',
+    p_activity text[] DEFAULT ARRAY[]::text[],
+    p_retention text[] DEFAULT ARRAY[]::text[]
 )
 RETURNS TABLE(
     course_instance_id text,
@@ -41,7 +44,10 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
     IF p_page_size NOT BETWEEN 1 AND 250
-       OR (p_after_long_name IS NULL) <> (p_after_course_instance_id IS NULL) THEN
+       OR (p_after_long_name IS NULL) <> (p_after_course_instance_id IS NULL)
+       OR p_sort NOT IN ('nameAscending', 'nameDescending')
+       OR EXISTS (SELECT 1 FROM unnest(p_activity) AS value WHERE value NOT IN ('active', 'inactive'))
+       OR EXISTS (SELECT 1 FROM unnest(p_retention) AS value WHERE value NOT IN ('active', 'archived', 'deleted')) THEN
         RAISE EXCEPTION 'installation Course page is invalid' USING ERRCODE = '22023';
     END IF;
     RETURN QUERY
@@ -87,11 +93,71 @@ BEGIN
                        )
                    ) > 0
         ))
+       AND (cardinality(p_activity) = 0 OR course.course_lifecycle_state::text = ANY(p_activity))
+       AND (cardinality(p_retention) = 0 OR course.retention_lifecycle_state::text = ANY(p_retention))
        AND (p_after_long_name IS NULL OR
-            (course.course_long_name, course.course_instance_id) >
-            (p_after_long_name, p_after_course_instance_id))
-     ORDER BY course.course_long_name, course.course_instance_id
+            (p_sort = 'nameAscending' AND
+             (course.course_long_name, course.course_instance_id) >
+             (p_after_long_name, p_after_course_instance_id)) OR
+            (p_sort = 'nameDescending' AND
+             (course.course_long_name, course.course_instance_id) <
+             (p_after_long_name, p_after_course_instance_id)))
+     ORDER BY
+         CASE WHEN p_sort = 'nameAscending' THEN course.course_long_name END ASC,
+         CASE WHEN p_sort = 'nameAscending' THEN course.course_instance_id END ASC,
+         CASE WHEN p_sort = 'nameDescending' THEN course.course_long_name END DESC,
+         CASE WHEN p_sort = 'nameDescending' THEN course.course_instance_id END DESC
      LIMIT p_page_size + 1;
+END
+$$;
+
+CREATE FUNCTION ple_api.installation_course_facet_choices(
+    p_query text, p_activity text[], p_retention text[]
+) RETURNS TABLE(field_name text, choice_key text, matching_count bigint)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+DECLARE v_query text := NULLIF(btrim(p_query), '');
+BEGIN
+    IF NOT ple_api.current_session_account_is_sysadmin() THEN
+        RAISE EXCEPTION 'installation Course inspection is unavailable' USING ERRCODE = '42501';
+    END IF;
+    IF (v_query IS NOT NULL AND (char_length(v_query) > 200 OR v_query ~ '[[:cntrl:]]'))
+       OR EXISTS (SELECT 1 FROM unnest(p_activity) AS value WHERE value NOT IN ('active', 'inactive'))
+       OR EXISTS (SELECT 1 FROM unnest(p_retention) AS value WHERE value NOT IN ('active', 'archived', 'deleted')) THEN
+        RAISE EXCEPTION 'installation Course facet is invalid' USING ERRCODE = '22023';
+    END IF;
+    RETURN QUERY
+    WITH matching AS (
+        SELECT course.course_lifecycle_state::text AS activity,
+               course.retention_lifecycle_state::text AS retention
+          FROM ple_data.course_instance AS course
+         WHERE (v_query IS NULL
+            OR upper(v_query) = course.course_instance_id::text
+            OR position(lower(v_query) IN lower(course.course_short_name)) > 0
+            OR position(lower(v_query) IN lower(course.course_long_name)) > 0
+            OR position(lower(v_query) IN lower(course.course_instance_id::text)) > 0
+            OR EXISTS (
+                SELECT 1 FROM ple_data.course_membership AS membership
+                 WHERE membership.course_instance_id = course.course_instance_id
+                   AND membership.role = 'instructor'
+                   AND ple_data.course_membership_is_active(membership.course_membership_id)
+                   AND position(lower(v_query) IN lower(
+                       ple_private.instructor_display_name(membership.account_id::text)
+                   )) > 0
+            ))
+    )
+    SELECT 'activity'::text, choice.key, count(matching.activity)::bigint
+      FROM (VALUES ('active'), ('inactive')) AS choice(key)
+      LEFT JOIN matching ON matching.activity = choice.key
+        AND (cardinality(p_retention) = 0 OR matching.retention = ANY(p_retention))
+     GROUP BY choice.key
+    UNION ALL
+    SELECT 'retention'::text, choice.key, count(matching.retention)::bigint
+      FROM (VALUES ('active'), ('archived'), ('deleted')) AS choice(key)
+      LEFT JOIN matching ON matching.retention = choice.key
+        AND (cardinality(p_activity) = 0 OR matching.activity = ANY(p_activity))
+     GROUP BY choice.key;
 END
 $$;
 

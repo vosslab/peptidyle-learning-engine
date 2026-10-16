@@ -65,17 +65,6 @@ export function ProfilePage(): JSX.Element {
       left.localeCompare(right),
     );
   };
-  const selfRoleLabel = (): string => {
-    const state = session.state();
-    if (state.kind !== "authenticated") return "Account";
-    return (
-      {
-        student: "Student",
-        instructor: "Instructor",
-        sysadmin: "Sysadmin",
-      } as const
-    )[state.session.account.userRole];
-  };
   const canManageProfileImage = (): boolean => {
     const state = session.state();
     return (
@@ -134,12 +123,7 @@ export function ProfilePage(): JSX.Element {
   }
 
   return (
-    <PageFrame
-      routeSurface="profile"
-      eyebrow={`${selfRoleLabel()} account`}
-      title="Your profile"
-      lede="This page shows settings for the Account you are signed in to."
-    >
+    <PageFrame routeSurface="profile">
       <Show when={authenticatedAccountId()} keyed>
         {(accountId) => <ProfileAccountId accountId={accountId} />}
       </Show>

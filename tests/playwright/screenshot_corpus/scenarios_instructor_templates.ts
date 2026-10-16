@@ -22,15 +22,31 @@ async function instructorTemplates(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("link", { name: "My Assessment Templates", exact: true })
       .click();
     await session.page
-      .getByRole("heading", { level: 1, name: "My Assessment Templates" })
+      .getByRole("main", { name: "My Assessment Templates", exact: true })
       .waitFor();
     // Create a Template is a disclosure button. It auto-expands once a ready list has zero
-    // Templates, so wait for the list, then expand only when it is still collapsed.
+    // Templates, so wait for an actual result or its ready empty notice, then expand only when
+    // it is still collapsed. The compact table and its headings mount before the results settle.
     const createDisclosure = session.page.getByRole("button", {
       name: "Create a Template",
       exact: true,
     });
-    await session.page.getByText("Loading your Templates...").waitFor({ state: "hidden" });
+    const templatesSearchBlock = session.page
+      .locator('aside[aria-label="Templates"]')
+      .locator(".search-block");
+    await templatesSearchBlock.waitFor({ state: "visible" });
+    const settledTemplates = templatesSearchBlock
+      .locator("[data-record-id]")
+      .first()
+      .or(
+        templatesSearchBlock.getByRole("heading", {
+          level: 2,
+          name: "No Templates yet",
+          exact: true,
+        }),
+      )
+      .first();
+    await settledTemplates.waitFor({ state: "visible" });
     if ((await createDisclosure.getAttribute("aria-expanded")) !== "true") {
       await createDisclosure.click();
     }

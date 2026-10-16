@@ -18,6 +18,9 @@ export function LibraryRoutePage(): JSX.Element {
       classificationClient={runtime.client}
       questionPoolClient={runtime.client}
       getQuestionDetails={runtime.client.getQuestionDetails}
+      loadQuestionInspection={runtime.client.getQuestionRevision}
+      questionRevisionPreviewDocumentUrl={runtime.client.questionRevisionPreviewDocumentUrl}
+      questionImageUrl={runtime.client.questionImageUrl}
     />
   );
 }
@@ -34,6 +37,9 @@ export function BrowseLibraryRoutePage(): JSX.Element {
       classificationClient={runtime.client}
       questionPoolClient={runtime.client}
       getQuestionDetails={runtime.client.getQuestionDetails}
+      loadQuestionInspection={runtime.client.getQuestionRevision}
+      questionRevisionPreviewDocumentUrl={runtime.client.questionRevisionPreviewDocumentUrl}
+      questionImageUrl={runtime.client.questionImageUrl}
     />
   );
 }

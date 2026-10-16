@@ -1,13 +1,17 @@
 // question_statistics_panel.tsx - explainable, answer-free Question Statistics and use detail.
 
 import { A } from "@solidjs/router";
-import { Show, type JSX } from "solid-js";
+import { Show, createResource, type JSX } from "solid-js";
 
 import type { QuestionStatistics } from "../../generated/api/QuestionStatistics";
 import type { QuestionUseDetails } from "../../generated/api/QuestionUseDetails";
 import type { QuestionRevisionUsageStatistics } from "../../generated/api/QuestionRevisionUsageStatistics";
 import { courseInstanceRouteId } from "../navigation/public_route";
-import { RecordList, type RecordContent } from "../components/record_list/record_list";
+import type { RecordContent } from "../components/record_list/record_list";
+import type { RecordField } from "../components/record_list/record_fields";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import "./question_statistics_panel.css";
 
 export interface QuestionStatisticsPanelProps {
@@ -57,6 +61,46 @@ function revisionContent(revision: RevisionStatistics): RecordContent {
 
 type CourseUse = QuestionUseDetails["ownCourses"][number];
 
+const revisionFields: ReadonlyArray<RecordField<RevisionStatistics, "revision", never>> = [
+  {
+    id: "revision",
+    label: "Revision",
+    role: "identity",
+    value: (revision) => `Revision ${revision.revision_number}`,
+    sortKey: "revision",
+    defaultColumn: { priority: 1 },
+  },
+  {
+    id: "received",
+    label: "Received",
+    value: (revision) => revision.issued_count,
+    defaultColumn: { priority: 2 },
+  },
+  {
+    id: "graded",
+    label: "Graded responses",
+    value: (revision) => revision.answered_count,
+    defaultColumn: { priority: 3 },
+  },
+];
+
+const courseUseFields: ReadonlyArray<RecordField<CourseUse, "title", never>> = [
+  {
+    id: "title",
+    label: "Course",
+    role: "identity",
+    value: (course) => course.title,
+    sortKey: "title",
+    defaultColumn: { priority: 1 },
+  },
+  {
+    id: "assessment_count",
+    label: "Assessments",
+    value: (course) => course.assessmentCount,
+    defaultColumn: { priority: 2 },
+  },
+];
+
 function courseUseContent(course: CourseUse): RecordContent {
   return {
     title: course.title,
@@ -95,6 +139,61 @@ function formatMean(mean: number | undefined, observations: number): string {
     return `${wholeNumber.format(observations)} observations`;
   }
   return `${percentage.format(mean)} (${wholeNumber.format(observations)})`;
+}
+
+function RevisionStatisticsList(props: {
+  readonly rows: readonly RevisionStatistics[];
+}): JSX.Element {
+  const [revisions, { refetch }] = createResource(() => props.rows);
+  const search = createLocalCompleteSearch(
+    { resource: revisions, refetchSource: refetch, rows: (value) => value },
+    {
+      fields: revisionFields,
+      rowId: (revision) => String(revision.revision_number),
+      keyword: (revision) => `Revision ${revision.revision_number}`,
+      compare: (_key, left, right) => left.revision_number - right.revision_number,
+      content: revisionContent,
+    },
+  );
+  return (
+    <SearchBlock
+      layout="above"
+      controls={<SearchControls state={search.state} textLabel="Search revisions" />}
+      state={search.state}
+      collection={{
+        ariaLabel: "Question statistics by revision",
+        emptyState: { title: "No revision statistics match your search." },
+        fields: revisionFields,
+        query: search.query,
+      }}
+    />
+  );
+}
+
+function OwnCourseUseList(props: { readonly rows: readonly CourseUse[] }): JSX.Element {
+  const [courses, { refetch }] = createResource(() => props.rows);
+  const search = createLocalCompleteSearch(
+    { resource: courses, refetchSource: refetch, rows: (value) => value },
+    {
+      fields: courseUseFields,
+      rowId: (course) => course.courseInstanceId,
+      keyword: (course) => course.title,
+      content: courseUseContent,
+    },
+  );
+  return (
+    <SearchBlock
+      layout="above"
+      controls={<SearchControls state={search.state} textLabel="Search your courses" />}
+      state={search.state}
+      collection={{
+        ariaLabel: "Your courses using this question",
+        emptyState: { title: "No courses match your search." },
+        fields: courseUseFields,
+        query: search.query,
+      }}
+    />
+  );
 }
 
 /** Renders privacy-safe Library statistics with their observation counts. */
@@ -152,14 +251,7 @@ export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JS
             {(revisions) => (
               <>
                 <h3>By revision</h3>
-                <RecordList
-                  ariaLabel="Question statistics by revision"
-                  content={revisionContent}
-                  emptyState={{ title: "No revision statistics are available." }}
-                  recordId={(revision) => String(revision.revision_number)}
-                  rows={revisions()}
-                  state={{ kind: "ready" }}
-                />
+                <RevisionStatisticsList rows={revisions()} />
               </>
             )}
           </Show>
@@ -178,8 +270,8 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
       <p class="question-statistics-introduction">
         This exact published question appears in{" "}
         {formatCount(summary().globalCourseCount, "course")} and{" "}
-        {formatCount(summary().globalAssessmentCount, "assessment")} across the Question Library.
-        Course names below are limited to courses you can open.
+        {formatCount(summary().globalAssessmentCount, "assessment")}. Course names below are limited
+        to courses you can open.
       </p>
       <dl class="question-usage-counts">
         <div>
@@ -200,20 +292,7 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
         }
       >
         <h3>Your courses using this question</h3>
-        <RecordList
-          ariaLabel="Your courses using this question"
-          content={courseUseContent}
-          emptyState={{ title: "No accessible courses use this question." }}
-          recordId={(course) => course.courseInstanceId}
-          rows={props.usage.ownCourses}
-          state={{ kind: "ready" }}
-        />
-      </Show>
-      <Show when={props.usage.ownCoursesTruncated}>
-        <p class="question-usage-next-step" role="status">
-          More of your courses use this question. <A href="/">Open your courses</A> to continue the
-          impact review.
-        </p>
+        <OwnCourseUseList rows={props.usage.ownCourses} />
       </Show>
       <p class="question-usage-next-step">
         Review these course uses before replacing the question. A future assessment can use a

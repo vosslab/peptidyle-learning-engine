@@ -31,9 +31,19 @@ export function createCourseStudentWorkRecoveryClient(
     return boundedResponseJson(response, path);
   }
   return {
-    async selectArchivedStudentWork(courseInstanceId, cursor): Promise<RecoverySelection> {
+    async selectArchivedStudentWork(courseInstanceId, browse): Promise<RecoverySelection> {
+      if (
+        browse.search.length > 200 ||
+        /\p{Cc}/u.test(browse.search) ||
+        (browse.sort !== "attemptAscending" && browse.sort !== "attemptDescending") ||
+        (browse.pageSize !== 50 && browse.pageSize !== 100) ||
+        browse.assessmentIds.length > 100 ||
+        (browse.cursor !== null && browse.cursor.length > 512)
+      ) {
+        throw new ApiProtocolError("Recovery selection query is invalid");
+      }
       const selection = decodeRecoverySelection(
-        await request(courseInstanceId, { action: "select", cursor }),
+        await request(courseInstanceId, { action: "select", ...browse }),
       );
       if (
         selection.courseInstanceId !== courseInstanceId ||

@@ -12,6 +12,7 @@ import {
 } from "./authoring_classification_level";
 import { ContentClassificationSelect } from "./content_classification_select";
 import { RecordDetailList } from "./record_list/record_detail_list";
+import { UnsavedChangesGuard, trackEditorSave } from "./unsaved_changes_guard";
 import type {
   QuestionBulkMetadataClient,
   QuestionBulkMetadataPatch,
@@ -48,6 +49,7 @@ export interface QuestionBulkMetadataEditorProps {
   readonly classificationClient: ContentClassificationClient;
   readonly initialMetadata: ReadonlyArray<PublishedQuestionSharedMetadata>;
   readonly questionTitles: ReadonlyMap<string, string>;
+  readonly guardScope: symbol;
   readonly onBusyChange: (busy: boolean) => void;
   readonly onCancel: () => void;
   readonly onSuccess: (results: ReadonlyArray<QuestionBulkMetadataUpdateResult>) => void;
@@ -184,7 +186,34 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
   });
   const [tagsText, setTagsText] = createSignal("");
   const [message, setMessage] = createSignal<string | null>(null);
+  const [closeRequested, setCloseRequested] = createSignal(false);
+  const [saved, setSaved] = createSignal(false);
   const busy = (): boolean => state() === "saving" || state() === "refreshing";
+  const dirty = (): boolean => {
+    if (saved()) return false;
+    if (tagsMode() === "replace") {
+      const tags = tagsText()
+        .split("\n")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      if (
+        tags.length === 0 ||
+        metadata().some((item) => JSON.stringify(item.tags) !== JSON.stringify(tags))
+      )
+        return true;
+    } else if (tagsMode() === "clear" && metadata().some((item) => item.tags.length > 0)) {
+      return true;
+    }
+    return CLASSIFICATION_FIELDS.some((field) => {
+      const mode = modes()[field];
+      if (mode === "keep") return false;
+      if (mode === "replace") {
+        const selected = selections()[field];
+        return selected === null || metadata().some((item) => item[field] !== selected);
+      }
+      return metadata().some((item) => item[field] !== null);
+    });
+  };
   const questionIds = (): ReadonlyArray<PublishedQuestionSharedMetadata["questionId"]> =>
     metadata().map((item) => item.questionId);
 
@@ -278,13 +307,13 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
     }
   }
 
-  async function submit(): Promise<void> {
+  async function submit(): Promise<boolean> {
     let patch: QuestionBulkMetadataPatch;
     try {
       patch = replacementPatch(tagsMode(), tagsText(), modes(), selections());
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : "Review the replacement values.");
-      return;
+      return false;
     }
     setState("saving");
     props.onBusyChange(true);
@@ -297,7 +326,9 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
         })),
         patch,
       });
+      setSaved(true);
       props.onSuccess(results);
+      return true;
     } catch (error: unknown) {
       if (error instanceof ApiRequestError && error.status === 422) {
         setState("ready");
@@ -317,19 +348,41 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
             : "The update outcome could not be confirmed.";
         await refresh(reason);
       }
+      return false;
     } finally {
       props.onBusyChange(false);
     }
   }
+  const trackedSave = trackEditorSave(submit);
 
   return (
     <section class="bulk-metadata-editor" aria-labelledby="bulk-metadata-title">
+      <UnsavedChangesGuard
+        scope={props.guardScope}
+        dirty={dirty}
+        save={trackedSave.save}
+        inFlightSave={trackedSave.inFlightSave}
+        manualLeave={{
+          requested: closeRequested,
+          clearRequest: () => setCloseRequested(false),
+          continue: props.onCancel,
+        }}
+        copy={{
+          heading: "Save Question metadata changes?",
+          description: "Your selected Question metadata changes have not been saved.",
+          saveFailureMessage: "Question metadata was not saved. Review the fields and try again.",
+        }}
+      />
       <div class="bulk-metadata-heading">
         <div>
-          <p class="eyebrow">Shared search metadata</p>
           <h2 id="bulk-metadata-title">Edit {metadata().length} selected Questions</h2>
         </div>
-        <button type="button" class="quiet-action" disabled={busy()} onClick={props.onCancel}>
+        <button
+          type="button"
+          class="quiet-action"
+          disabled={busy()}
+          onClick={() => setCloseRequested(true)}
+        >
           Close editor
         </button>
       </div>
@@ -487,7 +540,7 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
             type="button"
             class="primary-action"
             disabled={busy()}
-            onClick={() => void submit()}
+            onClick={() => void trackedSave.save()}
           >
             Update all {metadata().length} Questions
           </button>

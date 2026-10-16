@@ -4,10 +4,14 @@ import {
   numberFromQuotedPositiveHeader,
 } from "../../api/http_client/conditional_request";
 import { ApiProtocolError } from "../../api/http_client/error";
-import { decodeQuestionCitation } from "../../api/decoders/shared";
+import {
+  decodePublishedQuestionRevisionTuple,
+  decodeQuestionCitation,
+} from "../../api/decoders/shared";
 import { decodeString } from "../../api/decoder";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../../generated/api/QuestionType";
+import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { PleQuestionJsonRecordMetadata } from "./question_json_defaults";
 
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
@@ -23,6 +27,7 @@ export type PleQuestionGeneralFeedbackRead = PleQuestionManagedSupport & {
   readonly metadata: PleQuestionJsonRecordMetadata;
   readonly questionType: QuestionType | null;
   readonly authors: ReadonlyArray<string>;
+  readonly parentPublishedQuestionRevisionTuple: PublishedQuestionRevisionTuple | null;
   readonly draftQuestionEditNumber: string;
 };
 
@@ -260,6 +265,7 @@ function decodeMetadata(
   metadata: PleQuestionJsonRecordMetadata;
   questionType: QuestionType | null;
   authors: ReadonlyArray<string>;
+  parentPublishedQuestionRevisionTuple: PublishedQuestionRevisionTuple | null;
 } {
   // ASVS 15.3.1: expose only the ordinary record metadata and support fields used by this editor.
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -276,20 +282,39 @@ function decodeMetadata(
   const authors = Array.isArray(record.authors)
     ? record.authors.map((author, index) => decodeString(author, `${path}.authors[${index}]`))
     : undefined;
+  const parentPublishedQuestionRevisionTuple =
+    record.parentPublishedQuestionRevisionTuple === null
+      ? null
+      : record.parentPublishedQuestionRevisionTuple === undefined
+        ? undefined
+        : decodePublishedQuestionRevisionTuple(
+            record.parentPublishedQuestionRevisionTuple,
+            `${path}.parentPublishedQuestionRevisionTuple`,
+            true,
+          );
   if (
-    Object.keys(record).length !== 6 ||
+    Object.keys(record).length !== 7 ||
     generalFeedback === undefined ||
     hint === undefined ||
     workedSolution === undefined ||
     questionType === undefined ||
     authors === undefined ||
+    parentPublishedQuestionRevisionTuple === undefined ||
     authors.length > 16
   ) {
     throw new PleQuestionGeneralFeedbackProtocolError(
       `Question general feedback response ${path} must contain generalFeedback, hint, and workedSolution`,
     );
   }
-  return { metadata, questionType, generalFeedback, hint, workedSolution, authors };
+  return {
+    metadata,
+    questionType,
+    generalFeedback,
+    hint,
+    workedSolution,
+    authors,
+    parentPublishedQuestionRevisionTuple,
+  };
 }
 
 function requestInit(

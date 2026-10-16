@@ -1,8 +1,8 @@
 //! One globally ordered Library page, with source reads restricted to Question rows.
 
 use super::*;
-use learning_data_access::LibrarySearchEntry;
-use question_model::LibrarySearchResult;
+use learning_data_access::{LibrarySearchEntry, QuestionLibrarySearchCursorPosition};
+use question_model::{LibrarySearchClassification, LibrarySearchResult};
 
 /// One Question Library search after the session is known.
 ///
@@ -14,56 +14,13 @@ pub(super) async fn search_library_objects<S, O>(
     session_hash: SessionTokenHash,
     is_instructor: bool,
     query: LibraryObjectSearchRequest,
+    after: Option<QuestionLibrarySearchCursorPosition>,
 ) -> Response
 where
     S: QuestionLibraryStore + QuestionLibraryPageStatistics,
     O: ObjectStore,
 {
-    let after = match paging::decode_position(&query) {
-        Ok(after) => after,
-        Err(()) => {
-            return route_error(
-                StatusCode::BAD_REQUEST,
-                "Question Library continuation is invalid",
-            );
-        }
-    };
-    let text_query = search_query::QuestionTextQuery::parse(query.text.as_deref());
-    let (exact_question_id, text_terms) = text_query.into_store_terms();
-    let page_size = query.page_size.unwrap_or(DEFAULT_PAGE_SIZE);
-    let request = QuestionLibrarySearchRequest {
-        kind: query.kind,
-        questions: query.questions,
-        owner_account_id: query.owner_account_id.clone(),
-        exact_question_id,
-        text_terms,
-        author_names: query.author_names.clone(),
-        backends: eligible_backends(&query),
-        tags: query.tags.clone(),
-        subjects: query.subjects.clone(),
-        topics: query.topics.clone(),
-        discipline_uuid: query.discipline_uuid,
-        subject_uuid: query.subject_uuid,
-        topic_uuid: query.topic_uuid,
-        subtopic_uuid: query.subtopic_uuid,
-        cross_discipline: query.cross_discipline,
-        bloom_cognitive_process: query.bloom_cognitive_process,
-        bloom_knowledge_dimension: query.bloom_knowledge_dimension,
-        question_types: query.question_types.clone(),
-        question_licenses: query.question_licenses.clone(),
-        authored_by_current_account: query.authorship
-            == question_model::QuestionSearchAuthorship::AuthoredByCurrentAccount,
-        sort: match query.sort {
-            question_model::LibraryObjectSearchSort::TitleAscending => {
-                QuestionLibrarySearchSort::TitleAscending
-            }
-            question_model::LibraryObjectSearchSort::PublishedNewest => {
-                QuestionLibrarySearchSort::PublishedNewest
-            }
-        },
-        page_size,
-        after,
-    };
+    let request = store_search_request(&query, after);
     let search = match store
         .search_published_question_library_entries(session_hash, request)
         .await
@@ -73,7 +30,41 @@ where
     };
     let next_cursor = search
         .next_position
+        .clone()
         .map(|position| paging::encode_position(position, &query));
+    let (items, facets) =
+        match materialize_search_page(store, objects, session_hash, is_instructor, search).await {
+            Ok(value) => value,
+            Err(response) => return *response,
+        };
+    crate::auth::no_store(
+        Json(LibraryObjectSearchPage {
+            items,
+            next_cursor,
+            facets,
+        })
+        .into_response(),
+    )
+}
+
+/// The shared result projection for public Library and private Starred pages.
+pub(crate) async fn materialize_search_page<S, O>(
+    store: &S,
+    objects: &O,
+    session_hash: SessionTokenHash,
+    is_instructor: bool,
+    search: learning_data_access::QuestionLibrarySearchPage,
+) -> Result<
+    (
+        Vec<LibrarySearchResult>,
+        question_model::QuestionSearchFacets,
+    ),
+    Box<Response>,
+>
+where
+    S: QuestionLibraryStore + QuestionLibraryPageStatistics,
+    O: ObjectStore,
+{
     let facets = facets::from_store(search.facets);
     let questions = search
         .items
@@ -86,10 +77,10 @@ where
     let summaries = match entries_to_summaries(objects, questions).await {
         Ok(summaries) => summaries,
         Err(()) => {
-            return route_error(
+            return Err(Box::new(route_error(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "Question Library unavailable",
-            );
+            )));
         }
     };
     let question_ids = summaries
@@ -104,7 +95,7 @@ where
             .await
         {
             Ok(value) => value,
-            Err(response) => return response,
+            Err(response) => return Err(Box::new(response)),
         }
     };
     let mut questions = summaries.into_iter();
@@ -112,10 +103,12 @@ where
     for item in search.items {
         items.push(match item {
             LibrarySearchEntry::Question {
-                owner_account_id, ..
+                entry: source_entry,
+                owner_account_id,
+                ..
             } => {
                 let Some(entry) = questions.next() else {
-                    return unavailable();
+                    return Err(Box::new(unavailable()));
                 };
                 let question = QuestionSearchResult {
                     evidence: usage_statistics::evidence_for(&entry.summary.question_id, &evidence),
@@ -123,22 +116,85 @@ where
                     discipline_name: entry.discipline.unwrap_or_default(),
                     discipline_is_retired: entry.discipline_is_retired,
                 };
+                let metadata = &source_entry.shared_metadata;
+                let classification = LibrarySearchClassification {
+                    discipline_uuid: metadata.discipline_uuid,
+                    discipline_name: source_entry.discipline_name,
+                    subject_uuid: metadata.subject_uuid,
+                    subject_name: source_entry.subject_name,
+                    topic_uuid: metadata.topic_uuid,
+                    topic_name: source_entry.topic_name,
+                    subtopic_uuid: metadata.subtopic_uuid,
+                    subtopic_name: source_entry.subtopic_name,
+                };
                 LibrarySearchResult::Question {
                     question: Box::new(question),
                     owner_account_id,
+                    classification,
                 }
             }
-            LibrarySearchEntry::Pool { summary, .. } => LibrarySearchResult::Pool { pool: summary },
+            LibrarySearchEntry::Pool {
+                summary,
+                subject_name,
+                topic_name,
+                subtopic_name,
+                ..
+            } => {
+                let metadata = &summary.metadata;
+                let classification = LibrarySearchClassification {
+                    discipline_uuid: metadata.discipline_uuid,
+                    discipline_name: metadata.discipline_name.clone(),
+                    subject_uuid: metadata.subject_uuid,
+                    subject_name,
+                    topic_uuid: metadata.topic_uuid,
+                    topic_name,
+                    subtopic_uuid: metadata.subtopic_uuid,
+                    subtopic_name,
+                };
+                LibrarySearchResult::Pool {
+                    pool: summary,
+                    classification,
+                }
+            }
         });
     }
-    crate::auth::no_store(
-        Json(LibraryObjectSearchPage {
-            items,
-            next_cursor,
-            facets,
-        })
-        .into_response(),
-    )
+    Ok((items, facets))
+}
+
+pub(crate) fn store_search_request(
+    query: &LibraryObjectSearchRequest,
+    after: Option<QuestionLibrarySearchCursorPosition>,
+) -> QuestionLibrarySearchRequest {
+    let text_query = search_query::QuestionTextQuery::parse(query.text.as_deref());
+    let (exact_question_id, text_terms) = text_query.into_store_terms();
+    let page_size = query.page_size.unwrap_or(DEFAULT_PAGE_SIZE);
+    QuestionLibrarySearchRequest {
+        scope: learning_data_access::QuestionLibrarySearchScope::Public,
+        kind: query.kind,
+        questions: query.questions,
+        owner_account_id: query.owner_account_id.clone(),
+        exact_question_id,
+        text_terms,
+        author_names: query.author_names.clone(),
+        backends: eligible_backends(query),
+        tags: query.tags.clone(),
+        subjects: query.subjects.clone(),
+        topics: query.topics.clone(),
+        discipline_uuids: query.discipline_uuids.clone(),
+        subject_uuids: query.subject_uuids.clone(),
+        topic_uuids: query.topic_uuids.clone(),
+        subtopic_uuids: query.subtopic_uuids.clone(),
+        cross_discipline: query.cross_discipline,
+        bloom_cognitive_processes: query.bloom_cognitive_processes.clone(),
+        bloom_knowledge_dimensions: query.bloom_knowledge_dimensions.clone(),
+        question_types: query.question_types.clone(),
+        question_licenses: query.question_licenses.clone(),
+        authored_by_current_account: query.authorship
+            == question_model::QuestionSearchAuthorship::AuthoredByCurrentAccount,
+        sort: paging::store_sort(query.sort),
+        page_size,
+        after,
+    }
 }
 
 /// Resolves an actual visible object under the same Library reader authority.

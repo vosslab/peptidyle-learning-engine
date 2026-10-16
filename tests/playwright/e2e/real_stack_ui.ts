@@ -86,20 +86,14 @@ export async function chooseSeededIdentity(page: Page, name: RegExp): Promise<vo
   await chooseSeededIdentityAtSignIn(page, name);
   await page.getByRole("link", { name: "Courses", exact: true }).click();
   await expect(
-    page.getByRole("heading", {
-      name: /^(Course Instances you teach|Your Course Instances|My Active Courses|Your courses)$/u,
+    page.getByRole("main", {
+      name: /^(My Active Courses|Courses)$/u,
     }),
   ).toBeVisible();
 }
 
 export async function chooseSeededIdentityAtSignIn(page: Page, name: RegExp): Promise<void> {
-  await expect(
-    page.getByRole("heading", {
-      level: 1,
-      name: "Sign in to Peptidyle Learning Engine",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("main", { name: "Learning content", exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: new RegExp(`Assume the role of .*${name.source}`, "i") })
     .click();
@@ -107,9 +101,7 @@ export async function chooseSeededIdentityAtSignIn(page: Page, name: RegExp): Pr
 }
 
 export function courseChoice(page: Page, title: string): Locator {
-  return page
-    .getByRole("listitem")
-    .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  return page.locator("[data-record-id]").filter({ has: page.getByText(title, { exact: true }) });
 }
 
 export async function selectVisibleCourse(page: Page, title: string): Promise<Page> {
@@ -118,29 +110,25 @@ export async function selectVisibleCourse(page: Page, title: string): Promise<Pa
   const openedCoursePage = page.waitForEvent("popup");
   await choice.getByRole("link", { name: "Open Course", exact: true }).click();
   const coursePage = await openedCoursePage;
-  await expect(
-    coursePage.getByRole("heading", { level: 1, name: title, exact: true }),
-  ).toBeVisible();
+  await expect(coursePage.getByRole("main", { name: title, exact: true })).toBeVisible();
   return coursePage;
 }
 
 /** Enter a Student's Course through the always available Courses destination. */
 export async function enterStudentCourse(page: Page, title: string): Promise<Page> {
-  const currentCourse = page.getByRole("heading", { level: 1, name: title, exact: true });
+  const currentCourse = page.getByRole("main", { name: title, exact: true });
   if (await currentCourse.isVisible().catch(() => false)) return page;
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
     .click();
-  await expect(page.getByRole("heading", { name: "Your courses", exact: true })).toBeVisible();
+  await expect(page.getByRole("main", { name: "Courses", exact: true })).toBeVisible();
   const choice = courseChoice(page, title);
   await expect(choice).toHaveCount(1);
   const openedCoursePage = page.waitForEvent("popup");
   await choice.getByRole("link", { name: "Open Course", exact: true }).click();
   const coursePage = await openedCoursePage;
-  await expect(
-    coursePage.getByRole("heading", { level: 1, name: title, exact: true }),
-  ).toBeVisible();
+  await expect(coursePage.getByRole("main", { name: title, exact: true })).toBeVisible();
   return coursePage;
 }
 
@@ -175,13 +163,7 @@ export async function restoreViewportOrigin(page: Page): Promise<void> {
 export async function signOutVisible(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Profile", exact: true }).click();
   await page.getByRole("menuitem", { name: "Sign Out", exact: true }).click();
-  await expect(
-    page.getByRole("heading", {
-      level: 1,
-      name: "Sign in to Peptidyle Learning Engine",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("main", { name: "Learning content", exact: true })).toBeVisible();
 }
 
 export function observeContextOrigins(

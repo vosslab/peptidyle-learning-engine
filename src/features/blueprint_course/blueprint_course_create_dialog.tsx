@@ -1,7 +1,7 @@
 // Local Blueprint Course working state before one live create request.
 
-import { useNavigate } from "@solidjs/router";
-import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { useBeforeLeave, useNavigate } from "@solidjs/router";
+import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
@@ -12,7 +12,7 @@ import {
   isAssessmentType,
 } from "../../assessment_type_presentation";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
-import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
+import { UnsavedChangesGuard, trackEditorSave } from "../../components/unsaved_changes_guard";
 import {
   CourseClassificationFields,
   emptyCourseClassification,
@@ -23,17 +23,26 @@ import { useAppearance } from "../../appearance/appearance_context";
 import { ThemeChooser } from "../../appearance/theme_chooser";
 import {
   QuestionPicker,
+  type QuestionPickerProps,
   type QuestionPickerSelection,
   type QuestionPickerSource,
   type QuestionPickerSourceRepository,
 } from "../question_picker";
 import { createBlueprintCourseWhenReady } from "./blueprint_course_creation";
-import { appendPickedFixedEntries, emptyReusableContent } from "./blueprint_course_model";
+import {
+  appendPickedFixedEntries,
+  emptyReusableContent,
+  hasBlueprintCourseCreationChanges,
+  type BlueprintCourseCreationDraft,
+} from "./blueprint_course_model";
 
 export interface BlueprintCourseCreateDialogProps {
   readonly client: BlueprintCourseClient;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
+  readonly loadQuestionInspection: QuestionPickerProps["loadQuestionInspection"];
+  readonly questionRevisionPreviewDocumentUrl: QuestionPickerProps["questionRevisionPreviewDocumentUrl"];
+  readonly questionImageUrl: QuestionPickerProps["questionImageUrl"];
   readonly onClose: () => void;
   readonly onFailure: (text: string) => void;
 }
@@ -46,18 +55,43 @@ function detailPath(blueprintCourseId: string): string {
 export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogProps): JSX.Element {
   const navigate = useNavigate();
   const appearance = useAppearance();
-  const [shortName, setShortName] = createSignal("Untitled Blueprint");
-  const [longName, setLongName] = createSignal("Untitled Blueprint Course");
-  const [theme, setTheme] = createSignal<Theme>("grass");
+  const initialDraft: BlueprintCourseCreationDraft = {
+    shortName: "Untitled Blueprint",
+    longName: "Untitled Blueprint Course",
+    theme: "grass",
+    classification: emptyCourseClassification(),
+    moduleLabel: "Module 1",
+    assessmentTitle: "Module 1 assessment",
+    content: undefined,
+  };
+  const [shortName, setShortName] = createSignal(initialDraft.shortName);
+  const [longName, setLongName] = createSignal(initialDraft.longName);
+  const [theme, setTheme] = createSignal<Theme>(initialDraft.theme);
   const [classification, setClassification] = createSignal<CourseClassificationDraft>(
-    emptyCourseClassification(),
+    initialDraft.classification,
   );
-  const [moduleLabel, setModuleLabel] = createSignal("Module 1");
-  const [assessmentTitle, setAssessmentTitle] = createSignal("Module 1 assessment");
+  const [moduleLabel, setModuleLabel] = createSignal(initialDraft.moduleLabel);
+  const [assessmentTitle, setAssessmentTitle] = createSignal(initialDraft.assessmentTitle);
   const [content, setContent] = createSignal<BlueprintAssessmentContentInput>();
   const [showPicker, setShowPicker] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
-  const [dirty, setDirty] = createSignal(false);
+  const [created, setCreated] = createSignal(false);
+  const dirty = createMemo(
+    () =>
+      !created() &&
+      hasBlueprintCourseCreationChanges(
+        {
+          shortName: shortName(),
+          longName: longName(),
+          theme: theme(),
+          classification: classification(),
+          moduleLabel: moduleLabel(),
+          assessmentTitle: assessmentTitle(),
+          content: content(),
+        },
+        initialDraft,
+      ),
+  );
   const [closeRequested, setCloseRequested] = createSignal(false);
   const [message, setMessage] = createSignal(
     "Name the Blueprint Course, choose an Assessment Type, and choose its first published Question.",
@@ -65,6 +99,13 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
   let dialog!: HTMLDialogElement;
   let shortNameInput!: HTMLInputElement;
   let pickerTrigger: HTMLButtonElement | undefined;
+  let createdPath: string | undefined;
+  let leaveRequested = false;
+  let disposed = false;
+
+  useBeforeLeave(() => {
+    if (dirty() || trackedCreate.inFlightSave() !== undefined) leaveRequested = true;
+  });
 
   function closeCreation(): void {
     if (dialog.open) dialog.close();
@@ -72,8 +113,10 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
   }
 
   function requestCloseCreation(): void {
-    if (dirty()) setCloseRequested(true);
-    else closeCreation();
+    if (dirty() || trackedCreate.inFlightSave() !== undefined) {
+      leaveRequested = true;
+      setCloseRequested(true);
+    } else closeCreation();
   }
 
   function creationInput(): CreateBlueprintCourseInput | undefined {
@@ -95,55 +138,71 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
     };
   }
 
-  function chooseQuestions(selection: QuestionPickerSelection): void {
+  function chooseQuestions(selection: QuestionPickerSelection): boolean {
     const current = content();
     if (current === undefined) {
       setMessage("Choose an Assessment Type before selecting Questions.");
-      return;
+      return false;
     }
     setContent(appendPickedFixedEntries(current, selection));
-    setDirty(true);
     setShowPicker(false);
     setMessage(
       `Added ${selection.questionIds.length} selected Question${selection.questionIds.length === 1 ? "" : "s"}. Review the local working state, then create the Blueprint Course.`,
     );
+    return true;
   }
 
-  async function save(): Promise<void> {
+  async function create(): Promise<boolean> {
+    if (created()) return false;
     try {
       decodeCourseClassification(classification());
     } catch {
       setMessage(
         "Choose a Discipline and check that Tags are unique, trimmed labels of 1 through 120 characters.",
       );
-      return;
+      return false;
     }
     const input = creationInput();
     if (input === undefined) {
       setMessage("Choose an Assessment Type before creating the Blueprint Course.");
-      return;
+      return false;
     }
     setBusy(true);
     try {
       const result = await createBlueprintCourseWhenReady(props.client, input, crypto.randomUUID());
       if (result.kind === "invalid") {
         setMessage(result.message);
-        return;
+        return false;
       }
       // The local working state is now persisted as Revision 1, so its guard
       // must not intercept this component's own successful redirect.
-      setDirty(false);
-      navigate(detailPath(result.value.blueprintCourse.id));
+      setCreated(true);
+      createdPath = detailPath(result.value.blueprintCourse.id);
+      setMessage("Blueprint Course created as Revision 1. Close creation to continue.");
+      return true;
     } catch (error: unknown) {
       const text =
         error instanceof Error
           ? error.message
           : "The Blueprint Course could not be created. This local working state remains ready to retry.";
-      setMessage(text);
-      props.onFailure(text);
+      if (!disposed) {
+        setMessage(text);
+        props.onFailure(text);
+      }
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  const trackedCreate = trackEditorSave(create);
+
+  function save(): void {
+    if (created() || trackedCreate.inFlightSave() !== undefined) return;
+    leaveRequested = false;
+    void trackedCreate.save().then((saved) => {
+      if (saved && !disposed && !leaveRequested && createdPath !== undefined) navigate(createdPath);
+    });
   }
 
   onMount(() => {
@@ -154,6 +213,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
   });
 
   onCleanup(() => {
+    disposed = true;
     if (dialog.open) dialog.close();
   });
 
@@ -195,11 +255,11 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
               shortNameInput = element;
             }}
             value={shortName()}
+            disabled={created()}
             maxlength="200"
             aria-describedby="blueprint-course-create-short-name-help"
             onInput={(event) => {
               setShortName(event.currentTarget.value);
-              setDirty(true);
             }}
           />
         </label>
@@ -210,31 +270,29 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
           Blueprint Course long name
           <input
             value={longName()}
+            disabled={created()}
             maxlength="200"
             onInput={(event) => {
               setLongName(event.currentTarget.value);
-              setDirty(true);
             }}
           />
         </label>
         <CourseClassificationFields
           value={classification()}
-          disabled={busy()}
+          disabled={busy() || created()}
           onChange={(value) => {
             setClassification(value);
-            setDirty(true);
           }}
         />
-        <fieldset disabled={busy()}>
+        <fieldset disabled={busy() || created()}>
           <legend>Starting Blueprint Theme</legend>
           <ThemeChooser
             name="blueprint-course-theme"
             selectedTheme={theme}
             mode={() => appearance.appearance().mode}
-            disabled={busy}
+            disabled={() => busy() || created()}
             onSelect={(value) => {
               setTheme(value);
-              setDirty(true);
             }}
           />
         </fieldset>
@@ -242,10 +300,10 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
           First module label
           <input
             value={moduleLabel()}
+            disabled={created()}
             maxlength="200"
             onInput={(event) => {
               setModuleLabel(event.currentTarget.value);
-              setDirty(true);
             }}
           />
         </label>
@@ -254,6 +312,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
           <select
             required
             value={content()?.assessment_type ?? ""}
+            disabled={created()}
             onChange={(event) => {
               const assessmentType = event.currentTarget.value;
               if (!isAssessmentType(assessmentType)) return;
@@ -265,7 +324,6 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
                       entries: current.entries,
                     },
               );
-              setDirty(true);
             }}
           >
             <option value="" disabled>
@@ -291,12 +349,12 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
           First assessment title
           <input
             value={assessmentTitle()}
+            disabled={created()}
             maxlength="200"
             onInput={(event) => {
               const title = event.currentTarget.value;
               setAssessmentTitle(title);
               setContent((current) => (current === undefined ? undefined : { ...current, title }));
-              setDirty(true);
             }}
           />
         </label>
@@ -307,7 +365,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
         </p>
         <button
           type="button"
-          disabled={busy() || content() === undefined}
+          disabled={busy() || created() || content() === undefined}
           onClick={(event) => {
             pickerTrigger = event.currentTarget;
             setShowPicker(true);
@@ -319,7 +377,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
           Choose published Questions
         </button>
         <div class="blueprint-course-save-actions">
-          <button type="button" disabled={busy()} onClick={() => void save()}>
+          <button type="button" disabled={busy() || created()} onClick={save}>
             {busy() ? "Creating..." : "Create Blueprint Course"}
           </button>
         </div>
@@ -327,6 +385,9 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
           <QuestionPicker
             repository={props.pickerRepository}
             sources={props.pickerSources}
+            loadQuestionInspection={props.loadQuestionInspection}
+            questionRevisionPreviewDocumentUrl={props.questionRevisionPreviewDocumentUrl}
+            questionImageUrl={props.questionImageUrl}
             mode="many"
             maximumSelection={1024}
             trigger={pickerTrigger}
@@ -339,25 +400,16 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
       </dialog>
       <UnsavedChangesGuard
         dirty={dirty}
+        inFlightSave={trackedCreate.inFlightSave}
         manualLeave={{
           requested: closeRequested,
           clearRequest: () => setCloseRequested(false),
           continue: closeCreation,
         }}
-        save={() => {
-          setMessage(
-            "Finish this local Blueprint Course with a published Question, then create it.",
-          );
-          return Promise.resolve(false);
-        }}
         copy={{
           heading: "Keep creating this Blueprint Course?",
           description:
             "Your local Blueprint Course has not been created as Revision 1 and will be discarded if you continue.",
-          saveActionLabel: "Keep editing",
-          savingActionLabel: "Checking local Blueprint Course...",
-          saveFailureMessage:
-            "This local Blueprint Course remains available while you keep editing.",
         }}
       />
     </>

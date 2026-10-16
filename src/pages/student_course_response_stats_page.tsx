@@ -1,7 +1,7 @@
 // Student-owned, disclosed Question outcomes across every enrolled Course.
 
-import { A } from "@solidjs/router";
-import { createResource, For, Show, type JSX } from "solid-js";
+import { useNavigate } from "@solidjs/router";
+import { Show, createResource, type JSX } from "solid-js";
 
 import type { StudentCourseResponseStats } from "../api/student_course_response_stats";
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
@@ -12,149 +12,177 @@ import {
 } from "../navigation/assessment_attempt_route";
 import { assessmentAttemptRouteId } from "../navigation/public_route";
 import { PageFrame } from "../components/page_frame";
-import { RecordDetailList } from "../components/record_list/record_detail_list";
-import type { RecordCollectionState } from "../components/record_list/record_collection_state";
+import type { RecordField } from "../components/record_list/record_fields";
+import type { RecordContent } from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import { recognitionTitle } from "../features/recognition_label";
-import "./student_course_response_stats_page.css";
+import { studentCrossCourseLabel } from "./student_collection_fields";
+import { loadStudentCrossCourseCollection } from "./student_cross_course_collection";
+
+type ResponseQuestion = StudentCourseResponseStats["questions"][number];
+type ResponseRow = {
+  readonly course: LiveStudentCourseLandingSummary;
+  readonly question: ResponseQuestion;
+};
 
 function reviewPath(courseInstanceId: LiveStudentCourseLandingSummary["id"]): string {
   return assessmentAttemptPath("review", courseInstanceId);
 }
 
-function durationLabel(stats: StudentCourseResponseStats["questions"][number]): string {
-  const average = stats.averageDisplayDurationMs;
-  if (average === null || stats.displayDurationSampleCount === 0) return "Not recorded";
+function durationLabel(question: ResponseQuestion): string {
+  const average = question.averageDisplayDurationMs;
+  if (average === null || question.displayDurationSampleCount === 0) return "Not recorded";
   const seconds = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(
     Math.round(average / 1_000),
   );
-  return `About ${seconds} sec · ${stats.displayDurationSampleCount} measured Attempt${stats.displayDurationSampleCount === 1 ? "" : "s"}`;
+  return `About ${seconds} sec · ${question.displayDurationSampleCount} measured Attempt${question.displayDurationSampleCount === 1 ? "" : "s"}`;
 }
 
-function ResponseStatsRecord(props: {
-  readonly question: StudentCourseResponseStats["questions"][number];
-  readonly courseInstanceId: LiveStudentCourseLandingSummary["id"];
-}): JSX.Element {
-  const question = (): StudentCourseResponseStats["questions"][number] => props.question;
-  return (
-    <div class="student-course-response-stats__row">
-      <div class="student-course-response-stats__identity">
-        <h3>{recognitionTitle(question().questionTitle, "Question")}</h3>
-        <p>
-          Question ID {question().publishedQuestionRevisionTuple.publishedQuestionId}, Revision{" "}
-          {question().publishedQuestionRevisionTuple.revisionNumber}
-        </p>
-      </div>
-      <dl class="student-course-response-stats__counts">
-        <div>
-          <dt>Full credit</dt>
-          <dd>{question().fullCreditAttemptCount}</dd>
-        </div>
-        <div>
-          <dt>Partial credit</dt>
-          <dd>{question().partialCreditAttemptCount}</dd>
-        </div>
-        <div>
-          <dt>Incorrect</dt>
-          <dd>{question().incorrectAttemptCount}</dd>
-        </div>
-        <div>
-          <dt>Unanswered</dt>
-          <dd>{question().unansweredAttemptCount}</dd>
-        </div>
-        <div>
-          <dt>Not full credit</dt>
-          <dd>
-            {question().notFullCreditCount} / {question().disclosedAttemptCount}
-          </dd>
-        </div>
-        <div>
-          <dt>Approximate time shown with the Question</dt>
-          <dd>{durationLabel(question())}</dd>
-        </div>
-      </dl>
-      <A
-        class="quiet-link student-course-response-stats__action"
-        href={reviewPath(props.courseInstanceId)}
-        state={assessmentAttemptRouteState(
-          assessmentAttemptRouteId(question().relevantAssessmentAttemptId),
-        )}
-      >
-        Review an Attempt
-      </A>
-    </div>
-  );
+function rowId(row: ResponseRow): string {
+  const revision = row.question.publishedQuestionRevisionTuple;
+  return `${row.course.id}:${revision.publishedQuestionId}:${revision.revisionNumber}`;
 }
 
-function responseStatsListState(loading: boolean, unavailable: boolean): RecordCollectionState {
-  if (loading) return { kind: "loading", label: "Loading Response Stats..." };
-  if (unavailable) {
-    return {
-      kind: "error",
-      title: "Response Stats unavailable",
-      message: "Results for this Course could not be loaded right now.",
-    };
-  }
-  return { kind: "ready" };
+const responseFields: ReadonlyArray<RecordField<ResponseRow, "question" | "course", "course">> = [
+  {
+    id: "question",
+    label: "Question",
+    role: "identity",
+    value: (row) => recognitionTitle(row.question.questionTitle, "Question"),
+    sortKey: "question",
+    defaultColumn: { priority: 1 },
+  },
+  {
+    id: "course",
+    label: "Course",
+    value: (row) => studentCrossCourseLabel(row.course),
+    sortKey: "course",
+    filterKey: "course",
+    defaultColumn: { priority: 2 },
+  },
+  {
+    id: "full_credit",
+    label: "Full credit",
+    value: (row) => row.question.fullCreditAttemptCount,
+    defaultColumn: { priority: 3 },
+  },
+  {
+    id: "not_full_credit",
+    label: "Not full credit",
+    value: (row) => row.question.notFullCreditCount,
+    defaultColumn: { priority: 4 },
+  },
+];
+
+function responseContent(
+  row: ResponseRow,
+  navigate: ReturnType<typeof useNavigate>,
+): RecordContent {
+  const question = row.question;
+  return {
+    title: recognitionTitle(question.questionTitle, "Question"),
+    description: studentCrossCourseLabel(row.course),
+    details: [
+      {
+        kind: "text",
+        label: "Question ID and Revision",
+        value: `${question.publishedQuestionRevisionTuple.publishedQuestionId}, Revision ${question.publishedQuestionRevisionTuple.revisionNumber}`,
+      },
+      { kind: "text", label: "Full credit", value: String(question.fullCreditAttemptCount) },
+      { kind: "text", label: "Partial credit", value: String(question.partialCreditAttemptCount) },
+      { kind: "text", label: "Incorrect", value: String(question.incorrectAttemptCount) },
+      { kind: "text", label: "Unanswered", value: String(question.unansweredAttemptCount) },
+      {
+        kind: "text",
+        label: "Not full credit",
+        value: `${question.notFullCreditCount} / ${question.disclosedAttemptCount}`,
+      },
+      {
+        kind: "text",
+        label: "Approximate time shown with the Question",
+        value: durationLabel(question),
+      },
+    ],
+    actions: [
+      {
+        id: "review-attempt",
+        kind: "command",
+        label: "Review an Attempt",
+        onClick: () =>
+          navigate(reviewPath(row.course.id), {
+            state: assessmentAttemptRouteState(
+              assessmentAttemptRouteId(question.relevantAssessmentAttemptId),
+            ),
+          }),
+      },
+    ],
+  };
 }
 
-function CourseResponseStats(props: {
-  readonly course: LiveStudentCourseLandingSummary;
-}): JSX.Element {
-  const api = useApplicationApi();
-  const [stats] = createResource(props.course, (course) =>
-    api.client.getStudentCourseResponseStats(course.id),
-  );
-
-  return (
-    <section
-      class="student-course-response-stats"
-      aria-label={`${props.course.shortName} Response Stats`}
-    >
-      <h2>
-        {props.course.shortName}: {props.course.longName}
-      </h2>
-      <RecordDetailList
-        ariaLabel={`${props.course.shortName} Question outcomes`}
-        emptyState={{ title: "No Question outcomes are available for this Course yet." }}
-        recordId={(question) =>
-          `${question.publishedQuestionRevisionTuple.publishedQuestionId}:${question.publishedQuestionRevisionTuple.revisionNumber}`
-        }
-        renderRecord={(question) => (
-          <ResponseStatsRecord question={question} courseInstanceId={props.course.id} />
-        )}
-        rows={stats()?.questions ?? []}
-        state={responseStatsListState(stats.loading, stats.error !== undefined)}
-      />
-    </section>
-  );
-}
-
-/** Shows only this Student's disclosed saved outcomes, grouped by Course. */
+/** Shows only this Student's disclosed saved outcomes across enrolled Courses. */
 export function StudentResponseStatsPage(): JSX.Element {
   const api = useApplicationApi();
-  const [courses] = createResource(() => api.client.listLiveStudentCourses());
+  const navigate = useNavigate();
+  const [responses, { refetch }] = createResource(async () => {
+    // ASVS 8.2.2: use only Courses and disclosed Question outcomes returned for this session.
+    const currentCourses = await api.client.listLiveStudentCourses();
+    const collection = await loadStudentCrossCourseCollection<ResponseRow>(
+      currentCourses,
+      async (course) => {
+        const stats = await api.client.getStudentCourseResponseStats(course.id);
+        return stats.questions.map((question) => ({ course, question }));
+      },
+    );
+    return {
+      ...collection,
+      courseCount: currentCourses.length,
+    };
+  });
+  const search = createLocalCompleteSearch(
+    { resource: responses, refetchSource: refetch, rows: (value) => value.rows },
+    {
+      fields: responseFields,
+      rowId,
+      keyword: (row) =>
+        `${studentCrossCourseLabel(row.course)} ${row.question.questionTitle} ${row.question.publishedQuestionRevisionTuple.publishedQuestionId}`,
+      content: (row) => responseContent(row, navigate),
+    },
+  );
 
   return (
-    <PageFrame routeSurface="studentResponseStats" title="Response Stats">
-      <p>
-        These stats summarize your submitted Question outcomes from eligible Coursework. Counts
-        appear only when their scores and Question feedback are released. Time shown with a Question
-        is approximate, is recorded only while the Question is current and the browser page is
-        visible, and does not measure attention.
-      </p>
-      <Show when={courses.loading}>
-        <p class="loading-state">Loading Courses...</p>
+    <PageFrame routeSurface="studentResponseStats">
+      <Show when={(responses()?.failedCourses.length ?? 0) > 0}>
+        <p class="route-error" role="alert">
+          Some Response Stats could not be loaded. Results are partial. Try again for{" "}
+          {responses()?.failedCourses.map(studentCrossCourseLabel).join(", ")}.
+          <button type="button" onClick={() => void refetch()}>
+            Retry Response Stats
+          </button>
+        </p>
       </Show>
-      <Show when={courses.error !== undefined}>
-        <section class="route-error" role="alert">
-          <h2>Response Stats unavailable</h2>
-          <p>Your Course list could not be loaded right now.</p>
-        </section>
-      </Show>
-      <Show when={!courses.loading && courses.error === undefined && courses()?.length === 0}>
-        <p class="empty-state">You are not enrolled in any Courses.</p>
-      </Show>
-      <For each={courses()}>{(course) => <CourseResponseStats course={course} />}</For>
+      <SearchBlock
+        layout="above"
+        controls={<SearchControls state={search.state} textLabel="Search Response Stats" />}
+        state={search.state}
+        collection={{
+          ariaLabel: "Response Stats across Courses",
+          get emptyState() {
+            return {
+              title:
+                responses()?.courseCount === 0
+                  ? "You are not enrolled in any Courses."
+                  : (responses()?.failedCourses.length ?? 0) > 0
+                    ? "No matching Question outcomes in the Courses that loaded. Results are partial."
+                    : "No Question outcomes match your search.",
+            };
+          },
+          fields: responseFields,
+          query: search.query,
+        }}
+      />
+      <p>Time shown is approximate; it does not measure attention or effort or affect grades.</p>
     </PageFrame>
   );
 }

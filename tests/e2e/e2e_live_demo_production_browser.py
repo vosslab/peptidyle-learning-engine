@@ -20,7 +20,6 @@ sys.path.insert(0, str(E2E_DIRECTORY))
 
 import e2e_browser_scenario_contract
 
-
 def write_private(path: pathlib.Path, contents: str) -> None:
 	"""Write one canonical owner hand-off, never a shared test fixture."""
 	fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -79,7 +78,10 @@ def environment_for(
 	return result
 
 
-def run_contract(contract: e2e_browser_scenario_contract.ScenarioContract, origin: str) -> None:
+def run_contract(
+	contract: e2e_browser_scenario_contract.ScenarioContract,
+	origin: str,
+) -> None:
 	"""Run a registered visible journey one at a time on the fixed HTTPS stack."""
 	result = subprocess.run(
 		["npx", "playwright", "test", contract.spec_path, "--workers=1"],
@@ -111,7 +113,10 @@ def main() -> None:
 		contracts = (e2e_browser_scenario_contract.require_contract(args.scenario, contracts),)
 	for contract in contracts:
 		print("==> production-browser scenario: " + contract.scenario_id, flush=True)
-		run_contract(contract, receipt.origin)
+		run_contract(
+			contract,
+			receipt.origin,
+		)
 	print("PASS: serial production-browser scenarios passed.")
 
 

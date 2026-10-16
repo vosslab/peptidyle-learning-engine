@@ -25,10 +25,10 @@ not a broad rewrite or another layer of recovery infrastructure.
 
 ### F1 High: Pool metadata concurrency checks do not protect the state being saved
 
-Both [Pool support](../../../schemas/base_schema/50_functions/question_pool_support.sql) and
-[bulk Pool search metadata](../../../schemas/base_schema/50_functions/question_pool_search_metadata.sql)
+Both [question_pool_support.sql](../../../schemas/base_schema/50_functions/question_pool_support.sql) and
+[question_pool_search_metadata.sql](../../../schemas/base_schema/50_functions/question_pool_search_metadata.sql)
 lock the Pool and compare an expected Edit Number, then change fields without advancing that
-number. The [Pool update trigger](../../../schemas/base_schema/50_functions/question_pools.sql)
+number. The [question_pools.sql](../../../schemas/base_schema/50_functions/question_pools.sql)
 explicitly prevents the number from advancing when those fields change. Provenance replacement
 has no expected version at all.
 
@@ -44,12 +44,12 @@ tables, or compatibility readers to conceal the mismatch.
 
 ### F2 Medium: shared statistics use issue counts as a proxy for the disclosed cohort
 
-[QuestionUsageTotals::into_shared_statistics](../../../crates/question_model/src/question_library_statistics.rs)
+[question_library_statistics.rs](../../../crates/question_model/src/question_library_statistics.rs)
 checks only `issued_count` before exposing answer counts, outcome counts, credit sums, and rates.
-The [SQL producer](../../../schemas/base_schema/50_functions/statistics.sql) increments per Issued
-Question at submission; [issuance eligibility](../../../schemas/base_schema/50_functions/assessment_attempt_start.sql)
+The [statistics.sql](../../../schemas/base_schema/50_functions/statistics.sql) increments per Issued
+Question at submission; [assessment_attempt_start.sql](../../../schemas/base_schema/50_functions/assessment_attempt_start.sql)
 depends on the scoring rule, not distinct Student participation. The
-[Library adapter](../../../crates/learning-data-access/src/postgres/question_library.rs) returns
+[question_library.rs](../../../crates/learning-data-access/src/postgres/question_library.rs) returns
 these fields to the live server projection.
 
 Five eligible observations with four blanks and one answered response pass the threshold. The
@@ -116,10 +116,10 @@ browser compensation or a background reconciliation workflow.
 
 ### F6 Medium: capped collection contracts lack continuation
 
-[Starred Questions](../../../schemas/base_schema/50_functions/question_stewardship.sql) returns
+[question_stewardship.sql](../../../schemas/base_schema/50_functions/question_stewardship.sql) returns
 250 records and a truncation flag but no continuation input/token. The
-[store contract](../../../crates/learning-data-access/src/question_star.rs) therefore cannot load
-older Stars. The newer [Sysadmin Course list](../../../schemas/base_schema/50_functions/sysadmin_course_inspection.sql)
+[question_star.rs](../../../crates/learning-data-access/src/question_star.rs) therefore cannot load
+older Stars. The newer [sysadmin_course_inspection.sql](../../../schemas/base_schema/50_functions/sysadmin_course_inspection.sql)
 similarly stops at 251 rows without a continuation contract. Its search can still retrieve a
 known target, so that case is incomplete browsing rather than permanent record inaccessibility.
 
@@ -144,7 +144,7 @@ production. Authorization must remain on every internal read regardless of navig
 ### F8 High: native text-answer contracts permit impossible Questions and an editor hang
 
 The [browser decoder](../../../src/features/ple_question_json_authoring/question_json_codec.ts)
-and [Rust source validator](../../../crates/adapters/ple/src/question_json/source_compile.rs)
+and [source_compile.rs](../../../crates/adapters/ple/src/question_json/source_compile.rs)
 validate accepted answers and `maxLength` independently. An exact-match Question can accept only
 `AB` while limiting Student input to one character. Both fill-in and multi-fill use this validator;
 the Student controls enforce the shorter limit. Enforce answer/response compatibility at source
@@ -192,8 +192,8 @@ a content defect found during whole-source review, not a reason to add importer 
   checks. This is a small current integration note, not an executed test failure or design verdict.
 
 - **Curriculum publication replay:**
-  [publication.rs](../../../crates/project-tools/src/curriculum_content/publication.rs) and
-  [parameterized_publication.rs](../../../crates/project-tools/src/curriculum_content/parameterized_publication.rs)
+  `crates/project-tools/src/curriculum_content/publication.rs` and
+  `crates/project-tools/src/curriculum_content/parameterized_publication.rs`
   still require current title/description to equal manifest text before reusing an identical source
   checksum. A legitimate Library metadata edit can therefore make an otherwise idempotent import
   report a provenance conflict. Compare immutable source identity separately from mutable metadata;

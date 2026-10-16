@@ -43,20 +43,6 @@
   margin-block-start: var(--ple-space-2);
 }
 
-.record-sort-control {
-  display: grid;
-  gap: var(--ple-space-1);
-  max-inline-size: max-content;
-}
-
-.record-sort-control__label {
-  font-weight: 700;
-}
-
-.record-sort-control select {
-  min-inline-size: 14rem;
-}
-
 .record-page-controls {
   display: flex;
   flex-wrap: wrap;

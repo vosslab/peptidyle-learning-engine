@@ -3,6 +3,8 @@ import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { LibraryObjectSearchPage } from "../../../generated/api/LibraryObjectSearchPage";
 import type { LibraryObjectSearchRequest } from "../../../generated/api/LibraryObjectSearchRequest";
+import type { LibraryFacetChoicePage } from "../../../generated/api/LibraryFacetChoicePage";
+import type { LibraryFacetField } from "../../../generated/api/LibraryFacetField";
 import type { LibraryObjectKindResponse } from "../../../generated/api/LibraryObjectKindResponse";
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate";
@@ -31,6 +33,7 @@ import {
   libraryObjectKindPath,
   questionIdPath,
   libraryObjectSearchPath,
+  libraryFacetChoicesPath,
 } from "../library_object_search_query";
 import {
   decodeAssessmentAttempt,
@@ -40,6 +43,7 @@ import {
   decodeQuestionDetails,
   decodeQuestionLineageView,
   decodeLibraryObjectSearchPage,
+  decodeLibraryFacetChoicePage,
   decodeLibraryObjectKindResponse,
   decodeCourseAppearanceView,
   decodeCourseThemeUpdate,
@@ -509,6 +513,7 @@ export function createResponseClient(
   | "fetchProfileAvatarImage"
   | "listQuestions"
   | "searchLibraryObjects"
+  | "listLibraryFacetChoices"
   | "getLibraryObjectKind"
   | "resolveQuestion"
   | "getQuestionDetails"
@@ -566,6 +571,17 @@ export function createResponseClient(
         basePath,
         libraryObjectSearchPath(query),
         decodeLibraryObjectSearchPage,
+      ),
+    listLibraryFacetChoices: (
+      field: LibraryFacetField,
+      query: LibraryObjectSearchRequest,
+      choiceSearch: string | null = null,
+    ): Promise<LibraryFacetChoicePage> =>
+      requestJson(
+        fetchImplementation,
+        basePath,
+        libraryFacetChoicesPath(field, query, choiceSearch),
+        decodeLibraryFacetChoicePage,
       ),
     getLibraryObjectKind: (publicId: string): Promise<LibraryObjectKindResponse> =>
       requestJson(

@@ -1,18 +1,28 @@
 // Student-owned released Scores across every current Course.
 
-import { createResource, For, Show, type JSX } from "solid-js";
+import { createResource, Show, type JSX } from "solid-js";
 
 import type {
   LiveStudentAssessmentLandingSummary,
   LiveStudentCourseLandingSummary,
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame, PageSection } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
+  byStudentCrossCourseTitleThenId,
+  studentCrossCourseAssessmentId,
+  studentCrossCourseLabel,
+  studentCrossCourseScoreFields,
+  type StudentCrossCourseAssessment,
+} from "./student_collection_fields";
+import {
+  loadStudentCrossCourseCollection,
+  visibleStudentScores,
+} from "./student_cross_course_collection";
+import { type RecordContent } from "../components/record_list/record_list";
 import { formatPointScore } from "../score_format";
 
 function scoreContent(assessment: LiveStudentAssessmentLandingSummary): RecordContent {
@@ -34,57 +44,86 @@ function scoreContent(assessment: LiveStudentAssessmentLandingSummary): RecordCo
   };
 }
 
-function scoreListState(loading: boolean, unavailable: boolean): RecordListState {
-  if (loading) return { kind: "loading", label: "Loading Scores..." };
-  if (unavailable) {
-    return {
-      kind: "error",
-      title: "Scores unavailable",
-      message: "Scores could not be loaded for this Course.",
-    };
-  }
-  return { kind: "ready" };
-}
-
-function CourseScores(props: { readonly course: LiveStudentCourseLandingSummary }): JSX.Element {
+function CrossCourseScores(props: {
+  readonly courses: ReadonlyArray<LiveStudentCourseLandingSummary>;
+}): JSX.Element {
   const api = useApplicationApi();
-  const [assessments] = createResource(
-    () => props.course,
-    (course) => api.client.listLiveStudentAssessments(course.id),
+  const [scores, { refetch }] = createResource(
+    () => props.courses,
+    (courses) =>
+      loadStudentCrossCourseCollection<StudentCrossCourseAssessment>(courses, async (course) =>
+        visibleStudentScores(await api.client.listLiveStudentAssessments(course.id)).map(
+          (assessment) => ({ course, assessment }),
+        ),
+      ),
   );
-  const scores = (): ReadonlyArray<LiveStudentAssessmentLandingSummary> =>
-    (assessments() ?? []).filter((assessment) => assessment.assessmentScore !== undefined);
-
-  const headingId = `course-scores-${props.course.id}`;
+  const scoreSearch = createLocalCompleteSearch(
+    {
+      resource: scores,
+      refetchSource: refetch,
+      rows: (source) => byStudentCrossCourseTitleThenId(source.rows),
+    },
+    {
+      fields: studentCrossCourseScoreFields,
+      rowId: studentCrossCourseAssessmentId,
+      keyword: (row) =>
+        `${studentCrossCourseLabel(row.course)} ${row.assessment.title} ${row.assessment.assessmentType}`,
+      content: (row) => {
+        const content = scoreContent(row.assessment);
+        return {
+          ...content,
+          details: [
+            { kind: "text", label: "Course:", value: studentCrossCourseLabel(row.course) },
+            ...content.details,
+          ],
+        };
+      },
+    },
+  );
+  const partial = (): boolean => (scores()?.failedCourses.length ?? 0) > 0;
   return (
-    <PageSection
-      headingId={headingId}
-      heading={
-        <>
-          {props.course.shortName}: {props.course.longName}
-        </>
-      }
-    >
-      <RecordList
-        ariaLabel={`${props.course.shortName} Scores`}
-        emptyState={{ title: "No released Scores are available for this Course yet." }}
-        recordId={(assessment) => assessment.id}
-        content={scoreContent}
-        rows={scores()}
-        state={scoreListState(assessments.loading, assessments.error !== undefined)}
+    <section aria-label="Scores across Courses">
+      <Show when={partial()}>
+        <p class="route-error" role="alert">
+          Some Scores could not be loaded. Results are partial. Try again for{" "}
+          {scores()?.failedCourses.map(studentCrossCourseLabel).join(", ")}.
+          <button type="button" onClick={() => void refetch()}>
+            Retry Scores
+          </button>
+        </p>
+      </Show>
+      <SearchBlock
+        layout="above"
+        controls={<SearchControls state={scoreSearch.state} textLabel="Search Scores" />}
+        state={scoreSearch.state}
+        collection={{
+          ariaLabel: "Scores across Courses",
+          fields: studentCrossCourseScoreFields,
+          query: scoreSearch.query,
+          get emptyState() {
+            return {
+              title: partial()
+                ? "No matching Scores in the Courses that loaded. Results are partial."
+                : scoreSearch.state.query().text || scoreSearch.state.query().filters.size
+                  ? "No released Scores match your search."
+                  : "No released Scores are available yet.",
+            };
+          },
+        }}
       />
-    </PageSection>
+    </section>
   );
 }
 
 /** Shows only released Student scores and identifies the Course for each group. */
 export function StudentScoresPage(): JSX.Element {
   const api = useApplicationApi();
-  const [courses] = createResource(() => api.client.listLiveStudentCourses());
+  const [courses, { refetch: refetchCourses }] = createResource(() =>
+    api.client.listLiveStudentCourses(),
+  );
 
   return (
-    <PageFrame routeSurface="studentScores" title="Scores">
-      <p>Released Coursework scores from all of your current Courses.</p>
+    <PageFrame routeSurface="studentScores">
       <Show when={courses.loading}>
         <p class="loading-state">Loading Courses...</p>
       </Show>
@@ -92,12 +131,24 @@ export function StudentScoresPage(): JSX.Element {
         <section class="route-error" role="alert">
           <h2>Scores unavailable</h2>
           <p>Scores could not be loaded right now.</p>
+          <button type="button" onClick={() => void refetchCourses()}>
+            Retry Scores
+          </button>
         </section>
       </Show>
       <Show when={!courses.loading && courses.error === undefined && courses()?.length === 0}>
         <p class="empty-state">You do not have any current Courses.</p>
       </Show>
-      <For each={courses()}>{(course) => <CourseScores course={course} />}</For>
+      <Show
+        keyed
+        when={
+          !courses.loading && courses.error === undefined && (courses()?.length ?? 0) > 0
+            ? courses()
+            : undefined
+        }
+      >
+        {(current) => <CrossCourseScores courses={current} />}
+      </Show>
     </PageFrame>
   );
 }

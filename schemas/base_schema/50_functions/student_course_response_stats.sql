@@ -19,7 +19,22 @@ CREATE FUNCTION ple_private.read_student_course_response_stats(
     relevant_assessment_attempt_id uuid
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    WITH disclosed_question_attempts AS (
+    WITH current_submitted_attempts AS (
+        SELECT attempt.assessment_attempt_id, attempt.course_instance_id,
+               attempt.started_at
+          FROM ple_private.assessment_attempt AS attempt
+          JOIN ple_private.assessment_submission AS submission
+            ON submission.course_instance_id = attempt.course_instance_id
+           AND submission.assessment_attempt_id = attempt.assessment_attempt_id
+          -- Attempt review owns the all-Question grading-current decision.
+          -- A partly graded Attempt must not reveal its graded Questions here.
+          JOIN LATERAL ple_private.read_student_assessment_attempt_history(
+              attempt.assessment_attempt_id
+          ) AS history ON history.grading_is_current
+         WHERE attempt.course_instance_id = p_course_instance_id
+           AND attempt.student_record_id = p_student_record_id
+           AND ple_api.course_student_work_is_ordinarily_visible(attempt.course_instance_id)
+    ), disclosed_question_attempts AS (
         SELECT issued.published_question_id,
                issued.revision_number,
                attempt.assessment_attempt_id,
@@ -29,10 +44,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                     WHEN result.normalized_credit = 1 THEN 'full_credit'
                     WHEN result.normalized_credit > 0 THEN 'partial_credit'
                     ELSE 'incorrect' END AS outcome
-          FROM ple_private.assessment_attempt AS attempt
-          JOIN ple_private.assessment_submission AS submission
-            ON submission.course_instance_id = attempt.course_instance_id
-           AND submission.assessment_attempt_id = attempt.assessment_attempt_id
+          FROM current_submitted_attempts AS attempt
           JOIN ple_private.issued_question AS issued
             ON issued.course_instance_id = attempt.course_instance_id
            AND issued.assessment_attempt_id = attempt.assessment_attempt_id
@@ -45,16 +57,11 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
           LEFT JOIN ple_private.grading_result AS result
             ON result.course_instance_id = question_attempt.course_instance_id
            AND result.question_attempt_id = question_attempt.question_attempt_id
-         WHERE attempt.course_instance_id = p_course_instance_id
-           AND attempt.student_record_id = p_student_record_id
-           AND ple_api.course_student_work_is_ordinarily_visible(attempt.course_instance_id)
-           AND (
-               (saved.question_attempt_id IS NULL
-                    AND question_attempt.finalized_at IS NOT NULL)
-               OR (saved.question_attempt_id IS NOT NULL
-                   AND result.grading_result_id IS NOT NULL
-                   AND ple_api.has_automated_grading_receipt(result.grading_result_id))
-           )
+         WHERE (saved.question_attempt_id IS NULL
+                AND question_attempt.finalized_at IS NOT NULL)
+            OR (saved.question_attempt_id IS NOT NULL
+                AND result.grading_result_id IS NOT NULL
+                AND ple_api.has_automated_grading_receipt(result.grading_result_id))
     ), question_counts AS (
         SELECT disclosed.published_question_id,
                disclosed.revision_number,

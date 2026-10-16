@@ -20,11 +20,12 @@ Tier 1 choice has one Tier 2 set. If Tier 1 stays the same, Tier 2 stays the
 same. Opening a Course, Assessment, Question, or other item does not change the
 Tier 2 choices or their order. The current route selects a destination only
 when it matches. Course- and Assessment-specific navigation belongs in page
-content and breadcrumbs. Deep pages retain one visible page heading.
+content and breadcrumbs. The Ribbon and breadcrumbs identify deep pages; PageFrame
+begins with useful content and actions.
 
 Loading, denial, an empty collection, or a route error changes the content
-area, not the surrounding Ribbon geometry. Focus moves to the main content
-heading after successful navigation and to a useful recovery target after an
+area, not the surrounding Ribbon geometry. Focus moves to useful main content
+after successful navigation and to a useful recovery target after an
 error.
 
 ## Instructor product navigation
@@ -39,8 +40,8 @@ Their Task Rows are:
 
 | Primary tab | Tasks |
 | --- | --- |
-| Courses | My Blueprint Courses; My Active Courses; My Inactive Courses; Search Public Blueprint Courses |
-| Questions | My Questions; My Draft Questions; Starred; Watched; Search Question Library; Browse Question Library |
+| Courses | My Blueprint Courses; My Active Courses; My Inactive Courses; Search Blueprint Courses; My Change Proposals |
+| Questions | My Questions; My Pools; My Drafts; Starred; Watched; Search Question Library; Browse Question Library |
 | Assessments | Assessments Due Soon; My Assessment Templates |
 
 Each row remains fixed across routes that share its primary tab. The current
@@ -124,9 +125,11 @@ so this document does not invent one.
 ## Current implementation evidence
 
 [RIBBON_DESTINATION_LEDGER.md](RIBBON_DESTINATION_LEDGER.md) is generated from
-the current route catalog and capability registry. Its old labels and omitted
-required destinations are implementation gaps. The ledger must not be read as
-permission to replace the product model above.
+the current route catalog and capability registry. Its generated table records
+current route and handler evidence; [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md)
+and this model define required destinations and acceptance. A missing backed
+destination remains an implementation gap rather than a change to that product
+model.
 
 [FRONTEND_CAPABILITY_INTEGRATION.md](FRONTEND_CAPABILITY_INTEGRATION.md) defines
 how a real destination becomes usable without confusing visibility with server

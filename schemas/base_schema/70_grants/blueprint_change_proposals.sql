@@ -20,13 +20,17 @@ REVOKE ALL ON FUNCTION ple_api.create_blueprint_change_proposal(text, bigint, bi
 
 REVOKE ALL ON FUNCTION ple_api.read_blueprint_change_proposal(uuid) FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION ple_api.list_blueprint_change_proposals(text, boolean, text, uuid, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.list_blueprint_change_proposals(text, boolean, text, uuid, integer, text, boolean, text) FROM PUBLIC;
+
+REVOKE ALL ON FUNCTION ple_api.blueprint_change_proposal_status_counts(text, boolean, text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.create_blueprint_change_proposal(text, bigint, bigint, text, bigint, bigint) TO ple_app;
 
 GRANT EXECUTE ON FUNCTION ple_api.read_blueprint_change_proposal(uuid) TO ple_app;
 
-GRANT EXECUTE ON FUNCTION ple_api.list_blueprint_change_proposals(text, boolean, text, uuid, integer) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.list_blueprint_change_proposals(text, boolean, text, uuid, integer, text, boolean, text) TO ple_app;
+
+GRANT EXECUTE ON FUNCTION ple_api.blueprint_change_proposal_status_counts(text, boolean, text) TO ple_app;
 
 REVOKE ALL ON FUNCTION ple_api.lock_blueprint_change_proposal_acceptance(uuid, text, bigint, bigint),
     ple_api.finalize_blueprint_change_proposal_acceptance(uuid, text, bigint, bigint, jsonb, bytea, jsonb, bytea),

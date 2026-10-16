@@ -48,7 +48,7 @@ export function CourseClassificationSummary(props: {
           <>; Subtopic: {vocabularyName(subtopics.error ? undefined : subtopics(), uuid())}</>
         )}
       </Show>
-      ; Tags: {props.value.tags.length === 0 ? "none" : props.value.tags.join(", ")}
+      <Show when={props.value.tags.length > 0}>; Tags: {props.value.tags.join(", ")}</Show>
     </p>
   );
 }

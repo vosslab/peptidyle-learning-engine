@@ -369,7 +369,7 @@ const CAPABILITY_DECLARATIONS = {
   },
   studentAttemptHistory: {
     kind: "backed",
-    clientMethod: "ApiClient.listStudentCourseAttemptHistory",
+    clientMethod: "ApiClient.listStudentAttemptHistory",
     serverEvidence: {
       kind: "registeredHandler",
       handler:
@@ -377,7 +377,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "src/pages/student_course_attempt_history_page.tsx::StudentAttemptHistoryPage",
-      "src/api/http_client/student_course_attempt_history.ts::createStudentCourseAttemptHistoryClient",
+      "src/api/http_client/student_course_attempt_history.ts::createStudentAttemptHistoryClient",
     ],
   },
   instructorAccounts: {
@@ -451,6 +451,15 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/blueprint_course.ts",
     ],
   },
+  myChangeProposals: {
+    kind: "backed",
+    clientMethod: "BlueprintChangeProposalClient.listMyBlueprintChangeProposals",
+    serverEvidence: { kind: "registeredHandler", handler: "GET /api/blueprint-change-proposals" },
+    evidence: [
+      "src/api/http_client/blueprint_change_proposal.ts",
+      "crates/server/src/blueprint_course.rs::blueprint_course_router",
+    ],
+  },
   myQuestions: {
     kind: "backed",
     clientMethod: "ApiClient.searchLibraryObjects",
@@ -461,6 +470,18 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
       "src/pages/my_questions_page.tsx::MyQuestionsPage",
+    ],
+  },
+  myPools: {
+    kind: "backed",
+    clientMethod: "ApiClient.searchLibraryObjects",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/question_library.rs::question_library_router",
+    },
+    evidence: [
+      "crates/server/src/question_library.rs::question_library_router",
+      "src/pages/my_pools_page.tsx::MyPoolsPage",
     ],
   },
   myDraftQuestions: {

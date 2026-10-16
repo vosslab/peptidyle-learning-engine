@@ -28,27 +28,39 @@ pub enum BlueprintCourseListSort {
     /// Public Search and ordinary discovery keep the established name order.
     #[default]
     Name,
+    NameDescending,
     /// My Blueprint Courses with the most Course Instance adoptions first.
     Adoptions,
+    AdoptionsAscending,
     /// My Blueprint Courses with the most enrolled Students first.
     Students,
+    StudentsAscending,
     /// Public Blueprint Courses with the most visible Instructor Stars first.
     Stars,
+    StarsAscending,
     /// Public Blueprint Courses with the most private Watch subscriptions first.
     Watches,
+    WatchesAscending,
     /// Public Blueprint Courses most recently edited first.
     RecentEdits,
+    RecentEditsAscending,
 }
 
 impl BlueprintCourseListSort {
     pub const fn as_sql(self) -> &'static str {
         match self {
             Self::Name => "name",
+            Self::NameDescending => "nameDescending",
             Self::Adoptions => "adoptions",
+            Self::AdoptionsAscending => "adoptionsAscending",
             Self::Students => "students",
+            Self::StudentsAscending => "studentsAscending",
             Self::Stars => "stars",
+            Self::StarsAscending => "starsAscending",
             Self::Watches => "watches",
+            Self::WatchesAscending => "watchesAscending",
             Self::RecentEdits => "recentEdits",
+            Self::RecentEditsAscending => "recentEditsAscending",
         }
     }
 }
@@ -104,6 +116,58 @@ pub struct BlueprintCourseListRequest {
     pub cross_discipline: bool,
     /// Empty means no tag filter. A non-empty value is an exact tag label.
     pub tag: String,
+    pub discipline_uuids: Vec<uuid::Uuid>,
+    pub subject_uuids: Vec<uuid::Uuid>,
+    pub topic_uuids: Vec<uuid::Uuid>,
+    pub subtopic_uuids: Vec<uuid::Uuid>,
+    pub tags: Vec<String>,
+}
+
+/// One supported Blueprint column filter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BlueprintCourseFacetField {
+    DisciplineUuids,
+    SubjectUuids,
+    TopicUuids,
+    SubtopicUuids,
+    Tags,
+}
+
+impl BlueprintCourseFacetField {
+    pub const fn as_sql(self) -> &'static str {
+        match self {
+            Self::DisciplineUuids => "disciplineUuids",
+            Self::SubjectUuids => "subjectUuids",
+            Self::TopicUuids => "topicUuids",
+            Self::SubtopicUuids => "subtopicUuids",
+            Self::Tags => "tags",
+        }
+    }
+}
+
+/// A choice count across the complete authorized Blueprint query.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlueprintCourseFacetChoice {
+    pub key: String,
+    pub label: String,
+    pub count: u64,
+}
+
+/// The selected choices remain available beyond the current choice page.
+pub struct BlueprintCourseFacetChoiceResult {
+    pub choices: Vec<BlueprintCourseFacetChoice>,
+    pub selected: Vec<BlueprintCourseFacetChoice>,
+    pub next_position: Option<(String, String)>,
+}
+
+/// Bounded facet lookup for an already validated Blueprint search.
+pub struct BlueprintCourseFacetChoiceRequest {
+    pub search: BlueprintCourseListRequest,
+    pub field: BlueprintCourseFacetField,
+    pub choice_search: String,
+    pub after_position: Option<(String, String)>,
 }
 
 /// Sysadmin-only projection; promotion is lineage metadata, not Revision content.
@@ -602,6 +666,11 @@ pub trait BlueprintCourseStore: Send + Sync {
         session: SessionTokenHash,
         request: BlueprintCourseListRequest,
     ) -> Result<Page<StoredBlueprintCourseSummary>, StoreError>;
+    async fn list_blueprint_course_facet_choices(
+        &self,
+        session: SessionTokenHash,
+        request: BlueprintCourseFacetChoiceRequest,
+    ) -> Result<BlueprintCourseFacetChoiceResult, StoreError>;
     async fn load_blueprint_course(
         &self,
         session: SessionTokenHash,

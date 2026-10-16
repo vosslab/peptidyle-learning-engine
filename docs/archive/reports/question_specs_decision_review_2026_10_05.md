@@ -180,8 +180,8 @@ All changes in this pass are documentation changes. Further application work bel
   media type and passes `QuestionFormat::PleQuestionJson` to Draft creation.
 - [authoring.rs](../../../crates/learning-data-access/src/authoring.rs): shared Draft input and
   validation support both PG and PGML source bindings.
-- [parameterized_publication.rs](../../../crates/project-tools/src/curriculum_content/parameterized_publication.rs)
-  and [publication.rs](../../../crates/project-tools/src/pilot_content/publication.rs): existing
+- `crates/project-tools/src/curriculum_content/parameterized_publication.rs`
+  and `crates/project-tools/src/pilot_content/publication.rs`: existing
   loaders create Drafts and use `NewQuestionLineagePublisher` for WeBWorK Questions.
 - [grade.rs](../../../crates/adapters/webwork/src/lib/grade.rs) and
   `tests.rs`: grading implementation

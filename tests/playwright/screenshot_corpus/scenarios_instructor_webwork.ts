@@ -149,18 +149,16 @@ async function captureGeneratedExample(
     await openInstructorLibraryBrowse(page);
     await page.getByRole("button", { name: new RegExp(`^${example.subject}`, "u") }).click();
     await page.getByRole("link", { name: "Search within results", exact: true }).click();
-    const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
-    await leaveSearch.waitFor();
-    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
+    await page.getByRole("main", { name: "Question Library", exact: true }).waitFor();
     await page.getByRole("button", { name: "Remove Questions: in no Pool", exact: true }).click();
     const search = page.getByRole("searchbox", { name: "Search Question Library", exact: true });
     await search.fill(example.title);
     await page.getByRole("button", { name: "Search", exact: true }).click();
-    const result = page.locator(".record-list__row").filter({
-      has: page.getByRole("heading", { name: example.title, exact: true }),
+    const result = page.locator("[data-record-id]").filter({
+      has: page.getByText(example.title, { exact: true }),
     });
     await followCaptureLink(page, result.getByRole("link", { name: "Open", exact: true }));
-    await page.getByRole("heading", { level: 1, name: example.title, exact: true }).waitFor();
+    await page.getByRole("main", { name: example.title, exact: true }).waitFor();
     await page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await renderedAnswerFreePreview(page, example);
     await runtime.captureCheckpoint(session, example.checkpoint);

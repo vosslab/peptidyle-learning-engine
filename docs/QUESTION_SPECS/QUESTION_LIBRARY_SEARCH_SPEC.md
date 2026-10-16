@@ -14,9 +14,13 @@ with no matches returns no objects; it does not silently drop criteria or substi
 content. [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md) owns filter semantics,
 cross-kind behavior, combinations, and count scope.
 
-The Search page's initial state, query activation, controls, and layout belong to
-[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery). Shared RecordList and
-PageFrame behavior is defined there rather than in this domain specification.
+Search opens with an empty spreadsheet, column headings, keyword search, and a prompt.
+A keyword or filter activates results; sorting alone does not. Clearing the last criterion
+restores that state. My Questions uses predefined authorship scope and can load on entry.
+[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery) defines the interface;
+PageFrame supplies layout, actions, and content, while SearchBlock keeps the shared RecordList
+mounted in Search and Browse. RecordList owns column filtering, sorting, and Compact, List, and
+Visual boxes modes.
 
 ## Browse
 
@@ -60,15 +64,17 @@ Both object kinds belong to one result set with consistent sorting and paging. T
 orders, bounds, and cursor rules below describe current implementation choices; HG does not
 prescribe those constants or limit future ordering choices to them.
 
-Filter both kinds in one server result set before global sorting and paging. Do not merge two
-independently paged searches in the browser. Current supported orders are `titleAscending`
-(Title, then stable ID) and `publishedNewest` (publication/creation time, then stable ID). There
-is no extra Pool-promotion tie-break rule.
+Filter both kinds in one server result set before global sorting and paging. The nine current
+orders are Title, Kind, Discipline, and Question Type, each ascending or descending, plus
+newest publication first. Their request values are listed below. `titleAscending` is the
+default. Each order uses the stable public ID to break ties; there is no extra Pool-promotion
+tie-break rule. Column-heading direction changes sort the whole result set before paging.
 
 The current default request size is 50 results; the API accepts page sizes from 1 through 250.
 These are established API bounds, not a reason to permanently save search
-results. The opaque continuation cursor is bound to the normalized search terms and filters, sort, and page
-size. A changed query starts at its first page. Each successful fetch replaces the current page.
+results. The v4 opaque result cursor is bound to the normalized search terms, filters, and sort,
+and carries the sort position and stable public ID. Changed search criteria or sort start at the
+first page. Each successful fetch replaces the current page.
 
 Use the counts and scope defined in
 [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md#counts-and-pagination),
@@ -89,11 +95,11 @@ tentative; see the filter specification and the
 | `owner_account_id` | Canonical Account ID, when supplied |
 | `text` | Current search text, at most 256 Unicode scalar values |
 | `author_names`, `backends`, `tags`, `subjects`, `topics`, `question_types`, `question_licenses`, `capabilities` | Repeated values from the corresponding allowed set or normalized text |
-| `discipline_uuid`, `subject_uuid`, `topic_uuid`, `subtopic_uuid` | Internal vocabulary selectors; never user-facing IDs or copyable content links |
+| `discipline_uuids`, `subject_uuids`, `topic_uuids`, `subtopic_uuids` | Repeated internal vocabulary selectors; never user-facing IDs or copyable content links |
 | `cross_discipline` | Explicit inclusion of the selected Subject across Disciplines |
-| `bloom_cognitive_process`, `bloom_knowledge_dimension` | Independent exact Bloom values |
+| `bloom_cognitive_processes`, `bloom_knowledge_dimensions` | Repeated independent exact Bloom values |
 | `authorship` | `any` or `authoredByCurrentAccount` |
-| `sort` | `titleAscending` or `publishedNewest` |
+| `sort` | `titleAscending` (default), `titleDescending`, `kindAscending`, `kindDescending`, `disciplineAscending`, `disciplineDescending`, `questionTypeAscending`, `questionTypeDescending`, `publishedNewest` |
 | `cursor`, `page_size` | Opaque cursor and bounded page size |
 
 For example, `GET /api/library-objects/search?kind=both&questions=inNoPool&text=meiosis&sort=titleAscending&page_size=50`
@@ -104,10 +110,18 @@ tentative default candidate in HG. Exact shared request types and limits live in
 does not settle the default object-kind filter. See
 [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_LIBRARY_FILTER_SPEC.md#object-kind-and-questions-in-no-pool).
 
+Read-only facet choices use the same authorized query with their own field excluded from its
+counts. The choice endpoint accepts bounded search and continuation and returns selected values
+even when their current count is zero. Its continuation binds the normalized query, field,
+choice search, and page size; it is distinct from the result cursor. See the typed
+[library_facet_choices.rs](../../crates/question_model/src/library_facet_choices.rs) contract and
+[facet_choices.rs](../../crates/server/src/question_library/facet_choices.rs) route.
+
 ## Navigation and search lifetime
 
 Navigation behavior and temporary interface state belong to
-[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery).
+[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md#question-library-discovery). Ordinary navigation
+needs no search-activity warning; editors guard meaningful unsaved changes.
 Search prompts and results are not permanently stored for restoration. The search contract
 provides neither saved-result snapshots nor a guarantee that an earlier result remains current.
 

@@ -6,6 +6,23 @@ import type {
 } from "../../api/blueprint_stewardship";
 import "./blueprint_stewardship.css";
 import { RecordList, type RecordContent } from "../../components/record_list/record_list";
+import type { RecordField } from "../../components/record_list/record_fields";
+import { SearchBlock } from "../search/search_block";
+import { SearchControls } from "../search/search_controls";
+import { createLocalCompleteSearch } from "../search/local_complete_search_state";
+
+type StarredInstructorRow = { readonly id: string; readonly displayName: string };
+const instructorFields: ReadonlyArray<RecordField<StarredInstructorRow, "name", "name">> = [
+  {
+    id: "name",
+    label: "Instructor",
+    role: "identity",
+    sortKey: "name",
+    filterKey: "name",
+    value: (row) => row.displayName,
+    defaultColumn: { priority: 0, width: "18rem" },
+  },
+];
 
 interface Props {
   readonly client: BlueprintStewardshipClient;
@@ -64,6 +81,20 @@ export function BlueprintStewardship(props: Props): JSX.Element {
   const [events, { refetch: refetchEvents }] = createResource(
     () => props.blueprintCourseId,
     (blueprintCourseId) => props.client.getBlueprintWatchEvents(blueprintCourseId),
+  );
+  const instructorSearch = createLocalCompleteSearch(
+    {
+      resource: instructors,
+      refetchSource: refetchInstructors,
+      rows: (names): ReadonlyArray<StarredInstructorRow> =>
+        names.map((name, index) => ({ id: String(index), displayName: name.displayName })),
+    },
+    {
+      fields: instructorFields,
+      rowId: (row) => row.id,
+      keyword: (row) => row.displayName,
+      content: (row) => ({ title: row.displayName, details: [], actions: [] }),
+    },
   );
 
   async function toggle(kind: "star" | "watch"): Promise<void> {
@@ -146,27 +177,18 @@ export function BlueprintStewardship(props: Props): JSX.Element {
             <details>
               <summary>Instructors who Starred this Blueprint</summary>
               {/* ASVS 1.2.1, 8.2.3: exact server-projected names rendered as text, without identity links. */}
-              <RecordList
-                ariaLabel="Instructors who starred this Blueprint"
-                emptyState={{ title: "No Instructor Stars to show." }}
-                recordId={(instructor) => instructor.displayName}
-                content={(instructor): RecordContent => ({
-                  title: instructor.displayName,
-                  details: [],
-                  actions: [],
-                })}
-                rows={instructors() ?? []}
-                state={
-                  instructors.error !== undefined
-                    ? {
-                        kind: "error",
-                        message: "Starred Instructor names could not be loaded.",
-                        retry: () => void refetchInstructors(),
-                      }
-                    : instructors.loading
-                      ? { kind: "loading" }
-                      : { kind: "ready" }
+              <SearchBlock
+                layout="above"
+                controls={
+                  <SearchControls state={instructorSearch.state} textLabel="Instructor name" />
                 }
+                state={instructorSearch.state}
+                collection={{
+                  ariaLabel: "Instructors who starred this Blueprint",
+                  fields: instructorFields,
+                  query: instructorSearch.query,
+                  emptyState: { title: "No Instructor Stars to show." },
+                }}
               />
             </details>
             <details>

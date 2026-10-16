@@ -1,0 +1,80 @@
+.record-filters__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ple-space-2);
+}
+
+.record-filters__toolbar > span {
+  font-weight: 600;
+}
+
+.record-filters__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-2);
+}
+
+.record-filters__disclosure > .record-filters__fields {
+  margin-block-start: var(--ple-space-2);
+}
+
+.record-filters__disclosure > summary {
+  cursor: pointer;
+}
+
+.record-filters__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ple-space-1);
+}
+
+.record-filters__heading-button {
+  font-size: 0.75em;
+  white-space: nowrap;
+}
+
+.record-filters__dialog {
+  inline-size: min(24rem, calc(100vw - 2rem));
+  max-block-size: min(34rem, calc(100vh - 2rem));
+  border: 1px solid var(--ple-border-strong);
+  border-radius: var(--ple-radius-surface);
+  background: var(--ple-surface);
+  color: var(--ple-ink);
+}
+
+.record-filters__dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+.record-filters__dialog-content,
+.record-filters__dialog-content > label {
+  display: grid;
+  gap: var(--ple-space-2);
+}
+
+.record-filters__dialog-heading,
+.record-filters__options label {
+  display: flex;
+  align-items: center;
+  gap: var(--ple-space-2);
+}
+
+.record-filters__dialog-heading {
+  justify-content: space-between;
+}
+
+.record-filters__options {
+  display: grid;
+  gap: var(--ple-space-1);
+  overflow-y: auto;
+  max-block-size: 16rem;
+}
+
+.record-filters__options label {
+  min-block-size: var(--ple-control-min-height);
+}
+
+.record-filters__count {
+  margin-inline-start: auto;
+}

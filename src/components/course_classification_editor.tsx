@@ -8,7 +8,7 @@ import {
   type CourseClassificationDraft,
 } from "./course_classification_fields";
 import { CourseClassificationSummary } from "./course_classification_summary";
-import { UnsavedChangesGuard } from "./unsaved_changes_guard";
+import { UnsavedChangesGuard, trackEditorSave } from "./unsaved_changes_guard";
 
 export function CourseClassificationEditor(props: {
   readonly value: CourseClassification;
@@ -60,6 +60,7 @@ export function CourseClassificationEditor(props: {
       setBusy(false);
     }
   }
+  const trackedSave = trackEditorSave(save);
   async function reload(): Promise<void> {
     setBusy(true);
     try {
@@ -103,7 +104,7 @@ export function CourseClassificationEditor(props: {
           aria-busy={busy()}
           onSubmit={(event) => {
             event.preventDefault();
-            void save();
+            void trackedSave.save();
           }}
         >
           <CourseClassificationFields
@@ -139,7 +140,8 @@ export function CourseClassificationEditor(props: {
       </Show>
       <UnsavedChangesGuard
         dirty={() => editing() && JSON.stringify(draft()) !== JSON.stringify(props.value)}
-        save={save}
+        save={trackedSave.save}
+        inFlightSave={trackedSave.inFlightSave}
         copy={{
           heading: "Keep Course classification edits?",
           description: "Your classification selections have not been saved.",

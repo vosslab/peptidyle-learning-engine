@@ -52,8 +52,8 @@ CREATE TABLE ple_data.library_watch_event_recipient (
     created_at timestamptz NOT NULL DEFAULT pg_catalog.transaction_timestamp()
 );
 
-COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
-COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, deleted by Watch unsubscribe and event retention. HUMAN_GUIDANCE.md Library Watch.';
+COMMENT ON TABLE ple_data.library_watch_event IS 'role: event, retained independently of Watch unsubscribe until event retention. HUMAN_GUIDANCE.md Library Watch.';
+COMMENT ON TABLE ple_data.library_watch_event_recipient IS 'role: event, a frozen notification recipient retained until event retention. HUMAN_GUIDANCE.md Library Watch.';
 COMMENT ON COLUMN ple_data.library_watch_event.question_revision_number IS
     'Question Revision Number, including the source Revision Number on Question forks.';
 COMMENT ON COLUMN ple_data.library_watch_event.question_pool_edit_number IS

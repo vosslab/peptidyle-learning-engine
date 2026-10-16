@@ -4,6 +4,7 @@ import { createAsync, useNavigate, useParams } from "@solidjs/router";
 import {
   createEffect,
   createMemo,
+  createResource,
   createSignal,
   Match,
   on,
@@ -18,8 +19,10 @@ import type { LiveAssessmentPreviousAttempt } from "../api/assessment_attempt_is
 import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentStartFacts } from "../components/student_assessment_presentation";
 import { PageFrame } from "../components/page_frame";
-import { RecordList } from "../components/record_list/record_list";
 import type { RecordContent } from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import {
   assessmentAttemptRouteId,
   parseAssessmentId,
@@ -32,7 +35,10 @@ import {
   assessmentAttemptRouteState,
 } from "../navigation/assessment_attempt_route";
 import { formatPointScore } from "../score_format";
-import { RibbonIcon } from "../ribbon/ribbon_icon";
+import {
+  previousAttemptSearchFields,
+  type PreviousAttemptSortKey,
+} from "./assessment_previous_attempt_search_fields";
 
 function previousAttemptContent(
   attempt: LiveAssessmentPreviousAttempt,
@@ -93,6 +99,21 @@ export function AssessmentOverviewPage(): JSX.Element {
     if (courseInstanceId === null || assessmentId === null) return Promise.resolve(undefined);
     return runtime.client.getLiveAssessmentAccess(courseInstanceId, assessmentId);
   });
+  const [previousAttempts, { refetch: refetchPreviousAttempts }] = createResource(
+    () => access()?.previousAttempts,
+    (attempts) => Promise.resolve(attempts),
+  );
+  const previousAttemptSearch = createLocalCompleteSearch(
+    { resource: previousAttempts, refetchSource: refetchPreviousAttempts, rows: (value) => value },
+    {
+      fields: previousAttemptSearchFields,
+      rowId: (attempt) => attempt.assessmentAttemptId,
+      keyword: (attempt) => `Attempt ${attempt.attemptNumber} ${attempt.state}`,
+      compare: (key: PreviousAttemptSortKey, left, right) =>
+        key === "attemptNumber" ? left.attemptNumber - right.attemptNumber : undefined,
+      content: (attempt) => previousAttemptContent(attempt, course()!, navigate),
+    },
+  );
   const activeAttemptId = createMemo(() => {
     const activeAttempt = access()?.activeAssessmentAttemptId;
     return activeAttempt === null || activeAttempt === undefined
@@ -145,20 +166,7 @@ export function AssessmentOverviewPage(): JSX.Element {
   }
 
   return (
-    <PageFrame
-      routeSurface="assessmentOverview"
-      title={access()?.title ?? "Assessment"}
-      eyebrow={
-        access() === undefined ? (
-          "Assessment"
-        ) : (
-          <>
-            <RibbonIcon glyph={assessmentTypePresentation(access()!.assessmentType).icon} />
-            <span>{assessmentTypePresentation(access()!.assessmentType).label}</span>
-          </>
-        )
-      }
-    >
+    <PageFrame routeSurface="assessmentOverview">
       <Show
         when={access()}
         fallback={
@@ -221,25 +229,30 @@ export function AssessmentOverviewPage(): JSX.Element {
                 </Show>
               </div>
             </section>
-            <Show when={current().previousAttempts.length > 0}>
-              <section class="assessment-history" aria-labelledby="assessment-history-heading">
-                <h2 id="assessment-history-heading">Previous attempts</h2>
-                <RecordList
-                  ariaLabel="Previous attempts"
-                  emptyState={{ title: "No previous attempts" }}
-                  recordId={(attempt) => attempt.assessmentAttemptId}
-                  content={(attempt) => previousAttemptContent(attempt, course()!, navigate)}
-                  rows={current().previousAttempts}
-                  state={{ kind: "ready" }}
+            <SearchBlock
+              layout="above"
+              controls={
+                <SearchControls
+                  state={previousAttemptSearch.state}
+                  textLabel="Search previous Attempts"
                 />
-              </section>
-            </Show>
-            <Show when={current().previousAttempts.length === 0}>
-              <p class="empty-state" role="note">
-                You do not have a previous attempt for this{" "}
-                {assessmentTypePresentation(current().assessmentType).label}.
-              </p>
-            </Show>
+              }
+              state={previousAttemptSearch.state}
+              collection={{
+                ariaLabel: "Previous Attempts",
+                fields: previousAttemptSearchFields,
+                query: previousAttemptSearch.query,
+                get emptyState() {
+                  return {
+                    title:
+                      previousAttemptSearch.state.query().text.length > 0 ||
+                      previousAttemptSearch.state.query().filters.size > 0
+                        ? "No previous Attempts match these filters"
+                        : "No previous Attempts",
+                  };
+                },
+              }}
+            />
           </>
         )}
       </Show>

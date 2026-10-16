@@ -395,10 +395,12 @@ export function CourseAppearancePage(): JSX.Element {
             <Show
               when={loadState() === "rejected"}
               fallback={
-                <PageFrame routeSurface="courseAppearance" title="Course Appearance unavailable" />
+                <PageFrame routeSurface="courseAppearance">
+                  <p role="alert">Course Appearance is unavailable.</p>
+                </PageFrame>
               }
             >
-              <PageFrame routeSurface="courseAppearance" title="Course Appearance could not load">
+              <PageFrame routeSurface="courseAppearance">
                 <p role="alert">
                   Your saved Course Appearance could not be loaded. Check your connection and try
                   again.
@@ -410,7 +412,7 @@ export function CourseAppearancePage(): JSX.Element {
             </Show>
           }
         >
-          <PageFrame routeSurface="courseAppearance" title="Loading Course Appearance">
+          <PageFrame routeSurface="courseAppearance">
             <p aria-busy="true" aria-live="polite">
               Loading saved Course Appearance...
             </p>
@@ -425,11 +427,7 @@ export function CourseAppearancePage(): JSX.Element {
           return current;
         };
         return (
-          <PageFrame
-            routeSurface="courseAppearance"
-            title="Course Appearance"
-            lede="Choose the palette and banner used throughout this Course Instance."
-          >
+          <PageFrame routeSurface="courseAppearance">
             <style>{COURSE_APPEARANCE_STYLES}</style>
             <style>{COURSE_BANNER_5_TO_1_STYLES}</style>
             <AppearanceThemeEditor courseInstanceId={summary.id} storedAppearance={appearance} />

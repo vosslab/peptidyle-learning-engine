@@ -8,6 +8,8 @@ export { RECORD_PAGE_SIZES, type RecordPageSize } from "./record_page_sizes";
 type RecordPageSizeControlProps = {
   /** Caller-owned selected discovery page size. */
   readonly pageSize: RecordPageSize;
+  /** Largest page size accepted by the owning query, defaulting to the shared maximum. */
+  readonly maximumPageSize?: RecordPageSize;
   /** Receives a fixed page-size choice; the caller starts its new cursor sequence. */
   readonly onPageSizeChange: (pageSize: RecordPageSize) => void;
 };
@@ -42,6 +44,8 @@ export function RecordPageControls(props: RecordPageControlsProps): JSX.Element 
   function pageSizeControl(): JSX.Element | undefined {
     if (props.pageSize === undefined || props.onPageSizeChange === undefined) return undefined;
     const onPageSizeChange = props.onPageSizeChange;
+    const maximumPageSize =
+      props.maximumPageSize ?? RECORD_PAGE_SIZES[RECORD_PAGE_SIZES.length - 1]!;
     return (
       <label class="record-page-controls__size">
         <span>Records per page</span>
@@ -54,7 +58,9 @@ export function RecordPageControls(props: RecordPageControlsProps): JSX.Element 
             if (selected !== undefined) onPageSizeChange(selected);
           }}
         >
-          <For each={RECORD_PAGE_SIZES}>{(size) => <option value={size}>{size}</option>}</For>
+          <For each={RECORD_PAGE_SIZES.filter((size) => size <= maximumPageSize)}>
+            {(size) => <option value={size}>{size}</option>}
+          </For>
         </select>
       </label>
     );

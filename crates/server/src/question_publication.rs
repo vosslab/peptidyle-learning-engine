@@ -103,6 +103,8 @@ pub struct NewQuestionLineagePublicationCommand {
     pub workspace: WorkspaceId,
     /// Reviewed ordered Question Authorship snapshot.
     pub question_authorship: QuestionAuthorship,
+    /// Zero-based reviewed author linked to the authenticated publisher.
+    pub self_author_position: Option<usize>,
     /// Initial shared search tags derived from the reviewed canonical source.
     pub initial_shared_tags: Vec<Tag>,
     /// Reviewed canonical lineage classification; PostgreSQL validates its parents.
@@ -306,6 +308,7 @@ where
                 question_source_object_record: target_record,
                 question_images: prepared_question_images,
                 question_authorship: command.question_authorship.clone(),
+                self_author_position: command.self_author_position,
                 initial_shared_tags: command.initial_shared_tags.clone(),
                 discipline_uuid: command.discipline_uuid,
                 subject_uuid: command.subject_uuid,

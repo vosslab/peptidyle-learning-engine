@@ -435,9 +435,6 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       // Policy editor panels. PageFrame owns the stack.
       contentClass="assessment-workspace-policies"
       routeSurface="assessmentWorkspace"
-      headingId="assessment-policies-heading"
-      eyebrow="Assessment workspace"
-      title="Assessment Properties Editor"
     >
       <AssessmentWorkspaceIdentity />
       <p class="assessment-workspace-save-message" role="status">

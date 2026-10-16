@@ -38,7 +38,7 @@ graph and its data boundaries.
 
 ## Import question banks
 
-Open **Questions > My Draft Questions > Import questions**, choose a file and its format, then
+Open **Questions > My Drafts > Import questions**, choose a file and its format, then
 choose **Import into Drafts**. Conversion runs locally in QPM's vendored WASM package. The format
 picker lists QPM's readable formats: BBQ text upload, text2qti, Oklahoma, and Blackboard export ZIP
 in the current distribution. Canvas QTI 1.2 and Blackboard QTI 2.1 are writer-only formats in QPM
@@ -51,7 +51,7 @@ the saved Draft and its link, so you can inspect and repair it. Referenced PNG, 
 images must be supplied once under their exact content-relative filenames. Media shared by a
 package does not affect unrelated Questions. A failed item does not stop later saves or undo
 earlier successes. Requests are not retried automatically; a network failure may leave the save
-outcome unknown, so check My Draft Questions before importing again.
+outcome unknown, so check My Drafts before importing again.
 
 Open the created Drafts to preview and test them, supply metadata using the ordinary controls,
 and publish. Saving does not validate complete Native JSON; preview and publication use PLE's

@@ -13,11 +13,14 @@ import type { AssessmentSummary } from "../../../generated/api/AssessmentSummary
 import type { QuestionSearchResult } from "../../../generated/api/QuestionSearchResult";
 import type { LibraryObjectKindResponse } from "../../../generated/api/LibraryObjectKindResponse";
 import type { LibrarySearchResult } from "../../../generated/api/LibrarySearchResult";
+import type { LibrarySearchClassification } from "../../../generated/api/LibrarySearchClassification";
 import type { CourseQuestionUse } from "../../../generated/api/CourseQuestionUse";
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionDetailsPromptView } from "../../../generated/api/QuestionDetailsPromptView";
 import type { LibraryObjectSearchPage } from "../../../generated/api/LibraryObjectSearchPage";
+import type { LibraryFacetChoicePage } from "../../../generated/api/LibraryFacetChoicePage";
+import type { LibraryFacetChoice } from "../../../generated/api/LibraryFacetChoice";
 import type { QuestionUseDetails } from "../../../generated/api/QuestionUseDetails";
 import type { QuestionUseSummary } from "../../../generated/api/QuestionUseSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
@@ -36,12 +39,13 @@ import {
   decodeRecord,
   decodeString,
   decodeStringEnum,
+  decodeUuid,
 } from "../decoder";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
 import { MAX_ASSESSMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_ASSESSMENT_QUESTION_POOL_ITEMS";
-import { MAX_QUESTION_SEARCH_OWN_COURSE_USAGES } from "../../../generated/api/MAX_QUESTION_SEARCH_OWN_COURSE_USAGES";
+import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 import {
   MAX_QUESTION_SEARCH_PAGE_ITEMS,
   MAX_QUESTION_DETAILS_STATIC_PROMPT_BLOCKS,
@@ -210,11 +214,55 @@ export function decodeQuestionSearchResult(value: unknown, path: string): Questi
 }
 
 /** Strictly decodes one discriminated mixed Library page item. */
+export function decodeLibrarySearchClassification(
+  value: unknown,
+  path: string,
+): LibrarySearchClassification {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "disciplineUuid",
+    "disciplineName",
+    "subjectUuid",
+    "subjectName",
+    "topicUuid",
+    "topicName",
+    "subtopicUuid",
+    "subtopicName",
+  ]);
+  const topicUuid = field(record, "topicUuid", path);
+  const topicName = field(record, "topicName", path);
+  const subtopicUuid = field(record, "subtopicUuid", path);
+  const subtopicName = field(record, "subtopicName", path);
+  if (
+    (topicUuid === null) !== (topicName === null) ||
+    (subtopicUuid === null) !== (subtopicName === null)
+  ) {
+    throw new DecodeError(path, "matching optional classification UUID and name pairs");
+  }
+  if (subtopicUuid !== null && topicUuid === null) {
+    throw new DecodeError(path, "a Topic for the selected Subtopic");
+  }
+  return {
+    disciplineUuid: decodeUuid(field(record, "disciplineUuid", path), `${path}.disciplineUuid`),
+    disciplineName: decodeNonemptyString(
+      field(record, "disciplineName", path),
+      `${path}.disciplineName`,
+    ),
+    subjectUuid: decodeUuid(field(record, "subjectUuid", path), `${path}.subjectUuid`),
+    subjectName: decodeNonemptyString(field(record, "subjectName", path), `${path}.subjectName`),
+    topicUuid: topicUuid === null ? null : decodeUuid(topicUuid, `${path}.topicUuid`),
+    topicName: topicName === null ? null : decodeNonemptyString(topicName, `${path}.topicName`),
+    subtopicUuid: subtopicUuid === null ? null : decodeUuid(subtopicUuid, `${path}.subtopicUuid`),
+    subtopicName:
+      subtopicName === null ? null : decodeNonemptyString(subtopicName, `${path}.subtopicName`),
+  };
+}
+
 export function decodeLibrarySearchResult(value: unknown, path: string): LibrarySearchResult {
   const record = decodeRecord(value, path);
   const resultKind = kind(record, path);
   if (resultKind === "question") {
-    requireOnlyFields(record, path, ["kind", "question", "ownerAccountId"]);
+    requireOnlyFields(record, path, ["kind", "question", "ownerAccountId", "classification"]);
     return {
       kind: "question",
       question: decodeQuestionSearchResult(field(record, "question", path), `${path}.question`),
@@ -222,13 +270,21 @@ export function decodeLibrarySearchResult(value: unknown, path: string): Library
         field(record, "ownerAccountId", path),
         `${path}.ownerAccountId`,
       ),
+      classification: decodeLibrarySearchClassification(
+        field(record, "classification", path),
+        `${path}.classification`,
+      ),
     };
   }
   if (resultKind === "pool") {
-    requireOnlyFields(record, path, ["kind", "pool"]);
+    requireOnlyFields(record, path, ["kind", "pool", "classification"]);
     return {
       kind: "pool",
       pool: decodeQuestionPoolLibrarySummary(field(record, "pool", path), `${path}.pool`),
+      classification: decodeLibrarySearchClassification(
+        field(record, "classification", path),
+        `${path}.classification`,
+      ),
     };
   }
   throw new DecodeError(`${path}.kind`, "one of question, pool");
@@ -305,12 +361,11 @@ function decodeCourseQuestionUse(value: unknown, path: string): CourseQuestionUs
 
 function decodeQuestionUseDetails(value: unknown, path: string): QuestionUseDetails {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["summary", "ownCourses", "ownCoursesTruncated"]);
+  requireOnlyFields(record, path, ["summary", "ownCourses"]);
   const summary = decodeQuestionUseSummary(field(record, "summary", path), `${path}.summary`);
-  const ownCourses = decodeBoundedArray(
+  const ownCourses = decodeArray(
     field(record, "ownCourses", path),
     `${path}.ownCourses`,
-    MAX_QUESTION_SEARCH_OWN_COURSE_USAGES,
     decodeCourseQuestionUse,
   );
   const seenCourses = new Set<string>();
@@ -320,30 +375,12 @@ function decodeQuestionUseDetails(value: unknown, path: string): QuestionUseDeta
     }
     seenCourses.add(courseUsage.courseInstanceId);
   }
-  const ownCoursesTruncated = decodeBoolean(
-    field(record, "ownCoursesTruncated", path),
-    `${path}.ownCoursesTruncated`,
-  );
-  if (!ownCoursesTruncated && ownCourses.length !== summary.ownCourseCount) {
-    throw new DecodeError(
-      `${path}.ownCourses`,
-      "a complete list matching ownCourseCount when not truncated",
-    );
-  }
-  if (
-    ownCoursesTruncated &&
-    (ownCourses.length !== MAX_QUESTION_SEARCH_OWN_COURSE_USAGES ||
-      summary.ownCourseCount <= MAX_QUESTION_SEARCH_OWN_COURSE_USAGES)
-  ) {
-    throw new DecodeError(
-      `${path}.ownCoursesTruncated`,
-      `true only for ${MAX_QUESTION_SEARCH_OWN_COURSE_USAGES} listed rows with additional own courses`,
-    );
+  if (ownCourses.length !== summary.ownCourseCount) {
+    throw new DecodeError(`${path}.ownCourses`, "a complete list matching ownCourseCount");
   }
   return {
     summary,
     ownCourses,
-    ownCoursesTruncated,
   };
 }
 
@@ -384,6 +421,43 @@ export function decodeLibraryObjectSearchPage(
       decodeQuestionSearchCursor,
     ),
     facets: decodeQuestionSearchFacets(field(record, "facets", path), `${path}.facets`),
+  };
+}
+
+function decodeLibraryFacetChoice(value: unknown, path: string): LibraryFacetChoice {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["key", "label", "count"]);
+  return {
+    key: decodeNonemptyString(field(record, "key", path), `${path}.key`),
+    label: decodeNonemptyString(field(record, "label", path), `${path}.label`),
+    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
+  };
+}
+
+export function decodeLibraryFacetChoicePage(
+  value: unknown,
+  path = "response",
+): LibraryFacetChoicePage {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["choices", "selected", "nextCursor"]);
+  return {
+    choices: decodeBoundedArray(
+      field(record, "choices", path),
+      `${path}.choices`,
+      100,
+      decodeLibraryFacetChoice,
+    ),
+    selected: decodeBoundedArray(
+      field(record, "selected", path),
+      `${path}.selected`,
+      MAX_QUESTION_SEARCH_TAG_FILTERS,
+      decodeLibraryFacetChoice,
+    ),
+    nextCursor: decodeNullable(
+      field(record, "nextCursor", path),
+      `${path}.nextCursor`,
+      decodeQuestionSearchCursor,
+    ),
   };
 }
 

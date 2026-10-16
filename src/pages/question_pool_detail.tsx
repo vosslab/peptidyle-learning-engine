@@ -5,7 +5,6 @@ import {
   For,
   Show,
   createEffect,
-  createMemo,
   createResource,
   createSignal,
   onCleanup,
@@ -15,6 +14,11 @@ import {
 
 import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 import type { QuestionPoolMemberView } from "../../generated/api/QuestionPoolMemberView";
+import type { RecordField } from "../components/record_list/record_fields";
+import type {
+  PoolMemberFilterKey,
+  PoolMemberSortKey,
+} from "../components/question_pool_member_fields";
 import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
 import { useApplicationApi } from "../api/application_api";
 import { createQuestionLibraryRepository } from "../api/question_library_repository";
@@ -28,13 +32,15 @@ import { mayEditQuestionPoolMembers } from "../components/question_pool_members_
 import { QuestionPoolStarControl } from "../components/question_pool_star_control";
 import { QuestionPoolSupportEditor } from "../components/question_pool_support_editor";
 import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
-import { RecordSortControl } from "../components/record_list/record_sort_control";
-import { RecordTable, type RecordTableColumn } from "../components/record_list/record_table";
+import type { RecordContent } from "../components/record_list/record_list";
 import {
-  questionPoolMemberSortOptions,
-  sortQuestionPoolMembers,
-  type QuestionPoolMemberSort,
-} from "../components/record_list/question_pool_member_sort";
+  comparePoolMemberFields,
+  poolMemberRowId,
+  questionPoolMemberFields,
+} from "../components/question_pool_member_fields";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import {
   useClearRouteScopeLabels,
   usePublishRouteScopeLabels,
@@ -42,6 +48,76 @@ import {
 } from "../ribbon/route_scope_context";
 import { backendLabel, questionTypeLabel } from "./library_page_helpers";
 import { QuestionStatisticsPanel } from "./question_statistics_panel";
+
+type PoolMemberSearchRow = {
+  readonly member: QuestionPoolMemberView;
+  readonly publishedQuestionRevisionTuple: QuestionPoolMemberView["publishedQuestionRevisionTuple"];
+  readonly questionTitle: string;
+  readonly questionLicense: string | null;
+};
+
+const memberFields: ReadonlyArray<
+  RecordField<PoolMemberSearchRow, PoolMemberSortKey, PoolMemberFilterKey>
+> = [
+  ...questionPoolMemberFields<PoolMemberSearchRow>(),
+  {
+    id: "authors",
+    label: "Authors",
+    value: (row) =>
+      row.member.question.question_library.summary.authorship.authors.map(
+        (author) => author.displayName,
+      ),
+    render: (row) => (
+      <For each={row.member.question.question_library.summary.authorship.authors}>
+        {(author, index) => (
+          <>
+            {index() > 0 ? ", " : ""}
+            <Show when={author.accountId} fallback={author.displayName}>
+              {(accountId) => (
+                <InstructorProfileLink accountId={accountId()} displayName={author.displayName} />
+              )}
+            </Show>
+          </>
+        )}
+      </For>
+    ),
+    defaultColumn: { priority: 4, width: "15rem" },
+  },
+];
+
+function memberSearchRow(member: QuestionPoolMemberView): PoolMemberSearchRow {
+  const summary = member.question.question_library.summary;
+  return {
+    member,
+    publishedQuestionRevisionTuple: member.publishedQuestionRevisionTuple,
+    questionTitle: summary.metadata.questionTitle,
+    questionLicense: summary.metadata.questionLicense,
+  };
+}
+
+function memberContent(row: PoolMemberSearchRow): RecordContent {
+  return {
+    title: row.questionTitle,
+    details: [
+      {
+        kind: "questionId",
+        questionTitle: row.questionTitle,
+        displayId: row.publishedQuestionRevisionTuple.publishedQuestionId,
+      },
+      {
+        kind: "text",
+        label: "Revision",
+        value: String(row.publishedQuestionRevisionTuple.revisionNumber),
+      },
+      { kind: "text", label: "Question License", value: row.questionLicense ?? "Unavailable" },
+      {
+        kind: "questionAuthors",
+        authors: row.member.question.question_library.summary.authorship.authors,
+      },
+    ],
+    actions: [],
+  };
+}
 
 /** Direct, current-detail view for a Pool whose kind was resolved by the Library route. */
 export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): JSX.Element {
@@ -56,46 +132,10 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
     () => props.poolId,
     (poolId) => applicationApi.client.getQuestionPool(poolId),
   );
-  const [memberSort, setMemberSort] = createSignal<QuestionPoolMemberSort>("as-loaded");
-  const sortedMembers = createMemo(() =>
-    sortQuestionPoolMembers(detail()?.members ?? [], memberSort()),
-  );
-  const memberColumns: ReadonlyArray<RecordTableColumn<QuestionPoolMemberView>> = [
-    {
-      id: "published-question-id",
-      header: "Published Question ID",
-      cell: (member) => member.publishedQuestionRevisionTuple.publishedQuestionId,
-    },
-    {
-      id: "revision",
-      header: "Revision",
-      cell: (member) => String(member.publishedQuestionRevisionTuple.revisionNumber),
-    },
-    {
-      id: "question-license",
-      header: "Question License",
-      cell: (member) =>
-        member.question.question_library.summary.metadata.questionLicense ?? "Unavailable",
-    },
-    {
-      id: "authors",
-      header: "Authors",
-      cell: (member) => (
-        <For each={member.question.question_library.summary.authorship.authors}>
-          {(author, index) => (
-            <>
-              {index() > 0 ? ", " : ""}
-              <Show when={author.accountId} fallback={author.displayName}>
-                {(accountId) => (
-                  <InstructorProfileLink accountId={accountId()} displayName={author.displayName} />
-                )}
-              </Show>
-            </>
-          )}
-        </For>
-      ),
-    },
-  ];
+  const currentPool = (): QuestionPoolView | undefined => {
+    const pool = detail.latest;
+    return pool?.questionPoolId === props.poolId ? pool : undefined;
+  };
   const mayMutateLibrary = (): boolean => {
     const state = session.state();
     return state.kind === "authenticated" && state.session.account.userRole === "instructor";
@@ -121,7 +161,7 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
   };
   function publishLoadedPoolTitle(): void {
     if (publication === undefined) return;
-    const title = detail.error === undefined ? detail()?.metadata.title : undefined;
+    const title = currentPool()?.metadata.title;
     if (title === undefined || title.length === 0) {
       clearRouteScopeLabels(publication);
       return;
@@ -139,33 +179,71 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
     if (publication !== undefined) clearRouteScopeLabels(publication);
   });
 
+  /**
+   * The read-only collection is deliberately mounted only for viewers. Pool
+   * editors own their draft-backed collection in QuestionPoolMembersEditor.
+   */
+  function ReadonlyPoolMembers(): JSX.Element {
+    const memberSearch = createLocalCompleteSearch(
+      {
+        resource: detail,
+        refetchSource: refetch,
+        rows: (pool) => pool.members.map(memberSearchRow),
+      },
+      {
+        fields: memberFields,
+        rowId: poolMemberRowId,
+        keyword: (row) =>
+          `${row.questionTitle} ${row.publishedQuestionRevisionTuple.publishedQuestionId}`,
+        compare: comparePoolMemberFields,
+        content: memberContent,
+      },
+    );
+
+    return (
+      <section aria-labelledby="pool-members-heading">
+        <h2 id="pool-members-heading">Questions in this Pool</h2>
+        <SearchBlock
+          layout="above"
+          controls={<SearchControls state={memberSearch.state} textLabel="Search Pool Questions" />}
+          state={memberSearch.state}
+          collection={{
+            ariaLabel: "Questions in this Pool",
+            fields: memberFields,
+            query: memberSearch.query,
+            emptyState: { title: "No Question Revisions match this search." },
+          }}
+        />
+      </section>
+    );
+  }
+
   return (
-    <PageFrame
-      routeSurface="questionDetail"
-      title={(detail.error === undefined ? detail()?.metadata.title : undefined) ?? "Question Pool"}
-      eyebrow="Question Library"
-    >
+    <PageFrame routeSurface="questionDetail">
       <A class="quiet-link" href="/library/browse">
         Return to Browse Question Library
       </A>
       <Show when={detail.loading}>
         <p class="loading-state" role="status">
-          Loading Question Pool...
+          {currentPool() ? "Refreshing Question Pool..." : "Loading Question Pool..."}
         </p>
       </Show>
       <Show when={detail.error !== undefined}>
         <section class="route-error" role="alert">
-          <h2>Question Pool unavailable</h2>
-          <p>Return to the library and try again.</p>
+          <h2>{currentPool() ? "Question Pool refresh failed" : "Question Pool unavailable"}</h2>
+          <p>
+            {currentPool()
+              ? "The current Pool view is still available. Retry to load the latest changes."
+              : "Return to the library and try again."}
+          </p>
           <button type="button" onClick={() => void refetch()}>
             Retry Question Pool
           </button>
         </section>
       </Show>
-      <Show when={!detail.loading && detail.error === undefined && detail()}>
+      <Show when={currentPool()}>
         {(value) => (
           <article aria-label="Question Pool detail">
-            <p class="eyebrow">Published Question Pool</p>
             <p>{value().metadata.description}</p>
             <dl class="question-detail-metadata">
               <div>
@@ -236,7 +314,11 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
                 pool={value()}
                 client={applicationApi.client}
                 questionLibrary={questionLibrary}
-                getQuestionDetails={applicationApi.client.getQuestionDetails}
+                getQuestionRevision={applicationApi.client.getQuestionRevision}
+                questionRevisionPreviewDocumentUrl={
+                  applicationApi.client.questionRevisionPreviewDocumentUrl
+                }
+                questionImageUrl={applicationApi.client.questionImageUrl}
                 getCurrentQuestionSharedMetadata={
                   applicationApi.client.getCurrentQuestionSharedMetadata
                 }
@@ -244,31 +326,9 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
                 onSaved={() => void refetch()}
               />
             </Show>
-            <section aria-labelledby="pool-members-heading">
-              <h2 id="pool-members-heading">Questions in this Pool</h2>
-              <RecordSortControl
-                label="Sort Pool Questions"
-                options={questionPoolMemberSortOptions}
-                value={memberSort()}
-                onChange={setMemberSort}
-              />
-              <RecordTable
-                rows={sortedMembers()}
-                columns={memberColumns}
-                rowId={(member) =>
-                  `${member.publishedQuestionRevisionTuple.publishedQuestionId}:${member.publishedQuestionRevisionTuple.revisionNumber}`
-                }
-                state={{ kind: "ready" }}
-                rowHeader={{
-                  id: "question-title",
-                  header: "Question Title",
-                  content: (member) =>
-                    member.question.question_library.summary.metadata.questionTitle,
-                }}
-                ariaLabel="Questions in this Pool"
-                emptyState={{ title: "No Question Revisions are in this Pool." }}
-              />
-            </section>
+            <Show when={!mayEditPoolMembers(value())}>
+              <ReadonlyPoolMembers />
+            </Show>
           </article>
         )}
       </Show>

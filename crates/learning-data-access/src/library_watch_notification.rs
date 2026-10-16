@@ -6,6 +6,7 @@
 
 use async_trait::async_trait;
 use question_model::{LibraryObjectId, QuestionPoolEditNumber, QuestionRevisionNumber, Timestamp};
+use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -39,10 +40,54 @@ pub enum LibraryWatchActivity {
 /// One self-only, immutable in-app notification.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryWatchNotification {
+    pub event_id: Uuid,
     pub target_kind: LibraryWatchTargetKind,
     pub target_public_id: LibraryObjectId,
     pub activity: LibraryWatchActivity,
     pub occurred_at: Timestamp,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LibraryWatchDirection {
+    Ascending,
+    Descending,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LibraryWatchEventKind {
+    Revision,
+    MembersChanged,
+    Fork,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LibraryWatchCursorPosition {
+    pub occurred_at: String,
+    pub event_id: Uuid,
+}
+
+#[derive(Debug, Clone)]
+pub struct LibraryWatchInboxQuery {
+    pub search: String,
+    pub target_kinds: Vec<LibraryWatchTargetKind>,
+    pub event_kinds: Vec<LibraryWatchEventKind>,
+    pub direction: LibraryWatchDirection,
+    pub after: Option<LibraryWatchCursorPosition>,
+    pub limit: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LibraryWatchFacetCount {
+    pub value: String,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LibraryWatchInboxPage {
+    pub notifications: Vec<LibraryWatchNotification>,
+    pub next_position: Option<LibraryWatchCursorPosition>,
+    pub target_kind_facets: Vec<LibraryWatchFacetCount>,
+    pub event_kind_facets: Vec<LibraryWatchFacetCount>,
 }
 
 /// Browser-facing private inbox for the authenticated active Instructor only.
@@ -51,6 +96,6 @@ pub trait LibraryWatchInboxStore: Send + Sync {
     async fn library_watch_notifications(
         &self,
         session_token_hash: SessionTokenHash,
-        limit: u16,
-    ) -> Result<Vec<LibraryWatchNotification>, StoreError>;
+        query: LibraryWatchInboxQuery,
+    ) -> Result<LibraryWatchInboxPage, StoreError>;
 }

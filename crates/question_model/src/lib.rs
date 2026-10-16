@@ -53,9 +53,11 @@ pub mod feedback;
 pub mod generation;
 /// Browser-safe automated-grading operation status and safe explanation contracts.
 pub mod identity;
+mod library_facet_choices;
 /// Browser-safe retained Library discussion and impact activity vocabulary.
 mod library_object;
 pub mod library_search;
+pub use library_facet_choices::{LibraryFacetChoice, LibraryFacetChoicePage, LibraryFacetField};
 /// Browser-safe, no-store Instructor samples of saved Assessment Question Pools.
 pub mod pool_preview;
 /// Browser-safe, attempt-presentation-scoped question contracts.
@@ -74,8 +76,8 @@ pub mod question_content;
 /// Shared Question Library metadata, visibility, lineage, and browse projections.
 pub mod question_library;
 pub use library_search::{
-    LibraryObjectKindResponse, LibrarySearchCategoryCounts, LibrarySearchKind, LibrarySearchResult,
-    PublishedQuestionFilter,
+    LibraryObjectKindResponse, LibrarySearchCategoryCounts, LibrarySearchClassification,
+    LibrarySearchKind, LibrarySearchResult, PublishedQuestionFilter,
 };
 pub use question_library::LibraryObjectId;
 mod question_library_preview;
@@ -252,21 +254,20 @@ pub use crate::question_library::{
     MAX_BULK_QUESTION_METADATA_ITEMS, MAX_DISCOVERY_PAGE_SIZE, MAX_QUESTION_ID_COUNT,
     MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
     MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES,
-    MAX_QUESTION_SEARCH_OWN_COURSE_USAGES, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
-    MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
-    MAX_QUESTION_SEARCH_TAG_FILTERS, PublishedQuestionId, PublishedQuestionRevisionTuple,
-    PublishedQuestionSharedMetadata, QUESTION_ID_ALPHABET, QUESTION_ID_CANONICAL_LENGTH,
-    QUESTION_ID_CHECK_CHARACTER_INDEX, QUESTION_ID_HYPHEN_INDEX, QUESTION_ID_IDENTIFIER_LENGTH,
-    QuestionAvailability, QuestionAvailabilityEditNumber, QuestionAvailabilityEditNumberError,
-    QuestionAvailabilityEvent, QuestionBackend, QuestionDetails, QuestionDetailsPromptView,
-    QuestionLineageView, QuestionPoolId, QuestionRevisionUsageStatistics,
-    QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
-    QuestionSearchCapabilityFacet, QuestionSearchFacets, QuestionSearchQuestionLicenseFacet,
-    QuestionSearchResult, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
-    QuestionSearchTopicFacet, QuestionStatistics, QuestionSummary, QuestionTypeFacet,
-    QuestionUsageTotals, QuestionUseDetails, QuestionUseSummary,
-    normalized_question_search_group_value,
+    MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
+    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, PublishedQuestionId,
+    PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata, QUESTION_ID_ALPHABET,
+    QUESTION_ID_CANONICAL_LENGTH, QUESTION_ID_CHECK_CHARACTER_INDEX, QUESTION_ID_HYPHEN_INDEX,
+    QUESTION_ID_IDENTIFIER_LENGTH, QuestionAvailability, QuestionAvailabilityEditNumber,
+    QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent, QuestionBackend,
+    QuestionDetails, QuestionDetailsPromptView, QuestionLineageView, QuestionPoolId,
+    QuestionRevisionUsageStatistics, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
+    QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
+    QuestionSearchFacets, QuestionSearchQuestionLicenseFacet, QuestionSearchResult,
+    QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet,
+    QuestionStatistics, QuestionSummary, QuestionTypeFacet, QuestionUsageTotals,
+    QuestionUseDetails, QuestionUseSummary, normalized_question_search_group_value,
 };
 pub use crate::question_license::QuestionLicense;
 pub use crate::question_metadata::{
@@ -312,11 +313,8 @@ pub use crate::teaching_authority::{
     CourseInvitationState,
 };
 pub use crate::teaching_operations::{
-    AccommodationAdjustmentView, AccommodationApplicationRuleView,
-    CourseInvitationStatePrecondition, CourseInvitationStateView, CourseInvitationTerminalAction,
-    CourseInvitationTerminalActionRequest, CourseRosterChangeNumber, CourseRosterId,
-    CourseRosterTuple, PendingCourseInvitationView, PendingCourseInvitationsPage,
-    TeachingAssessmentAttemptTimeLimitFieldPatch, TeachingAssessmentAttemptTimeLimitSeconds,
-    TeachingAttemptLimit, TeachingAttemptLimitFieldPatch, TeachingDisplayLabel,
-    TeachingTimeFieldPatch,
+    AccommodationAdjustmentView, AccommodationApplicationRuleView, CourseRosterChangeNumber,
+    CourseRosterId, CourseRosterTuple, TeachingAssessmentAttemptTimeLimitFieldPatch,
+    TeachingAssessmentAttemptTimeLimitSeconds, TeachingAttemptLimit,
+    TeachingAttemptLimitFieldPatch, TeachingDisplayLabel, TeachingTimeFieldPatch,
 };

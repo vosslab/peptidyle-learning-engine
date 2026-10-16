@@ -1,9 +1,5 @@
 /* Course progress keeps completion, released scores, and Attempt activity distinct. */
 
-.student-course-progress > h2 {
-  margin: 0 0 var(--ple-space-2);
-}
-
 .student-course-progress__completion,
 .student-course-progress__disclosure {
   max-width: 70ch;

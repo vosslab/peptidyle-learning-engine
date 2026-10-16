@@ -115,7 +115,8 @@ CREATE FUNCTION ple_private.list_instructor_account_avatar_summaries(
     p_query text DEFAULT NULL,
     p_state text DEFAULT NULL,
     p_after_account_id text DEFAULT NULL,
-    p_limit integer DEFAULT NULL
+    p_limit integer DEFAULT NULL,
+    p_sort text DEFAULT 'idAscending'
 )
 RETURNS TABLE (
     account_id text,
@@ -153,7 +154,12 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Instructor Account list is invalid';
     END IF;
-    -- The match may use the authentication email or Profile display name.
+    IF p_sort NOT IN ('idAscending', 'idDescending') THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Instructor Account sort is invalid';
+    END IF;
+    -- The match may use the exact support Account ID, authentication email,
+    -- or Profile display name.
     -- Neither value is selected into this browser-safe summary. ASVS 8.2.3.
     -- A page asks for one extra row so the caller can see that another page exists.
     RETURN QUERY
@@ -166,9 +172,12 @@ BEGIN
       LEFT JOIN ple_private.account_avatar AS avatar ON avatar.account_id = account.account_id
      WHERE account.user_role = 'instructor'
        AND (v_state IS NULL OR summary.state = v_state)
-       AND (v_after IS NULL OR summary.account_id > v_after)
+       AND (v_after IS NULL OR
+            (p_sort = 'idAscending' AND summary.account_id > v_after) OR
+            (p_sort = 'idDescending' AND summary.account_id < v_after))
        AND (
             v_query IS NULL
+            OR account.account_id = v_query
             OR EXISTS (
                 SELECT 1 FROM ple_private.account_authentication_email AS email
                  WHERE email.account_id = account.account_id
@@ -181,7 +190,9 @@ BEGIN
                 lower(v_query)
             ) > 0
        )
-     ORDER BY summary.account_id
+     ORDER BY
+         CASE WHEN p_sort = 'idAscending' THEN summary.account_id END ASC,
+         CASE WHEN p_sort = 'idDescending' THEN summary.account_id END DESC
      LIMIT (CASE WHEN v_limit IS NULL THEN NULL ELSE v_limit + 1 END);
 END
 $$;
@@ -192,7 +203,8 @@ CREATE FUNCTION ple_api.list_instructor_account_avatar_summaries(
     p_query text DEFAULT NULL,
     p_state text DEFAULT NULL,
     p_after_account_id text DEFAULT NULL,
-    p_limit integer DEFAULT NULL
+    p_limit integer DEFAULT NULL,
+    p_sort text DEFAULT 'idAscending'
 )
 RETURNS TABLE (
     account_id text,
@@ -203,8 +215,23 @@ RETURNS TABLE (
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.list_instructor_account_avatar_summaries(
-    p_query, p_state, p_after_account_id, p_limit
+    p_query, p_state, p_after_account_id, p_limit, p_sort
 ) $$;
+
+-- State choices are computed from the entire authorized ID/name/email match,
+-- excluding the selected State and any result-page cursor.
+CREATE FUNCTION ple_api.instructor_account_state_choices(p_query text)
+RETURNS TABLE(state text, matching_count bigint)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$
+    SELECT choices.state, count(summary.account_id)::bigint
+      FROM (VALUES ('active'), ('deactivated'), ('closed')) AS choices(state)
+      LEFT JOIN ple_private.list_instructor_account_avatar_summaries(
+          p_query, NULL, NULL, NULL, 'idAscending'
+      ) AS summary ON summary.state = choices.state
+     GROUP BY choices.state
+$$;
 
 CREATE FUNCTION ple_api.current_account_avatar()
 RETURNS TABLE(avatar_kind text, provided_avatar_id text, profile_image_id uuid) LANGUAGE sql STABLE SECURITY DEFINER

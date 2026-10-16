@@ -1,16 +1,13 @@
 import { For, Show, type JSX } from "solid-js";
 
-import { RecordSortControl } from "../../components/record_list/record_sort_control";
-import { SearchResultDisplay } from "../../components/search_result_display";
 import type { SearchStateController } from "./search_state";
 import type { SearchAppliedFilter } from "./search_session";
 import "./search.css";
 
-export type SearchControlsProps<Query, Row, FilterCounts, Sort extends string = never> = {
-  readonly state: SearchStateController<Query, Row, FilterCounts, Sort>;
+export type SearchControlsProps<Query, Row, FilterCounts> = {
+  readonly state: SearchStateController<Query, Row, FilterCounts>;
   readonly textLabel: string;
   readonly textPlaceholder?: string;
-  readonly displayAriaLabel?: string;
   readonly disabled?: () => boolean;
   /** Combines a content-owned local text field with the shared text before one request. */
   readonly onSubmit?: () => void;
@@ -18,20 +15,21 @@ export type SearchControlsProps<Query, Row, FilterCounts, Sort extends string = 
   readonly onClear?: () => void;
   /** Reports content-owned draft state so Clear remains available before a first submit. */
   readonly hasDraft?: () => boolean;
-  /** Content-specific fields stay beside the universal text, chips, sort, and display controls. */
+  /** Content-specific fields stay beside the universal text and chips. */
   readonly children?: JSX.Element;
 };
 
 /** Shared submit boundary and query-independent search controls. */
-export function SearchControls<Query, Row, FilterCounts, Sort extends string = never>(
-  props: SearchControlsProps<Query, Row, FilterCounts, Sort>,
+export function SearchControls<Query, Row, FilterCounts>(
+  props: SearchControlsProps<Query, Row, FilterCounts>,
 ): JSX.Element {
   const disabled = (): boolean => props.disabled?.() === true;
   const filters = (): ReadonlyArray<SearchAppliedFilter<Query>> =>
     props.state.definition.appliedFilters?.(props.state.query()) ?? [];
   const searched = (): boolean => props.state.state().kind !== "initial";
   const hasDraft = (): boolean => props.hasDraft?.() === true;
-  const canClear = (): boolean => searched() || props.state.typedText().length > 0 || hasDraft();
+  const canClear = (): boolean =>
+    searched() || props.state.searchUsed() || props.state.typedText().length > 0 || hasDraft();
   const appliedText = (): string => props.state.definition.getText(props.state.query());
   let searchInput: HTMLInputElement | undefined;
 
@@ -73,9 +71,11 @@ export function SearchControls<Query, Row, FilterCounts, Sort extends string = n
           class="quiet-action"
           disabled={disabled()}
           onClick={() => {
-            props.state.clear();
-            props.onClear?.();
-            queueMicrotask(() => searchInput?.focus());
+            void props.state.clear().then((cleared) => {
+              if (!cleared) return;
+              props.onClear?.();
+              queueMicrotask(() => searchInput?.focus());
+            });
           }}
         >
           Clear all
@@ -90,7 +90,7 @@ export function SearchControls<Query, Row, FilterCounts, Sort extends string = n
                 class="shared-search-controls__chip"
                 disabled={disabled()}
                 aria-label={`Remove ${filter.label}`}
-                onClick={() => void props.state.apply(filter.clear(props.state.query()))}
+                onClick={() => void props.state.apply((current) => filter.clear(current))}
               >
                 {filter.label}
               </button>
@@ -99,24 +99,6 @@ export function SearchControls<Query, Row, FilterCounts, Sort extends string = n
         </div>
       </Show>
       {props.children}
-      <Show when={searched() && props.state.definition.sort !== undefined}>
-        <RecordSortControl
-          label={props.state.definition.sort!.label}
-          options={props.state.definition.sort!.options}
-          value={props.state.definition.sort!.get(props.state.query())}
-          disabled={disabled()}
-          onChange={(value) =>
-            void props.state.apply(props.state.definition.sort!.set(props.state.query(), value))
-          }
-        />
-      </Show>
-      <Show when={searched()}>
-        <SearchResultDisplay
-          ariaLabel={props.displayAriaLabel ?? "Search result display"}
-          mode={props.state.display}
-          onChange={props.state.setDisplay}
-        />
-      </Show>
     </form>
   );
 }

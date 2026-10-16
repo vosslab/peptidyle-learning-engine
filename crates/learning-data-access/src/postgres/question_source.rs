@@ -227,7 +227,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         // Published Question aggregate in one transaction.
         sqlx::query(
             "SELECT ple_api.publish_new_question_lineage(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23\
              )",
         )
         .bind(input.draft_question_uuid.as_uuid())
@@ -245,6 +245,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         .bind(&object_record.media_type)
         .bind(object_record.created_at.as_unix_millis())
         .bind(question_authorship)
+        .bind(input.self_author_position.map(|position| position as i32))
         .bind(initial_shared_tags)
         .bind(input.discipline_uuid)
         .bind(input.subject_uuid)

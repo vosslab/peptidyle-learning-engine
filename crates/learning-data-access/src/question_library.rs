@@ -17,6 +17,7 @@ use question_model::{
     QuestionSearchQuestionLicenseFacet, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
     QuestionSearchTopicFacet, QuestionType, QuestionTypeFacet, SourceObjectChecksum, Timestamp,
 };
+use question_model::{LibraryFacetChoice, LibraryFacetField};
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
@@ -142,18 +143,40 @@ pub enum QuestionLibraryBackendRestriction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionLibrarySearchSort {
     TitleAscending,
+    TitleDescending,
+    KindAscending,
+    KindDescending,
+    DisciplineAscending,
+    DisciplineDescending,
+    QuestionTypeAscending,
+    QuestionTypeDescending,
     PublishedNewest,
+    StarredDateAscending,
+    StarredDateDescending,
+}
+
+/// Server-selected collection scope. Browser Library requests always use Public.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum QuestionLibrarySearchScope {
+    #[default]
+    Public,
+    CurrentStarred,
 }
 
 /// Typed keyset position decoded and authenticated by the server route.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QuestionLibrarySearchCursorPosition {
-    TitleAscending {
-        title: String,
+    Text {
+        sort: QuestionLibrarySearchSort,
+        key: String,
         public_id: LibraryObjectId,
     },
     PublishedNewest {
         published_at_millis: i64,
+        public_id: LibraryObjectId,
+    },
+    StarredDate {
+        starred_at_micros: i64,
         public_id: LibraryObjectId,
     },
 }
@@ -161,6 +184,7 @@ pub enum QuestionLibrarySearchCursorPosition {
 /// Complete normalized filter plus bounded page selection for one store query.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionLibrarySearchRequest {
+    pub scope: QuestionLibrarySearchScope,
     pub kind: LibrarySearchKind,
     pub questions: PublishedQuestionFilter,
     pub owner_account_id: Option<AccountId>,
@@ -171,13 +195,13 @@ pub struct QuestionLibrarySearchRequest {
     pub tags: Vec<String>,
     pub subjects: Vec<String>,
     pub topics: Vec<String>,
-    pub discipline_uuid: Option<Uuid>,
-    pub subject_uuid: Option<Uuid>,
-    pub topic_uuid: Option<Uuid>,
-    pub subtopic_uuid: Option<Uuid>,
+    pub discipline_uuids: Vec<Uuid>,
+    pub subject_uuids: Vec<Uuid>,
+    pub topic_uuids: Vec<Uuid>,
+    pub subtopic_uuids: Vec<Uuid>,
     pub cross_discipline: bool,
-    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
-    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
+    pub bloom_cognitive_processes: Vec<BloomCognitiveProcess>,
+    pub bloom_knowledge_dimensions: Vec<BloomKnowledgeDimension>,
     pub question_types: Vec<QuestionType>,
     pub question_licenses: Vec<QuestionLicense>,
     pub authored_by_current_account: bool,
@@ -192,10 +216,14 @@ pub enum LibrarySearchEntry {
     Question {
         entry: Box<PublishedQuestionLibraryEntry>,
         owner_account_id: AccountId,
+        starred_at_micros: Option<i64>,
     },
     Pool {
         summary: Box<QuestionPoolLibrarySummary>,
         created_at: Timestamp,
+        subject_name: String,
+        topic_name: Option<String>,
+        subtopic_name: Option<String>,
     },
 }
 
@@ -223,6 +251,15 @@ impl LibrarySearchEntry {
             Self::Pool { created_at, .. } => *created_at,
         }
     }
+
+    pub fn starred_at_micros(&self) -> Option<i64> {
+        match self {
+            Self::Question {
+                starred_at_micros, ..
+            } => *starred_at_micros,
+            Self::Pool { .. } => None,
+        }
+    }
 }
 
 /// One selected bounded page and a typed continuation position for its final row.
@@ -232,6 +269,23 @@ pub struct QuestionLibrarySearchPage {
     pub next_position: Option<QuestionLibrarySearchCursorPosition>,
     /// Complete authorized-query aggregates, evaluated before cursor paging.
     pub facets: QuestionLibrarySearchFacets,
+}
+
+/// One choice enumeration over the complete authorized matching collection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuestionLibraryFacetChoiceRequest {
+    pub search: QuestionLibrarySearchRequest,
+    pub field: LibraryFacetField,
+    pub choice_search: Option<String>,
+    pub after_key: Option<String>,
+    pub selected_keys: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuestionLibraryFacetChoiceResult {
+    pub choices: Vec<LibraryFacetChoice>,
+    pub selected: Vec<LibraryFacetChoice>,
+    pub next_key: Option<String>,
 }
 
 /// Database-owned Question Library facets before the server folds existing
@@ -261,6 +315,12 @@ pub struct QuestionLibrarySearchFacets {
 /// Store for the authenticated Instructor Question Library read boundary.
 #[async_trait]
 pub trait QuestionLibraryStore: Send + Sync {
+    async fn list_question_library_facet_choices(
+        &self,
+        session_token_hash: SessionTokenHash,
+        request: QuestionLibraryFacetChoiceRequest,
+    ) -> Result<QuestionLibraryFacetChoiceResult, StoreError>;
+
     /// Selects one globally filtered and ordered Question Library page.
     ///
     /// The server parses text grammar and validates opaque cursor binding; the

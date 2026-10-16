@@ -9,19 +9,27 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     body::to_bytes,
-    extract::{Path, Query, Request, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    extract::{Path, RawQuery, Request, State},
+    http::{HeaderMap, StatusCode, Uri, header::COOKIE},
     response::{IntoResponse, Response},
     routing::get,
 };
+use axum_extra::extract::Query;
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    Cursor, DiscoveryPageRequest, DiscoveryPageSize, Page, QuestionStarProjection,
-    QuestionStarStore, QuestionStarredInstructor, SessionTokenHash, StarredQuestionSummary,
-    StoreError,
-    postgres::{PostgresQuestionStarStore, PostgresSessionStore},
+    QuestionLibrarySearchCursorPosition, QuestionLibrarySearchScope, QuestionLibrarySearchSort,
+    QuestionLibraryStore, QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor,
+    SessionTokenHash, StoreError,
+    postgres::{PostgresQuestionLibraryStore, PostgresQuestionStarStore, PostgresSessionStore},
 };
-use question_model::{PublishedQuestionId, UserRole};
+use objects::s3::S3ObjectStore;
+use question_model::{
+    LibraryObjectId, LibraryObjectSearchRequest, LibrarySearchClassification, LibrarySearchKind,
+    PublishedQuestionFilter, PublishedQuestionId, QuestionSearchFacets, QuestionSearchResult,
+    UserRole,
+};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -31,6 +39,8 @@ const MAX_STAR_UPDATE_BYTES: usize = 128;
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     stars: PostgresQuestionStarStore,
+    library: PostgresQuestionLibraryStore,
+    objects: S3ObjectStore,
 }
 
 /// Registers the Question Star surface. It is intentionally separate from
@@ -38,15 +48,28 @@ struct RouteState {
 pub fn question_stewardship_router(
     sessions: Arc<PostgresSessionStore>,
     stars: PostgresQuestionStarStore,
+    library: PostgresQuestionLibraryStore,
+    objects: S3ObjectStore,
 ) -> Router {
     Router::new()
         .route("/api/questions/stewardship/stars", get(list_stars))
         .route(
+            "/api/questions/stewardship/stars/facet-choices/{field}",
+            get(facet_choices::list_starred_facet_choices),
+        )
+        .route(
             "/api/questions/by-id/{question_id}/stewardship/star",
             get(read_star).put(set_star),
         )
-        .with_state(RouteState { sessions, stars })
+        .with_state(RouteState {
+            sessions,
+            stars,
+            library,
+            objects,
+        })
 }
+
+mod facet_choices;
 
 /// Closed browser payload. The caller may choose only its own desired state.
 #[derive(Debug, Deserialize)]
@@ -86,36 +109,64 @@ impl From<QuestionStarredInstructor> for StarredInstructorResponse {
 struct StarredQuestionListResponse {
     items: Vec<StarredQuestionItemResponse>,
     next_cursor: Option<String>,
+    facets: QuestionSearchFacets,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StarredQuestionListQuery {
-    cursor: Option<String>,
-    page_size: Option<u16>,
+    library: crate::question_library::query::LibraryObjectSearchQuery,
+    starred_sort: StarredSort,
+}
+
+fn parse_starred_query(raw_query: Option<&str>) -> Result<StarredQuestionListQuery, ()> {
+    let mut library_query = url::form_urlencoded::Serializer::new(String::new());
+    let mut starred_sort = None;
+    for (name, value) in url::form_urlencoded::parse(raw_query.unwrap_or_default().as_bytes()) {
+        if name == "starredSort" {
+            if starred_sort.is_some() {
+                return Err(());
+            }
+            starred_sort = Some(
+                serde_json::from_value::<StarredSort>(serde_json::Value::String(
+                    value.into_owned(),
+                ))
+                .map_err(|_| ())?,
+            );
+        } else {
+            library_query.append_pair(&name, &value);
+        }
+    }
+    let uri: Uri = format!("/?{}", library_query.finish())
+        .parse()
+        .map_err(|_| ())?;
+    let Query(library) = Query::try_from_uri(&uri).map_err(|_| ())?;
+    Ok(StarredQuestionListQuery {
+        library,
+        starred_sort: starred_sort.unwrap_or_default(),
+    })
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StarredQuestionItemResponse {
-    question_id: String,
-    question_title: String,
+    question: QuestionSearchResult,
+    owner_account_id: question_model::AccountId,
+    classification: LibrarySearchClassification,
+    starred_at_micros: i64,
 }
 
-impl From<Page<StarredQuestionSummary>> for StarredQuestionListResponse {
-    fn from(value: Page<StarredQuestionSummary>) -> Self {
-        Self {
-            items: value
-                .items
-                .into_iter()
-                .map(|item| StarredQuestionItemResponse {
-                    question_id: item.question_id.as_str().to_owned(),
-                    question_title: item.question_title,
-                })
-                .collect(),
-            next_cursor: value.next_cursor.map(|cursor| cursor.as_str().to_owned()),
-        }
-    }
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum StarredSort {
+    #[default]
+    StarredDateDescending,
+    StarredDateAscending,
+    TitleAscending,
+    TitleDescending,
+    DisciplineAscending,
+    DisciplineDescending,
+    QuestionTypeAscending,
+    QuestionTypeDescending,
+    PublishedNewest,
 }
 
 impl From<QuestionStarProjection> for StarResponse {
@@ -132,56 +183,239 @@ impl From<QuestionStarProjection> for StarResponse {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StarredCursor {
+    version: u8,
+    query_digest: [u8; 32],
+    position: StarredCursorPosition,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum StarredCursorPosition {
+    Text {
+        key: String,
+        public_id: LibraryObjectId,
+    },
+    PublishedNewest {
+        published_at_millis: i64,
+        public_id: LibraryObjectId,
+    },
+    StarredDate {
+        starred_at_micros: i64,
+        public_id: LibraryObjectId,
+    },
+}
+
+fn store_sort(sort: StarredSort) -> QuestionLibrarySearchSort {
+    match sort {
+        StarredSort::StarredDateAscending => QuestionLibrarySearchSort::StarredDateAscending,
+        StarredSort::StarredDateDescending => QuestionLibrarySearchSort::StarredDateDescending,
+        StarredSort::TitleAscending => QuestionLibrarySearchSort::TitleAscending,
+        StarredSort::TitleDescending => QuestionLibrarySearchSort::TitleDescending,
+        StarredSort::DisciplineAscending => QuestionLibrarySearchSort::DisciplineAscending,
+        StarredSort::DisciplineDescending => QuestionLibrarySearchSort::DisciplineDescending,
+        StarredSort::QuestionTypeAscending => QuestionLibrarySearchSort::QuestionTypeAscending,
+        StarredSort::QuestionTypeDescending => QuestionLibrarySearchSort::QuestionTypeDescending,
+        StarredSort::PublishedNewest => QuestionLibrarySearchSort::PublishedNewest,
+    }
+}
+
+fn query_digest(query: &LibraryObjectSearchRequest, sort: StarredSort, actor: &str) -> [u8; 32] {
+    let mut query = query.clone();
+    query.cursor = None;
+    let bytes = serde_json::to_vec(&("currentStarred", actor, sort, query))
+        .expect("normalized Starred query serializes");
+    Sha256::digest(bytes).into()
+}
+
+fn decode_starred_cursor(
+    cursor: Option<&str>,
+    query: &LibraryObjectSearchRequest,
+    sort: StarredSort,
+    actor: &str,
+) -> Result<Option<QuestionLibrarySearchCursorPosition>, ()> {
+    let Some(cursor) = cursor else {
+        return Ok(None);
+    };
+    if cursor.len() > question_model::MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES {
+        return Err(());
+    }
+    let bytes = URL_SAFE_NO_PAD.decode(cursor).map_err(|_| ())?;
+    if bytes.len() > 4096 || URL_SAFE_NO_PAD.encode(&bytes) != cursor {
+        return Err(());
+    }
+    let decoded: StarredCursor = serde_json::from_slice(&bytes).map_err(|_| ())?;
+    if decoded.version != 1 || decoded.query_digest != query_digest(query, sort, actor) {
+        return Err(());
+    }
+    let position = match (sort, decoded.position) {
+        (
+            StarredSort::StarredDateAscending | StarredSort::StarredDateDescending,
+            StarredCursorPosition::StarredDate {
+                starred_at_micros,
+                public_id,
+            },
+        ) => QuestionLibrarySearchCursorPosition::StarredDate {
+            starred_at_micros,
+            public_id,
+        },
+        (
+            StarredSort::PublishedNewest,
+            StarredCursorPosition::PublishedNewest {
+                published_at_millis,
+                public_id,
+            },
+        ) => QuestionLibrarySearchCursorPosition::PublishedNewest {
+            published_at_millis,
+            public_id,
+        },
+        (sort, StarredCursorPosition::Text { key, public_id }) if !key.is_empty() => {
+            QuestionLibrarySearchCursorPosition::Text {
+                sort: store_sort(sort),
+                key,
+                public_id,
+            }
+        }
+        _ => return Err(()),
+    };
+    Ok(Some(position))
+}
+
+fn encode_starred_cursor(
+    position: QuestionLibrarySearchCursorPosition,
+    query: &LibraryObjectSearchRequest,
+    sort: StarredSort,
+    actor: &str,
+) -> String {
+    let position = match position {
+        QuestionLibrarySearchCursorPosition::Text { key, public_id, .. } => {
+            StarredCursorPosition::Text { key, public_id }
+        }
+        QuestionLibrarySearchCursorPosition::PublishedNewest {
+            published_at_millis,
+            public_id,
+        } => StarredCursorPosition::PublishedNewest {
+            published_at_millis,
+            public_id,
+        },
+        QuestionLibrarySearchCursorPosition::StarredDate {
+            starred_at_micros,
+            public_id,
+        } => StarredCursorPosition::StarredDate {
+            starred_at_micros,
+            public_id,
+        },
+    };
+    URL_SAFE_NO_PAD.encode(
+        serde_json::to_vec(&StarredCursor {
+            version: 1,
+            query_digest: query_digest(query, sort, actor),
+            position,
+        })
+        .expect("Starred cursor serializes"),
+    )
+}
+
 async fn list_stars(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    query: Result<Query<StarredQuestionListQuery>, axum::extract::rejection::QueryRejection>,
+    RawQuery(raw_query): RawQuery,
 ) -> Response {
-    let (cursor, page_size) = match query {
-        Ok(Query(query)) => (query.cursor, query.page_size.unwrap_or(50)),
-        Err(_) => return route_error(StatusCode::BAD_REQUEST, "Starred Question page is invalid"),
+    let Ok(query) = parse_starred_query(raw_query.as_deref()) else {
+        return route_error(StatusCode::BAD_REQUEST, "Starred Question query is invalid");
     };
-    let size = match DiscoveryPageSize::new(page_size) {
-        Ok(size) => size,
-        Err(_) => {
-            return route_error(
-                StatusCode::BAD_REQUEST,
-                "Starred Question page size is invalid",
-            );
-        }
+    let sort = query.starred_sort;
+    let mut public_query = match LibraryObjectSearchRequest::try_from(query.library) {
+        Ok(value) => value,
+        Err(_) => return route_error(StatusCode::BAD_REQUEST, "Starred Question query is invalid"),
     };
-    let page = match cursor {
-        Some(value) if value.len() <= 1024 => match Cursor::parse(value) {
-            Ok(cursor) => DiscoveryPageRequest::after(cursor, size),
-            Err(_) => {
+    public_query.kind = LibrarySearchKind::Questions;
+    public_query.questions = PublishedQuestionFilter::All;
+    let (session, actor) = match instructor_session(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let after =
+        match decode_starred_cursor(public_query.cursor.as_deref(), &public_query, sort, &actor) {
+            Ok(value) => value,
+            Err(()) => {
                 return route_error(
                     StatusCode::BAD_REQUEST,
                     "Starred Question cursor is invalid",
                 );
             }
-        },
-        Some(_) => {
-            return route_error(
-                StatusCode::BAD_REQUEST,
-                "Starred Question cursor is invalid",
-            );
-        }
-        None => DiscoveryPageRequest::first(size),
+        };
+    let mut request =
+        crate::question_library::mixed_search::store_search_request(&public_query, after);
+    request.scope = QuestionLibrarySearchScope::CurrentStarred;
+    request.sort = store_sort(sort);
+    let page = match state
+        .library
+        .search_published_question_library_entries(session, request)
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => return store_error_response(error),
     };
-    let session = match instructor_session_hash(&state, &headers).await {
+    let starred_dates = page
+        .items
+        .iter()
+        .map(|entry| entry.starred_at_micros())
+        .collect::<Vec<_>>();
+    let next_cursor = page
+        .next_position
+        .clone()
+        .map(|position| encode_starred_cursor(position, &public_query, sort, &actor));
+    let (results, facets) = match crate::question_library::mixed_search::materialize_search_page(
+        &state.library,
+        &state.objects,
+        session,
+        true,
+        page,
+    )
+    .await
+    {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    match state
-        .stars
-        .list_current_starred_questions(session, page)
-        .await
-    {
-        Ok(page) => {
-            crate::auth::no_store(Json(StarredQuestionListResponse::from(page)).into_response())
-        }
-        Err(error) => store_error_response(error),
+    let mut items = Vec::with_capacity(results.len());
+    for (result, starred_at_micros) in results.into_iter().zip(starred_dates) {
+        let (question, owner_account_id, classification) = match result {
+            question_model::LibrarySearchResult::Question {
+                question,
+                owner_account_id,
+                classification,
+            } => (question, owner_account_id, classification),
+            question_model::LibrarySearchResult::Pool { .. } => {
+                return route_error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Starred Questions unavailable",
+                );
+            }
+        };
+        let Some(starred_at_micros) = starred_at_micros else {
+            return route_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Starred Questions unavailable",
+            );
+        };
+        items.push(StarredQuestionItemResponse {
+            question: *question,
+            owner_account_id,
+            classification,
+            starred_at_micros,
+        });
     }
+    crate::auth::no_store(
+        Json(StarredQuestionListResponse {
+            items,
+            next_cursor,
+            facets,
+        })
+        .into_response(),
+    )
 }
 
 async fn read_star(
@@ -260,6 +494,15 @@ async fn instructor_session_hash(
     state: &RouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
+    instructor_session(state, headers)
+        .await
+        .map(|(hash, _)| hash)
+}
+
+async fn instructor_session(
+    state: &RouteState,
+    headers: &HeaderMap,
+) -> Result<(SessionTokenHash, String), Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
         joined_cookie_header(headers).as_deref(),
@@ -268,7 +511,9 @@ async fn instructor_session_hash(
     {
         // ASVS 8.2.1 and 8.3.1: role authorization is server-derived. The
         // subsequent database procedure independently rechecks active status.
-        Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
+        Ok(session) if session.record.user_role == UserRole::Instructor => {
+            Ok((session.session_hash, session.record.account.to_string()))
+        }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,

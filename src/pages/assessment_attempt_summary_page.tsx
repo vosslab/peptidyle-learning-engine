@@ -17,7 +17,6 @@ import { ContentBlockList } from "../components/student_feedback_panel";
 import { PageFrame } from "../components/page_frame";
 import { NativeRecordedQuestionPresentation } from "../components/native_recorded_question_presentation";
 import { useApplicationApi } from "../api/application_api";
-import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
 import { ASSESSMENT_ATTEMPT_SUMMARY_STYLES } from "./assessment_attempt_summary_styles";
@@ -104,9 +103,6 @@ export function AssessmentAttemptHistoryContent(props: {
       // Recorded-work notice treatment on the content region. PageFrame owns the stack.
       contentClass="attempt-summary"
       routeSurface="assessmentAttemptSummary"
-      eyebrow={`${assessmentTypePresentation(props.history.assessment.assessmentType).label} · Attempt ${props.history.attemptNumber}`}
-      title={props.history.assessment.title}
-      lede={`This Attempt is ${props.history.state}.`}
     >
       <style>{ASSESSMENT_ATTEMPT_SUMMARY_STYLES}</style>
       <section class="attempt-history__score" aria-labelledby="assessment-attempt-score-heading">
@@ -303,7 +299,6 @@ export function AssessmentAttemptSummaryPage(): JSX.Element {
           // Recorded-work notice treatment on the content region. PageFrame owns the stack.
           contentClass="attempt-summary"
           routeSurface="assessmentAttemptSummary"
-          title="Recorded work"
         >
           <Show
             when={loadState() === "rejected"}

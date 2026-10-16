@@ -166,13 +166,7 @@ export function createScenarioRuntime(options: {
     const pageErrors: Error[] = [];
     configurePage(page, pageErrors);
     await page.goto(options.entryUrl.href, { waitUntil: "commit" });
-    await page
-      .getByRole("heading", {
-        level: 1,
-        name: "Sign in to Peptidyle Learning Engine",
-        exact: true,
-      })
-      .waitFor();
+    await page.getByRole("main", { name: "Learning content", exact: true }).waitFor();
     const privacy = monitorCapturePrivacy(page, options.entryUrl.origin);
     return { context, page, pageErrors, privacy, viewport: declaration.viewport };
   }

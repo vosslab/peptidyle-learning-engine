@@ -80,6 +80,10 @@ REVOKE ALL ON FUNCTION ple_private.get_content_discipline(uuid) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_private.get_content_discipline(uuid) TO ple_api_owner;
 
+REVOKE ALL ON FUNCTION ple_private.content_classification_facet_name(text, text) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_private.content_classification_facet_name(text, text) TO ple_api_owner;
+
 REVOKE ALL ON FUNCTION ple_private.list_content_subjects(uuid) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_private.list_content_subjects(uuid) TO ple_api_owner;

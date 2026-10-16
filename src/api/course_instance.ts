@@ -81,6 +81,23 @@ export interface InstallationCourseInspection {
 export interface InstallationCoursePage {
   readonly courses: ReadonlyArray<InstallationCourseInspection>;
   readonly nextCursor: string | null;
+  readonly activityChoices: ReadonlyArray<{
+    readonly key: CourseInstanceLifecycleState;
+    readonly count: number;
+  }>;
+  readonly retentionChoices: ReadonlyArray<{
+    readonly key: CourseRetentionLifecycleState;
+    readonly count: number;
+  }>;
+}
+
+export interface InstallationCourseBrowse {
+  readonly query: string;
+  readonly sort: "nameAscending" | "nameDescending";
+  readonly activity: ReadonlyArray<CourseInstanceLifecycleState>;
+  readonly retention: ReadonlyArray<CourseRetentionLifecycleState>;
+  readonly cursor: string | null;
+  readonly pageSize: 50 | 100;
 }
 
 /** Creation receipt that does not imply creator Course access. */
@@ -122,9 +139,7 @@ export interface CourseInstanceClient {
   readonly listCourseCreationInstructors: () => Promise<ReadonlyArray<CourseCreationInstructor>>;
   /** Empty query reads the first installation page. A nonempty query is sent in the body. */
   readonly listInstallationCourses: (
-    query: string,
-    cursor: string | null,
-    pageSize: 50 | 100 | 250,
+    browse: InstallationCourseBrowse,
   ) => Promise<InstallationCoursePage>;
   readonly loadInstallationCourse: (
     courseInstanceId: CourseInstanceId,

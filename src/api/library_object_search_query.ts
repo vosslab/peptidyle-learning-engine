@@ -1,6 +1,7 @@
 // library_object_search_query.ts - strict Library Object search request serialization.
 
 import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
+import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 import { MAX_DISCOVERY_PAGE_SIZE } from "../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
@@ -45,17 +46,16 @@ const LIBRARY_OBJECT_SEARCH_QUERY_FIELDS = [
   "tags",
   "subjects",
   "topics",
-  "discipline_uuid",
-  "subject_uuid",
-  "topic_uuid",
-  "subtopic_uuid",
+  "discipline_uuids",
+  "subject_uuids",
+  "topic_uuids",
+  "subtopic_uuids",
   "cross_discipline",
-  "bloom_cognitive_process",
-  "bloom_knowledge_dimension",
+  "bloom_cognitive_processes",
+  "bloom_knowledge_dimensions",
   "question_types",
   "capabilities",
   "question_licenses",
-  "evidence",
   "authorship",
   "sort",
   "cursor",
@@ -117,7 +117,7 @@ function libraryObjectSearchCursor(value: string): string {
  * ASVS 2.2.1: validates and serializes the only bounded, allowlisted
  * cursor-based Library Object search request shape.
  */
-export function libraryObjectSearchPath(query: LibraryObjectSearchRequest): string {
+function libraryObjectSearchParameters(query: LibraryObjectSearchRequest): URLSearchParams {
   for (const field of Object.keys(query)) {
     if (
       !LIBRARY_OBJECT_SEARCH_QUERY_FIELDS.includes(
@@ -209,21 +209,31 @@ export function libraryObjectSearchPath(query: LibraryObjectSearchRequest): stri
       normalizedLibraryObjectSearchFilterText(topic, "Question Library topic", 256),
     );
   }
-  if (query.bloom_cognitive_process !== null) {
-    parameters.set(
-      "bloom_cognitive_process",
+  boundedLibraryObjectSearchFilterValues(
+    query.bloom_cognitive_processes,
+    BLOOM_COGNITIVE_PROCESSES.length,
+    "Question Library Bloom Cognitive Process",
+  );
+  for (const value of query.bloom_cognitive_processes) {
+    parameters.append(
+      "bloom_cognitive_processes",
       libraryObjectSearchEnum(
-        query.bloom_cognitive_process,
+        value,
         BLOOM_COGNITIVE_PROCESSES,
         "Question Library Bloom Cognitive Process",
       ),
     );
   }
-  if (query.bloom_knowledge_dimension !== null) {
-    parameters.set(
-      "bloom_knowledge_dimension",
+  boundedLibraryObjectSearchFilterValues(
+    query.bloom_knowledge_dimensions,
+    BLOOM_KNOWLEDGE_DIMENSIONS.length,
+    "Question Library Bloom Knowledge Dimension",
+  );
+  for (const value of query.bloom_knowledge_dimensions) {
+    parameters.append(
+      "bloom_knowledge_dimensions",
       libraryObjectSearchEnum(
-        query.bloom_knowledge_dimension,
+        value,
         BLOOM_KNOWLEDGE_DIMENSIONS,
         "Question Library Bloom Knowledge Dimension",
       ),
@@ -284,7 +294,17 @@ export function libraryObjectSearchPath(query: LibraryObjectSearchRequest): stri
     "sort",
     libraryObjectSearchEnum(
       query.sort,
-      ["titleAscending", "publishedNewest"],
+      [
+        "titleAscending",
+        "titleDescending",
+        "kindAscending",
+        "kindDescending",
+        "disciplineAscending",
+        "disciplineDescending",
+        "questionTypeAscending",
+        "questionTypeDescending",
+        "publishedNewest",
+      ],
       "Question Library sort",
     ),
   );
@@ -303,8 +323,50 @@ export function libraryObjectSearchPath(query: LibraryObjectSearchRequest): stri
     }
     parameters.set("page_size", String(query.page_size));
   }
-  const suffix = parameters.size === 0 ? "" : `?${parameters.toString()}`;
-  return `/api/library-objects/search${suffix}`;
+  return parameters;
+}
+
+export function libraryObjectSearchPath(query: LibraryObjectSearchRequest): string {
+  return `/api/library-objects/search?${libraryObjectSearchParameters(query).toString()}`;
+}
+
+const LIBRARY_FACET_FIELDS: ReadonlyArray<LibraryFacetField> = [
+  "kind",
+  "authorNames",
+  "backends",
+  "tags",
+  "nameSubjects",
+  "nameTopics",
+  "disciplineUuids",
+  "subjectUuids",
+  "topicUuids",
+  "subtopicUuids",
+  "bloomCognitiveProcesses",
+  "bloomKnowledgeDimensions",
+  "questionTypes",
+  "capabilities",
+  "questionLicenses",
+];
+
+export function libraryFacetChoicesPath(
+  field: LibraryFacetField,
+  query: LibraryObjectSearchRequest,
+  choiceSearch: string | null = null,
+): string {
+  if (!LIBRARY_FACET_FIELDS.includes(field)) {
+    throw new Error("Question Library facet field is invalid");
+  }
+  if (query.page_size !== null && query.page_size > 100) {
+    throw new Error("Question Library choice page_size must be at most 100");
+  }
+  const parameters = libraryObjectSearchParameters(query);
+  if (choiceSearch !== null) {
+    if (Array.from(choiceSearch).length > 128) {
+      throw new Error("Question Library choice search is too long");
+    }
+    parameters.set("choice_search", choiceSearch);
+  }
+  return `/api/library-objects/search/facet-choices/${encodeURIComponent(field)}?${parameters.toString()}`;
 }
 
 /** Serializes one exact canonical Question ID after local checksum validation. */

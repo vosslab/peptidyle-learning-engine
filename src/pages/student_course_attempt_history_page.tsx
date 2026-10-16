@@ -1,208 +1,308 @@
-// Student-owned, cursor-paginated history across every enrolled Course.
+// One global, self-only Attempt History query across enrolled Courses.
 
-import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
+import { createMemo, createResource, type JSX } from "solid-js";
 
-import type { StudentCourseAttemptHistoryEntry } from "../api/student_course_attempt_history";
-import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
+import type {
+  StudentAttemptHistoryEntry,
+  StudentAttemptHistoryFacetField,
+  StudentAttemptHistoryQuery,
+  StudentAttemptHistorySort,
+} from "../api/student_course_attempt_history";
 import { useApplicationApi } from "../api/application_api";
+import type {
+  RecordField,
+  RecordFilterChoices,
+  RecordListQuery,
+  RecordSort,
+} from "../components/record_list/record_fields";
+import type { RecordContent } from "../components/record_list/record_list";
+import { PageFrame } from "../components/page_frame";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createSearchState } from "../features/search/search_state";
+import type { SearchDefinition } from "../features/search/search_session";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
+import { studentCrossCourseLabel } from "./student_collection_fields";
 import {
   assessmentAttemptPath,
   assessmentAttemptRouteState,
 } from "../navigation/assessment_attempt_route";
-import { assessmentAttemptRouteId } from "../navigation/public_route";
-import { PageFrame } from "../components/page_frame";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
-import "./student_course_attempt_history_page.css";
+import { assessmentAttemptRouteId, parseCourseInstanceId } from "../navigation/public_route";
 
-function scoreLabel(attempt: StudentCourseAttemptHistoryEntry): string | undefined {
-  const score = attempt.assessmentScore;
-  if (score === undefined) return undefined;
-  const earned = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(
-    score.pointsEarned,
-  );
-  const possible = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(
-    score.pointsPossible,
-  );
-  return `Score: ${earned} of ${possible} points`;
-}
+type AttemptSortField = "title" | "course" | "started";
 
-function attemptHistoryContent(
-  attempt: StudentCourseAttemptHistoryEntry,
+const ORDERS: ReadonlyArray<{
+  readonly value: StudentAttemptHistorySort;
+  readonly sort: RecordSort<AttemptSortField>;
+  readonly label: string;
+}> = [
+  {
+    value: "startedNewest",
+    sort: { key: "started", direction: "descending" },
+    label: "Newest first",
+  },
+  {
+    value: "startedOldest",
+    sort: { key: "started", direction: "ascending" },
+    label: "Oldest first",
+  },
+  {
+    value: "titleAscending",
+    sort: { key: "title", direction: "ascending" },
+    label: "Title A to Z",
+  },
+  {
+    value: "titleDescending",
+    sort: { key: "title", direction: "descending" },
+    label: "Title Z to A",
+  },
+  {
+    value: "courseAscending",
+    sort: { key: "course", direction: "ascending" },
+    label: "Course A to Z",
+  },
+  {
+    value: "courseDescending",
+    sort: { key: "course", direction: "descending" },
+    label: "Course Z to A",
+  },
+];
+
+const INITIAL_QUERY: StudentAttemptHistoryQuery = {
+  search: "",
+  state: "all",
+  courseIds: [],
+  sort: "startedNewest",
+};
+
+function attemptFields(
   formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined,
-): RecordContent {
-  const format = formatDateTime();
-  const state = attempt.submittedAt === undefined ? "In progress" : "Submitted";
-  const details: Array<RecordContent["details"][number]> = [
+): ReadonlyArray<
+  RecordField<StudentAttemptHistoryEntry, AttemptSortField, StudentAttemptHistoryFacetField>
+> {
+  return [
     {
-      kind: "text",
-      value: `Attempt ${attempt.assessmentAttemptNumber} · ${state}`,
+      id: "title",
+      label: "Coursework",
+      role: "identity",
+      sortKey: "title",
+      value: (attempt) => attempt.assessmentTitle,
+      defaultColumn: { priority: 0, width: "20rem" },
+    },
+    {
+      id: "course",
+      label: "Course",
+      sortKey: "course",
+      filterKey: "course",
+      value: (attempt) => attempt.courseInstanceId,
+      render: (attempt) =>
+        studentCrossCourseLabel({
+          id: attempt.courseInstanceId,
+          shortName: attempt.courseShortName,
+          longName: attempt.courseLongName,
+        }),
+      defaultColumn: { priority: 1, width: "14rem" },
+    },
+    {
+      id: "state",
+      label: "Status",
+      filterKey: "state",
+      value: (attempt) => (attempt.submittedAt === undefined ? "inProgress" : "submitted"),
+      render: (attempt) => (attempt.submittedAt === undefined ? "In progress" : "Submitted"),
+      defaultColumn: { priority: 2, width: "10rem" },
+    },
+    {
+      id: "started",
+      label: "Started",
+      sortKey: "started",
+      value: (attempt) => attempt.startedAt,
+      render: (attempt) => formatDateTime()?.(attempt.startedAt) ?? "Time unavailable",
+      defaultColumn: { priority: 3, width: "12rem" },
     },
   ];
-
-  if (format !== undefined) {
-    details.push({
-      kind: "time",
-      value: `Started ${format(attempt.startedAt)}`,
-      dateTime: new Date(attempt.startedAt).toISOString(),
-    });
-    if (attempt.submittedAt !== undefined) {
-      details.push({
-        kind: "time",
-        value: `Submitted ${format(attempt.submittedAt)}`,
-        dateTime: new Date(attempt.submittedAt).toISOString(),
-      });
-    }
-  }
-
-  const score =
-    attempt.submittedAt === undefined ? "No score yet" : (scoreLabel(attempt) ?? "Score pending");
-  details.push({ kind: "text", value: score });
-
-  return {
-    title: attempt.assessmentTitle,
-    details,
-    actions: [],
-  };
 }
 
-function attemptHistoryListState(loading: boolean, unavailable: boolean): RecordListState {
-  if (loading) return { kind: "loading", label: "Loading Attempts..." };
-  if (unavailable) {
-    return {
-      kind: "error",
-      title: "Attempt History unavailable",
-      message: "Attempts for this Course could not be loaded right now.",
-    };
-  }
-  return { kind: "ready" };
+function scoreLabel(attempt: StudentAttemptHistoryEntry): string {
+  if (attempt.submittedAt === undefined) return "No score yet";
+  const score = attempt.assessmentScore;
+  if (score === undefined) return "Score pending";
+  const format = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+  return `Score: ${format.format(score.pointsEarned)} of ${format.format(score.pointsPossible)} points`;
 }
 
-function CourseAttemptHistory(props: {
-  readonly course: LiveStudentCourseLandingSummary;
-  readonly formatDateTime: () => ReturnType<typeof createDisplayDateTimeFormatter> | undefined;
-}): JSX.Element {
-  const api = useApplicationApi();
-  const navigate = useNavigate();
-  const [cursor, setCursor] = createSignal<string | undefined>(undefined);
-  const [priorCursors, setPriorCursors] = createSignal<Array<string | undefined>>([]);
-  const [page] = createResource(
-    () => ({ courseInstanceId: props.course.id, cursor: cursor() }),
-    ({ courseInstanceId, cursor: after }) =>
-      api.client.listStudentCourseAttemptHistory(courseInstanceId, 50, after),
-  );
-
-  return (
-    <section
-      class="student-course-attempt-history"
-      aria-label={`${props.course.shortName} Attempt History`}
-    >
-      <h2>
-        {props.course.shortName}: {props.course.longName}
-      </h2>
-      <p>
-        Attempts in this Course are listed newest first. Scores appear when they have been released.
-      </p>
-      <RecordList
-        ariaLabel={`${props.course.shortName} Attempts`}
-        emptyState={{ title: "No Attempts have been started in this Course." }}
-        recordId={(attempt) => attempt.assessmentAttemptId}
-        content={(attempt) => {
-          const content = attemptHistoryContent(attempt, props.formatDateTime);
-          const route = attempt.submittedAt === undefined ? "attempt" : "review";
-          return {
-            ...content,
-            actions: [
-              {
-                id: "open-attempt",
-                kind: "command",
-                label: route === "attempt" ? "Open Attempt" : "Review Attempt",
-                onClick: () =>
-                  navigate(assessmentAttemptPath(route, props.course.id), {
-                    state: assessmentAttemptRouteState(
-                      assessmentAttemptRouteId(attempt.assessmentAttemptId),
-                    ),
-                  }),
-              },
-            ],
-          };
-        }}
-        rows={page()?.items ?? []}
-        state={attemptHistoryListState(page.loading, page.error !== undefined)}
-      />
-      <Show when={!page.loading && page.error === undefined && page()?.items.length !== 0}>
-        <nav
-          class="student-course-attempt-history__pagination"
-          aria-label={`${props.course.shortName} Attempt History pages`}
-        >
-          <button
-            type="button"
-            class="quiet-button"
-            disabled={priorCursors().length === 0 || page.loading}
-            onClick={() => {
-              const trail = [...priorCursors()];
-              const previous = trail.pop();
-              setPriorCursors(trail);
-              setCursor(previous);
-            }}
-          >
-            Newer Attempts
-          </button>
-          <button
-            type="button"
-            class="quiet-button"
-            disabled={page()?.nextCursor === undefined || page.loading}
-            onClick={() => {
-              const next = page()?.nextCursor;
-              if (next === undefined) return;
-              setPriorCursors([...priorCursors(), cursor()]);
-              setCursor(next);
-            }}
-          >
-            Older Attempts
-          </button>
-        </nav>
-      </Show>
-    </section>
-  );
-}
-
-/** Lists the authenticated Student's history with independent pagination per Course. */
+/** The Student's complete authorized history uses one server-owned result order. */
 export function StudentAttemptHistoryPage(): JSX.Element {
   const api = useApplicationApi();
-  const [courses] = createResource(() => api.client.listLiveStudentCourses());
+  const navigate = useNavigate();
   const [accountSettings] = createResource(() => api.client.getAccountSettings());
   const formatDateTime = createMemo(() => {
     const timeZone = accountSettings()?.timeZone;
-    if (timeZone !== undefined) return createDisplayDateTimeFormatter(timeZone);
-    return accountSettings.error !== undefined ? (): string => "Time unavailable" : undefined;
+    return timeZone === undefined ? undefined : createDisplayDateTimeFormatter(timeZone);
   });
+  const courseNames = new Map<string, string>();
+
+  function content(attempt: StudentAttemptHistoryEntry): RecordContent {
+    const format = formatDateTime();
+    const route = attempt.submittedAt === undefined ? "attempt" : "review";
+    const details: Array<RecordContent["details"][number]> = [
+      {
+        kind: "text",
+        label: "Course",
+        value: studentCrossCourseLabel({
+          id: attempt.courseInstanceId,
+          shortName: attempt.courseShortName,
+          longName: attempt.courseLongName,
+        }),
+      },
+      {
+        kind: "text",
+        value: `Attempt ${attempt.assessmentAttemptNumber} · ${route === "attempt" ? "In progress" : "Submitted"}`,
+      },
+      {
+        kind: "time",
+        value: `Started ${format?.(attempt.startedAt) ?? "Time unavailable"}`,
+        dateTime: new Date(attempt.startedAt).toISOString(),
+      },
+    ];
+    if (attempt.submittedAt !== undefined) {
+      details.push({
+        kind: "time",
+        value: `Submitted ${format?.(attempt.submittedAt) ?? "Time unavailable"}`,
+        dateTime: new Date(attempt.submittedAt).toISOString(),
+      });
+    }
+    details.push({ kind: "text", value: scoreLabel(attempt) });
+    return {
+      title: attempt.assessmentTitle,
+      details,
+      actions: [
+        {
+          id: "open-attempt",
+          kind: "command",
+          label: route === "attempt" ? "Open Attempt" : "Review Attempt",
+          onClick: () =>
+            navigate(assessmentAttemptPath(route, attempt.courseInstanceId), {
+              state: assessmentAttemptRouteState(
+                assessmentAttemptRouteId(attempt.assessmentAttemptId),
+              ),
+            }),
+        },
+      ],
+    };
+  }
+
+  const definition: SearchDefinition<StudentAttemptHistoryQuery, StudentAttemptHistoryEntry, null> =
+    {
+      initialQuery: INITIAL_QUERY,
+      maximumPageSize: 100,
+      cleanup: (query) => ({
+        ...query,
+        search: query.search.trim().slice(0, 200),
+        courseIds: [...new Set(query.courseIds)].sort(),
+      }),
+      isEligible: () => true,
+      getText: (query) => query.search,
+      setText: (query, search) => ({ ...query, search }),
+      rowId: (attempt) => attempt.assessmentAttemptId,
+      content,
+      fetchPage: async (query, cursor, pageSize) => {
+        const page = await api.client.listStudentAttemptHistory(
+          query,
+          pageSize,
+          cursor ?? undefined,
+        );
+        return { items: page.items, nextCursor: page.nextCursor ?? null, filterCounts: null };
+      },
+    };
+  const state = createSearchState(definition, { runOnMount: true });
+
+  const recordQuery: RecordListQuery<AttemptSortField, StudentAttemptHistoryFacetField> = {
+    kind: "paged",
+    sort: {
+      get value() {
+        return ORDERS.find(({ value }) => value === state.query().sort)?.sort ?? null;
+      },
+      onChange: (sort) => {
+        const order = ORDERS.find(
+          ({ sort: candidate }) =>
+            candidate.key === sort.key && candidate.direction === sort.direction,
+        );
+        if (order !== undefined) {
+          void state.apply((query) => ({ ...query, sort: order.value }));
+        }
+      },
+    },
+    filters: {
+      get values() {
+        const query = state.query();
+        return new Map<StudentAttemptHistoryFacetField, ReadonlyArray<string>>([
+          ["course", query.courseIds],
+          ["state", query.state === "all" ? [] : [query.state]],
+        ]);
+      },
+      onChange: (field, values) => {
+        if (field === "course") {
+          const courseIds = values
+            .map(parseCourseInstanceId)
+            .filter((course): course is NonNullable<typeof course> => course !== null);
+          void state.apply((query) => ({ ...query, courseIds }));
+          return;
+        }
+        const selected = values.filter((value) => value === "submitted" || value === "inProgress");
+        const next = selected.length === 1 ? selected[0] : "all";
+        void state.apply((query) => ({
+          ...query,
+          state: next === "submitted" || next === "inProgress" ? next : "all",
+        }));
+      },
+      onClear: () => void state.apply((query) => ({ ...query, state: "all", courseIds: [] })),
+      choices: async (field, search, cursor, signal): Promise<RecordFilterChoices> => {
+        const page = await api.client.listStudentAttemptHistoryFacetChoices(
+          state.query(),
+          field,
+          search,
+          cursor ?? undefined,
+        );
+        if (signal.aborted) throw new DOMException("Facet request canceled", "AbortError");
+        if (field === "course") {
+          for (const choice of page.choices) courseNames.set(choice.key, choice.label);
+        }
+        const selectedKeys =
+          field === "course"
+            ? state.query().courseIds
+            : state.query().state === "all"
+              ? []
+              : [state.query().state];
+        const selected = selectedKeys.map(
+          (key) =>
+            page.choices.find((choice) => choice.key === key) ?? {
+              key,
+              label: field === "course" ? (courseNames.get(key) ?? key) : key,
+              count: 0,
+            },
+        );
+        return { choices: page.choices, selected, nextCursor: page.nextCursor ?? null };
+      },
+    },
+  };
 
   return (
-    <PageFrame routeSurface="studentAttemptHistory" title="Attempt History">
-      <p>
-        Attempts are grouped by Course. Each Course has its own newest-first list and page controls.
-      </p>
-      <Show when={courses.loading}>
-        <p class="loading-state">Loading Courses...</p>
-      </Show>
-      <Show when={courses.error !== undefined}>
-        <section class="route-error" role="alert">
-          <h2>Attempt History unavailable</h2>
-          <p>Your Course list could not be loaded right now.</p>
-        </section>
-      </Show>
-      <Show when={!courses.loading && courses.error === undefined && courses()?.length === 0}>
-        <p class="empty-state">You are not enrolled in any Courses.</p>
-      </Show>
-      <For each={courses()}>
-        {(course) => <CourseAttemptHistory course={course} formatDateTime={formatDateTime} />}
-      </For>
+    <PageFrame routeSurface="studentAttemptHistory">
+      <SearchBlock
+        layout="above"
+        state={state}
+        controls={<SearchControls state={state} textLabel="Search Attempt History" />}
+        collection={{
+          ariaLabel: "Attempt History",
+          fields: attemptFields(formatDateTime),
+          query: recordQuery,
+          emptyState: {
+            title: "No Attempts match your search.",
+            message: "Started Coursework appears here for your enrolled Courses.",
+          },
+        }}
+      />
     </PageFrame>
   );
 }

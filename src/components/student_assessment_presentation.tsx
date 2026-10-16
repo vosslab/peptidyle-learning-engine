@@ -324,12 +324,7 @@ export function StudentAssessmentPresentation(
   }
 
   return (
-    <PageFrame
-      routeSurface="studentAssessment"
-      eyebrow="Coursework"
-      title={props.assessment.title}
-      lede="Work from the structures and concepts in front of you. Memorization is not the goal."
-    >
+    <PageFrame routeSurface="studentAssessment">
       <Show when={props.contextCue}>
         <div class="student-assessment-context empty-state" role="note">
           {props.contextCue}

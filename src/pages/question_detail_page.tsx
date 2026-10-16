@@ -175,15 +175,23 @@ function QuestionPoolFromQuestionControl(props: { readonly detail: QuestionDetai
         questionPoolClient={applicationApi.client}
         questionLibrary={questionLibrary}
         getQuestionDetails={applicationApi.client.getQuestionDetails}
+        loadQuestionInspection={applicationApi.client.getQuestionRevision}
+        questionRevisionPreviewDocumentUrl={
+          applicationApi.client.questionRevisionPreviewDocumentUrl
+        }
+        questionImageUrl={applicationApi.client.questionImageUrl}
         getCurrentQuestionSharedMetadata={applicationApi.client.getCurrentQuestionSharedMetadata}
-        startingQuestion={{
-          publishedQuestionRevisionTuple: props.detail.summary.publishedQuestionRevisionTuple,
-          questionTitle: props.detail.summary.metadata.questionTitle,
-          disciplineName: props.detail.disciplineName,
-          subjectName: props.detail.subjectName,
-          questionType: props.detail.summary.questionType,
-          backend: props.detail.summary.backend,
-        }}
+        classificationClient={applicationApi.client}
+        startingQuestions={[
+          {
+            publishedQuestionRevisionTuple: props.detail.summary.publishedQuestionRevisionTuple,
+            questionTitle: props.detail.summary.metadata.questionTitle,
+            disciplineName: props.detail.disciplineName,
+            subjectName: props.detail.subjectName,
+            questionType: props.detail.summary.questionType,
+            backend: props.detail.summary.backend,
+          },
+        ]}
         onTaskPhaseChange={() => undefined}
         onClose={closeCreation}
       />
@@ -607,11 +615,7 @@ export function QuestionDetailPage(): JSX.Element {
     if (publication !== undefined) clearRouteScopeLabels(publication);
   });
   return (
-    <PageFrame
-      routeSurface="questionDetail"
-      title={detail()?.summary.metadata.questionTitle ?? "Question"}
-      eyebrow="Question Library"
-    >
+    <PageFrame routeSurface="questionDetail">
       <A class="quiet-link" href="/library/browse">
         Return to Browse Question Library
       </A>
@@ -633,7 +637,6 @@ export function QuestionDetailPage(): JSX.Element {
         >
           {(record) => (
             <article>
-              <p class="eyebrow">Published question</p>
               <section aria-label="Question prompt">
                 <Show
                   when={record().summary.backend === "webwork"}

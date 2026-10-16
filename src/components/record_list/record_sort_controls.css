@@ -1,0 +1,38 @@
+.record-sort__heading {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.record-sort__heading:hover,
+.record-sort__heading:focus-visible {
+  text-decoration: underline;
+}
+
+.record-sort__direction {
+  padding-inline-start: 0.2em;
+}
+
+.record-sort__menu {
+  display: grid;
+  gap: var(--ple-space-1);
+  max-inline-size: max-content;
+  font-weight: 600;
+}
+
+.record-sort__menu select {
+  min-inline-size: 14rem;
+}
+
+.record-sort__disclosure > summary {
+  cursor: pointer;
+}
+
+.record-sort__disclosure > .record-sort__menu {
+  margin-block-start: var(--ple-space-2);
+}

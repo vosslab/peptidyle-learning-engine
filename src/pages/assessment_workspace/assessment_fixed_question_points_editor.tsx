@@ -3,7 +3,7 @@ import { Show, createMemo, createSignal, type Accessor, type JSX } from "solid-j
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
 import { assessmentPointValueDraft } from "../../assessment_point_value";
-import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
+import { UnsavedChangesGuard, trackEditorSave } from "../../components/unsaved_changes_guard";
 import { RecordList, type RecordContent } from "../../components/record_list/record_list";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
@@ -104,6 +104,7 @@ export function AssessmentFixedQuestionPointsEditor(
       setSaving(false);
     }
   }
+  const trackedSave = trackEditorSave(save);
 
   function fixedQuestionContent(entry: FixedQuestionEntry): RecordContent {
     const revision = entry.publishedQuestionRevisionTuple;
@@ -178,7 +179,8 @@ export function AssessmentFixedQuestionPointsEditor(
     <section aria-labelledby="fixed-question-points-heading">
       <UnsavedChangesGuard
         dirty={dirty}
-        save={save}
+        save={trackedSave.save}
+        inFlightSave={trackedSave.inFlightSave}
         copy={{
           heading: "Save fixed Question point values?",
           description: "Your fixed Question point-value changes have not been saved.",
@@ -222,7 +224,7 @@ export function AssessmentFixedQuestionPointsEditor(
                 class="primary-action"
                 type="button"
                 disabled={!valid() || saving() || conflict()}
-                onClick={() => void save()}
+                onClick={() => void trackedSave.save()}
               >
                 {saving() ? "Saving point values..." : "Save fixed Question point values"}
               </button>

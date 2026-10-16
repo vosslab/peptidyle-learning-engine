@@ -13,6 +13,7 @@ BEGIN
 END
 $$;
 
+
 CREATE TRIGGER blueprint_change_proposal_is_immutable
 BEFORE UPDATE OR DELETE ON ple_data.blueprint_change_proposal
 FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_proposal_evidence_change();
@@ -22,6 +23,72 @@ BEFORE UPDATE OR DELETE ON ple_data.blueprint_change_proposal_acceptance
 FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_proposal_evidence_change();
 
 SET LOCAL ROLE ple_api_owner;
+
+-- ASVS 8.2.2: facet totals use the same participant and current-visibility scope as list pages.
+CREATE FUNCTION ple_api.blueprint_change_proposal_status_counts(
+    p_target_blueprint_course_id text, p_mine boolean, p_text text
+) RETURNS TABLE (proposed_count bigint, stale_count bigint, accepted_count bigint)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    v_actor text := ple_api.current_session_account_id();
+BEGIN
+    IF p_mine IS NULL OR p_text IS NULL OR length(p_text) > 160
+       OR (p_mine AND p_target_blueprint_course_id IS NOT NULL)
+       OR (NOT p_mine AND (p_target_blueprint_course_id IS NULL
+           OR NOT ple_private.is_canonical_prefixed_public_id(p_target_blueprint_course_id, 'BP')))
+       OR v_actor IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION 'Blueprint Proposal list request is invalid' USING ERRCODE = '22023';
+    END IF;
+    IF NOT p_mine AND NOT EXISTS (
+        SELECT 1 FROM ple_data.blueprint_course AS target
+         WHERE target.blueprint_course_id = p_target_blueprint_course_id
+           AND target.availability IN ('public', 'archived')
+           AND (target.owner_account_id = v_actor OR EXISTS (
+               SELECT 1 FROM ple_data.blueprint_change_proposal AS proposal
+                JOIN ple_data.blueprint_course AS source
+                  ON source.blueprint_course_id = proposal.source_blueprint_course_id
+                WHERE proposal.target_blueprint_course_id = target.blueprint_course_id
+                  AND proposal.proposer_account_id = v_actor
+                  AND source.availability IN ('public', 'archived')
+           ))
+    ) THEN
+        RAISE EXCEPTION 'Blueprint Proposal list is unavailable' USING ERRCODE = '42501';
+    END IF;
+    RETURN QUERY
+    SELECT count(*) FILTER (WHERE accepted.blueprint_change_proposal_id IS NULL
+                                 AND target.current_blueprint_revision_number = proposal.target_revision_number
+                                 AND target.blueprint_edit_number = proposal.target_blueprint_edit_number),
+           count(*) FILTER (WHERE accepted.blueprint_change_proposal_id IS NULL
+                                 AND (target.current_blueprint_revision_number <> proposal.target_revision_number
+                                      OR target.blueprint_edit_number <> proposal.target_blueprint_edit_number)),
+           count(*) FILTER (WHERE accepted.blueprint_change_proposal_id IS NOT NULL)
+      FROM ple_data.blueprint_change_proposal AS proposal
+      JOIN ple_data.blueprint_course AS source
+        ON source.blueprint_course_id = proposal.source_blueprint_course_id
+      JOIN ple_data.blueprint_course AS target
+        ON target.blueprint_course_id = proposal.target_blueprint_course_id
+      JOIN ple_data.blueprint_metadata_event AS source_event
+        ON source_event.blueprint_course_id = proposal.source_blueprint_course_id
+       AND source_event.blueprint_edit_number = proposal.source_blueprint_edit_number
+      JOIN ple_data.blueprint_metadata_event AS target_event
+        ON target_event.blueprint_course_id = proposal.target_blueprint_course_id
+       AND target_event.blueprint_edit_number = proposal.target_blueprint_edit_number
+      LEFT JOIN ple_data.blueprint_change_proposal_acceptance AS accepted
+        ON accepted.blueprint_change_proposal_id = proposal.blueprint_change_proposal_id
+       AND accepted.target_blueprint_course_id = proposal.target_blueprint_course_id
+     WHERE (p_mine AND proposal.proposer_account_id = v_actor
+            OR NOT p_mine AND target.blueprint_course_id = p_target_blueprint_course_id)
+       AND (proposal.proposer_account_id = v_actor OR target.owner_account_id = v_actor)
+       AND source.availability IN ('public', 'archived')
+       AND target.availability IN ('public', 'archived')
+       AND (p_text = '' OR source_event.long_name ILIKE '%' || p_text || '%'
+            OR source_event.short_name ILIKE '%' || p_text || '%'
+            OR target_event.long_name ILIKE '%' || p_text || '%'
+            OR target_event.short_name ILIKE '%' || p_text || '%'
+            OR proposal.blueprint_change_proposal_id::text ILIKE '%' || p_text || '%');
+END
+$$;
 
 CREATE FUNCTION ple_api.create_blueprint_change_proposal(
     p_source_blueprint_course_id text, p_source_blueprint_revision_number bigint, p_source_blueprint_edit_number bigint,
@@ -81,7 +148,7 @@ BEGIN
     INSERT INTO ple_data.blueprint_change_proposal VALUES (
         v_proposal_id, v_actor, v_source.blueprint_course_id, p_source_blueprint_revision_number,
         p_source_blueprint_edit_number, v_target.blueprint_course_id, p_target_blueprint_revision_number,
-        p_target_blueprint_edit_number, clock_timestamp()
+        p_target_blueprint_edit_number, transaction_timestamp()
     );
     RETURN v_proposal_id;
 END
@@ -142,7 +209,7 @@ $$;
 
 CREATE FUNCTION ple_api.list_blueprint_change_proposals(
     p_target_blueprint_course_id text, p_mine boolean, p_after_created_at text,
-    p_after_proposal_id uuid, p_limit integer
+    p_after_proposal_id uuid, p_limit integer, p_text text, p_ascending boolean, p_status text
 ) RETURNS TABLE (
     blueprint_change_proposal_id uuid, created_at_ms bigint, created_at_key text,
     source_blueprint_course_id text, source_revision_number bigint, source_blueprint_edit_number bigint,
@@ -159,6 +226,10 @@ DECLARE
 BEGIN
     -- ASVS 2.2.1/2/3: exactly one scope, bounded lookahead, and paired precise keys.
     IF p_mine IS NULL OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 101
+       OR p_text IS NULL OR length(p_text) > 160 OR p_ascending IS NULL
+       OR p_status NOT IN ('', 'accepted', 'proposed', 'stale',
+                           'accepted,proposed', 'accepted,stale', 'proposed,stale',
+                           'accepted,proposed,stale') OR p_status IS NULL
        OR (p_mine AND p_target_blueprint_course_id IS NOT NULL)
        OR (NOT p_mine AND (p_target_blueprint_course_id IS NULL
            OR NOT ple_private.is_canonical_prefixed_public_id(p_target_blueprint_course_id, 'BP')))
@@ -229,8 +300,27 @@ BEGIN
        AND (proposal.proposer_account_id = v_actor OR target.owner_account_id = v_actor)
        AND source.availability IN ('public', 'archived')
        AND target.availability IN ('public', 'archived')
-       AND (v_after IS NULL OR (proposal.created_at, proposal.blueprint_change_proposal_id) < (v_after, p_after_proposal_id))
-     ORDER BY proposal.created_at DESC, proposal.blueprint_change_proposal_id DESC
+       AND (p_text = '' OR source_event.long_name ILIKE '%' || p_text || '%'
+            OR source_event.short_name ILIKE '%' || p_text || '%'
+            OR target_event.long_name ILIKE '%' || p_text || '%'
+            OR target_event.short_name ILIKE '%' || p_text || '%'
+            OR proposal.blueprint_change_proposal_id::text ILIKE '%' || p_text || '%')
+       AND (p_status = ''
+            OR 'accepted' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NOT NULL
+            OR 'stale' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NULL
+               AND (target.current_blueprint_revision_number <> proposal.target_revision_number
+                    OR target.blueprint_edit_number <> proposal.target_blueprint_edit_number)
+            OR 'proposed' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NULL
+               AND target.current_blueprint_revision_number = proposal.target_revision_number
+               AND target.blueprint_edit_number = proposal.target_blueprint_edit_number)
+       AND (v_after IS NULL OR p_ascending AND
+            (proposal.created_at, proposal.blueprint_change_proposal_id) > (v_after, p_after_proposal_id)
+            OR v_after IS NOT NULL AND NOT p_ascending AND
+            (proposal.created_at, proposal.blueprint_change_proposal_id) < (v_after, p_after_proposal_id))
+     ORDER BY CASE WHEN p_ascending THEN proposal.created_at END ASC,
+              CASE WHEN p_ascending THEN proposal.blueprint_change_proposal_id END ASC,
+              CASE WHEN NOT p_ascending THEN proposal.created_at END DESC,
+              CASE WHEN NOT p_ascending THEN proposal.blueprint_change_proposal_id END DESC
      LIMIT p_limit;
 END
 $$;

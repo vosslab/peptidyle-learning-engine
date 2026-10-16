@@ -271,6 +271,9 @@ struct InstallationCourseSearch {
     cursor: Option<String>,
     #[serde(default)]
     page_size: Option<u16>,
+    sort: String,
+    activity: Vec<String>,
+    retention: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -285,6 +288,15 @@ struct InstallationCourseListQuery {
 struct InstallationCourseListResponse {
     courses: Vec<learning_data_access::InstallationCourseInspection>,
     next_cursor: Option<String>,
+    activity_choices: Vec<InstallationCourseChoice>,
+    retention_choices: Vec<InstallationCourseChoice>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstallationCourseChoice {
+    key: String,
+    count: i64,
 }
 
 async fn list_installation_courses(
@@ -302,7 +314,19 @@ async fn list_installation_courses(
         }
     };
     // ASVS 14.2.1: the unfiltered page carries no search text in the URL.
-    installation_courses_response(&state, &headers, "", cursor, page_size).await
+    installation_courses_response(
+        &state,
+        &headers,
+        InstallationCourseSearch {
+            query: String::new(),
+            cursor,
+            page_size: Some(page_size),
+            sort: "nameAscending".to_owned(),
+            activity: vec![],
+            retention: vec![],
+        },
+    )
+    .await
 }
 
 async fn search_installation_courses(
@@ -311,33 +335,45 @@ async fn search_installation_courses(
     Json(input): Json<InstallationCourseSearch>,
 ) -> Response {
     // ASVS 14.2.1: Instructor and Course search text stays in the request body.
-    installation_courses_response(
-        &state,
-        &headers,
-        &input.query,
-        input.cursor,
-        input.page_size.unwrap_or(50),
-    )
-    .await
+    installation_courses_response(&state, &headers, input).await
 }
 
 async fn installation_courses_response(
     state: &CourseInstanceRouteState,
     headers: &HeaderMap,
-    query: &str,
-    cursor: Option<String>,
-    page_size: u16,
+    input: InstallationCourseSearch,
 ) -> Response {
     let session_hash = match sysadmin_session_hash(state, headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
     // ASVS 2.2.1/2.2.2: bound the search before it reaches the store.
-    let query = match bounded_installation_query(query) {
+    let query = match bounded_installation_query(&input.query) {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let size = match DiscoveryPageSize::new(page_size) {
+    let mut activity = input.activity;
+    let mut retention = input.retention;
+    activity.sort();
+    activity.dedup();
+    retention.sort();
+    retention.dedup();
+    if !matches!(input.sort.as_str(), "nameAscending" | "nameDescending")
+        || activity.len() > 2
+        || retention.len() > 3
+        || activity
+            .iter()
+            .any(|value| !matches!(value.as_str(), "active" | "inactive"))
+        || retention
+            .iter()
+            .any(|value| !matches!(value.as_str(), "active" | "archived" | "deleted"))
+    {
+        return route_error(
+            StatusCode::BAD_REQUEST,
+            "installation Course filter is invalid",
+        );
+    }
+    let size = match DiscoveryPageSize::new(input.page_size.unwrap_or(50)) {
         Ok(size) => size,
         Err(_) => {
             return route_error(
@@ -346,7 +382,7 @@ async fn installation_courses_response(
             );
         }
     };
-    let page = match cursor {
+    let page = match input.cursor {
         Some(value) if value.len() <= 4096 => match Cursor::parse(value) {
             Ok(cursor) => DiscoveryPageRequest::after(cursor, size),
             Err(_) => {
@@ -366,16 +402,45 @@ async fn installation_courses_response(
     };
     match state
         .courses
-        .list_installation_courses(session_hash, &query, page)
+        .list_installation_courses(
+            session_hash,
+            &query,
+            &input.sort,
+            &activity,
+            &retention,
+            page,
+        )
         .await
     {
-        Ok(page) => crate::auth::no_store(
-            Json(InstallationCourseListResponse {
-                courses: page.items,
-                next_cursor: page.next_cursor.map(|cursor| cursor.as_str().to_owned()),
-            })
-            .into_response(),
-        ),
+        Ok(page) => {
+            let facets = match state
+                .courses
+                .list_installation_course_facets(session_hash, &query, &activity, &retention)
+                .await
+            {
+                Ok(value) => value,
+                Err(error) => return store_error_response(error),
+            };
+            let choices = |field: &str| {
+                facets
+                    .iter()
+                    .filter(|choice| choice.field_name == field)
+                    .map(|choice| InstallationCourseChoice {
+                        key: choice.choice_key.clone(),
+                        count: choice.matching_count,
+                    })
+                    .collect()
+            };
+            crate::auth::no_store(
+                Json(InstallationCourseListResponse {
+                    courses: page.items,
+                    next_cursor: page.next_cursor.map(|cursor| cursor.as_str().to_owned()),
+                    activity_choices: choices("activity"),
+                    retention_choices: choices("retention"),
+                })
+                .into_response(),
+            )
+        }
         Err(error) => store_error_response(error),
     }
 }

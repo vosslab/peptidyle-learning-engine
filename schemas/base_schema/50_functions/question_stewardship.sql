@@ -233,66 +233,6 @@ $$;
 
 
 
--- The personal collection is the current Instructor's own Stars, newest first.
--- It follows question_star_instructor_collection_idx and returns no Account,
--- email, or other Instructor's list. The bounded keyset page follows the
--- existing Question discovery page-size range.
--- ASVS 8.2.1 and 8.3.1: the caller is the installed session, never a browser
--- Account claim.
-CREATE FUNCTION ple_data.list_current_starred_questions(
-    p_after_starred_at_micros bigint,
-    p_after_published_question_id text,
-    p_page_size integer
-)
-RETURNS TABLE (
-    published_question_id text,
-    question_title text,
-    starred_at_micros bigint
-) LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE
-    actor_id text;
-BEGIN
-    actor_id := ple_api.current_session_account_id();
-    IF actor_id IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN
-        RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Question Star requires an active Instructor Account';
-    END IF;
-    IF p_page_size NOT BETWEEN 1 AND 250
-       OR (p_after_starred_at_micros IS NULL) <> (p_after_published_question_id IS NULL) THEN
-        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question Star page is invalid';
-    END IF;
-    RETURN QUERY
-    SELECT star.published_question_id::text,
-           metadata.question_title,
-           floor(extract(epoch FROM star.starred_at) * 1000000)::bigint
-      FROM ple_data.question_star AS star
-      JOIN LATERAL (
-          SELECT accepted.revision_number
-            FROM ple_data.question_revision_acceptance AS accepted
-           WHERE accepted.published_question_id = star.published_question_id
-           ORDER BY accepted.revision_number DESC
-           LIMIT 1
-      ) AS latest ON true
-      JOIN ple_data.question_revision_metadata AS metadata
-        ON metadata.published_question_id = star.published_question_id
-       AND metadata.revision_number = latest.revision_number
-     WHERE star.instructor_account_id = actor_id
-       AND (p_after_starred_at_micros IS NULL OR
-            star.starred_at <
-                (pg_catalog.to_timestamp((p_after_starred_at_micros / 1000000)::double precision) +
-                    ((p_after_starred_at_micros % 1000000)::double precision * interval '1 microsecond'))
-            OR (star.starred_at =
-                (pg_catalog.to_timestamp((p_after_starred_at_micros / 1000000)::double precision) +
-                    ((p_after_starred_at_micros % 1000000)::double precision * interval '1 microsecond'))
-                AND star.published_question_id > p_after_published_question_id))
-     ORDER BY star.starred_at DESC, star.published_question_id
-     LIMIT p_page_size + 1;
-END
-$$;
-
-
-
 -- This private subscription operation derives the watcher from the
 -- authenticated session.  It never accepts an Account identifier and grants
 -- no read path for another Instructor's Watch state.  Retried requests are
@@ -434,19 +374,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.read_current_question_star($1)
 $$;
 
-CREATE FUNCTION ple_api.list_current_starred_questions(
-    p_after_starred_at_micros bigint,
-    p_after_published_question_id text,
-    p_page_size integer
-)
-RETURNS TABLE (
-    published_question_id text,
-    question_title text,
-    starred_at_micros bigint
-) LANGUAGE sql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT * FROM ple_data.list_current_starred_questions($1, $2, $3)
-$$;
+
 
 CREATE FUNCTION ple_api.set_current_question_watch(
     p_published_question_id text,

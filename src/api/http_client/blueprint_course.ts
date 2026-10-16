@@ -12,7 +12,8 @@ import {
 import { decodeBlueprintHistoryPageView } from "../decoders/blueprint_history";
 import { decodeUuid } from "../decoder";
 import { decodeCourseClassification } from "../decoders/course_classification";
-import { decodeCursor, decodeQuestionId } from "../decoders/shared";
+import { decodeBlueprintCourseFacetChoices } from "../decoders/blueprint_course_facets";
+import { decodeQuestionId } from "../decoders/shared";
 import {
   emptyRecognitionTitles,
   mergeRecognitionTitles,
@@ -24,7 +25,7 @@ import type { BlueprintCourseSaveResponse } from "../../../generated/api/Bluepri
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintMetadataState } from "../../../generated/api/BlueprintMetadataState";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
-import type { BlueprintHistoryPageView } from "../../../generated/api/BlueprintHistoryPageView";
+import type { BlueprintHistoryPage, BlueprintHistoryQuery } from "../blueprint_course";
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
 import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintForkApplyResponse } from "../../../generated/api/BlueprintForkApplyResponse";
@@ -54,6 +55,10 @@ import type {
   BlueprintCourseClassificationSearch,
   BlueprintIdempotencyKey,
   BlueprintCourseListSort,
+  BlueprintCourseFacetFilters,
+  BlueprintCourseFacetField,
+  BlueprintCourseFacetRequest,
+  BlueprintCourseFacetChoices,
   BlueprintMetadataTransition,
   LoadedBlueprintCourse,
 } from "../blueprint_course";
@@ -81,6 +86,7 @@ function pagePath(
   classification?: BlueprintCourseClassificationSearch,
   sort: BlueprintCourseListSort = "name",
   tag = "",
+  facets?: BlueprintCourseFacetFilters,
 ): string {
   if (
     pageSize !== undefined &&
@@ -101,7 +107,22 @@ function pagePath(
     throw new ApiProtocolError("Public Blueprint Course search cannot include Archived courses");
   }
   if (
-    !(["name", "adoptions", "students", "stars", "watches", "recentEdits"] as const).includes(sort)
+    !(
+      [
+        "name",
+        "nameDescending",
+        "adoptions",
+        "adoptionsAscending",
+        "students",
+        "studentsAscending",
+        "stars",
+        "starsAscending",
+        "watches",
+        "watchesAscending",
+        "recentEdits",
+        "recentEditsAscending",
+      ] as const
+    ).includes(sort)
   ) {
     throw new ApiProtocolError(
       "Blueprint Course sort must be name, stars, watches, adoptions, students, or recentEdits",
@@ -122,6 +143,31 @@ function pagePath(
   if (promotedOnly) query.set("promotedOnly", "true");
   if (sort !== "name") query.set("sort", sort);
   if (tag !== "") query.set("tag", tag);
+  if (facets !== undefined) {
+    const keys = {
+      disciplineUuids: "discipline_uuids",
+      subjectUuids: "subject_uuids",
+      topicUuids: "topic_uuids",
+      subtopicUuids: "subtopic_uuids",
+      tags: "tags",
+    } as const;
+    for (const field of Object.keys(keys) as BlueprintCourseFacetField[]) {
+      const values = facets[field];
+      // ASVS 2.2.1: mirror the service's bounded facet input before URL construction.
+      if (values.length > 20) throw new ApiProtocolError(`Too many Blueprint ${field} filters`);
+      for (const value of values) {
+        if (field !== "tags") query.append(keys[field], decodeUuid(value, field));
+        else if (
+          value.length === 0 ||
+          value.trim() !== value ||
+          Array.from(value).length > 120 ||
+          /\p{Cc}/u.test(value)
+        )
+          throw new ApiProtocolError("Blueprint tag filter is invalid");
+        else query.append(keys[field], value);
+      }
+    }
+  }
   if (classification !== undefined) {
     // ASVS 2.2.1-2.2.3: validate UUIDs and complete chains; service validates real parents.
     const { disciplineUuid, subjectUuid, topicUuid, subtopicUuid, crossDiscipline } =
@@ -310,13 +356,40 @@ export function createBlueprintCourseClient(
     },
     listBlueprintHistory: async (
       blueprintCourseId,
-      kind = "revisions",
+      kind,
+      query: BlueprintHistoryQuery,
       cursor,
-      pageSize = 50,
-    ): Promise<BlueprintHistoryPageView> => {
+      pageSize,
+    ): Promise<BlueprintHistoryPage> => {
       if (kind !== "revisions" && kind !== "metadata")
         throw new ApiProtocolError("Blueprint history kind must be revisions or metadata");
-      const path = `${pagePath(`${blueprintPath(blueprintCourseId)}/history`, cursor === undefined ? undefined : decodeCursor(cursor, "cursor"), pageSize, false)}&kind=${kind}`;
+      if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100)
+        throw new ApiProtocolError("Blueprint history page size must be 1 through 100");
+      if (query.q.length > 120 || /\p{Cc}/u.test(query.q))
+        throw new ApiProtocolError("Blueprint history search is invalid");
+      if (
+        !["sequence", "recordedAt", "name"].includes(query.sort) ||
+        (kind === "revisions" && query.sort === "name") ||
+        !["ascending", "descending"].includes(query.direction) ||
+        query.availability.some((value) => value !== "public" && value !== "archived") ||
+        (kind === "revisions" && query.availability.length > 0)
+      )
+        throw new ApiProtocolError("Blueprint history query is invalid");
+      const params = new URLSearchParams({
+        kind,
+        q: query.q,
+        sort: query.sort,
+        direction: query.direction,
+        pageSize: String(pageSize),
+      });
+      if (query.availability.length > 0)
+        params.set("availability", [...new Set(query.availability)].sort().join(","));
+      if (cursor !== null) {
+        if (cursor.length === 0 || cursor.length > 8192 || !/^[A-Za-z0-9_-]+$/u.test(cursor))
+          throw new ApiProtocolError("Blueprint history cursor is invalid");
+        params.set("cursor", cursor);
+      }
+      const path = `${blueprintPath(blueprintCourseId)}/history?${params}`;
       const body = (
         await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintHistoryPageView, {
           expectedStatus: 200,
@@ -457,6 +530,7 @@ export function createBlueprintCourseClient(
       classification,
       sort,
       tag = "",
+      facets,
     ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
       const path = pagePath(
         "/api/course-blueprints",
@@ -469,9 +543,45 @@ export function createBlueprintCourseClient(
         classification,
         sort,
         tag,
+        facets,
       );
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintCoursePage))
         .body;
+    },
+    listBlueprintCourseFacetChoices: async (
+      field: BlueprintCourseFacetField,
+      request: BlueprintCourseFacetRequest,
+      choiceSearch: string,
+      choiceCursor: string | null,
+    ): Promise<BlueprintCourseFacetChoices> => {
+      if (Array.from(choiceSearch).length > 128 || /\p{Cc}/u.test(choiceSearch))
+        throw new ApiProtocolError("Blueprint choice search is invalid");
+      if (choiceCursor !== null && (choiceCursor.length === 0 || choiceCursor.length > 16384))
+        throw new ApiProtocolError("Blueprint choice cursor is invalid");
+      const path = pagePath(
+        `/api/course-blueprints/facet-choices/${encodeURIComponent(field)}`,
+        undefined,
+        undefined,
+        request.includeArchived,
+        request.query,
+        request.publicOnly,
+        request.promotedOnly,
+        request.classification,
+        request.sort,
+        request.tag,
+        request.facets,
+      );
+      const url = new URL(path, "https://local.invalid");
+      if (choiceSearch !== "") url.searchParams.set("choiceSearch", choiceSearch);
+      if (choiceCursor !== null) url.searchParams.set("choiceCursor", choiceCursor);
+      return (
+        await blueprintJson(
+          fetchImplementation,
+          basePath,
+          `${url.pathname}${url.search}`,
+          decodeBlueprintCourseFacetChoices,
+        )
+      ).body;
     },
     getBlueprintCourse: async (blueprintCourseId): Promise<LoadedBlueprintCourse> => {
       const path = blueprintPath(blueprintCourseId);

@@ -1,9 +1,12 @@
 // provided_avatar_picker.tsx - catalog-driven provided-avatar controls.
 
-import type { JSX } from "solid-js";
+import { createResource, type JSX } from "solid-js";
 
-import { RecordListImageBrowser } from "../../components/record_list/record_list_image_browser";
 import type { RecordContent, RecordListSelection } from "../../components/record_list/record_list";
+import type { RecordField } from "../../components/record_list/record_fields";
+import { SearchBlock } from "../search/search_block";
+import { SearchControls } from "../search/search_controls";
+import { createLocalCompleteSearch } from "../search/local_complete_search_state";
 import {
   PROVIDED_AVATAR_CATALOG,
   type ProvidedAvatarCatalogEntry,
@@ -71,6 +74,23 @@ function avatarContent(entry: ProvidedAvatarCatalogEntry): RecordContent {
   };
 }
 
+const avatarFields: ReadonlyArray<RecordField<ProvidedAvatarCatalogEntry, "name", never>> = [
+  {
+    id: "name",
+    label: "Avatar",
+    role: "identity",
+    value: (entry) => entry.name,
+    sortKey: "name",
+    defaultColumn: { priority: 1 },
+  },
+  {
+    id: "description",
+    label: "Description",
+    value: (entry) => entry.description,
+    defaultColumn: { priority: 2 },
+  },
+];
+
 /**
  * Presents the selectable generated catalog as native radio controls.
  * Native radios provide Tab entry and Arrow-key movement without a custom focus model.
@@ -78,6 +98,7 @@ function avatarContent(entry: ProvidedAvatarCatalogEntry): RecordContent {
 export function ProvidedAvatarPicker(props: ProvidedAvatarPickerProps): JSX.Element {
   const selectableEntries = (): readonly ProvidedAvatarCatalogEntry[] =>
     PROVIDED_AVATAR_CATALOG.filter((entry) => entry.isSelectable);
+  const [entries, { refetch }] = createResource(selectableEntries);
   const selection: RecordListSelection<ProvidedAvatarCatalogEntry> = {
     kind: "radio",
     selectedIds: () =>
@@ -87,6 +108,15 @@ export function ProvidedAvatarPicker(props: ProvidedAvatarPickerProps): JSX.Elem
       if (selected) props.onSelect(entry.id);
     },
   };
+  const avatarSearch = createLocalCompleteSearch(
+    { resource: entries, refetchSource: refetch, rows: (value) => value },
+    {
+      fields: avatarFields,
+      rowId: (entry) => entry.id,
+      keyword: (entry) => `${entry.name} ${entry.description}`,
+      content: avatarContent,
+    },
+  );
 
   return (
     <fieldset class="provided-avatar-picker">
@@ -95,14 +125,17 @@ export function ProvidedAvatarPicker(props: ProvidedAvatarPickerProps): JSX.Elem
         Pick a playful PLE avatar. Your choice is shown with your account where provided avatars are
         supported.
       </p>
-      <RecordListImageBrowser
-        ariaLabel="Available provided avatars"
-        content={avatarContent}
-        emptyState={{ title: "No provided avatars are available." }}
-        recordId={(entry) => entry.id}
-        rows={selectableEntries()}
-        selection={selection}
-        state={{ kind: "ready" }}
+      <SearchBlock
+        layout="above"
+        controls={<SearchControls state={avatarSearch.state} textLabel="Search avatars" />}
+        state={avatarSearch.state}
+        collection={{
+          ariaLabel: "Available provided avatars",
+          emptyState: { title: "No avatars match your search." },
+          fields: avatarFields,
+          query: avatarSearch.query,
+          selection: () => selection,
+        }}
       />
     </fieldset>
   );

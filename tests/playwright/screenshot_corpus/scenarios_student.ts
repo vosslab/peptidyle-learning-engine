@@ -1,6 +1,6 @@
 // scenarios_student.ts - Student course, invitation, delivery, and denial survey.
 // Selector contract: shared Course and Assessment actions live in visible_workflows.ts:47; Student
-// Course page identity is owned by PageFrame in the Student Course landing and Grades pages;
+// Course page identity comes from the Ribbon and breadcrumbs;
 // other Student headings and controls are owned by src/pages/student_courses_page.tsx:29,
 // src/pages/student_course_invitation_page.tsx:42, src/pages/assessment_overview_page.tsx,
 // src/pages/assessment_attempt_page.tsx, and src/pages/assessment_attempt_summary_page.tsx.
@@ -67,11 +67,9 @@ async function studentCoursesNavigation(runtime: ScenarioRuntime): Promise<void>
         .waitFor();
       await captureCheckpoint(runtime, checkpoint, session);
       await openStudentCourse(session.page);
-      await session.page
-        .getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true })
-        .waitFor();
+      await session.page.getByRole("main", { name: COURSE_TITLE, exact: true }).waitFor();
       await session.page.getByRole("link", { name: "Course Progress", exact: true }).waitFor();
-      await session.page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }).waitFor();
+      await courseworkRow(session.page, ASSIGNMENT_TITLE).waitFor();
       await captureCheckpoint(
         runtime,
         checkpoint.replace("course_list", "course_landing"),
@@ -99,12 +97,12 @@ async function studentScores(runtime: ScenarioRuntime): Promise<void> {
         .getByRole("link", { name: "Grades", exact: true })
         .click();
       await session.page.locator('[data-route-surface="studentScores"]').waitFor();
-      await session.page.getByRole("heading", { level: 1, name: "Scores", exact: true }).waitFor();
+      await session.page.getByRole("main", { name: "Scores", exact: true }).waitFor();
       await session.page
         .getByText("Loading Courses...", { exact: true })
         .waitFor({ state: "hidden" });
       await session.page
-        .getByRole("list", { name: /Scores$/u })
+        .getByRole("table", { name: /Scores$/u })
         .or(
           session.page.getByText("No released Scores are available for this Course yet.", {
             exact: true,
@@ -131,7 +129,7 @@ async function prepareStudentInvitation(
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+    await page.getByRole("main", { name: "My Active Courses", exact: true }).waitFor();
     // Create Course Instance is a disclosure that auto-expands only for an empty list; the
     // seeded Instructor already teaches one Course, so expand it when still collapsed.
     const createDisclosure = page.getByRole("button", {
@@ -163,7 +161,7 @@ async function prepareStudentInvitation(
     }
     await followCaptureLink(page, created.getByRole("link", { name: "Open Course", exact: true }));
     await page.getByRole("link", { name: "Open Students", exact: true }).click();
-    await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
+    await page.getByRole("main", { name: "Students", exact: true }).waitFor();
     await page.getByText("Loading", { exact: false }).first().waitFor({ state: "hidden" });
     const invitationRosterRow = page.locator('tr[data-record-id="screenshot-invitation"]');
     let createPendingInvitation = (await invitationRosterRow.count()) === 0;
@@ -213,14 +211,14 @@ async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
       await choosePersona(page, "Mary Okafor");
       await openStudentCourseList(page);
       await page.getByRole("link", { name: "Course invitations", exact: true }).click();
-      await page.getByRole("heading", { name: "Course invitations", exact: true }).waitFor();
+      await page.getByRole("main", { name: "Course Invitations", exact: true }).waitFor();
       await page
         .getByText("Loading course invitations...", { exact: true })
         .waitFor({ state: "hidden" });
       const invitation = page
-        .getByRole("list", { name: "Course invitations", exact: true })
-        .getByRole("listitem")
-        .filter({ hasText: INVITATION_COURSE_LONG_NAME });
+        .getByRole("table", { name: "Course invitations", exact: true })
+        .locator("tr[data-record-id]")
+        .filter({ has: page.getByText(INVITATION_COURSE_LONG_NAME, { exact: true }) });
       await invitation.waitFor();
       await captureCheckpoint(runtime, `invitation_index_${viewport}`, session);
       await followCaptureLink(
@@ -247,18 +245,20 @@ async function studentTwoCourseList(runtime: ScenarioRuntime): Promise<void> {
       const page = session.page;
       await choosePersona(page, "Mary Okafor");
       await openStudentCourseList(page);
-      await page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
+      await page.getByRole("main", { name: "Courses", exact: true }).waitFor();
       const courseCards = page
-        .getByRole("list", { name: "Your courses", exact: true })
-        .getByRole("listitem");
+        .getByRole("table", { name: "Your courses", exact: true })
+        .locator("tr[data-record-id]");
       await courseCards.first().waitFor();
-      const invitationCourseCard = courseCards.filter({ hasText: INVITATION_COURSE_LONG_NAME });
+      const invitationCourseCard = courseCards.filter({
+        has: page.getByText(INVITATION_COURSE_LONG_NAME, { exact: true }),
+      });
       if ((await invitationCourseCard.count()) === 0) {
         await page.getByRole("link", { name: "Course invitations", exact: true }).click();
         const invitation = page
-          .getByRole("list", { name: "Course invitations", exact: true })
-          .getByRole("listitem")
-          .filter({ hasText: INVITATION_COURSE_LONG_NAME });
+          .getByRole("table", { name: "Course invitations", exact: true })
+          .locator("tr[data-record-id]")
+          .filter({ has: page.getByText(INVITATION_COURSE_LONG_NAME, { exact: true }) });
         await followCaptureLink(
           page,
           invitation.getByRole("link", { name: "Review invitation", exact: true }),
@@ -266,7 +266,7 @@ async function studentTwoCourseList(runtime: ScenarioRuntime): Promise<void> {
         await page.getByRole("button", { name: "Accept invitation", exact: true }).click();
         await page.getByRole("status").getByText("Invitation accepted.", { exact: true }).waitFor();
         await openStudentCourseList(page);
-        await page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
+        await page.getByRole("main", { name: "Courses", exact: true }).waitFor();
         await courseCards.nth(1).waitFor();
       }
       if ((await courseCards.count()) < 2) {
@@ -334,7 +334,7 @@ async function captureAssignmentOverview(
     await openStudentCourse(session.page);
     await openAllStudentCoursework(session.page);
     await openStudentAssignment(session.page);
-    await session.page.getByRole("heading", { level: 1, name: ASSIGNMENT_TITLE }).waitFor();
+    await session.page.getByRole("main", { name: ASSIGNMENT_TITLE, exact: true }).waitFor();
     await captureCheckpoint(runtime, checkpoint, session);
   } finally {
     await runtime.close(session);
@@ -581,9 +581,7 @@ async function captureDenial(runtime: ScenarioRuntime, checkpoint: string): Prom
     await studentCoursesLoaded;
     await session.privacy.settleResponses();
     await session.page.goto(new URL("/library", runtime.entryUrl).href, { waitUntil: "commit" });
-    await session.page
-      .getByRole("heading", { name: "This page is not available to this account", exact: true })
-      .waitFor();
+    await session.page.locator('[data-route-surface="routeAccessDenied"]').waitFor();
     await captureCheckpoint(runtime, checkpoint, session);
   } finally {
     await runtime.close(session);

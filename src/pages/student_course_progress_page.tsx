@@ -1,7 +1,7 @@
 // Student-owned Course completion and released-score overview.
 
 import { A, useParams } from "@solidjs/router";
-import { createMemo, createResource, Show, type JSX } from "solid-js";
+import { createMemo, createResource, Show, type Accessor, type JSX } from "solid-js";
 
 import type {
   LiveStudentCourseLandingSummary,
@@ -10,12 +10,11 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { PageFrame } from "../components/page_frame";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordFact,
-  type RecordListState,
-} from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { byStudentTitleThenId, studentProgressFields } from "./student_collection_fields";
+import { type RecordContent, type RecordFact } from "../components/record_list/record_list";
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { buildRoutePath } from "../ribbon/ribbon_route_path";
@@ -86,16 +85,63 @@ function progressContent(
   };
 }
 
-function progressListState(loading: boolean, unavailable: boolean): RecordListState {
-  if (loading) return { kind: "loading", label: "Loading Coursework progress..." };
-  if (unavailable) {
-    return {
-      kind: "error",
-      title: "Coursework progress unavailable",
-      message: "Coursework progress could not be loaded right now.",
-    };
-  }
-  return { kind: "ready" };
+function StudentCourseProgressCollection(props: {
+  readonly course: LiveStudentCourseLandingSummary;
+  readonly formatDateTime: Accessor<ReturnType<typeof createDisplayDateTimeFormatter> | undefined>;
+}): JSX.Element {
+  const applicationApi = useApplicationApi();
+  const [assessments, { refetch }] = createResource(
+    () => props.course.id,
+    async (courseId) =>
+      byStudentTitleThenId(await applicationApi.client.getStudentCourseProgress(courseId)),
+  );
+  const progressSearch = createLocalCompleteSearch(
+    { resource: assessments, refetchSource: refetch, rows: (value) => value },
+    {
+      fields: studentProgressFields,
+      rowId: (assessment) => assessment.id,
+      keyword: (assessment) => `${assessment.title} ${assessment.assessmentType}`,
+      content: (assessment) => {
+        return progressContent(props.course, props.formatDateTime)(assessment);
+      },
+    },
+  );
+
+  return (
+    <section
+      class="student-course-progress"
+      aria-label={`${props.course.shortName} Course Progress`}
+    >
+      <p class="student-course-progress__completion">
+        {completedStudentAssessmentCount(assessments() ?? [])} of {assessments()?.length ?? 0}{" "}
+        released Coursework items completed with at least one submitted Attempt.
+      </p>
+      <p class="student-course-progress__disclosure">
+        "Score pending" means automatic grading is still running. Completion and a perfect score are
+        separate.
+      </p>
+      <SearchBlock
+        layout="above"
+        controls={
+          <SearchControls state={progressSearch.state} textLabel="Search Coursework progress" />
+        }
+        state={progressSearch.state}
+        collection={{
+          ariaLabel: "Coursework progress",
+          fields: studentProgressFields,
+          query: progressSearch.query,
+          get emptyState() {
+            return {
+              title:
+                progressSearch.state.query().text || progressSearch.state.query().filters.size
+                  ? "No Coursework progress matches your search."
+                  : "No Coursework has been released for this Course yet.",
+            };
+          },
+        }}
+      />
+    </section>
+  );
 }
 
 /** Shows every released Assessment, including those with Attempts but no released score. */
@@ -116,14 +162,10 @@ export function StudentCourseProgressPage(): JSX.Element {
     const id = courseInstanceId();
     return id === null ? undefined : courses()?.find((candidate) => candidate.id === id);
   });
-  const [assessments] = createResource(course, (current) =>
-    applicationApi.client.getStudentCourseProgress(current.id),
-  );
-  const unavailable = (): boolean =>
-    courseInstanceId() === null || courses.error !== undefined || assessments.error !== undefined;
+  const unavailable = (): boolean => courseInstanceId() === null || courses.error !== undefined;
 
   return (
-    <PageFrame routeSurface="studentCourseProgress" title={course()?.longName ?? "Course Progress"}>
+    <PageFrame routeSurface="studentCourseProgress">
       <Show when={courses.loading}>
         <p class="loading-state">Loading Course Progress...</p>
       </Show>
@@ -136,37 +178,14 @@ export function StudentCourseProgressPage(): JSX.Element {
           </A>
         </section>
       </Show>
-      <Show when={!unavailable() ? course() : undefined}>
+      <Show keyed when={!unavailable() ? course() : undefined}>
         {(current) => (
           <>
             <CourseEntryBanner />
             <A class="quiet-link" href="/student/courses">
               Your courses
             </A>
-            <section
-              class="student-course-progress"
-              aria-labelledby="student-course-progress-heading"
-            >
-              <h2 id="student-course-progress-heading">Course Progress</h2>
-              <p class="student-course-progress__completion">
-                {completedStudentAssessmentCount(assessments() ?? [])} of{" "}
-                {assessments()?.length ?? 0} released Coursework items completed with at least one
-                submitted Attempt.
-              </p>
-              <p class="student-course-progress__disclosure">
-                Every released Coursework item remains listed. A submitted Attempt is marked "Score
-                pending" only while automatic grading finishes; completion and a perfect score are
-                separate.
-              </p>
-              <RecordList
-                ariaLabel="Coursework progress"
-                emptyState={{ title: "No Coursework has been released for this Course yet." }}
-                recordId={(assessment) => assessment.id}
-                content={progressContent(current(), formatDateTime)}
-                rows={assessments() ?? []}
-                state={progressListState(assessments.loading, assessments.error !== undefined)}
-              />
-            </section>
+            <StudentCourseProgressCollection course={current} formatDateTime={formatDateTime} />
           </>
         )}
       </Show>

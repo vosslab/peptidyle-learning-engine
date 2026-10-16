@@ -150,15 +150,7 @@ async function questionLibrary(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Questions", exact: true })
     .click();
-  const libraryHeading = page.getByRole("heading", {
-    name: "Search Question Library",
-    exact: true,
-  });
-  const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
-  await Promise.race([libraryHeading.waitFor(), leaveSearch.waitFor()]);
-  if (await leaveSearch.isVisible()) {
-    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
-  }
+  const libraryHeading = page.getByRole("main", { name: "Question Library", exact: true });
   await libraryHeading.waitFor();
 }
 
@@ -210,7 +202,10 @@ async function discover(page: Page, example: Example): Promise<QuestionSummary |
   if (matches.length > 1) throw new Error(`Ambiguous published example: ${example.title}`);
   const summary = matches[0];
   if (summary !== undefined) {
-    await page.getByRole("heading", { name: example.title, exact: true }).waitFor();
+    await page
+      .locator(`tr[data-record-id="${summary.questionId}"]`)
+      .filter({ has: page.getByText(example.title, { exact: true }) })
+      .waitFor();
   }
   return summary;
 }
@@ -266,13 +261,8 @@ async function authorResponse(page: Page, example: Example): Promise<void> {
 async function publish(page: Page, example: Example): Promise<void> {
   if (example.format === undefined || example.prompt === undefined)
     throw new Error(`Installed publication missing: ${example.title}`);
-  await page.getByRole("link", { name: "My Draft Questions", exact: true }).click();
-  const draftHeading = page.getByRole("heading", { name: "My Draft Questions", exact: true });
-  const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
-  await Promise.race([draftHeading.waitFor(), leaveSearch.waitFor()]);
-  if (await leaveSearch.isVisible()) {
-    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
-  }
+  await page.getByRole("link", { name: "My Drafts", exact: true }).click();
+  const draftHeading = page.getByRole("main", { name: "My Drafts", exact: true });
   await draftHeading.waitFor();
   await page.getByLabel("Question source format").selectOption("pleQuestionJson");
   await page.getByRole("button", { name: "Create Draft Question", exact: true }).click();
@@ -341,18 +331,13 @@ async function prepare(
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    const courseListHeading = page.getByRole("heading", { name: "My Active Courses", exact: true });
-    const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
-    await Promise.race([courseListHeading.waitFor(), leaveSearch.waitFor()]);
-    if (await leaveSearch.isVisible()) {
-      await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
-    }
+    const courseListHeading = page.getByRole("main", { name: "My Active Courses", exact: true });
     await courseListHeading.waitFor();
     await openInstructorCourse(page);
-    const assessmentList = page.getByRole("list", { name: "Assessments", exact: true });
+    const assessmentList = page.getByRole("table", { name: "Assessments", exact: true });
     await assessmentList.waitFor();
-    const existingAssessment = assessmentList.getByRole("listitem").filter({
-      has: page.getByRole("heading", { name: assessmentTitle, exact: true }),
+    const existingAssessment = assessmentList.locator("tr[data-record-id]").filter({
+      has: page.getByText(assessmentTitle, { exact: true }),
     });
     const existingCount = await existingAssessment.count();
     if (existingCount > 1) {
@@ -375,13 +360,13 @@ async function prepare(
       );
     }
     await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
-    await page.getByRole("heading", { name: "Create an Assessment", exact: true }).waitFor();
+    await page.getByRole("main", { name: "New Assessment", exact: true }).waitFor();
     await page.getByLabel("Assessment title", { exact: true }).fill(assessmentTitle);
     await page
       .getByRole("combobox", { name: /^Assessment Type/u })
       .selectOption("practice_question_assignment");
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
-    await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
+    await page.getByRole("main", { name: "Questions", exact: true }).waitFor();
     for (const { example } of selected) {
       await page
         .getByRole("button", { name: "Choose published Assessment content", exact: true })
@@ -411,9 +396,7 @@ async function prepare(
       .getByText("Questions and order saved. Review Assessment Properties when you are ready.")
       .waitFor();
     await page.getByRole("link", { name: "Review Assessment Properties", exact: true }).click();
-    await page
-      .getByRole("heading", { name: "Assessment Properties Editor", exact: true })
-      .waitFor();
+    await page.getByRole("main", { name: "Properties", exact: true }).waitFor();
     await page
       .getByRole("group", { name: "Due date and time", exact: true })
       .locator('input[type="date"]')

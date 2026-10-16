@@ -21,6 +21,7 @@ use learning_data_access::{
     PageSize, SessionTokenHash,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 pub(super) async fn create(
     State(state): State<BlueprintCourseRouteState>,
@@ -136,6 +137,12 @@ pub(super) async fn accept(
 pub(super) struct TargetQuery {
     cursor: Option<String>,
     page_size: Option<u16>,
+    #[serde(default)]
+    text: String,
+    #[serde(default)]
+    sort: ProposalSort,
+    #[serde(default)]
+    status: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -144,6 +151,20 @@ pub(super) struct MineQuery {
     scope: MineScope,
     cursor: Option<String>,
     page_size: Option<u16>,
+    #[serde(default)]
+    text: String,
+    #[serde(default)]
+    sort: ProposalSort,
+    #[serde(default)]
+    status: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum ProposalSort {
+    #[default]
+    CreatedDescending,
+    CreatedAscending,
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,12 +173,92 @@ enum MineScope {
     Mine,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct TargetFacetQuery {
+    #[serde(default)]
+    text: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct MineFacetQuery {
+    scope: MineScope,
+    #[serde(default)]
+    text: String,
+}
+
+pub(super) async fn target_status_choices(
+    State(state): State<BlueprintCourseRouteState>,
+    headers: HeaderMap,
+    Path(target): Path<String>,
+    query: Result<Query<TargetFacetQuery>, QueryRejection>,
+) -> Response {
+    let (Ok(target), Ok(Query(query))) = (target.parse(), query) else {
+        return invalid_request();
+    };
+    status_choices(
+        &state,
+        &headers,
+        BlueprintChangeProposalListScope::Target(target),
+        &query.text,
+    )
+    .await
+}
+
+pub(super) async fn mine_status_choices(
+    State(state): State<BlueprintCourseRouteState>,
+    headers: HeaderMap,
+    query: Result<Query<MineFacetQuery>, QueryRejection>,
+) -> Response {
+    let Ok(Query(query)) = query else {
+        return invalid_request();
+    };
+    let MineScope::Mine = query.scope;
+    status_choices(
+        &state,
+        &headers,
+        BlueprintChangeProposalListScope::Mine,
+        &query.text,
+    )
+    .await
+}
+
+async fn status_choices(
+    state: &BlueprintCourseRouteState,
+    headers: &HeaderMap,
+    scope: BlueprintChangeProposalListScope,
+    text: &str,
+) -> Response {
+    // ASVS 2.2.1/2, 8.2.1/2: validate browser criteria and derive actor from the session.
+    let text = text.trim();
+    if text.len() > 160 || text.chars().any(|ch| matches!(ch, '%' | '_' | '\\')) {
+        return invalid_request();
+    }
+    let session = match instructor_session_hash(state, headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .blueprints
+        .blueprint_change_proposal_status_counts(session, scope, text)
+        .await
+    {
+        Ok([proposed, stale, accepted]) => crate::auth::no_store(
+            Json(serde_json::json!({
+                "proposed": proposed, "stale": stale, "accepted": accepted,
+            }))
+            .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ProposalCursor {
     version: u8,
-    target: Option<question_model::BlueprintCourseId>,
-    mine: bool,
+    query_fingerprint: String,
     page_size: u16,
     after: String,
 }
@@ -202,6 +303,9 @@ pub(super) async fn list_mine(
         TargetQuery {
             cursor: query.cursor,
             page_size: query.page_size,
+            text: query.text,
+            sort: query.sort,
+            status: query.status,
         },
     )
     .await
@@ -213,23 +317,38 @@ async fn list(
     scope: BlueprintChangeProposalListScope,
     query: TargetQuery,
 ) -> Response {
-    let page = match page_request(&scope, &query) {
-        Some(value) => value,
-        None => return invalid_request(),
-    };
-    let size = page.size.get();
+    let text = query.text.trim();
+    if text.len() > 160
+        || text.chars().any(|ch| matches!(ch, '%' | '_' | '\\'))
+        || !valid_statuses(&query.status)
+    {
+        return invalid_request();
+    }
     let session = match instructor_session_hash(state, headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
+    let fingerprint = query_fingerprint(&scope, &query, session);
+    let page = match page_request(&query, &fingerprint) {
+        Some(value) => value,
+        None => return invalid_request(),
+    };
+    let size = page.size.get();
     match state
         .blueprints
-        .list_blueprint_change_proposals(session, scope.clone(), page)
+        .list_blueprint_change_proposals(
+            session,
+            scope.clone(),
+            page,
+            text,
+            query.sort == ProposalSort::CreatedAscending,
+            &query.status,
+        )
         .await
     {
         Ok(page) => {
             let next_cursor = match page.next_cursor {
-                Some(after) => match encode_cursor(scope, size, after) {
+                Some(after) => match encode_cursor(&fingerprint, size, after) {
                     Some(value) => Some(value),
                     None => return unavailable(),
                 },
@@ -263,13 +382,27 @@ fn scope_fields(
     }
 }
 
-fn page_request(
+fn query_fingerprint(
     scope: &BlueprintChangeProposalListScope,
     query: &TargetQuery,
-) -> Option<PageRequest> {
-    // ASVS 2.2.1/2/3: bound cursor bytes and bind continuation to scope and page size.
-    let size = PageSize::new(query.page_size.unwrap_or(20)).ok()?;
+    session: SessionTokenHash,
+) -> String {
     let (target, mine) = scope_fields(scope);
+    let value = serde_json::to_vec(&(
+        target,
+        mine,
+        query.text.trim(),
+        query.sort,
+        &query.status,
+        session.to_string(),
+    ))
+    .expect("Blueprint Proposal query serializes");
+    URL_SAFE_NO_PAD.encode(Sha256::digest(value))
+}
+
+fn page_request(query: &TargetQuery, fingerprint: &str) -> Option<PageRequest> {
+    // ASVS 2.2.1/2/3: bind bounded continuation to the session, query, and page size.
+    let size = PageSize::new(query.page_size.unwrap_or(20)).ok()?;
     let after = match query.cursor.as_ref() {
         Some(token) => {
             if token.len() > 512 {
@@ -278,9 +411,8 @@ fn page_request(
             let bytes = URL_SAFE_NO_PAD.decode(token).ok()?;
             let cursor: ProposalCursor = serde_json::from_slice(&bytes).ok()?;
             let (timestamp, id) = cursor.after.split_once('|')?;
-            if cursor.version != 1
-                || cursor.target != target
-                || cursor.mine != mine
+            if cursor.version != 2
+                || cursor.query_fingerprint != fingerprint
                 || cursor.page_size != size.get()
                 || !valid_timestamp_key(timestamp)
                 || parse_proposal_id(id).is_none()
@@ -294,16 +426,10 @@ fn page_request(
     Some(PageRequest { after, size })
 }
 
-fn encode_cursor(
-    scope: BlueprintChangeProposalListScope,
-    page_size: u16,
-    after: Cursor,
-) -> Option<String> {
-    let (target, mine) = scope_fields(&scope);
+fn encode_cursor(fingerprint: &str, page_size: u16, after: Cursor) -> Option<String> {
     serde_json::to_vec(&ProposalCursor {
-        version: 1,
-        target,
-        mine,
+        version: 2,
+        query_fingerprint: fingerprint.to_owned(),
         page_size,
         after: after.as_str().to_owned(),
     })
@@ -315,6 +441,19 @@ fn parse_proposal_id(value: &str) -> Option<uuid::Uuid> {
     uuid::Uuid::parse_str(value)
         .ok()
         .filter(|id| id.to_string() == value)
+}
+
+fn valid_statuses(value: &str) -> bool {
+    matches!(
+        value,
+        "" | "accepted"
+            | "proposed"
+            | "stale"
+            | "accepted,proposed"
+            | "accepted,stale"
+            | "proposed,stale"
+            | "accepted,proposed,stale"
+    )
 }
 
 fn valid_timestamp_key(value: &str) -> bool {

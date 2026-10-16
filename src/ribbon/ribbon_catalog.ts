@@ -71,7 +71,9 @@ export type RibbonTaskId =
   | "myActiveCourses"
   | "myInactiveCourses"
   | "searchPublicBlueprintCourses"
+  | "myChangeProposals"
   | "myQuestions"
+  | "myPools"
   | "myDraftQuestions"
   | "starred"
   | "watched"
@@ -249,8 +251,19 @@ export const RIBBON_TASK_CATALOG = [
   },
   {
     id: "searchPublicBlueprintCourses",
-    label: "Search Public Blueprint Courses",
+    label: "Search Blueprint Courses",
     destination: { kind: "route", routeId: "publicBlueprintSearch" },
+    requiredParams: [],
+    area: "instructorCourses",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "myChangeProposals",
+    label: "My Change Proposals",
+    destination: { kind: "route", routeId: "myChangeProposals" },
     requiredParams: [],
     area: "instructorCourses",
     role: "supporting",
@@ -270,8 +283,19 @@ export const RIBBON_TASK_CATALOG = [
     ...pairedIconFlags,
   },
   {
+    id: "myPools",
+    label: "My Pools",
+    destination: { kind: "route", routeId: "myPools" },
+    requiredParams: [],
+    area: "instructorQuestions",
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
     id: "myDraftQuestions",
-    label: "My Draft Questions",
+    label: "My Drafts",
     destination: { kind: "route", routeId: "questionDrafts" },
     requiredParams: [],
     area: "instructorQuestions",

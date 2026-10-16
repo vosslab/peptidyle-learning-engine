@@ -12,6 +12,7 @@ import { DraftPreviewPanel } from "../question_draft_preview/draft_preview_panel
 import { DraftCorrectionPublishControl } from "../question_draft_preview/draft_correction_publish_control";
 import { questionJsonAnswerCheck } from "./question_json_answer_check";
 import { createQuestionJsonEditorController } from "./question_json_editor_controller";
+import { QuestionPublicationReviewGuard } from "./question_publication_review_fields";
 import {
   useClearRouteScopeLabels,
   usePublishRouteScopeLabels,
@@ -48,15 +49,11 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         ),
     };
   }
-  const headingId = "ple-question-json-authoring-heading";
   let authorshipInput: HTMLTextAreaElement | undefined;
   let headingFocusDelivered = false;
 
   function focusHeading(): void {
-    const heading = document.getElementById(headingId) as HTMLHeadingElement | null;
-    if (heading === null) return;
-    heading.tabIndex = -1;
-    heading.focus();
+    document.getElementById("main-content")?.focus();
   }
 
   function clearQuestionTitle(): void {
@@ -86,7 +83,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         headingFocusDelivered = false;
         return;
       }
-      if (document.getElementById(headingId) !== null) {
+      if (document.getElementById("main-content") !== null) {
         focusHeading();
         props.onHeadingFocusDelivered?.();
       }
@@ -114,20 +111,9 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
             "Your Draft is still open. Resolve the save error, retry, or stay and keep editing.",
         }}
       />
+      <QuestionPublicationReviewGuard dirty={editor.reviewDirty} />
       <style>{PLE_QUESTION_JSON_EDITOR_STYLES}</style>
-      <PageFrame
-        eyebrow={
-          editor.publishedQuestionId() ? "Publication complete" : "Private instructor authoring"
-        }
-        title={editor.publishedQuestionId() ? "Question published" : "PLE Question JSON"}
-        lede={
-          editor.publishedQuestionId()
-            ? "Your authoring work is complete. This confirmation identifies the Question now available in the Question Library."
-            : "Build a clear student question, save it privately, then review and publish it when it is ready."
-        }
-        routeSurface="pleQuestionJsonEditor"
-        headingId={headingId}
-      >
+      <PageFrame routeSurface="pleQuestionJsonEditor">
         <Show when={editor.status()}>
           {(message) => (
             <p
@@ -182,6 +168,8 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
           showInstructorCheck={editor.showInstructorCheck}
           review={editor.review}
           authorshipText={editor.authorshipText}
+          reviewDirty={editor.reviewDirty}
+          onDiscardReviewChanges={editor.discardReviewChanges}
           disciplineUuid={editor.disciplineUuid}
           subjectUuid={editor.subjectUuid}
           topicUuid={editor.topicUuid}
@@ -228,6 +216,9 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
           onInspectInstructorAnswer={editor.inspectInstructorAnswer}
           onOpenPublishReview={editor.openPublishReview}
           onAuthorshipTextChange={editor.applyAuthorshipTextEdit}
+          selfAuthorPosition={editor.selfAuthorPosition}
+          allowSelfAuthorship={props.allowSelfAuthorship}
+          onSelfAuthorPositionChange={editor.setSelfAuthorPosition}
           onAuthorshipInput={(element) => {
             authorshipInput = element;
           }}

@@ -129,7 +129,6 @@ function DeliveryPolicy(props: {
   const formatDateTime = createDisplayDateTimeFormatter(props.manifest.displayTimeZone);
   return (
     <div class="student-view-assessment-summary">
-      <p class="eyebrow">Coursework</p>
       <Show when={props.manifest.instructions.length > 0}>
         <section aria-labelledby="student-view-instructions">
           <h2 id="student-view-instructions">Instructions</h2>
@@ -300,8 +299,6 @@ export function AssessmentWorkspaceStudentViewPage(): JSX.Element {
       // Answer-free Student View cue and question preview. PageFrame owns the stack.
       contentClass="assessment-workspace-student-view"
       routeSurface="assessmentWorkspace"
-      title={manifest()?.title ?? "Student View"}
-      lede="Answer-free preview for the current Student-facing Assessment."
     >
       <PreviewCue />
       <A class="quiet-link" href={workspacePath}>

@@ -17,6 +17,7 @@ pub enum BlueprintHistoryEntryView {
         saved_at: question_model::Timestamp,
     },
     MetadataChange {
+        blueprint_edit_number: question_model::BlueprintEditNumber,
         classification: question_model::CourseClassification,
         theme: question_model::Theme,
         short_name: String,
@@ -26,12 +27,21 @@ pub enum BlueprintHistoryEntryView {
     },
 }
 
-/// One bounded section of Blueprint history; continuation is course/kind scoped.
+/// Whole-result availability counts before the availability refinement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintHistoryAvailabilityFacets {
+    pub public_count: u64,
+    pub archived_count: u64,
+}
+
+/// One bounded section of Blueprint history; continuation is query and session scoped.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintHistoryPageView {
     pub items: Vec<BlueprintHistoryEntryView>,
     pub next_cursor: Option<String>,
+    pub availability_facets: BlueprintHistoryAvailabilityFacets,
 }
 
 /// Answer-free exact membership of a Pool used in a current Blueprint Assessment.

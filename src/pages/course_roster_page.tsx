@@ -1,7 +1,7 @@
 // course_roster_page.tsx - Course Roster Import and protected roster projection.
 
 import { A, useParams } from "@solidjs/router";
-import { Show, createEffect, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createResource, createSignal, type JSX } from "solid-js";
 
 import "./course_roster_page.css";
 
@@ -12,27 +12,25 @@ import {
 } from "./roster_confirmation_dialog";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
-import { RecordTable, type RecordTableColumn } from "../components/record_list/record_table";
-import type { RecordCollectionState } from "../components/record_list/record_collection_state";
+import type { RecordContent } from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import type { CourseRosterEntry } from "../api/course_roster";
 import { type CourseInstanceRouteId, parseCourseInstanceId } from "../navigation/public_route";
-
-function stateLabel(state: "invitationPending" | "activeStudent"): string {
-  return state === "activeStudent" ? "Active Student" : "Invitation pending";
-}
+import { rosterFields, rosterStateLabel } from "./administration_collection_fields";
 
 type RosterFeedback = Readonly<{ kind: "success" | "error"; text: string }>;
 
-/** Current Active Instructor surface for an exact Course Instance's roster. */
-export function CourseRosterPage(): JSX.Element {
+/** Current Active Instructor surface for one Course Instance's roster. */
+function CourseRosterCoursePage(props: {
+  readonly courseInstanceId: CourseInstanceRouteId;
+}): JSX.Element {
   const applicationApi = useApplicationApi();
-  const params = useParams();
-  const courseInstanceId = (): CourseInstanceRouteId | null =>
-    parseCourseInstanceId(params["courseInstanceId"] ?? "");
-  const [roster, { refetch }] = createResource(courseInstanceId, async (course) => {
-    if (course === null) throw new Error("Course Instance ID is invalid");
-    return applicationApi.client.getLiveCourseRoster(course);
-  });
+  const [roster, { refetch }] = createResource(
+    () => props.courseInstanceId,
+    applicationApi.client.getLiveCourseRoster,
+  );
   const [importText, setImportText] = createSignal("");
   const [message, setMessage] = createSignal<RosterFeedback>();
   const [toolMessage, setToolMessage] = createSignal<RosterFeedback>();
@@ -41,26 +39,40 @@ export function CourseRosterPage(): JSX.Element {
   let rosterTools: HTMLDetailsElement | undefined;
   let rosterImport: HTMLTextAreaElement | undefined;
 
-  createEffect(() => {
-    courseInstanceId();
-    // ASVS 14.3.1/14.3.3: transient FERPA drafts never follow another Course or enter storage.
-    setImportText("");
-    setMessage(undefined);
-    setToolMessage(undefined);
-    setPendingRemoval(null);
-  });
+  // A keyed Course child owns the cache, query, dialogs, and FERPA drafts.
+  const rosterSearch = createLocalCompleteSearch(
+    { resource: roster, refetchSource: refetch, rows: (value) => value },
+    {
+      fields: rosterFields,
+      rowId: (entry) => entry.rosterId,
+      keyword: (entry) => `${entry.rosterName} ${entry.rosterId} ${rosterStateLabel(entry.state)}`,
+      // ASVS 1.2.1: RecordList renders instructor-provided names as escaped text.
+      content: (entry): RecordContent => ({
+        title: entry.rosterName,
+        description: entry.rosterId,
+        details: [{ kind: "text", label: "State", value: rosterStateLabel(entry.state) }],
+        actions: [
+          {
+            id: "remove-course-access",
+            kind: "command",
+            label: "Remove course access",
+            disabled: busy(),
+            onClick: (event) => askRemoval(entry, event.currentTarget),
+          },
+        ],
+      }),
+    },
+  );
 
   async function importRoster(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    const course = courseInstanceId();
-    if (course === null) return;
+    const course = props.courseInstanceId;
     setBusy(true);
     setMessage(undefined);
     setToolMessage(undefined);
     try {
       const entries = parseRosterImportRows(importText());
       await applicationApi.client.importLiveCourseRoster(course, { entries });
-      if (courseInstanceId() !== course) return;
       setImportText("");
       setToolMessage({
         kind: "success",
@@ -68,7 +80,6 @@ export function CourseRosterPage(): JSX.Element {
       });
       await refetch();
     } catch (error) {
-      if (courseInstanceId() !== course) return;
       setToolMessage({
         kind: "error",
         text:
@@ -83,8 +94,7 @@ export function CourseRosterPage(): JSX.Element {
   }
 
   async function revoke(rosterId: string): Promise<void> {
-    const course = courseInstanceId();
-    if (course === null) return;
+    const course = props.courseInstanceId;
     setBusy(true);
     setMessage(undefined);
     setToolMessage(undefined);
@@ -106,8 +116,7 @@ export function CourseRosterPage(): JSX.Element {
   }
 
   async function downloadPendingInvitations(): Promise<void> {
-    const course = courseInstanceId();
-    if (course === null) return;
+    const course = props.courseInstanceId;
     setBusy(true);
     setMessage(undefined);
     setToolMessage(undefined);
@@ -151,51 +160,11 @@ export function CourseRosterPage(): JSX.Element {
     requestAnimationFrame(() => rosterImport?.focus());
   }
 
-  const rosterState = (): RecordCollectionState => {
-    if (roster.loading) return { kind: "loading", label: "Loading course roster..." };
-    if (roster.error !== undefined) {
-      return {
-        kind: "error",
-        title: "Roster unavailable",
-        message: "Your current Teaching Team membership cannot load this Course Instance roster.",
-        retry: () => void refetch(),
-        retryLabel: "Try again",
-      };
-    }
-    return { kind: "ready" };
-  };
-
-  const renderedRosterColumns = (): ReadonlyArray<RecordTableColumn<CourseRosterEntry>> => [
-    {
-      id: "state",
-      header: "State",
-      width: "25%",
-      cell: (entry) => stateLabel(entry.state),
-    },
-    {
-      id: "action",
-      header: "Action",
-      width: "40%",
-      cell: (entry) => (
-        <button
-          class="quiet-action"
-          type="button"
-          disabled={busy()}
-          onClick={(event) => askRemoval(entry, event.currentTarget)}
-        >
-          Remove course access
-        </button>
-      ),
-    },
-  ];
-
   return (
     <PageFrame
       // Roster feedback and the table section reset. PageFrame owns the stack.
       contentClass="roster-page"
       routeSurface="courseRoster"
-      eyebrow="Course Instance roster"
-      title="Students"
     >
       <Show when={message()}>
         {(feedback) => (
@@ -210,27 +179,25 @@ export function CourseRosterPage(): JSX.Element {
 
       <section class="roster-section" aria-labelledby="current-roster-heading">
         <h2 id="current-roster-heading">Current roster</h2>
-        <RecordTable
-          rows={roster() ?? []}
-          rowId={(entry) => entry.rosterId}
-          rowHeader={{
-            id: "student",
-            header: "Student",
-            width: "35%",
-            content: (entry) => (
-              <>
-                {/* ASVS 1.2.1: Instructor-provided names render only as escaped text. */}
-                <span>{entry.rosterName}</span>
-                <small>{entry.rosterId}</small>
-              </>
-            ),
+        <SearchBlock
+          layout="above"
+          controls={<SearchControls state={rosterSearch.state} textLabel="Search roster" />}
+          state={rosterSearch.state}
+          collection={{
+            ariaLabel: "Current Course roster",
+            fields: rosterFields,
+            query: rosterSearch.query,
+            get emptyState() {
+              return {
+                title:
+                  rosterSearch.state.query().text || rosterSearch.state.query().filters.size
+                    ? "No roster entries match your search."
+                    : "No roster entries yet.",
+              };
+            },
           }}
-          columns={renderedRosterColumns()}
-          state={rosterState()}
-          ariaLabel="Current Course roster"
-          emptyState={{ title: "No roster entries yet." }}
         />
-        <Show when={rosterState().kind === "ready" && (roster()?.length ?? 0) === 0}>
+        <Show when={roster.state === "ready" && roster()?.length === 0}>
           <div class="roster-empty-state">
             <button
               class="primary-action"
@@ -326,5 +293,27 @@ export function CourseRosterPage(): JSX.Element {
         )}
       </Show>
     </PageFrame>
+  );
+}
+
+/** Route changes create a new scoped collection and discard prior Course data. */
+export function CourseRosterPage(): JSX.Element {
+  const params = useParams();
+  const course = (): CourseInstanceRouteId | null =>
+    parseCourseInstanceId(params["courseInstanceId"] ?? "");
+  return (
+    <Show
+      when={course()}
+      keyed
+      fallback={
+        <PageFrame routeSurface="courseRoster">
+          <section class="route-error" role="alert">
+            <p>Return to your course list, then open the roster again.</p>
+          </section>
+        </PageFrame>
+      }
+    >
+      {(loadedCourse) => <CourseRosterCoursePage courseInstanceId={loadedCourse} />}
+    </Show>
   );
 }

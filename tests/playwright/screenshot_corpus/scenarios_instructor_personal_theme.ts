@@ -141,7 +141,7 @@ async function openFilteredLibrary(page: Page): Promise<string> {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Questions", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
+  await page.getByRole("main", { name: "Question Library", exact: true }).waitFor();
   return (await searchNativeMcLibraryQuestion(page)).metadata.questionTitle;
 }
 
@@ -220,9 +220,9 @@ export const INSTRUCTOR_PERSONAL_THEME_SCENARIO: ScenarioDefinition = {
       await scrollTop(session.page);
       await runtime.captureCheckpoint(session, "personal_theme_library_dark");
       const result = session.page
-        .locator(".record-list__row")
+        .locator("[data-record-id]")
         .filter({
-          has: session.page.getByRole("heading", { name: questionTitle, exact: true }),
+          has: session.page.getByText(questionTitle, { exact: true }),
         })
         .filter({ has: session.page.getByRole("link", { name: "Open", exact: true }) })
         .first();

@@ -60,7 +60,7 @@ export interface QuestionPickerSelectedQuestion {
   readonly row: QuestionLibraryBrowseRow;
 }
 
-/** Answer-free Question Details kept for inspection before an Assessment add. */
+/** Answer-free Question Details kept for inspection before selection. */
 export interface QuestionPickerInspectionView {
   readonly questionTitle: string;
   readonly questionId: string;
@@ -138,8 +138,8 @@ export interface QuestionPickerEligibility {
   readonly subjectUuid: string;
   readonly questionType: QuestionType;
   readonly backend: QuestionBackend;
-  /** A source-bound Pool never offers its exact fixed starting Question again. */
-  readonly excludedQuestionId?: string;
+  /** A source-bound Pool never offers its fixed starting Questions again. */
+  readonly excludedQuestionIds?: ReadonlyArray<string>;
 }
 
 function selectionLimit(mode: QuestionPickerSelectionMode, maximumSelection: number): number {
@@ -210,18 +210,19 @@ export function toggleQuestionPickerSelection(
   selected: boolean,
 ): QuestionPickerSelection {
   const questionId = canonicalQuestionId(row.displayId);
-  const withoutCurrent = selection.questions.filter(
-    (question) => question.questionId !== questionId,
-  );
   if (!selected)
     return questionPickerSelection(
       mode,
       maximumSelection,
-      withoutCurrent.map((question) => question.row),
+      selection.questions
+        .filter((question) => question.questionId !== questionId)
+        .map((question) => question.row),
     );
+  // Selecting an already chosen Question does not replace its pinned revision or move it.
+  if (selection.questionIds.includes(questionId)) return selection;
   if (mode === "one") return questionPickerSelection(mode, maximumSelection, [row]);
   return questionPickerSelection(mode, maximumSelection, [
-    ...withoutCurrent.map((question) => question.row),
+    ...selection.questions.map((question) => question.row),
     row,
   ]);
 }
@@ -373,6 +374,24 @@ function sourceRowsMatchQuery(
       );
 }
 
+/** Apply the whole-result picker order before slicing a Blueprint source page. */
+function sortedSourceRows(
+  rows: ReadonlyArray<QuestionLibraryBrowseRow>,
+  sort: QuestionLibraryBrowseQuery["sort"],
+): QuestionLibraryBrowseRow[] {
+  const descending = sort === "titleDescending" || sort === "disciplineDescending";
+  const discipline = sort === "disciplineAscending" || sort === "disciplineDescending";
+  return [...rows].sort((left, right) => {
+    const primary = (discipline ? left.disciplineName : left.questionTitle).localeCompare(
+      discipline ? right.disciplineName : right.questionTitle,
+      "en",
+      { numeric: true, sensitivity: "base" },
+    );
+    if (primary !== 0) return descending ? -primary : primary;
+    return left.displayId.localeCompare(right.displayId, "en", { numeric: true });
+  });
+}
+
 /** Connects Blueprint Assessment fixed Questions to the shared picker definition. */
 export function blueprintCourseQuestionPickerRepository(
   client: BlueprintCourseClient,
@@ -392,9 +411,12 @@ export function blueprintCourseQuestionPickerRepository(
         source.blueprint_course_revision_tuple.blueprintCourseId,
         source.blueprint_course_revision_tuple.revisionNumber,
       );
-      const matched = sourceRowsMatchQuery(
-        contentRows(selectedBlueprintAssessment(source, revision).content),
-        request.query,
+      const matched = sortedSourceRows(
+        sourceRowsMatchQuery(
+          contentRows(selectedBlueprintAssessment(source, revision).content),
+          request.query,
+        ),
+        request.query.sort,
       );
       const items = matched.slice(cursor, cursor + pageSize);
       const nextOffset = cursor + items.length;
@@ -412,7 +434,7 @@ const SUPPORTED_POOL_MEMBER_LICENSES = new Set(["CC0-1.0", "CC-BY-4.0", "CC-BY-S
 
 function questionPickerContent(
   row: QuestionLibraryBrowseRow,
-  onInspect?: (row: QuestionLibraryBrowseRow) => void,
+  onInspect: (row: QuestionLibraryBrowseRow) => void,
 ): RecordContent {
   return {
     title: row.questionTitle,
@@ -425,10 +447,7 @@ function questionPickerContent(
         value: String(row.publishedQuestionRevisionTuple.revisionNumber),
       },
     ],
-    actions:
-      onInspect === undefined
-        ? []
-        : [{ id: "inspect", kind: "command", label: "Inspect", onClick: () => onInspect(row) }],
+    actions: [{ id: "inspect", kind: "command", label: "Inspect", onClick: () => onInspect(row) }],
   };
 }
 
@@ -440,10 +459,12 @@ function pickerQuery(
     ...query.libraryQuery,
     kind: "questions",
     questions: "all",
-    discipline_uuid: eligibility?.disciplineUuid ?? query.libraryQuery.discipline_uuid,
-    subject_uuid: eligibility?.subjectUuid ?? query.libraryQuery.subject_uuid,
-    questionType: eligibility?.questionType ?? query.libraryQuery.questionType,
-    backend: eligibility?.backend ?? query.libraryQuery.backend,
+    discipline_uuids: eligibility
+      ? [eligibility.disciplineUuid]
+      : query.libraryQuery.discipline_uuids,
+    subject_uuids: eligibility ? [eligibility.subjectUuid] : query.libraryQuery.subject_uuids,
+    questionTypes: eligibility ? [eligibility.questionType] : query.libraryQuery.questionTypes,
+    backends: eligibility ? [eligibility.backend] : query.libraryQuery.backends,
   });
   return { source: query.source, libraryQuery: normalized };
 }
@@ -455,8 +476,8 @@ function pickerQuery(
 export function questionPickerSearchDefinition(
   repository: QuestionPickerSourceRepository,
   initialSource: QuestionPickerSource,
+  onInspect: (row: QuestionLibraryBrowseRow) => void,
   eligibility?: QuestionPickerEligibility,
-  onInspect?: (row: QuestionLibraryBrowseRow) => void,
 ): SearchDefinition<
   QuestionPickerQuery,
   QuestionLibraryBrowseRow,
@@ -469,6 +490,7 @@ export function questionPickerSearchDefinition(
   return {
     initialQuery,
     cleanup: (query) => pickerQuery(query, eligibility),
+    isEligible: () => true,
     getText: (query) => query.libraryQuery.search,
     setText: (query, search) => ({
       ...query,
@@ -493,7 +515,7 @@ export function questionPickerSearchDefinition(
           isCurrentProductionPickerRow(row) &&
           (eligibility === undefined ||
             SUPPORTED_POOL_MEMBER_LICENSES.has(row.questionLicense ?? "")) &&
-          row.displayId !== eligibility?.excludedQuestionId,
+          !eligibility?.excludedQuestionIds?.includes(row.displayId),
       );
       return { items, nextCursor: page.nextCursor, filterCounts: page.aggregates };
     },

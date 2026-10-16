@@ -232,6 +232,8 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::question_stewardship::question_stewardship_router(
             Arc::clone(&sessions),
             question_stars,
+            question_library_store.clone(),
+            question_library_objects.clone(),
         ))
         .merge(crate::question_watch::question_watch_router(
             Arc::clone(&sessions),

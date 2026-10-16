@@ -16,6 +16,7 @@ import {
   initialPleQuestionJsonEditorState,
   reducePleQuestionJsonEditor,
   reorderChoices,
+  sourcesEqual,
   validatePleQuestionJsonSource,
   type PleQuestionJsonEditorAction,
   type PleQuestionJsonEditorState,
@@ -34,6 +35,10 @@ import { PleQuestionGeneralFeedbackConflictError } from "./question_general_feed
 import type { PleQuestionJsonDocument } from "./question_json_source";
 import type { PleQuestionJsonRecordMetadata } from "./question_json_defaults";
 import { questionJsonAnswerCheck } from "./question_json_answer_check";
+import {
+  isPublicationReviewDirty,
+  type PublicationReviewSnapshot,
+} from "./question_publication_review_model";
 
 type Review = PleQuestionJsonPublishReview;
 
@@ -129,10 +134,14 @@ type QuestionJsonEditorController = {
   readonly inspectInstructorAnswer: () => void;
   readonly openPublishReview: () => void;
   readonly applyAuthorshipTextEdit: Setter<string>;
-  readonly setDisciplineUuid: Setter<string | null>;
-  readonly setSubjectUuid: Setter<string | null>;
-  readonly setTopicUuid: Setter<string | null>;
-  readonly setSubtopicUuid: Setter<string | null>;
+  readonly selfAuthorPosition: Accessor<number | null>;
+  readonly setSelfAuthorPosition: (position: number | null) => void;
+  readonly setDisciplineUuid: (uuid: string | null) => void;
+  readonly setSubjectUuid: (uuid: string | null) => void;
+  readonly setTopicUuid: (uuid: string | null) => void;
+  readonly setSubtopicUuid: (uuid: string | null) => void;
+  readonly reviewDirty: Accessor<boolean>;
+  readonly discardReviewChanges: () => void;
   readonly publish: () => Promise<void>;
 };
 
@@ -150,9 +159,11 @@ export function createQuestionJsonEditorController(
   const [authorshipText, setAuthorshipText] = createSignal(
     props.initialGeneralFeedback.authors.join("\n"),
   );
-  const [authorshipEdited, setAuthorshipEdited] = createSignal(false);
+  const [reviewEdited, setReviewEdited] = createSignal(false);
+  const [selfAuthorPosition, setSelfAuthorPosition] = createSignal<number | null>(null);
   createEffect(() => {
-    if (!authorshipEdited()) {
+    if (!reviewEdited()) {
+      setSelfAuthorPosition(null);
       setAuthorshipText(props.initialGeneralFeedback.authors.join("\n"));
     }
   });
@@ -160,7 +171,43 @@ export function createQuestionJsonEditorController(
   const [subjectUuid, setSubjectUuid] = createSignal<string | null>(null);
   const [topicUuid, setTopicUuid] = createSignal<string | null>(null);
   const [subtopicUuid, setSubtopicUuid] = createSignal<string | null>(null);
+  const [reviewBaseline, setReviewBaseline] = createSignal<PublicationReviewSnapshot>({
+    authorshipText: props.initialGeneralFeedback.authors.join("\n"),
+    selfAuthorPosition: null,
+    disciplineUuid: null,
+    subjectUuid: null,
+    topicUuid: null,
+    subtopicUuid: null,
+  });
+  createEffect(() => {
+    const authorshipText = props.initialGeneralFeedback.authors.join("\n");
+    if (!reviewEdited() && reviewBaseline().authorshipText !== authorshipText)
+      setReviewBaseline({ ...reviewBaseline(), authorshipText });
+  });
   const [publishedSummary, setPublishedSummary] = createSignal<QuestionSummary>();
+  const reviewSnapshot = (): PublicationReviewSnapshot => ({
+    authorshipText: authorshipText(),
+    selfAuthorPosition: selfAuthorPosition(),
+    disciplineUuid: disciplineUuid(),
+    subjectUuid: subjectUuid(),
+    topicUuid: topicUuid(),
+    subtopicUuid: subtopicUuid(),
+  });
+  const reviewDirty = (): boolean =>
+    publishedSummary() === undefined &&
+    isPublicationReviewDirty(reviewSnapshot(), reviewBaseline());
+  function discardReviewChanges(): void {
+    const baseline = reviewBaseline();
+    batch(() => {
+      setAuthorshipText(baseline.authorshipText);
+      setSelfAuthorPosition(baseline.selfAuthorPosition);
+      setDisciplineUuid(baseline.disciplineUuid);
+      setSubjectUuid(baseline.subjectUuid);
+      setTopicUuid(baseline.topicUuid);
+      setSubtopicUuid(baseline.subtopicUuid);
+      setReviewEdited(false);
+    });
+  }
   const [status, setStatus] = createSignal<string | null>(null);
   const [showInstructorCheck, setShowInstructorCheck] = createSignal(false);
   const [assetUploading, setAssetUploading] = createSignal(false);
@@ -352,7 +399,12 @@ export function createQuestionJsonEditorController(
     return (
       ((current.kind === "ready" && current.status === "clean") ||
         current.kind === "publishReview" ||
-        current.kind === "publishing") &&
+        current.kind === "publishing" ||
+        (current.kind === "error" &&
+          current.resume === "publishReview" &&
+          current.source !== null &&
+          current.savedSource !== null &&
+          sourcesEqual(current.source, current.savedSource))) &&
       numericLiteralError() === undefined &&
       !hotspotPending() &&
       hotspotLiteralsValid() &&
@@ -645,6 +697,7 @@ export function createQuestionJsonEditorController(
       requestAnimationFrame(presentation.focusAuthorship);
       return;
     }
+    const selectedPosition = props.allowSelfAuthorship ? selfAuthorPosition() : null;
     transition({ kind: "publishStarted" });
     setStatus("Publishing a new Question ID...");
     try {
@@ -654,6 +707,7 @@ export function createQuestionJsonEditorController(
         throw new Error("Select a Discipline and Subject before publishing.");
       const summary = await props.repository.publish(props.draftQuestion, {
         authorship,
+        selfAuthorPosition: selectedPosition,
         disciplineUuid: discipline,
         subjectUuid: subject,
         topicUuid: topicUuid(),
@@ -694,8 +748,14 @@ export function createQuestionJsonEditorController(
   }
 
   function applyAuthorshipTextEdit(value: Parameters<Setter<string>>[0]): string {
-    setAuthorshipEdited(true);
+    setReviewEdited(true);
+    setSelfAuthorPosition(null);
     return setAuthorshipText(value);
+  }
+
+  function changeReviewValue<T>(current: Accessor<T>, set: Setter<T>, value: T): void {
+    if (current() !== value) setReviewEdited(true);
+    set(value as Parameters<Setter<T>>[0]);
   }
 
   const errorMessage = (): string | null => {
@@ -730,6 +790,8 @@ export function createQuestionJsonEditorController(
     showInstructorCheck,
     review,
     authorshipText,
+    reviewDirty,
+    discardReviewChanges,
     disciplineUuid,
     subjectUuid,
     topicUuid,
@@ -759,10 +821,13 @@ export function createQuestionJsonEditorController(
     inspectInstructorAnswer,
     openPublishReview,
     applyAuthorshipTextEdit,
-    setDisciplineUuid,
-    setSubjectUuid,
-    setTopicUuid,
-    setSubtopicUuid,
+    selfAuthorPosition,
+    setSelfAuthorPosition: (position) =>
+      changeReviewValue(selfAuthorPosition, setSelfAuthorPosition, position),
+    setDisciplineUuid: (uuid) => changeReviewValue(disciplineUuid, setDisciplineUuid, uuid),
+    setSubjectUuid: (uuid) => changeReviewValue(subjectUuid, setSubjectUuid, uuid),
+    setTopicUuid: (uuid) => changeReviewValue(topicUuid, setTopicUuid, uuid),
+    setSubtopicUuid: (uuid) => changeReviewValue(subtopicUuid, setSubtopicUuid, uuid),
     publish,
   };
 }

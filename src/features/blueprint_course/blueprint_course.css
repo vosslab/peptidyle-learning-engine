@@ -5,7 +5,6 @@
   margin-block: var(--ple-space-1);
 }
 
-.blueprint-course-section-heading p,
 .blueprint-course-field-help,
 .blueprint-course-notice {
   color: var(--ple-muted);
@@ -378,11 +377,6 @@
   color: var(--ple-on-danger);
 }
 
-.blueprint-public-search > h2,
-.blueprint-public-search > p {
-  margin: 0;
-}
-
 .blueprint-public-search__form {
   display: grid;
   gap: 0.6rem;
@@ -438,13 +432,13 @@
 }
 
 /* The shared toolbar may be narrower than the public search page's historical full width. */
-.shared-search-page__toolbar .blueprint-public-search__query {
+.search-block__controls .blueprint-public-search__query {
   display: grid;
   inline-size: 100%;
   min-inline-size: 0;
 }
 
-.shared-search-page__toolbar .blueprint-public-search__query input {
+.search-block__controls .blueprint-public-search__query input {
   box-sizing: border-box;
   inline-size: 100%;
 }

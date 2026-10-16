@@ -28,12 +28,6 @@ pub use crate::question_search::{
 };
 pub use crate::response::QuestionType;
 
-/// Maximum own-course rows included with one exact Question Library usage detail.
-///
-/// The aggregate summary remains complete while the named course list stays a
-/// compact, visible decision aid rather than an unbounded course inventory.
-pub const MAX_QUESTION_SEARCH_OWN_COURSE_USAGES: usize = 100;
-
 /// Crockford Base32 alphabet used by public identifiers.
 pub const QUESTION_ID_ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
@@ -562,16 +556,14 @@ pub struct CourseQuestionUse {
     pub assessment_count: u64,
 }
 
-/// Bounded Question Use Details View for a requesting instructor.
+/// Complete Question Use Details View for a requesting instructor.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionUseDetails {
     /// Scope-explicit aggregate counts for this exact publication.
     pub summary: QuestionUseSummary,
-    /// At most [`MAX_QUESTION_SEARCH_OWN_COURSE_USAGES`] Account-visible course rows.
+    /// Every current Account-visible course using this exact publication.
     pub own_courses: Vec<CourseQuestionUse>,
-    /// Whether additional Account-visible course rows remain beyond this bounded list.
-    pub own_courses_truncated: bool,
 }
 
 /// Bounded search page with aggregates from the same Question Search snapshot.

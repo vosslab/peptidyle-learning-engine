@@ -14,7 +14,8 @@ use browser_api_contract::{
     student_assessment_decision::StudentAssessmentDecisionSummary,
     student_course_active_attempt::StudentCourseActiveAttempt,
     student_course_attempt_history::{
-        StudentCourseAttemptHistoryEntry, StudentCourseAttemptHistoryPage,
+        StudentAttemptHistoryEntry, StudentAttemptHistoryFacetChoice,
+        StudentAttemptHistoryFacetPage, StudentAttemptHistoryPage,
     },
     student_course_progress::{AssessmentPointScore, StudentCourseProgressAssessment},
     student_course_response_stats::{
@@ -23,11 +24,12 @@ use browser_api_contract::{
     student_latest_feedback::StudentLatestFeedback,
 };
 use learning_data_access::{
-    Cursor, LiveStudentCourseAttemptHistoryEntry as StoreAttemptHistoryEntry,
+    Cursor, LiveStudentAttemptHistoryEntry as StoreAttemptHistoryEntry,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseProgressAssessment,
     LiveStudentCourseResponseQuestionStats as StoreResponseQuestionStats, PageRequest, PageSize,
-    SessionTokenHash, StoreError,
+    SessionTokenHash, StoreError, StudentAttemptHistoryQuery, StudentAttemptHistorySort,
+    StudentAttemptHistoryState,
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
@@ -35,6 +37,7 @@ use question_model::{
     Timestamp, UserRole,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -69,8 +72,12 @@ pub fn live_student_course_landing_router(
         )
         .route("/api/student/latest-feedback", get(read_latest_feedback))
         .route(
-            "/api/student/course-instances/{course_instance_id}/assessment-attempts",
-            get(list_course_attempt_history),
+            "/api/student/assessment-attempts",
+            get(list_student_attempt_history),
+        )
+        .route(
+            "/api/student/assessment-attempts/facets",
+            get(list_student_attempt_history_facets),
         )
         .route(
             "/api/student/course-instances/{course_instance_id}/response-stats",
@@ -151,14 +158,20 @@ struct CourseProgressResponse {
 struct AttemptHistoryQuery {
     page_size: Option<u16>,
     cursor: Option<String>,
+    search: Option<String>,
+    state: Option<StudentAttemptHistoryState>,
+    courses: Option<String>,
+    sort: Option<StudentAttemptHistorySort>,
+    field: Option<String>,
+    choice_search: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AttemptHistoryCursor {
     version: u8,
-    course_instance_id: CourseInstanceId,
     page_size: u16,
+    query_fingerprint: String,
     after: String,
 }
 
@@ -369,10 +382,9 @@ async fn read_latest_feedback(State(state): State<RouteState>, headers: HeaderMa
     }
 }
 
-async fn list_course_attempt_history(
+async fn list_student_attempt_history(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(course): Path<String>,
     query: Result<Query<AttemptHistoryQuery>, QueryRejection>,
 ) -> Response {
     let Query(query) = match query {
@@ -384,15 +396,27 @@ async fn list_course_attempt_history(
             );
         }
     };
-    let course = match CourseInstanceId::from_str(&course) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
     let session_hash = match student_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let page = match attempt_history_page_request(&course, &query) {
+    if query.field.is_some() || query.choice_search.is_some() {
+        return route_error(
+            StatusCode::BAD_REQUEST,
+            "Student Attempt History page is invalid",
+        );
+    }
+    let search = match student_attempt_history_query(&query) {
+        Some(value) => value,
+        None => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Student Attempt History query is invalid",
+            );
+        }
+    };
+    let fingerprint = attempt_history_fingerprint(&search, "page", session_hash);
+    let page = match attempt_history_page_request(&query, &fingerprint, false) {
         Some(value) => value,
         None => {
             return route_error(
@@ -404,25 +428,132 @@ async fn list_course_attempt_history(
     let page_size = page.size.get();
     match state
         .landing
-        .list_live_student_course_attempt_history(session_hash, course.clone(), page)
+        .list_student_attempt_history(session_hash, search, page)
         .await
     {
         Ok(page) => {
             let next_cursor = match page.next_cursor {
-                Some(after) => match encode_attempt_history_cursor(course, page_size, after) {
-                    Some(value) => Some(value),
-                    None => {
-                        return route_error(
-                            StatusCode::SERVICE_UNAVAILABLE,
-                            "Student Attempt History unavailable",
-                        );
+                Some(after) => {
+                    match encode_attempt_history_cursor(&fingerprint, page_size, after) {
+                        Some(value) => Some(value),
+                        None => {
+                            return route_error(
+                                StatusCode::SERVICE_UNAVAILABLE,
+                                "Student Attempt History unavailable",
+                            );
+                        }
                     }
-                },
+                }
                 None => None,
             };
             crate::auth::no_store(
-                Json(StudentCourseAttemptHistoryPage {
+                Json(StudentAttemptHistoryPage {
                     items: page.items.into_iter().map(attempt_history_entry).collect(),
+                    next_cursor,
+                })
+                .into_response(),
+            )
+        }
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn list_student_attempt_history_facets(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    query: Result<Query<AttemptHistoryQuery>, QueryRejection>,
+) -> Response {
+    let Query(query) = match query {
+        Ok(value) => value,
+        Err(_) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Attempt History facet query is invalid",
+            );
+        }
+    };
+    let session_hash = match student_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let Some(field) = query
+        .field
+        .as_deref()
+        .filter(|value| matches!(*value, "course" | "state"))
+    else {
+        return route_error(
+            StatusCode::BAD_REQUEST,
+            "Attempt History facet field is invalid",
+        );
+    };
+    let choice_search = query.choice_search.as_deref().unwrap_or("").trim();
+    if choice_search.chars().count() > 100 {
+        return route_error(
+            StatusCode::BAD_REQUEST,
+            "Attempt History facet query is invalid",
+        );
+    }
+    let search = match student_attempt_history_query(&query) {
+        Some(value) => value,
+        None => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Attempt History facet query is invalid",
+            );
+        }
+    };
+    let fingerprint = attempt_history_fingerprint(
+        &search,
+        &format!("facet:{field}:{choice_search}"),
+        session_hash,
+    );
+    let page = match attempt_history_page_request(&query, &fingerprint, true) {
+        Some(value) => value,
+        None => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Attempt History facet page is invalid",
+            );
+        }
+    };
+    let page_size = page.size.get();
+    match state
+        .landing
+        .list_student_attempt_history_facet_choices(
+            session_hash,
+            search,
+            field,
+            choice_search,
+            page,
+        )
+        .await
+    {
+        Ok(page) => {
+            let next_cursor = match page.next_cursor {
+                Some(after) => {
+                    match encode_attempt_history_cursor(&fingerprint, page_size, after) {
+                        Some(value) => Some(value),
+                        None => {
+                            return route_error(
+                                StatusCode::SERVICE_UNAVAILABLE,
+                                "Student Attempt History unavailable",
+                            );
+                        }
+                    }
+                }
+                None => None,
+            };
+            crate::auth::no_store(
+                Json(StudentAttemptHistoryFacetPage {
+                    choices: page
+                        .items
+                        .into_iter()
+                        .map(|choice| StudentAttemptHistoryFacetChoice {
+                            key: choice.key,
+                            label: choice.label,
+                            count: choice.count,
+                        })
+                        .collect(),
                     next_cursor,
                 })
                 .into_response(),
@@ -478,11 +609,56 @@ fn response_question_stats(
     }
 }
 
-fn attempt_history_page_request(
-    course: &CourseInstanceId,
+fn student_attempt_history_query(
     query: &AttemptHistoryQuery,
+) -> Option<StudentAttemptHistoryQuery> {
+    let search = query.search.as_deref().unwrap_or("").trim();
+    if search.chars().count() > 200 {
+        return None;
+    }
+    let mut course_ids = match query.courses.as_deref() {
+        Some(value) if !value.is_empty() => value
+            .split(',')
+            .map(CourseInstanceId::from_str)
+            .collect::<Result<Vec<_>, _>>()
+            .ok()?,
+        Some(_) => return None,
+        None => Vec::new(),
+    };
+    if course_ids.len() > 100 {
+        return None;
+    }
+    course_ids.sort_by_key(CourseInstanceId::as_string);
+    course_ids.dedup();
+    Some(StudentAttemptHistoryQuery {
+        search: search.to_owned(),
+        state: query.state.unwrap_or(StudentAttemptHistoryState::All),
+        course_ids,
+        sort: query
+            .sort
+            .unwrap_or(StudentAttemptHistorySort::StartedNewest),
+    })
+}
+
+fn attempt_history_fingerprint(
+    query: &StudentAttemptHistoryQuery,
+    scope: &str,
+    session_hash: SessionTokenHash,
+) -> String {
+    let value = serde_json::to_vec(&(query, scope, session_hash.to_string()))
+        .expect("Attempt History query serializes");
+    URL_SAFE_NO_PAD.encode(Sha256::digest(value))
+}
+
+fn attempt_history_page_request(
+    query: &AttemptHistoryQuery,
+    fingerprint: &str,
+    facet: bool,
 ) -> Option<PageRequest> {
     let size = PageSize::new(query.page_size.unwrap_or(50)).ok()?;
+    if facet && size.get() > 50 {
+        return None;
+    }
     let after = match query.cursor.as_ref() {
         Some(token) => {
             if token.len() > 512 {
@@ -491,9 +667,10 @@ fn attempt_history_page_request(
             let bytes = URL_SAFE_NO_PAD.decode(token).ok()?;
             let cursor: AttemptHistoryCursor = serde_json::from_slice(&bytes).ok()?;
             if cursor.version != 1
-                || cursor.course_instance_id != *course
+                || cursor.query_fingerprint != fingerprint
                 || cursor.page_size != size.get()
-                || !valid_attempt_history_key(&cursor.after)
+                || (facet && cursor.after.is_empty())
+                || (!facet && !valid_attempt_history_key(&cursor.after))
             {
                 return None;
             }
@@ -505,46 +682,29 @@ fn attempt_history_page_request(
 }
 
 fn valid_attempt_history_key(key: &str) -> bool {
-    let Some((timestamp, attempt_id)) = key.split_once('|') else {
-        return false;
-    };
-    let bytes = timestamp.as_bytes();
-    if bytes.len() != 27
-        || bytes[4] != b'-'
-        || bytes[7] != b'-'
-        || bytes[10] != b'T'
-        || bytes[13] != b':'
-        || bytes[16] != b':'
-        || bytes[19] != b'.'
-        || bytes[26] != b'Z'
-    {
-        return false;
-    }
-    if bytes.iter().enumerate().any(|(index, byte)| {
-        !matches!(index, 4 | 7 | 10 | 13 | 16 | 19 | 26) && !byte.is_ascii_digit()
-    }) {
-        return false;
-    }
-    uuid::Uuid::parse_str(attempt_id).is_ok_and(|value| value.to_string() == attempt_id)
+    uuid::Uuid::parse_str(key).is_ok_and(|value| value.to_string() == key)
 }
 
 fn encode_attempt_history_cursor(
-    course_instance_id: CourseInstanceId,
+    fingerprint: &str,
     page_size: u16,
     after: Cursor,
 ) -> Option<String> {
     serde_json::to_vec(&AttemptHistoryCursor {
         version: 1,
-        course_instance_id,
         page_size,
+        query_fingerprint: fingerprint.to_owned(),
         after: after.as_str().to_owned(),
     })
     .ok()
     .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
 }
 
-fn attempt_history_entry(entry: StoreAttemptHistoryEntry) -> StudentCourseAttemptHistoryEntry {
-    StudentCourseAttemptHistoryEntry {
+fn attempt_history_entry(entry: StoreAttemptHistoryEntry) -> StudentAttemptHistoryEntry {
+    StudentAttemptHistoryEntry {
+        course_instance_id: entry.course_instance_id,
+        course_short_name: entry.course_short_name,
+        course_long_name: entry.course_long_name,
         assessment_attempt_id: entry.assessment_attempt_id,
         assessment_id: entry.assessment_id,
         assessment_title: entry.assessment_title,

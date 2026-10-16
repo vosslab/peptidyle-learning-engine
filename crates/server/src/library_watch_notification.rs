@@ -1,6 +1,4 @@
-//! Private newest-first Watch inbox for active Instructors.
-//!
-//! This route has no Watch directory, recipient, email, or Student surface.
+//! Private, queryable Watch activity for the active Instructor.
 
 use std::sync::Arc;
 
@@ -11,18 +9,22 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification, LibraryWatchTargetKind,
-    SessionStore, SessionTokenHash, StoreError,
+    LibraryWatchActivity, LibraryWatchCursorPosition, LibraryWatchDirection, LibraryWatchEventKind,
+    LibraryWatchFacetCount, LibraryWatchInboxQuery, LibraryWatchInboxStore,
+    LibraryWatchNotification, LibraryWatchTargetKind, SessionStore, SessionTokenHash, StoreError,
     postgres::{PostgresLibraryWatchNotificationStore, PostgresSessionStore},
 };
 use question_model::UserRole;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
 
 const DEFAULT_LIMIT: u16 = 25;
-const MAX_LIMIT: u16 = 100;
+const MAX_LIMIT: u16 = 250;
 
 #[derive(Clone)]
 struct RouteState {
@@ -30,7 +32,6 @@ struct RouteState {
     inbox: PostgresLibraryWatchNotificationStore,
 }
 
-/// Registers one self-only, newest-first in-app Watch inbox route.
 pub fn library_watch_notification_router(
     sessions: Arc<PostgresSessionStore>,
     inbox: PostgresLibraryWatchNotificationStore,
@@ -44,11 +45,35 @@ pub fn library_watch_notification_router(
 #[serde(rename_all = "camelCase")]
 struct InboxResponse {
     notifications: Vec<NotificationResponse>,
+    next_cursor: Option<String>,
+    target_kind_facets: Vec<FacetResponse>,
+    event_kind_facets: Vec<FacetResponse>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FacetResponse {
+    value: String,
+    count: u64,
+}
+
+impl From<LibraryWatchFacetCount> for FacetResponse {
+    fn from(value: LibraryWatchFacetCount) -> Self {
+        Self {
+            value: match value.value.as_str() {
+                "question_pool" => "questionPool".to_owned(),
+                "members_changed" => "membersChanged".to_owned(),
+                _ => value.value,
+            },
+            count: value.count,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NotificationResponse {
+    event_id: Uuid,
     target_kind: TargetKindResponse,
     target_public_id: String,
     event_kind: EventKindResponse,
@@ -122,6 +147,7 @@ impl From<LibraryWatchNotification> for NotificationResponse {
                 ),
             };
         Self {
+            event_id: value.event_id,
             target_kind: value.target_kind.into(),
             target_public_id: value.target_public_id.to_string(),
             event_kind,
@@ -133,27 +159,133 @@ impl From<LibraryWatchNotification> for NotificationResponse {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WatchCursor {
+    version: u8,
+    query_digest: [u8; 32],
+    occurred_at: String,
+    event_id: Uuid,
+}
+
+#[derive(Debug)]
+struct ParsedQuery {
+    search: String,
+    target_kinds: Vec<LibraryWatchTargetKind>,
+    event_kinds: Vec<LibraryWatchEventKind>,
+    direction: LibraryWatchDirection,
+    cursor: Option<String>,
+    limit: u16,
+}
+
+fn query_digest(query: &ParsedQuery, session: SessionTokenHash) -> [u8; 32] {
+    let keys = (
+        &query.search,
+        query
+            .target_kinds
+            .iter()
+            .map(|kind| match kind {
+                LibraryWatchTargetKind::Question => "question",
+                LibraryWatchTargetKind::QuestionPool => "questionPool",
+            })
+            .collect::<Vec<_>>(),
+        query
+            .event_kinds
+            .iter()
+            .map(|kind| match kind {
+                LibraryWatchEventKind::Revision => "revision",
+                LibraryWatchEventKind::MembersChanged => "membersChanged",
+                LibraryWatchEventKind::Fork => "fork",
+            })
+            .collect::<Vec<_>>(),
+        query.direction == LibraryWatchDirection::Ascending,
+        query.limit,
+        session.to_string(),
+    );
+    Sha256::digest(serde_json::to_vec(&keys).expect("Watch query serializes")).into()
+}
+
+fn cursor_position(
+    query: &ParsedQuery,
+    session: SessionTokenHash,
+) -> Result<Option<LibraryWatchCursorPosition>, Box<Response>> {
+    let Some(token) = query.cursor.as_deref() else {
+        return Ok(None);
+    };
+    if token.len() > 1024 {
+        return Err(Box::new(invalid()));
+    }
+    let bytes = URL_SAFE_NO_PAD
+        .decode(token)
+        .map_err(|_| Box::new(invalid()))?;
+    if bytes.len() > 768 || URL_SAFE_NO_PAD.encode(&bytes) != token {
+        return Err(Box::new(invalid()));
+    }
+    let cursor: WatchCursor = serde_json::from_slice(&bytes).map_err(|_| Box::new(invalid()))?;
+    let valid_time = chrono::DateTime::parse_from_rfc3339(&cursor.occurred_at)
+        .is_ok_and(|at| at.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string() == cursor.occurred_at);
+    if cursor.version != 1 || cursor.query_digest != query_digest(query, session) || !valid_time {
+        return Err(Box::new(invalid()));
+    }
+    Ok(Some(LibraryWatchCursorPosition {
+        occurred_at: cursor.occurred_at,
+        event_id: cursor.event_id,
+    }))
+}
+
+fn encode_cursor(
+    query: &ParsedQuery,
+    session: SessionTokenHash,
+    position: LibraryWatchCursorPosition,
+) -> String {
+    let cursor = WatchCursor {
+        version: 1,
+        query_digest: query_digest(query, session),
+        occurred_at: position.occurred_at,
+        event_id: position.event_id,
+    };
+    URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("Watch cursor serializes"))
+}
+
 async fn read_inbox(State(state): State<RouteState>, request: Request) -> Response {
-    // ASVS 8.2.1/8.3.1: conceal authentication and role before parsing the
-    // private route's caller-controlled query shape.
-    let (session, limit) = match authorized_inbox_limit(
-        state.sessions.as_ref(),
-        request.headers(),
-        request.uri().query(),
-    )
-    .await
-    {
+    // Conceal this private route before parsing caller-controlled query data.
+    let session = match instructor_session_hash(state.sessions.as_ref(), request.headers()).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
+    let query = match parse_query(request.uri().query()) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let after = match cursor_position(&query, session) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let store_query = LibraryWatchInboxQuery {
+        search: query.search.clone(),
+        target_kinds: query.target_kinds.clone(),
+        event_kinds: query.event_kinds.clone(),
+        direction: query.direction,
+        after,
+        limit: query.limit,
+    };
     match state
         .inbox
-        .library_watch_notifications(session, limit)
+        .library_watch_notifications(session, store_query)
         .await
     {
-        Ok(notifications) => crate::auth::no_store(
+        Ok(page) => crate::auth::no_store(
             Json(InboxResponse {
-                notifications: notifications.into_iter().map(Into::into).collect(),
+                notifications: page.notifications.into_iter().map(Into::into).collect(),
+                next_cursor: page
+                    .next_position
+                    .map(|position| encode_cursor(&query, session, position)),
+                target_kind_facets: page
+                    .target_kind_facets
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                event_kind_facets: page.event_kind_facets.into_iter().map(Into::into).collect(),
             })
             .into_response(),
         ),
@@ -161,37 +293,74 @@ async fn read_inbox(State(state): State<RouteState>, request: Request) -> Respon
     }
 }
 
-async fn authorized_inbox_limit(
-    sessions: &dyn SessionStore,
-    headers: &HeaderMap,
-    raw_query: Option<&str>,
-) -> Result<(SessionTokenHash, u16), Box<Response>> {
-    let session = instructor_session_hash(sessions, headers).await?;
-    let limit = inbox_limit(raw_query)?;
-    Ok((session, limit))
-}
-
-fn inbox_limit(raw_query: Option<&str>) -> Result<u16, Box<Response>> {
-    let Some(raw_query) = raw_query.filter(|query| !query.is_empty()) else {
-        return Ok(DEFAULT_LIMIT);
+fn parse_query(raw_query: Option<&str>) -> Result<ParsedQuery, Box<Response>> {
+    let mut query = ParsedQuery {
+        search: String::new(),
+        target_kinds: Vec::new(),
+        event_kinds: Vec::new(),
+        direction: LibraryWatchDirection::Descending,
+        cursor: None,
+        limit: DEFAULT_LIMIT,
     };
-    // ASVS 2.2.1/4.2.1: validate one closed query field, including percent
-    // encoding and parameter multiplicity, before using it as a row bound.
-    if raw_query.split('&').any(str::is_empty) || !has_valid_percent_encoding(raw_query) {
+    let Some(raw) = raw_query.filter(|value| !value.is_empty()) else {
+        return Ok(query);
+    };
+    if raw.len() > 4096 || raw.split('&').any(str::is_empty) || !has_valid_percent_encoding(raw) {
         return Err(Box::new(invalid()));
     }
-    let pairs = url::form_urlencoded::parse(raw_query.as_bytes()).collect::<Vec<_>>();
-    let [(name, value)] = pairs.as_slice() else {
-        return Err(Box::new(invalid()));
-    };
-    if name != "limit" {
-        return Err(Box::new(invalid()));
+    let mut seen = std::collections::HashSet::new();
+    for (name, value) in url::form_urlencoded::parse(raw.as_bytes()) {
+        match name.as_ref() {
+            "q" if seen.insert("q") => {
+                query.search = value.trim().to_lowercase();
+                if query.search.chars().count() > 120 || query.search.chars().any(char::is_control)
+                {
+                    return Err(Box::new(invalid()));
+                }
+            }
+            "targetKind" => query.target_kinds.push(match value.as_ref() {
+                "question" => LibraryWatchTargetKind::Question,
+                "questionPool" => LibraryWatchTargetKind::QuestionPool,
+                _ => return Err(Box::new(invalid())),
+            }),
+            "eventKind" => query.event_kinds.push(match value.as_ref() {
+                "revision" => LibraryWatchEventKind::Revision,
+                "membersChanged" => LibraryWatchEventKind::MembersChanged,
+                "fork" => LibraryWatchEventKind::Fork,
+                _ => return Err(Box::new(invalid())),
+            }),
+            "direction" if seen.insert("direction") => {
+                query.direction = match value.as_ref() {
+                    "ascending" => LibraryWatchDirection::Ascending,
+                    "descending" => LibraryWatchDirection::Descending,
+                    _ => return Err(Box::new(invalid())),
+                }
+            }
+            "cursor" if seen.insert("cursor") && !value.is_empty() => {
+                query.cursor = Some(value.into_owned())
+            }
+            "limit" if seen.insert("limit") => {
+                query.limit = value
+                    .parse::<u16>()
+                    .ok()
+                    .filter(|value| (1..=MAX_LIMIT).contains(value))
+                    .ok_or_else(|| Box::new(invalid()))?
+            }
+            _ => return Err(Box::new(invalid())),
+        }
     }
-    value
-        .parse::<u16>()
-        .ok()
-        .filter(|value| (1..=MAX_LIMIT).contains(value))
-        .ok_or_else(|| Box::new(invalid()))
+    query.target_kinds.sort_by_key(|kind| match kind {
+        LibraryWatchTargetKind::Question => 0,
+        LibraryWatchTargetKind::QuestionPool => 1,
+    });
+    query.target_kinds.dedup();
+    query.event_kinds.sort_by_key(|kind| match kind {
+        LibraryWatchEventKind::Revision => 0,
+        LibraryWatchEventKind::MembersChanged => 1,
+        LibraryWatchEventKind::Fork => 2,
+    });
+    query.event_kinds.dedup();
+    Ok(query)
 }
 
 fn has_valid_percent_encoding(value: &str) -> bool {
@@ -207,7 +376,7 @@ fn has_valid_percent_encoding(value: &str) -> bool {
             }
             index += 3;
         } else {
-            index += 1;
+            index += 1
         }
     }
     true
@@ -218,8 +387,6 @@ async fn instructor_session_hash(
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(sessions, joined_cookie_header(headers).as_deref()).await {
-        // ASVS 8.2.1/8.3.1: the trusted SQL boundary repeats this predicate
-        // from the installed session; no browser-provided actor can enter it.
         Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
@@ -266,13 +433,9 @@ fn invalid() -> Response {
         "Library Watch inbox is invalid",
     )
 }
-
 fn concealed() -> Response {
     route_error(StatusCode::NOT_FOUND, "Library Watch inbox not found")
 }
-
 fn route_error(status: StatusCode, message: &'static str) -> Response {
-    // ASVS 14.2.2/16.5.1: the private inbox is never cacheable and public
-    // errors expose no recipient, role, target, or database diagnostics.
     crate::auth::no_store((status, message).into_response())
 }

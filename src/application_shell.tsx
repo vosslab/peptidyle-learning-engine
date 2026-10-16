@@ -206,10 +206,10 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
                   const hasCompactLabel = breadcrumb.compactLabel !== undefined;
                   return (
                     <li>
-                      <A
+                      <a
                         href={breadcrumb.href}
-                        state={breadcrumb.state}
-                        end
+                        state={JSON.stringify(breadcrumb.state)}
+                        link
                         aria-current={breadcrumb.current ? "page" : undefined}
                       >
                         <span data-course-breadcrumb-visible={hasCompactLabel ? "true" : undefined}>
@@ -217,7 +217,7 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
                             ? breadcrumb.compactLabel
                             : breadcrumb.label}
                         </span>
-                      </A>
+                      </a>
                       <Show when={hasCompactLabel}>
                         <span
                           aria-hidden="true"
@@ -244,10 +244,6 @@ function ContentError(props: ContentErrorProps): JSX.Element {
     <div role="alert">
       <PageFrame
         routeSurface="contentError"
-        headingId="shell-content-error-heading"
-        eyebrow="This page needs another try"
-        title="The learning space is still available"
-        lede="The current page could not load. Your navigation and active Attempt remain available."
         actions={
           <>
             <button class="primary-action" type="button" onClick={props.reset}>
@@ -258,7 +254,9 @@ function ContentError(props: ContentErrorProps): JSX.Element {
             </A>
           </>
         }
-      />
+      >
+        <p>The current page could not load. Your navigation and active Attempt remain available.</p>
+      </PageFrame>
     </div>
   );
 }
@@ -337,9 +335,13 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     const ribbonModel = createMemo(() =>
       props.ribbonModel(routeData(), publishedLabels(), studentNavigation(), publishedNavigation()),
     );
+    const currentBreadcrumbLabel = createMemo(() => {
+      const breadcrumbs = ribbonModel()?.breadcrumbs;
+      return breadcrumbs?.[breadcrumbs.length - 1]?.label ?? "Learning content";
+    });
     function ContentRegion(): JSX.Element {
       return (
-        <main class="shell">
+        <main class="shell" aria-label={currentBreadcrumbLabel()}>
           <BreadcrumbPrelude model={ribbonModel()} />
           <section
             id="main-content"

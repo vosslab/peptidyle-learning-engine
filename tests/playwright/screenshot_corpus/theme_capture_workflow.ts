@@ -57,7 +57,7 @@ export async function openSeededCourseAppearance(page: Page): Promise<string> {
   const tabs = page.getByRole("navigation", { name: "Ribbon tabs", exact: true });
   await tabs.getByRole("link", { name: "Courses", exact: true }).click();
   await page.locator('[data-route-surface="courses"]').waitFor();
-  await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+  await page.getByRole("main", { name: "My Active Courses", exact: true }).waitFor();
   const course = courseCard(page, COURSE_TITLE);
   await course.waitFor({ state: "visible" });
   if ((await course.count()) !== 1) {
@@ -69,7 +69,7 @@ export async function openSeededCourseAppearance(page: Page): Promise<string> {
   }
   await followCaptureLink(page, course.getByRole("link", { name: "Open Course", exact: true }));
   await page.locator('[data-route-surface="courseInstance"]').waitFor();
-  await page.getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true }).waitFor();
+  await page.getByRole("main", { name: COURSE_TITLE, exact: true }).waitFor();
   await page
     .getByRole("navigation", { name: "Course actions", exact: true })
     .getByRole("link", { name: "Appearance", exact: true })
@@ -126,6 +126,6 @@ export async function openSeededCourseWorkspace(
   const course = courseCard(page, COURSE_TITLE);
   await followCaptureLink(page, course.getByRole("link", { name: "Open Course", exact: true }));
   await page.locator('[data-route-surface="courseInstance"]').waitFor();
-  await page.getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true }).waitFor();
+  await page.getByRole("main", { name: COURSE_TITLE, exact: true }).waitFor();
   await assertDocumentAppearance(page, expected);
 }

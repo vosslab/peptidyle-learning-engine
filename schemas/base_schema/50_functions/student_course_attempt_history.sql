@@ -1,14 +1,57 @@
--- Student Course-wide, self-only Assessment Attempt history.
+-- Global, self-only Student Attempt History. The same authorized match set owns
+-- page rows and facet choices; no browser-supplied Account or Student ID is used.
 
 SET LOCAL ROLE ple_private_owner;
 
-CREATE FUNCTION ple_private.read_student_course_attempt_history(
-    p_course_instance_id text,
-    p_student_record_id uuid,
-    p_after text,
-    p_page_size integer
+CREATE FUNCTION ple_private.student_attempt_history_matches(p_search text)
+RETURNS TABLE (
+    course_instance_id text,
+    course_short_name text,
+    course_long_name text,
+    assessment_attempt_id uuid,
+    assessment_id text,
+    assessment_title text,
+    partial_credit_enabled boolean,
+    assessment_attempt_number integer,
+    started_at timestamptz,
+    submitted_at timestamptz
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+    SELECT DISTINCT course.course_instance_id, course.course_short_name, course.course_long_name,
+           attempt.assessment_attempt_id, assessment.assessment_id::text,
+           policy.assessment_title, current_policy.partial_credit_enabled,
+           attempt.assessment_attempt_number, attempt.started_at, submission.submitted_at
+      FROM ple_api.list_live_student_course_landing() AS course
+      CROSS JOIN LATERAL ple_api.current_session_student_record_id(
+          course.course_instance_id
+      ) AS student(student_record_id)
+      JOIN ple_private.assessment_attempt AS attempt
+        ON attempt.course_instance_id = course.course_instance_id
+       AND attempt.student_record_id = student.student_record_id
+      JOIN ple_data.assessment AS assessment
+        ON assessment.course_instance_id = attempt.course_instance_id
+       AND assessment.assessment_id = attempt.assessment_id
+      JOIN ple_data.assessment_policy_snapshot AS policy
+        ON policy.assessment_policy_snapshot_id = attempt.assessment_policy_snapshot_id
+      JOIN ple_data.assessment_policy_snapshot AS current_policy
+        ON current_policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+      LEFT JOIN ple_private.assessment_submission AS submission
+        ON submission.course_instance_id = attempt.course_instance_id
+       AND submission.assessment_attempt_id = attempt.assessment_attempt_id
+     WHERE ple_api.course_student_work_is_ordinarily_visible(course.course_instance_id)
+       AND (p_search = '' OR position(lower(p_search) in lower(policy.assessment_title)) > 0
+            OR position(lower(p_search) in lower(course.course_long_name)) > 0
+            OR position(lower(p_search) in lower(course.course_short_name)) > 0)
+$$;
+
+CREATE FUNCTION ple_private.read_student_attempt_history(
+    p_after uuid, p_page_size integer, p_search text, p_state text,
+    p_course_ids text[], p_sort text
 ) RETURNS TABLE (
     continuation_key text,
+    course_instance_id text,
+    course_short_name text,
+    course_long_name text,
     assessment_attempt_id uuid,
     assessment_id text,
     assessment_title text,
@@ -19,70 +62,76 @@ CREATE FUNCTION ple_private.read_student_course_attempt_history(
     assessment_score_points_possible double precision
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE
-    v_after_started_at timestamptz;
-    v_after_attempt_id uuid;
-    v_now timestamptz := pg_catalog.statement_timestamp();
 BEGIN
-    IF p_course_instance_id IS NULL OR p_student_record_id IS NULL THEN
-        RAISE EXCEPTION 'Student Course not found' USING ERRCODE = '42501';
-    END IF;
-    IF p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100 THEN
-        RAISE EXCEPTION 'invalid Student Attempt History page' USING ERRCODE = '22023';
-    END IF;
-    IF p_after IS NOT NULL THEN
-        IF p_after !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
-            RAISE EXCEPTION 'invalid Student Attempt History page' USING ERRCODE = '22023';
-        END IF;
-        BEGIN
-            v_after_started_at := split_part(p_after, '|', 1)::timestamptz;
-            v_after_attempt_id := split_part(p_after, '|', 2)::uuid;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE EXCEPTION 'invalid Student Attempt History page' USING ERRCODE = '22023';
-        END;
+    IF p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
+       OR p_search IS NULL OR char_length(p_search) > 200
+       OR p_state IS NULL OR p_state NOT IN ('all', 'submitted', 'inProgress')
+       OR p_sort IS NULL OR p_sort NOT IN ('startedNewest', 'startedOldest', 'titleAscending',
+                         'titleDescending', 'courseAscending', 'courseDescending')
+       OR p_course_ids IS NULL OR cardinality(p_course_ids) > 100 THEN
+        RAISE EXCEPTION 'invalid Student Attempt History query' USING ERRCODE = '22023';
     END IF;
 
     RETURN QUERY
-    WITH page_attempts AS MATERIALIZED (
-        SELECT attempt.course_instance_id,
-               attempt.assessment_attempt_id,
-               assessment.assessment_id,
-               policy.assessment_title,
-               current_policy.partial_credit_enabled,
-               attempt.assessment_attempt_number,
-               attempt.started_at,
-               submission.submitted_at
-          FROM ple_private.assessment_attempt AS attempt
-          JOIN ple_data.assessment AS assessment
-            ON assessment.course_instance_id = attempt.course_instance_id
-           AND assessment.assessment_id = attempt.assessment_id
-          JOIN ple_data.assessment_policy_snapshot AS policy
-            ON policy.assessment_policy_snapshot_id = attempt.assessment_policy_snapshot_id
-          JOIN ple_data.assessment_policy_snapshot AS current_policy
-            ON current_policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
-          LEFT JOIN ple_private.assessment_submission AS submission
-            ON submission.course_instance_id = attempt.course_instance_id
-           AND submission.assessment_attempt_id = attempt.assessment_attempt_id
-         WHERE attempt.course_instance_id = p_course_instance_id
-           AND attempt.student_record_id = p_student_record_id
-           AND ple_api.course_student_work_is_ordinarily_visible(attempt.course_instance_id)
-           AND (p_after IS NULL OR attempt.started_at < v_after_started_at
-                OR (attempt.started_at = v_after_started_at
-                    AND attempt.assessment_attempt_id < v_after_attempt_id))
-         ORDER BY attempt.started_at DESC, attempt.assessment_attempt_id DESC
+    WITH matched AS MATERIALIZED (
+        SELECT * FROM ple_private.student_attempt_history_matches(p_search) AS item
+         WHERE (cardinality(p_course_ids) = 0 OR item.course_instance_id = ANY(p_course_ids))
+           AND (p_state = 'all'
+                OR (p_state = 'submitted' AND item.submitted_at IS NOT NULL)
+                OR (p_state = 'inProgress' AND item.submitted_at IS NULL))
+    ), anchor AS (
+        SELECT item.* FROM matched AS item
+         WHERE item.assessment_attempt_id = p_after
+    ), page AS MATERIALIZED (
+        SELECT item.* FROM matched AS item
+          LEFT JOIN anchor ON true
+         WHERE p_after IS NULL
+            OR (anchor.assessment_attempt_id IS NOT NULL AND (
+                (p_sort = 'startedNewest'
+                 AND (item.started_at, item.assessment_attempt_id)
+                     < (anchor.started_at, anchor.assessment_attempt_id))
+                OR (p_sort = 'startedOldest'
+                    AND (item.started_at, item.assessment_attempt_id)
+                        > (anchor.started_at, anchor.assessment_attempt_id))
+                OR (p_sort = 'titleAscending'
+                    AND (lower(item.assessment_title) COLLATE "C", item.assessment_attempt_id)
+                        > (lower(anchor.assessment_title) COLLATE "C", anchor.assessment_attempt_id))
+                OR (p_sort = 'titleDescending'
+                    AND (lower(item.assessment_title) COLLATE "C", item.assessment_attempt_id)
+                        < (lower(anchor.assessment_title) COLLATE "C", anchor.assessment_attempt_id))
+                OR (p_sort = 'courseAscending'
+                    AND (lower(item.course_long_name) COLLATE "C", item.course_instance_id,
+                         item.assessment_attempt_id)
+                        > (lower(anchor.course_long_name) COLLATE "C", anchor.course_instance_id,
+                           anchor.assessment_attempt_id))
+                OR (p_sort = 'courseDescending'
+                    AND (lower(item.course_long_name) COLLATE "C", item.course_instance_id,
+                         item.assessment_attempt_id)
+                        < (lower(anchor.course_long_name) COLLATE "C", anchor.course_instance_id,
+                           anchor.assessment_attempt_id))
+            ))
+         ORDER BY
+           CASE WHEN p_sort = 'startedNewest' THEN item.started_at END DESC,
+           CASE WHEN p_sort = 'startedOldest' THEN item.started_at END ASC,
+           CASE WHEN p_sort = 'titleAscending'
+                THEN lower(item.assessment_title) COLLATE "C" END ASC,
+           CASE WHEN p_sort = 'titleDescending'
+                THEN lower(item.assessment_title) COLLATE "C" END DESC,
+           CASE WHEN p_sort = 'courseAscending'
+                THEN lower(item.course_long_name) COLLATE "C" END ASC,
+           CASE WHEN p_sort = 'courseDescending'
+                THEN lower(item.course_long_name) COLLATE "C" END DESC,
+           CASE WHEN p_sort = 'courseAscending' THEN item.course_instance_id END ASC,
+           CASE WHEN p_sort = 'courseDescending' THEN item.course_instance_id END DESC,
+           CASE WHEN p_sort IN ('startedOldest', 'titleAscending', 'courseAscending')
+                THEN item.assessment_attempt_id END ASC,
+           CASE WHEN p_sort IN ('startedNewest', 'titleDescending', 'courseDescending')
+                THEN item.assessment_attempt_id END DESC
          LIMIT p_page_size + 1
-    ), attempt_evidence AS (
-        SELECT page.assessment_attempt_id,
-               page.assessment_id,
-               page.assessment_title,
-               page.partial_credit_enabled,
-               page.assessment_attempt_number,
-               page.started_at,
-               page.submitted_at,
-               score.is_complete,
-               score.points_earned,
-               score.points_possible
-          FROM page_attempts AS page
+    ), evidence AS (
+        SELECT page.*,
+               score.is_complete, score.points_earned, score.points_possible
+          FROM page
           CROSS JOIN LATERAL (
               SELECT count(issued.issued_question_id) > 0
                          AND bool_and(
@@ -116,86 +165,135 @@ BEGIN
                  AND issued.assessment_attempt_id = page.assessment_attempt_id
           ) AS score
     )
-    SELECT to_char(evidence.started_at AT TIME ZONE 'UTC',
-                   'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') || '|' ||
-               evidence.assessment_attempt_id::text,
-           evidence.assessment_attempt_id,
-           evidence.assessment_id::text,
-           evidence.assessment_title,
-           evidence.assessment_attempt_number,
-           floor(extract(epoch FROM evidence.started_at) * 1000)::bigint,
-           CASE WHEN evidence.submitted_at IS NULL THEN NULL
-                ELSE floor(extract(epoch FROM evidence.submitted_at) * 1000)::bigint END,
-           CASE WHEN evidence.submitted_at IS NOT NULL
-                     AND evidence.is_complete
-                     AND evidence.submitted_at IS NOT NULL
-                THEN evidence.points_earned::double precision END,
-           CASE WHEN evidence.submitted_at IS NOT NULL
-                     AND evidence.is_complete
-                     AND evidence.submitted_at IS NOT NULL
-                THEN evidence.points_possible::double precision END
-     FROM attempt_evidence AS evidence
-     ORDER BY evidence.started_at DESC, evidence.assessment_attempt_id DESC;
+    SELECT item.assessment_attempt_id::text,
+           item.course_instance_id, item.course_short_name, item.course_long_name,
+           item.assessment_attempt_id, item.assessment_id, item.assessment_title,
+           item.assessment_attempt_number,
+           floor(extract(epoch FROM item.started_at) * 1000)::bigint,
+           CASE WHEN item.submitted_at IS NULL THEN NULL
+                ELSE floor(extract(epoch FROM item.submitted_at) * 1000)::bigint END,
+           CASE WHEN item.submitted_at IS NOT NULL AND item.is_complete
+                THEN item.points_earned::double precision END,
+           CASE WHEN item.submitted_at IS NOT NULL AND item.is_complete
+                THEN item.points_possible::double precision END
+      FROM evidence AS item
+     ORDER BY
+       CASE WHEN p_sort = 'startedNewest' THEN item.started_at END DESC,
+       CASE WHEN p_sort = 'startedOldest' THEN item.started_at END ASC,
+       CASE WHEN p_sort = 'titleAscending'
+            THEN lower(item.assessment_title) COLLATE "C" END ASC,
+       CASE WHEN p_sort = 'titleDescending'
+            THEN lower(item.assessment_title) COLLATE "C" END DESC,
+       CASE WHEN p_sort = 'courseAscending'
+            THEN lower(item.course_long_name) COLLATE "C" END ASC,
+       CASE WHEN p_sort = 'courseDescending'
+            THEN lower(item.course_long_name) COLLATE "C" END DESC,
+       CASE WHEN p_sort = 'courseAscending' THEN item.course_instance_id END ASC,
+       CASE WHEN p_sort = 'courseDescending' THEN item.course_instance_id END DESC,
+       CASE WHEN p_sort IN ('startedOldest', 'titleAscending', 'courseAscending')
+            THEN item.assessment_attempt_id END ASC,
+       CASE WHEN p_sort IN ('startedNewest', 'titleDescending', 'courseDescending')
+            THEN item.assessment_attempt_id END DESC;
+END
+$$;
+
+CREATE FUNCTION ple_private.student_attempt_history_facet_choices(
+    p_search text, p_state text, p_course_ids text[], p_field text,
+    p_choice_search text, p_after text, p_page_size integer
+) RETURNS TABLE (
+    continuation_key text, facet_key text, facet_label text, matching_count bigint
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    IF p_search IS NULL OR char_length(p_search) > 200
+       OR p_state IS NULL OR p_state NOT IN ('all', 'submitted', 'inProgress')
+       OR p_course_ids IS NULL OR cardinality(p_course_ids) > 100
+       OR p_field IS NULL OR p_field NOT IN ('course', 'state')
+       OR p_choice_search IS NULL OR char_length(p_choice_search) > 100
+       OR p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 50 THEN
+        RAISE EXCEPTION 'invalid Student Attempt History facet query'
+            USING ERRCODE = '22023';
+    END IF;
+
+    IF p_field = 'state' THEN
+        RETURN QUERY
+        WITH matched AS (
+            SELECT item.submitted_at
+              FROM ple_private.student_attempt_history_matches(p_search) AS item
+             WHERE cardinality(p_course_ids) = 0
+                OR item.course_instance_id = ANY(p_course_ids)
+        ), choices AS (
+            SELECT 'inProgress'::text AS key, 'In progress'::text AS label,
+                   count(*) FILTER (WHERE submitted_at IS NULL) AS count FROM matched
+            UNION ALL
+            SELECT 'submitted'::text, 'Submitted'::text,
+                   count(*) FILTER (WHERE submitted_at IS NOT NULL) FROM matched
+        )
+        SELECT choice.key, choice.key, choice.label, choice.count
+          FROM choices AS choice
+         WHERE (p_choice_search = ''
+                OR position(lower(p_choice_search) in lower(choice.label)) > 0)
+           AND (p_after IS NULL OR choice.key > p_after)
+         ORDER BY choice.label
+         LIMIT p_page_size + 1;
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    WITH choices AS MATERIALIZED (
+        SELECT item.course_instance_id AS key,
+               item.course_long_name || ' (Course ID: ' || item.course_instance_id || ')' AS label,
+               count(*) AS count
+          FROM ple_private.student_attempt_history_matches(p_search) AS item
+         WHERE p_state = 'all'
+            OR (p_state = 'submitted' AND item.submitted_at IS NOT NULL)
+            OR (p_state = 'inProgress' AND item.submitted_at IS NULL)
+         GROUP BY item.course_instance_id, item.course_long_name
+    ), filtered AS (
+        SELECT choice.* FROM choices AS choice
+         WHERE p_choice_search = ''
+            OR position(lower(p_choice_search) in lower(choice.label)) > 0
+    ), anchor AS (
+        SELECT * FROM filtered WHERE key = p_after
+    )
+    SELECT choice.key, choice.key, choice.label, choice.count
+      FROM filtered AS choice
+      LEFT JOIN anchor ON true
+     WHERE p_after IS NULL
+        OR (lower(choice.label) COLLATE "C", choice.key)
+             > (lower(anchor.label) COLLATE "C", anchor.key)
+     ORDER BY lower(choice.label) COLLATE "C", choice.key
+     LIMIT p_page_size + 1;
 END
 $$;
 
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.list_live_student_course_attempt_history(
-    p_course_instance_id text,
-    p_after text,
-    p_page_size integer
+CREATE FUNCTION ple_api.list_student_attempt_history(
+    p_after uuid, p_page_size integer, p_search text, p_state text,
+    p_course_ids text[], p_sort text
 ) RETURNS TABLE (
-    continuation_key text,
-    assessment_attempt_id uuid,
-    assessment_id text,
-    assessment_title text,
-    assessment_attempt_number integer,
-    started_at_millis bigint,
-    submitted_at_millis bigint,
+    continuation_key text, course_instance_id text, course_short_name text,
+    course_long_name text, assessment_attempt_id uuid, assessment_id text,
+    assessment_title text, assessment_attempt_number integer,
+    started_at_millis bigint, submitted_at_millis bigint,
     assessment_score_points_earned double precision,
     assessment_score_points_possible double precision
-) LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE
-    student_record_id_value uuid;
-BEGIN
-    SELECT student.student_record_id
-      INTO student_record_id_value
-      FROM ple_private.account AS account
-      JOIN LATERAL (
-          SELECT event.state
-            FROM ple_private.account_state_event AS event
-           WHERE event.account_id = account.account_id
-           ORDER BY event.occurred_at DESC, event.event_id DESC
-           LIMIT 1
-      ) AS state_event ON state_event.state = 'active'
-      JOIN ple_data.course_membership AS membership
-        ON membership.account_id = account.account_id
-       AND membership.role = 'student'
-       AND ple_data.course_membership_is_active(membership.course_membership_id)
-      JOIN ple_data.course_instance AS course
-        ON course.course_instance_id = membership.course_instance_id
-       AND course.retention_lifecycle_state = 'active'
-      JOIN ple_data.student_record AS student
-        ON student.student_record_id = membership.student_record_id
-       AND student.course_instance_id = course.course_instance_id
-       AND student.student_account_id = account.account_id
-     WHERE account.account_id = ple_api.current_session_account_id()
-       AND account.user_role = 'student'
-       AND course.course_instance_id = p_course_instance_id;
-    IF student_record_id_value IS NULL THEN
-        RAISE EXCEPTION 'Student Course not found' USING ERRCODE = '42501';
-    END IF;
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_private AS $$
+    SELECT * FROM ple_private.read_student_attempt_history(
+        p_after, p_page_size, p_search, p_state, p_course_ids, p_sort
+    )
+$$;
 
-    RETURN QUERY
-    SELECT history.continuation_key, history.assessment_attempt_id,
-           history.assessment_id, history.assessment_title,
-           history.assessment_attempt_number, history.started_at_millis,
-           history.submitted_at_millis, history.assessment_score_points_earned,
-           history.assessment_score_points_possible
-      FROM ple_private.read_student_course_attempt_history(
-          p_course_instance_id, student_record_id_value, p_after, p_page_size
-      ) AS history;
-END
+CREATE FUNCTION ple_api.list_student_attempt_history_facet_choices(
+    p_search text, p_state text, p_course_ids text[], p_field text,
+    p_choice_search text, p_after text, p_page_size integer
+) RETURNS TABLE (
+    continuation_key text, facet_key text, facet_label text, matching_count bigint
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_private AS $$
+    SELECT * FROM ple_private.student_attempt_history_facet_choices(
+        p_search, p_state, p_course_ids, p_field, p_choice_search, p_after, p_page_size
+    )
 $$;

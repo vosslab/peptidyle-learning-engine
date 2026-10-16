@@ -13,6 +13,38 @@ pub enum BlueprintHistoryKind {
     Metadata,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlueprintHistorySort {
+    Sequence,
+    RecordedAt,
+    Name,
+}
+
+impl BlueprintHistorySort {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sequence => "sequence",
+            Self::RecordedAt => "recorded_at",
+            Self::Name => "name",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BlueprintHistoryQuery {
+    pub text: String,
+    pub sort: BlueprintHistorySort,
+    pub ascending: bool,
+    pub availability: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BlueprintHistoryResult {
+    pub page: Page<BlueprintHistoryEntryView>,
+    pub public_count: u64,
+    pub archived_count: u64,
+}
+
 impl BlueprintHistoryKind {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -30,6 +62,7 @@ pub trait BlueprintHistoryStore: Send + Sync {
         session: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
         kind: BlueprintHistoryKind,
+        query: BlueprintHistoryQuery,
         page: PageRequest,
-    ) -> Result<Page<BlueprintHistoryEntryView>, StoreError>;
+    ) -> Result<BlueprintHistoryResult, StoreError>;
 }

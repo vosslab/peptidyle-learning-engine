@@ -19,6 +19,7 @@ import {
   DecodeError,
   decodeArray,
   decodeNonemptyString,
+  decodeNonnegativeInteger,
   decodeNullable,
   decodePositiveInteger,
   decodeRecord,
@@ -329,7 +330,7 @@ export function decodeInstallationCoursePage(
   path = "response",
 ): InstallationCoursePage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courses", "nextCursor"]);
+  requireOnlyFields(record, path, ["courses", "nextCursor", "activityChoices", "retentionChoices"]);
   const courses = decodeArray(
     field(record, "courses", path),
     `${path}.courses`,
@@ -349,5 +350,36 @@ export function decodeInstallationCoursePage(
   return {
     courses,
     nextCursor,
+    activityChoices: decodeArray(
+      field(record, "activityChoices", path),
+      `${path}.activityChoices`,
+      (value, at) => {
+        const choice = decodeRecord(value, at);
+        requireOnlyFields(choice, at, ["key", "count"]);
+        return {
+          key: decodeStringEnum(field(choice, "key", at), `${at}.key`, [
+            "active",
+            "inactive",
+          ] as const),
+          count: decodeNonnegativeInteger(field(choice, "count", at), `${at}.count`),
+        };
+      },
+    ),
+    retentionChoices: decodeArray(
+      field(record, "retentionChoices", path),
+      `${path}.retentionChoices`,
+      (value, at) => {
+        const choice = decodeRecord(value, at);
+        requireOnlyFields(choice, at, ["key", "count"]);
+        return {
+          key: decodeStringEnum(field(choice, "key", at), `${at}.key`, [
+            "active",
+            "archived",
+            "deleted",
+          ] as const),
+          count: decodeNonnegativeInteger(field(choice, "count", at), `${at}.count`),
+        };
+      },
+    ),
   };
 }

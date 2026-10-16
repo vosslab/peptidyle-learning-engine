@@ -68,12 +68,14 @@ Authoring Workspace access before returning any draft; the current routes are li
 [API_CONTRACTS.md](API_CONTRACTS.md). The answer-free preview remains separate, and private author
 source does not enter Student components, URLs, browser storage, or diagnostics.
 
-Question import loads vendored QPM WASM when the Instructor opens Import from My Draft Questions.
+Question import loads vendored QPM WASM when the Instructor opens Import from My Drafts.
 QPM parses supported files locally and returns Native JSON and conversion warnings. The browser
-checks each item's display content for images, skips those items until inline-image binding is
-available, and saves the remaining items sequentially through the existing Draft API. The results
-list retains created Draft links, server rejections, skipped reasons, and individual request
-failures. Each Draft uses the ordinary editor, preview, and publication workflow.
+saves each converted item sequentially through the existing Draft API, then binds that item's
+referenced display images from the converted package to its saved Draft. Image references use
+exact content-relative filenames. The results list retains created Draft links, server
+rejections, and individual save or image-binding failures. A failed image binding leaves the
+Draft and its link available for repair while later items continue. Each Draft uses the
+ordinary editor, preview, and publication workflow.
 
 Each route has an error boundary through the app shell so a screen failure leaves navigation usable.
 Documented slices must show loading, error/recovery, empty where applicable, and ready states rather

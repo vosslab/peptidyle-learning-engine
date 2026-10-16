@@ -5,71 +5,89 @@ import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObje
 export type LibraryClassificationFilter = Readonly<
   Pick<
     LibraryObjectSearchRequest,
-    "discipline_uuid" | "subject_uuid" | "topic_uuid" | "subtopic_uuid" | "cross_discipline"
+    "discipline_uuids" | "subject_uuids" | "topic_uuids" | "subtopic_uuids" | "cross_discipline"
   >
 >;
 
 export const EMPTY_LIBRARY_CLASSIFICATION_FILTER: LibraryClassificationFilter = {
-  discipline_uuid: null,
-  subject_uuid: null,
-  topic_uuid: null,
-  subtopic_uuid: null,
+  discipline_uuids: [],
+  subject_uuids: [],
+  topic_uuids: [],
+  subtopic_uuids: [],
   cross_discipline: false,
 };
 
 export const LIBRARY_CLASSIFICATION_UUID_FIELDS = [
-  "discipline_uuid",
-  "subject_uuid",
-  "topic_uuid",
-  "subtopic_uuid",
+  "discipline_uuids",
+  "subject_uuids",
+  "topic_uuids",
+  "subtopic_uuids",
 ] as const;
 
-/** ASVS 2.1.1/2.2.1: client structural checks; the server owns association validation. */
+/** ASVS 2.2.1: client structural checks; the server owns association validation. */
 export function libraryClassificationFilter(
   value: LibraryClassificationFilter,
 ): LibraryClassificationFilter {
   const result: LibraryClassificationFilter = {
-    discipline_uuid: value.discipline_uuid,
-    subject_uuid: value.subject_uuid,
-    topic_uuid: value.topic_uuid,
-    subtopic_uuid: value.subtopic_uuid,
+    discipline_uuids: value.discipline_uuids,
+    subject_uuids: value.subject_uuids,
+    topic_uuids: value.topic_uuids,
+    subtopic_uuids: value.subtopic_uuids,
     cross_discipline: value.cross_discipline,
   };
   for (const field of LIBRARY_CLASSIFICATION_UUID_FIELDS) {
-    const uuid = result[field];
     if (
-      uuid !== null &&
-      (typeof uuid !== "string" ||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid))
+      !Array.isArray(result[field]) ||
+      result[field].length > 32 ||
+      result[field].some(
+        (uuid) =>
+          typeof uuid !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid),
+      )
     ) {
-      throw new Error(`Library ${field} must be a UUID`);
+      throw new Error(`Library ${field} must contain at most 32 UUIDs`);
     }
   }
   if (
     typeof result.cross_discipline !== "boolean" ||
-    (result.subject_uuid !== null && result.discipline_uuid === null) ||
-    (result.topic_uuid !== null && result.subject_uuid === null) ||
-    (result.subtopic_uuid !== null && result.topic_uuid === null) ||
-    (result.cross_discipline && (result.discipline_uuid === null || result.subject_uuid === null))
+    (result.subject_uuids.length > 0 && result.discipline_uuids.length === 0) ||
+    (result.topic_uuids.length > 0 && result.subject_uuids.length === 0) ||
+    (result.subtopic_uuids.length > 0 && result.topic_uuids.length === 0) ||
+    (result.cross_discipline &&
+      (result.discipline_uuids.length === 0 || result.subject_uuids.length === 0))
   ) {
     throw new Error("Library classification requires its selected parents");
   }
-  return result;
+  return {
+    ...result,
+    discipline_uuids: [
+      ...new Set(result.discipline_uuids.map((uuid) => uuid.toLowerCase())),
+    ].sort(),
+    subject_uuids: [...new Set(result.subject_uuids.map((uuid) => uuid.toLowerCase()))].sort(),
+    topic_uuids: [...new Set(result.topic_uuids.map((uuid) => uuid.toLowerCase()))].sort(),
+    subtopic_uuids: [...new Set(result.subtopic_uuids.map((uuid) => uuid.toLowerCase()))].sort(),
+  };
 }
 
 export function libraryClassificationChange(
   field: (typeof LIBRARY_CLASSIFICATION_UUID_FIELDS)[number],
   uuid: string | null,
 ): Partial<LibraryClassificationFilter> {
+  const choice = uuid === null ? [] : [uuid];
   switch (field) {
-    case "discipline_uuid":
-      return { ...EMPTY_LIBRARY_CLASSIFICATION_FILTER, discipline_uuid: uuid };
-    case "subject_uuid":
-      return { subject_uuid: uuid, topic_uuid: null, subtopic_uuid: null, cross_discipline: false };
-    case "topic_uuid":
-      return { topic_uuid: uuid, subtopic_uuid: null };
-    case "subtopic_uuid":
-      return { subtopic_uuid: uuid };
+    case "discipline_uuids":
+      return { ...EMPTY_LIBRARY_CLASSIFICATION_FILTER, discipline_uuids: choice };
+    case "subject_uuids":
+      return {
+        subject_uuids: choice,
+        topic_uuids: [],
+        subtopic_uuids: [],
+        cross_discipline: false,
+      };
+    case "topic_uuids":
+      return { topic_uuids: choice, subtopic_uuids: [] };
+    case "subtopic_uuids":
+      return { subtopic_uuids: choice };
   }
 }
 
@@ -80,8 +98,7 @@ export function appendLibraryClassificationParameters(
 ): void {
   const filter = libraryClassificationFilter(value);
   for (const field of LIBRARY_CLASSIFICATION_UUID_FIELDS) {
-    const uuid = filter[field];
-    if (uuid !== null) parameters.set(field, uuid);
+    for (const uuid of filter[field]) parameters.append(field, uuid);
   }
   if (filter.cross_discipline) parameters.set("cross_discipline", "true");
 }
@@ -94,10 +111,10 @@ export function parseLibraryClassificationParameters(
     throw new Error("Library cross_discipline must be boolean");
   }
   return libraryClassificationFilter({
-    discipline_uuid: parameters.get("discipline_uuid"),
-    subject_uuid: parameters.get("subject_uuid"),
-    topic_uuid: parameters.get("topic_uuid"),
-    subtopic_uuid: parameters.get("subtopic_uuid"),
+    discipline_uuids: parameters.getAll("discipline_uuids"),
+    subject_uuids: parameters.getAll("subject_uuids"),
+    topic_uuids: parameters.getAll("topic_uuids"),
+    subtopic_uuids: parameters.getAll("subtopic_uuids"),
     cross_discipline: cross === "true",
   });
 }

@@ -39,11 +39,14 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 | Format                 | Surface and media type                                                      | Implemented boundary                                                                                                                                                                     | Owner                                                                                                                                           |
 | ---------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | PLE Question JSON      | Private PLE Question JSON route; `application/vnd.peptidyle.question+json`  | One answer-bearing document with the closed eight Question Types: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB                                                | PLE Question JSON adapter source (currently `crates/adapters/ple/src/question_json.rs`), [NATIVE_JSON_SPEC.md](QUESTION_SPECS/NATIVE_JSON_SPEC.md) |
-| QPM-readable banks | Import in My Draft Questions; local file bytes | QPM's `formats()` supplies the readable inventory. Current formats are BBQ, text2qti, Oklahoma, and Blackboard export ZIP. Image-free items save as Native JSON Drafts. | [question_import_screen.tsx](../src/pages/question_import_screen.tsx) |
+| QPM-readable banks | Import in My Drafts; local file bytes | QPM's `formats()` supplies the readable inventory. Current formats are BBQ, text2qti, Oklahoma, and Blackboard export ZIP. Converted items save as Native JSON Drafts; referenced images are bound to each saved Draft. | [question_import_screen.tsx](../src/pages/question_import_screen.tsx) |
 
-QPM conversion produces Native JSON files and warnings. Each image-free question saves through
-the ordinary Draft API. The results list preserves independent outcomes; there is no import history,
-queued processing, or retained source archive in this workflow. Canvas QTI 1.2 and Blackboard QTI
+QPM conversion produces Native JSON files and warnings. The browser attempts each question
+through the ordinary Draft API, then uploads any referenced display images from the converted
+package and binds them to that Draft by their exact content-relative filenames. Each item has its
+own created, rejected, or failed result; a failed image binding retains the saved Draft and
+its link, and later items continue. There is no import history, queued processing, or
+retained source archive in this workflow. Canvas QTI 1.2 and Blackboard QTI
 2.1 have no QPM reader and are not current import formats. The ordinary PLE Question Backend later
 produces the answer-free Question Presentation. See
 [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and [README.md](QUESTION_SPECS/README.md).

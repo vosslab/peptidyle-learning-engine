@@ -40,6 +40,7 @@ export type RibbonTierTwoParentId =
   | "browseQuestionLibrary"
   | "myDraftQuestions"
   | "myBlueprintCourses"
+  | "myChangeProposals"
   | "allCoursework"
   | "studentAttemptHistory";
 
@@ -68,6 +69,7 @@ export interface RouteContract {
     | "libraryBrowse"
     | "libraryWatchNotifications"
     | "myQuestions"
+    | "myPools"
     | "starredQuestions"
     | "questionDetail"
     | "questionDrafts"
@@ -94,7 +96,6 @@ export interface RouteContract {
     | "contentDisciplines"
     | "sysadminCourseInspection"
     | "sysadminCourseInspectionDetail"
-    | "pendingCourseInvitations"
     | "studentCourseInvitations"
     | "studentCourseInvitation"
     | "studentCourseLanding"
@@ -123,7 +124,7 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      tierTwoParent: "myBlueprintCourses",
+      tierTwoParent: "myChangeProposals",
     },
     pageLayout: "fullWidth",
   },
@@ -135,7 +136,7 @@ export const ROUTE_CONTRACT = [
     ribbon: {
       scope: "product",
       tierOneArea: "courses",
-      tierTwoParent: "myBlueprintCourses",
+      tierTwoParent: "myChangeProposals",
     },
     pageLayout: "fullWidth",
   },
@@ -208,13 +209,6 @@ export const ROUTE_CONTRACT = [
     id: "signIn",
     path: "/sign-in",
     surface: "Passwordless account sign-in",
-    requiredUserRoles: [],
-    ribbon: { scope: "product", tierOneArea: "account" },
-  },
-  {
-    id: "pendingCourseInvitations",
-    path: "/account/course-invitations",
-    surface: "Account-owned pending Course Invitations",
     requiredUserRoles: [],
     ribbon: { scope: "product", tierOneArea: "account" },
   },
@@ -411,6 +405,18 @@ export const ROUTE_CONTRACT = [
     pageLayout: "fullWidth",
   },
   {
+    id: "myPools",
+    path: "/authoring/pools",
+    surface: "Instructor Question Pools",
+    // ASVS 8.2.1: mount this private collection only for Instructors.
+    requiredUserRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tierOneArea: "questions",
+    },
+    pageLayout: "fullWidth",
+  },
+  {
     id: "starredQuestions",
     path: "/authoring/starred",
     surface: "Instructor Starred Questions",
@@ -424,7 +430,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "questionDrafts",
     path: "/authoring/drafts",
-    surface: "My Question Drafts private Authoring Workspace view",
+    surface: "My Drafts private Authoring Workspace view",
     requiredUserRoles: ["instructor"],
     ribbon: {
       scope: "product",
@@ -458,7 +464,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "publicBlueprintSearch",
     path: "/blueprint-courses/search/public",
-    surface: "Search Public Blueprint Courses",
+    surface: "Search Blueprint Courses",
     // ASVS 8.3.1: browser admission mirrors the server's Instructor-only boundary.
     requiredUserRoles: ["instructor"],
     ribbon: {

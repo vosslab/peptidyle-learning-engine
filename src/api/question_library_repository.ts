@@ -6,14 +6,13 @@ import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionI
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../generated/api/QuestionType";
-import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
-import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
 import {
-  isBloomCognitiveProcess,
-  isBloomKnowledgeDimension,
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
 } from "./decoders/bloom_classification";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
+import type { RecordFilterChoices } from "../components/record_list/record_fields";
 import { RECORD_PAGE_SIZES } from "../components/record_list/record_page_sizes";
 import { normalizeHumanEnteredQuestionId, validateCanonicalQuestionIdSyntax } from "../question_id";
 import { libraryClassificationFilter } from "./library_classification_filter";
@@ -95,63 +94,20 @@ export function questionLibraryBulkSelectionRequest(
   return { questionIds: canonicalQuestionIds };
 }
 
-function selectedCapability(value: string | null): Array<Capability> {
-  if (value === null) {
-    return [];
-  }
-  const selected = CAPABILITIES.find((candidate) => candidate === value);
-  if (selected === undefined) {
-    throw new Error("Question Library capability selection is invalid");
-  }
-  return [selected];
+function selectedValues<T extends string>(
+  values: ReadonlyArray<string>,
+  allowed: ReadonlyArray<T>,
+  name: string,
+): Array<T> {
+  return values.map((value) => {
+    const selected = allowed.find((candidate) => candidate === value);
+    if (selected === undefined) throw new Error(`Question Library ${name} selection is invalid`);
+    return selected;
+  });
 }
 
-function selectedQuestionLicense(value: string | null): Array<QuestionLicense> {
-  if (value === null) {
-    return [];
-  }
-  const selected = QUESTION_LICENSES.find((candidate) => candidate === value);
-  if (selected === undefined) {
-    throw new Error("Question Library Question License selection is invalid");
-  }
-  return [selected];
-}
-
-function selectedBackend(value: string | null): LibraryObjectSearchRequest["backends"] {
-  if (value === null) return [];
-  const selected = PRODUCTION_QUESTION_BACKENDS.find((candidate) => candidate === value);
-  if (selected === undefined) throw new Error("Question Library backend selection is invalid");
-  return [selected];
-}
-
-function selectedQuestionType(value: string | null): LibraryObjectSearchRequest["question_types"] {
-  if (value === null) return [];
-  const selected = QUESTION_TYPES.find((candidate) => candidate === value);
-  if (selected === undefined)
-    throw new Error("Question Library Question Type selection is invalid");
-  return [selected];
-}
-
-function selectedPublicText(value: string | null): Array<string> {
-  return value === null ? [] : [value];
-}
-
-function selectedPublicTexts(values: ReadonlyArray<string>): Array<string> {
-  return [...values];
-}
-
-function selectedBloomCognitiveProcess(value: string | null): BloomCognitiveProcess | null {
-  if (value === null || isBloomCognitiveProcess(value)) return value;
-  throw new Error("Question Library Bloom Cognitive Process selection is invalid");
-}
-
-function selectedBloomKnowledgeDimension(value: string | null): BloomKnowledgeDimension | null {
-  if (value === null || isBloomKnowledgeDimension(value)) return value;
-  throw new Error("Question Library Bloom Knowledge Dimension selection is invalid");
-}
-
-function facets(
-  page: Awaited<ReturnType<ApiClient["searchLibraryObjects"]>>,
+export function libraryFacetAggregates(
+  page: Pick<Awaited<ReturnType<ApiClient["searchLibraryObjects"]>>, "facets">,
 ): ReadonlyArray<QuestionLibraryBrowseFacetAggregate> {
   return [
     ...page.facets.authorNames.map((facet) => ({
@@ -223,20 +179,65 @@ export function libraryObjectSearchRequest(
     text:
       query.search === "" ? null : (normalizeHumanEnteredQuestionId(query.search) ?? query.search),
     ...libraryClassificationFilter(query),
-    author_names: selectedPublicText(query.authorName),
-    backends: selectedBackend(query.backend),
-    tags: selectedPublicText(query.tag),
-    subjects: selectedPublicTexts(query.subjects),
-    topics: selectedPublicTexts(query.topics),
-    bloom_cognitive_process: selectedBloomCognitiveProcess(query.bloomCognitiveProcess),
-    bloom_knowledge_dimension: selectedBloomKnowledgeDimension(query.bloomKnowledgeDimension),
-    question_types: selectedQuestionType(query.questionType),
-    capabilities: selectedCapability(query.capability),
-    question_licenses: selectedQuestionLicense(query.questionLicense),
+    author_names: [...query.authorNames],
+    backends: selectedValues(query.backends, PRODUCTION_QUESTION_BACKENDS, "backend"),
+    tags: [...query.tags],
+    subjects: [...query.subjects],
+    topics: [...query.topics],
+    bloom_cognitive_processes: selectedValues(
+      query.bloomCognitiveProcesses,
+      BLOOM_COGNITIVE_PROCESSES,
+      "Bloom Cognitive Process",
+    ),
+    bloom_knowledge_dimensions: selectedValues(
+      query.bloomKnowledgeDimensions,
+      BLOOM_KNOWLEDGE_DIMENSIONS,
+      "Bloom Knowledge Dimension",
+    ),
+    question_types: selectedValues(query.questionTypes, QUESTION_TYPES, "Question Type"),
+    capabilities: selectedValues(query.capabilities, CAPABILITIES, "capability"),
+    question_licenses: selectedValues(
+      query.questionLicenses,
+      QUESTION_LICENSES,
+      "Question License",
+    ),
     authorship,
     sort: query.sort,
     cursor,
     page_size: questionLibraryPageSize(pageSize),
+  };
+}
+
+/** Maps the shared browser-safe Question projection into RecordList fields. */
+export function questionLibraryRowFromResult(
+  item: Extract<
+    Awaited<ReturnType<ApiClient["searchLibraryObjects"]>>["items"][number],
+    { kind: "question" }
+  >,
+): import("../pages/library_page_model").LibraryObjectQuestionRow {
+  const question = item.question;
+  return {
+    kind: "question" as const,
+    displayId: question.summary.questionId,
+    title: question.summary.metadata.questionTitle,
+    description: question.summary.metadata.questionDescription,
+    ownerAccountId: item.ownerAccountId,
+    questionType: question.summary.questionType,
+    backend: question.summary.backend,
+    tags: question.summary.metadata.tags,
+    license: question.summary.metadata.questionLicense,
+    publishedQuestionRevisionTuple: question.summary.publishedQuestionRevisionTuple,
+    questionTitle: question.summary.metadata.questionTitle,
+    summary: question.summary.metadata.questionDescription,
+    bloom: question.summary.bloom,
+    disciplineName: question.disciplineName,
+    disciplineIsRetired: question.disciplineIsRetired,
+    questionFormat: question.summary.questionFormat,
+    authors: question.summary.authorship.authors,
+    capabilities: question.summary.capabilities,
+    questionLicense: question.summary.metadata.questionLicense,
+    evidence: question.evidence,
+    classification: item.classification,
   };
 }
 
@@ -246,6 +247,11 @@ export function createQuestionLibraryRepository(
   authorship: QuestionSearchAuthorship = "any",
 ): QuestionLibraryBrowseRepository {
   return {
+    async listFacetChoices(field, query, choiceSearch, cursor): Promise<RecordFilterChoices> {
+      const request = libraryObjectSearchRequest(query, cursor, authorship, 50);
+      const page = await client.listLibraryFacetChoices(field, request, choiceSearch);
+      return page;
+    },
     async search(
       query: QuestionLibraryBrowseQuery,
       cursor: string | null,
@@ -276,34 +282,13 @@ export function createQuestionLibraryRepository(
               subjectUuid: pool.metadata.subjectUuid,
               topicUuid: pool.metadata.topicUuid,
               subtopicUuid: pool.metadata.subtopicUuid,
+              classification: item.classification,
             };
           }
-          const question = item.question;
-          return {
-            kind: "question" as const,
-            displayId: question.summary.questionId,
-            title: question.summary.metadata.questionTitle,
-            description: question.summary.metadata.questionDescription,
-            ownerAccountId: item.ownerAccountId,
-            questionType: question.summary.questionType,
-            backend: question.summary.backend,
-            tags: question.summary.metadata.tags,
-            license: question.summary.metadata.questionLicense,
-            publishedQuestionRevisionTuple: question.summary.publishedQuestionRevisionTuple,
-            questionTitle: question.summary.metadata.questionTitle,
-            summary: question.summary.metadata.questionDescription,
-            bloom: question.summary.bloom,
-            disciplineName: question.disciplineName,
-            disciplineIsRetired: question.disciplineIsRetired,
-            questionFormat: question.summary.questionFormat,
-            authors: question.summary.authorship.authors,
-            capabilities: question.summary.capabilities,
-            questionLicense: question.summary.metadata.questionLicense,
-            evidence: question.evidence,
-          };
+          return questionLibraryRowFromResult(item);
         }),
         nextCursor: page.nextCursor,
-        aggregates: facets(page),
+        aggregates: libraryFacetAggregates(page),
         facetTruncation: {
           authorNames: page.facets.authorNamesTruncated,
           tags: page.facets.tagsTruncated,

@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use question_model::{AccountId, PublishedQuestionId};
 
-use crate::{DiscoveryPageRequest, Page, SessionTokenHash, StoreError};
+use crate::{SessionTokenHash, StoreError};
 
 /// Browser-safe Star facts for one Published Question lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,15 +28,6 @@ pub struct QuestionStarredInstructor {
     /// Canonical public display name with its canonical Profile route identity.
     pub display_name: String,
     pub account_id: AccountId,
-}
-
-/// One Published Question in the authenticated Instructor's personal collection.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StarredQuestionSummary {
-    /// Canonical Published Question identity.
-    pub question_id: PublishedQuestionId,
-    /// Current Published Question title.
-    pub question_title: String,
 }
 
 /// Authenticated Instructor boundary for Star reads and idempotent mutations.
@@ -60,14 +51,4 @@ pub trait QuestionStarStore: Send + Sync {
         question_id: &PublishedQuestionId,
         starred: bool,
     ) -> Result<QuestionStarProjection, StoreError>;
-
-    /// Lists only the authenticated Instructor's Starred Questions, newest first.
-    ///
-    /// An empty collection is a successful page. The database rejects Students,
-    /// anonymous callers, and inactive Accounts.
-    async fn list_current_starred_questions(
-        &self,
-        session_token_hash: SessionTokenHash,
-        page: DiscoveryPageRequest,
-    ) -> Result<Page<StarredQuestionSummary>, StoreError>;
 }

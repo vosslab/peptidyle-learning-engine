@@ -1,13 +1,14 @@
 // Owner/Sysadmin editor for one ordinary Pool's complete exact tuple set.
 
-import { Show, createEffect, createMemo, createSignal, type JSX } from "solid-js";
+import { Show, createEffect, createResource, createSignal, type JSX } from "solid-js";
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
-import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
 import type { QuestionPoolMembersClient } from "../api/question_pool_members";
 import type { QuestionBulkMetadataClient } from "../api/question_bulk_metadata";
-import type { QuestionDetails } from "../../generated/api/QuestionDetails";
+import type { QuestionAvailabilityClient } from "../api/question_availability";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
+import type { QuestionImageAssetId } from "../../generated/api/QuestionImageAssetId";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import {
   QuestionPicker,
@@ -27,21 +28,29 @@ import {
   questionPoolMembersDraftAfterReload,
   removeQuestionPoolMember,
   saveQuestionPoolMembersDraft,
-  sortQuestionPoolMemberDraftDisplay,
+  type QuestionPoolMemberDraft,
 } from "./question_pool_members_model";
-import { RecordSortControl } from "./record_list/record_sort_control";
-import { RecordTable, type RecordTableColumn } from "./record_list/record_table";
+import type { RecordContent } from "./record_list/record_list";
 import {
-  questionPoolMemberSortOptions,
-  type QuestionPoolMemberSort,
-} from "./record_list/question_pool_member_sort";
+  comparePoolMemberFields,
+  poolMemberRowId,
+  questionPoolMemberFields,
+} from "./question_pool_member_fields";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import "./question_pool_members_editor.css";
 
 export interface QuestionPoolMembersEditorProps {
   readonly pool: QuestionPoolView;
   readonly client: QuestionPoolMembersClient;
   readonly questionLibrary: QuestionLibraryBrowseRepository;
-  readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
+  readonly getQuestionRevision: QuestionAvailabilityClient["getQuestionRevision"];
+  readonly questionRevisionPreviewDocumentUrl: QuestionAvailabilityClient["questionRevisionPreviewDocumentUrl"];
+  readonly questionImageUrl: (
+    publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
+    questionImageAssetId: QuestionImageAssetId,
+  ) => string;
   readonly getCurrentQuestionSharedMetadata: QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"];
   readonly reloadPool: () => Promise<QuestionPoolView | null | undefined>;
   readonly onSaved: () => void;
@@ -56,54 +65,57 @@ export function QuestionPoolMembersEditor(props: QuestionPoolMembersEditorProps)
   const [reloading, setReloading] = createSignal(false);
   const [error, setError] = createSignal<string>();
   const [notice, setNotice] = createSignal<string>();
-  const [memberSort, setMemberSort] = createSignal<QuestionPoolMemberSort>("as-loaded");
-  const sortedDraftMembers = createMemo(() =>
-    sortQuestionPoolMemberDraftDisplay(draft().members, memberSort()),
+  const [memberSource] = createResource(
+    () => draft().members,
+    (members) => Promise.resolve(members),
   );
-  const draftMemberColumns: ReadonlyArray<
-    RecordTableColumn<ReturnType<typeof sortedDraftMembers>[number]>
-  > = [
+  const memberFields = questionPoolMemberFields<QuestionPoolMemberDraft>();
+  const memberContent = (member: QuestionPoolMemberDraft): RecordContent => ({
+    title: member.questionTitle,
+    details: [
+      {
+        kind: "questionId",
+        questionTitle: member.questionTitle,
+        displayId: member.publishedQuestionRevisionTuple.publishedQuestionId,
+      },
+      {
+        kind: "text",
+        label: "Revision",
+        value: String(member.publishedQuestionRevisionTuple.revisionNumber),
+      },
+      { kind: "text", label: "Question License", value: member.questionLicense ?? "Unavailable" },
+    ],
+    actions: [
+      {
+        id: "remove",
+        kind: "command",
+        label: "Remove",
+        disabled: draft().members.length <= 1 || saving() || adding() || reloading(),
+        onClick: (): void => {
+          if (saving() || adding() || reloading() || draft().members.length <= 1) return;
+          setDraft((current) =>
+            removeQuestionPoolMember(
+              current,
+              member.publishedQuestionRevisionTuple.publishedQuestionId,
+            ),
+          );
+          setError(undefined);
+          setNotice(undefined);
+        },
+      },
+    ],
+  });
+  const memberSearch = createLocalCompleteSearch(
+    { resource: memberSource, refetchSource: () => undefined, rows: (members) => members },
     {
-      id: "published-question-id",
-      header: "Published Question ID",
-      cell: (member) => member.publishedQuestionRevisionTuple.publishedQuestionId,
+      fields: memberFields,
+      rowId: poolMemberRowId,
+      keyword: (member) =>
+        `${member.questionTitle} ${member.publishedQuestionRevisionTuple.publishedQuestionId}`,
+      compare: comparePoolMemberFields,
+      content: memberContent,
     },
-    {
-      id: "revision",
-      header: "Revision",
-      cell: (member) => String(member.publishedQuestionRevisionTuple.revisionNumber),
-    },
-    {
-      id: "question-license",
-      header: "Question License",
-      cell: (member) => member.questionLicense ?? "Unavailable",
-    },
-    {
-      id: "remove",
-      header: "Actions",
-      cell: (member) => (
-        <button
-          class="quiet-action"
-          type="button"
-          disabled={draft().members.length <= 1 || saving() || adding()}
-          aria-label={`Remove ${member.questionTitle} from this Pool`}
-          onClick={() => {
-            if (saving() || adding()) return;
-            setDraft((current) =>
-              removeQuestionPoolMember(
-                current,
-                member.publishedQuestionRevisionTuple.publishedQuestionId,
-              ),
-            );
-            setError(undefined);
-            setNotice(undefined);
-          }}
-        >
-          Remove
-        </button>
-      ),
-    },
-  ];
+  );
   createEffect(() => {
     const pool = props.pool;
     if (draft().questionPoolId !== pool.questionPoolId) {
@@ -121,9 +133,8 @@ export function QuestionPoolMembersEditor(props: QuestionPoolMembersEditorProps)
   const pickerRepository = (): QuestionPickerSourceRepository =>
     questionPoolSourcePickerRepository(props.questionLibrary, eligibility());
 
-  async function addSelection(selection: QuestionPickerSelection): Promise<void> {
-    if (adding() || saving() || reloading()) return;
-    setPickerOpen(false);
+  async function addSelection(selection: QuestionPickerSelection): Promise<boolean> {
+    if (adding() || saving() || reloading()) return false;
     setAdding(true);
     setError(undefined);
     setNotice(undefined);
@@ -136,11 +147,11 @@ export function QuestionPoolMembersEditor(props: QuestionPoolMembersEditorProps)
       );
       if (additions.length === 0) {
         setNotice("Those Questions are already selected.");
-        return;
+        return false;
       }
       const resolved = await questionPoolMemberTuples(
         { questionIds: additions.map((item) => item.questionId), questions: additions },
-        props.getQuestionDetails,
+        props.getQuestionRevision,
         props.getCurrentQuestionSharedMetadata,
         eligibility(),
       );
@@ -154,13 +165,16 @@ export function QuestionPoolMembersEditor(props: QuestionPoolMembersEditorProps)
       const nextDraft = addQuestionPoolMembers(draft(), addedMembers);
       if (nextDraft.members.length > MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY) {
         setError("The Pool member limit has been reached. Remove a Question before adding more.");
-        return;
+        return false;
       }
       setDraft(nextDraft);
+      setPickerOpen(false);
+      return true;
     } catch {
       setError(
         "The selected Questions no longer meet this Pool's requirements. Review and try again.",
       );
+      return false;
     } finally {
       setAdding(false);
     }
@@ -279,39 +293,32 @@ export function QuestionPoolMembersEditor(props: QuestionPoolMembersEditorProps)
           </p>
         )}
       </Show>
-      <RecordSortControl
-        label="Sort Pool Questions"
-        options={questionPoolMemberSortOptions}
-        value={memberSort()}
-        onChange={setMemberSort}
-      />
-      <RecordTable
-        rows={sortedDraftMembers()}
-        columns={draftMemberColumns}
-        rowId={(member) =>
-          `${member.publishedQuestionRevisionTuple.publishedQuestionId}:${member.publishedQuestionRevisionTuple.revisionNumber}`
-        }
-        state={{ kind: "ready" }}
-        rowHeader={{
-          id: "question-title",
-          header: "Question Title",
-          content: (member) => member.questionTitle,
+      <SearchBlock
+        layout="above"
+        controls={<SearchControls state={memberSearch.state} textLabel="Search Pool Questions" />}
+        state={memberSearch.state}
+        collection={{
+          ariaLabel: "Questions being edited",
+          fields: memberFields,
+          query: memberSearch.query,
+          emptyState: { title: "No Pool Questions match this search." },
         }}
-        ariaLabel="Questions being edited"
-        emptyState={{ title: "No Questions are in this Pool." }}
       />
       <Show when={pickerOpen()}>
         <QuestionPicker
           repository={pickerRepository()}
           sources={questionLibraryPickerSources(false)}
           eligibility={eligibility()}
+          loadQuestionInspection={props.getQuestionRevision}
+          questionRevisionPreviewDocumentUrl={props.questionRevisionPreviewDocumentUrl}
+          questionImageUrl={props.questionImageUrl}
           mode="many"
           maximumSelection={MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY - draft().members.length}
           title="Add published Questions to this Pool"
-          instructions="Questions added here use their current eligible Revisions. Existing Pool Revisions stay exact."
           confirmLabel="Add selected Questions"
           trigger={undefined}
-          onConfirm={(selection) => void addSelection(selection)}
+          confirmationError={error() ?? notice()}
+          onConfirm={addSelection}
           onCancel={() => setPickerOpen(false)}
         />
       </Show>

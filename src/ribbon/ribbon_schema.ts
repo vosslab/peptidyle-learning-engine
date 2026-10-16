@@ -76,9 +76,11 @@ export const PRODUCT_TIER_TWO: ProductTierTwo = Object.freeze({
       "myActiveCourses",
       "myInactiveCourses",
       "searchPublicBlueprintCourses",
+      "myChangeProposals",
     ),
     questions: destinations(
       "myQuestions",
+      "myPools",
       "myDraftQuestions",
       "starred",
       "watched",

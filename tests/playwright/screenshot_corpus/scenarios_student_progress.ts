@@ -21,8 +21,6 @@ import {
   scrollTop,
 } from "./visible_workflows";
 
-const DEMO_COURSE_SHORT_NAME = "BCHM 355";
-
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
   checkpoint: string,
@@ -38,11 +36,7 @@ async function openCourseAttemptHistory(page: Page): Promise<void> {
   await tabs.getByRole("link", { name: "Grades", exact: true }).click();
   await page.getByRole("link", { name: "Attempt History", exact: true }).click();
   await page.locator('[data-route-surface="studentAttemptHistory"]').waitFor();
-  await waitForCourseSections(
-    page,
-    ".student-course-attempt-history",
-    ".record-collection__state--loading",
-  );
+  await waitForCourseSections(page, ".shared-search-results", ".record-collection__state--loading");
 }
 
 async function openCourseProgress(page: Page): Promise<void> {
@@ -53,6 +47,19 @@ async function openCourseProgress(page: Page): Promise<void> {
 
 async function waitForCourseProgress(page: Page): Promise<void> {
   await page.locator(".student-course-progress__completion").waitFor();
+}
+
+async function progressAssessmentInList(page: Page): Promise<Locator> {
+  await page
+    .getByRole("group", { name: "Record display", exact: true })
+    .getByRole("button", { name: "List", exact: true })
+    .click();
+  const assessment = page
+    .getByRole("list", { name: "Coursework progress", exact: true })
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }) });
+  await assessment.waitFor();
+  return assessment;
 }
 
 async function waitForCourseworkSections(page: Page): Promise<void> {
@@ -79,20 +86,19 @@ async function waitForCourseSections(
 
 function attemptHistoryForDemoAssessment(page: Page): Locator {
   return pageCourseAttemptHistorySection(page)
-    .getByRole("list", { name: `${DEMO_COURSE_SHORT_NAME} Attempts`, exact: true })
-    .getByRole("listitem")
-    .filter({ has: page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }) });
+    .getByRole("table", { name: "Attempt History", exact: true })
+    .locator("tr[data-record-id]")
+    .filter({ has: page.getByText(ASSIGNMENT_TITLE, { exact: true }) });
 }
 
 function pageCourseAttemptHistorySection(page: Page): Locator {
-  return page.getByRole("region", {
-    name: `${DEMO_COURSE_SHORT_NAME} Attempt History`,
-    exact: true,
-  });
+  return page.getByRole("region", { name: "Attempt History", exact: true });
 }
 
 function submittedAttemptHistoryForDemoAssessment(page: Page): Locator {
-  return attemptHistoryForDemoAssessment(page).filter({ hasText: /· Submitted/u });
+  return attemptHistoryForDemoAssessment(page).filter({
+    has: page.getByRole("button", { name: "Review Attempt", exact: true }),
+  });
 }
 
 async function nextDurationCheckpoint(
@@ -219,11 +225,11 @@ async function studentProgressAndStats(runtime: ScenarioRuntime): Promise<void> 
       await choosePersona(page, "Mary Okafor");
       await openCourseProgress(page);
       await waitForCourseProgress(page);
-      await page
-        .getByRole("list", { name: "Coursework progress", exact: true })
-        .getByRole("listitem")
-        .first()
-        .getByText(/^Latest activity:/u)
+      const completedAssessment = await progressAssessmentInList(page);
+      await completedAssessment.getByText(/\d+ Attempts? \* \d+ submitted/u).waitFor();
+      await completedAssessment.getByText(/^Latest Attempt(?: \d+)? submitted$/u).waitFor();
+      await completedAssessment
+        .getByText(/^(?:Score pending|Perfect score|Below 100%|Released score · bonus points)$/u)
         .waitFor();
       await captureCheckpoint(runtime, `course_progress_${viewport}`, session);
 
@@ -298,7 +304,7 @@ async function captureAttemptHistoryAndFeedback(
     }
     await attemptHistoryForDemoAssessment(page)
       .first()
-      .getByText(/^Started/u)
+      .getByRole("button", { name: "Review Attempt", exact: true })
       .waitFor();
     await page.locator('[data-ribbon-control-id="studentLatestFeedback"][href]').waitFor();
     await captureCheckpoint(runtime, `course_attempt_history_${viewport}`, session);
@@ -394,10 +400,10 @@ async function studentProgressWithActiveAttempt(runtime: ScenarioRuntime): Promi
     try {
       await choosePersona(session.page, "Jack Nguyen");
       await openCourseProgress(session.page);
-      await session.page
-        .getByRole("list", { name: "Coursework progress", exact: true })
-        .getByText("In progress", { exact: true })
-        .waitFor();
+      const activeAssessment = await progressAssessmentInList(session.page);
+      await activeAssessment.getByText("Latest activity:", { exact: true }).waitFor();
+      await activeAssessment.getByText("In progress", { exact: true }).waitFor();
+      await activeAssessment.getByText(/^Latest Attempt(?: \d+)? in progress$/u).waitFor();
       await captureCheckpoint(runtime, `course_progress_in_progress_${viewport}`, session);
     } finally {
       await runtime.close(session);

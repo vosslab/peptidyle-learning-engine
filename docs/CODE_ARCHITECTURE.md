@@ -198,13 +198,12 @@ typed model. [src/route_access_boundary.tsx](../src/route_access_boundary.tsx)
 admits browser routes from the route contract; server routes and PostgreSQL
 remain the authorization boundary for each operation and resource.
 
-[src/components/page_frame.tsx](../src/components/page_frame.tsx) owns the
-shared page heading, the WP-C1-admitted page-level slots, and fixed content
-placement. Its content region is one column stack. `PageSection` in the same
-module supplies an in-page heading, optional helper and actions, and a body.
-Reading width is the default; a route may declare `fullWidth` for
-dense content without coupling that choice to Ribbon navigation. A `contentClass`
-hook is only for a task-specific arrangement inside that stack.
+[src/components/page_frame.tsx](../src/components/page_frame.tsx) owns route
+content width, standard vertical spacing, page-level actions, and the content
+stack. The Ribbon and breadcrumbs identify the page. Reading width is the
+default; a route may declare `fullWidth` for dense content without coupling
+that choice to Ribbon navigation. A `contentClass` hook is only for a
+task-specific arrangement inside that stack.
 [src/components/record_list/](../src/components/record_list/) provides record
 presentations whose native structure matches the task: `RecordList` for compact
 flat scans, `RecordSequence` for ordered records, `RecordTable` for labeled
@@ -228,15 +227,16 @@ page; client windowing is not part of the record list.
 This describes the existing shared presentation foundation. Current HG extends it to one
 combined Question-and-Pool search, with Pool-membership filters and an organized default.
 Library Search, Library Browse, Public Blueprint search, the Question picker, and the Assessment
-content picker use
-the [shared search modules](../src/features/search/search_page.tsx) for request ordering, paging, selection,
-controls, result displays, and page layout. Content-specific definitions own query cleanup,
-filters, API calls, and row descriptions. Text applies on submit; display changes redraw the
-loaded page without a request. See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md)
-for the implemented boundary. The combined Library query uses one globally paged Question/Pool
-server union. `/library/{id}` resolves the authorized object kind before dispatching to Question
-or Pool detail. The Question picker retains its ordered domain tray; the Assessment content picker
-selects Questions or one Pool through the mixed Library definition. See
+content picker compose `SearchBlock`, `SearchResults`, and `RecordList` from the
+[shared search modules](../src/features/search/). Content-specific definitions own query
+cleanup, filters, API calls, and row descriptions. Text applies on submit; display changes redraw
+the loaded page without a request. `RecordList` owns modes, columns, sorting, filtering, and
+actions; the domain query owner applies operations to the whole matching result before paging.
+See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the implemented boundary.
+The combined Library query uses one globally paged Question/Pool server union. `/library/{id}`
+resolves the authorized object kind before dispatching to Question or Pool detail. The Question
+picker retains its ordered domain tray; the Assessment content picker selects Questions or one Pool
+through the mixed Library definition. See
 [SHARED_SEARCH_PAGE_SCHEMATIC.md](archive/SHARED_SEARCH_PAGE_SCHEMATIC.md).
 Pool editor sorting is display-only; the shared reorder component does not make Pool membership
 ordered. [question_specs_alignment_report.md](archive/reports/question_specs_alignment_report.md)

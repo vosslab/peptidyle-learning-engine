@@ -1,6 +1,6 @@
 // assessment_templates_page.tsx - Instructor-owned reusable Assessment settings.
 
-import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
 import type { AssessmentTemplate } from "../../generated/api/AssessmentTemplate";
 import type { AssessmentType } from "../../generated/api/AssessmentType";
@@ -10,15 +10,15 @@ import type {
 } from "../api/assessment_template";
 import { useApplicationApi } from "../api/application_api";
 import { ApiRequestError } from "../api/http_client/error";
-import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
+import { UnsavedChangesGuard, trackEditorSave } from "../components/unsaved_changes_guard";
 import { PageFrame } from "../components/page_frame";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
+import type { RecordContent } from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import { ASSESSMENT_TYPE_OPTIONS, isAssessmentType } from "../assessment_type_presentation";
 import { AssessmentTemplateSettingsEditor } from "./assessment_template_settings_editor";
+import { assessmentTemplateSearchFields } from "./assessment_templates_search_fields";
 import {
   assessmentTemplateDraft,
   assessmentTemplateNameError,
@@ -46,14 +46,13 @@ function isConflict(error: unknown): boolean {
   return error instanceof ApiRequestError && error.status === 409;
 }
 
-/** Actual Template surface, injectable for one-time actual-component browser proof. */
 export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProps): JSX.Element {
-  const [templates, setTemplates] = createSignal<ReadonlyArray<AssessmentTemplate>>([]);
-  const [listState, setListState] = createSignal<"loading" | "ready" | "error">("loading");
+  const [templates, { mutate: setTemplates, refetch: refetchTemplates }] = createResource(() =>
+    props.client.listAssessmentTemplates(),
+  );
   const [selected, setSelected] = createSignal<AssessmentTemplateResponse>();
   const [draft, setDraft] = createSignal<AssessmentTemplateDraft>();
   const [detailBusy, setDetailBusy] = createSignal(false);
-  const [dirty, setDirty] = createSignal(false);
   const [replacementRequested, setReplacementRequested] = createSignal(false);
   const [conflict, setConflict] = createSignal(false);
   const [status, setStatus] = createSignal("");
@@ -64,24 +63,19 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
   const [createDisclosure, setCreateDisclosure] = createSignal<boolean>();
   let pendingReplacement: (() => void) | undefined;
   let replacementTrigger: HTMLElement | undefined;
+  const dirty = (): boolean => {
+    const response = selected();
+    const currentDraft = draft();
+    return (
+      response !== undefined &&
+      currentDraft !== undefined &&
+      JSON.stringify(currentDraft) !== JSON.stringify(assessmentTemplateDraft(response.template))
+    );
+  };
 
   const isCreateExpanded = createMemo(
-    () => createDisclosure() ?? (listState() === "ready" && templates().length === 0),
+    () => createDisclosure() ?? (templates.state === "ready" && templates()?.length === 0),
   );
-
-  const templateListState = (): RecordListState => {
-    if (listState() === "loading") return { kind: "loading", label: "Loading your Templates..." };
-    if (listState() === "error") {
-      return {
-        kind: "error",
-        title: "Your Templates are unavailable",
-        message: "Your Templates could not be loaded.",
-        retry: () => void loadTemplates(),
-        retryLabel: "Try again",
-      };
-    }
-    return { kind: "ready" };
-  };
 
   const templateRecordContent = (template: AssessmentTemplate): RecordContent => ({
     title: template.name,
@@ -98,25 +92,24 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
     ],
   });
 
-  async function loadTemplates(): Promise<void> {
-    setListState("loading");
-    try {
-      setTemplates(await props.client.listAssessmentTemplates());
-      setListState("ready");
-    } catch {
-      setListState("error");
-    }
-  }
+  const templateSearch = createLocalCompleteSearch(
+    { resource: templates, refetchSource: refetchTemplates, rows: (value) => value },
+    {
+      fields: assessmentTemplateSearchFields,
+      rowId: (template) => template.id,
+      keyword: (template) => template.name,
+      content: templateRecordContent,
+    },
+  );
 
   function openResponse(response: AssessmentTemplateResponse): void {
     setSelected(response);
     setDraft(assessmentTemplateDraft(response.template));
-    setDirty(false);
     setConflict(false);
   }
 
   function requestReplacement(action: () => void): void {
-    if (!dirty()) {
+    if (!dirty() && trackedSave.inFlightSave() === undefined) {
       action();
       return;
     }
@@ -176,7 +169,8 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
         name: createName(),
         assessmentType: createType(),
       });
-      setTemplates((current) => replaceTemplate(current, response.template));
+      setTemplates((current) => replaceTemplate(current ?? [], response.template));
+      void refetchTemplates();
       setCreateName("");
       setCreateDisclosure(false);
       openResponse(response);
@@ -192,7 +186,6 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
 
   function patchDraft(patch: AssessmentTemplateDraftPatch): void {
     setDraft((current) => (current === undefined ? current : { ...current, ...patch }));
-    setDirty(true);
     setStatus("");
   }
 
@@ -220,7 +213,8 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
         },
         response.template.assessmentTemplateEditNumber,
       );
-      setTemplates((current) => replaceTemplate(current, saved.template));
+      setTemplates((current) => replaceTemplate(current ?? [], saved.template));
+      void refetchTemplates();
       openResponse(saved);
       setStatusIsError(false);
       setStatus("Template saved.");
@@ -240,6 +234,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
       setDetailBusy(false);
     }
   }
+  const trackedSave = trackEditorSave(saveTemplate);
 
   async function reloadAfterConflict(keepDraft: boolean): Promise<void> {
     const response = selected();
@@ -248,10 +243,10 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
     try {
       const latest = await props.client.getAssessmentTemplate(response.template.id);
       setSelected(latest);
-      setTemplates((current) => replaceTemplate(current, latest.template));
+      setTemplates((current) => replaceTemplate(current ?? [], latest.template));
+      void refetchTemplates();
       if (!keepDraft) {
         setDraft(assessmentTemplateDraft(latest.template));
-        setDirty(false);
       }
       setConflict(false);
       setStatusIsError(false);
@@ -268,16 +263,11 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
     }
   }
 
-  onMount(() => void loadTemplates());
-
   return (
     <PageFrame
       // Template editor controls inside the shared stack.
       contentClass="assessment-templates"
       routeSurface="assessmentTemplates"
-      eyebrow="Assessments"
-      title="My Assessment Templates"
-      lede="Reuse your own Assessment settings. Templates do not contain Questions, Question Pools, points, or Course dates."
     >
       <Show when={status() !== ""}>
         <p
@@ -290,18 +280,25 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
       </Show>
 
       <div class="assessment-templates-layout">
-        <aside class="assessment-template-overview" aria-labelledby="template-overview-heading">
-          <h2 id="template-overview-heading">Your Templates</h2>
-          <RecordList
-            ariaLabel="My Assessment Templates"
-            emptyState={{
-              title: "No Templates yet",
-              message: "Create one below to save settings you use often.",
+        <aside class="assessment-template-overview" aria-label="Templates">
+          <SearchBlock
+            layout="above"
+            controls={<SearchControls state={templateSearch.state} textLabel="Search Templates" />}
+            state={templateSearch.state}
+            collection={{
+              ariaLabel: "My Assessment Templates",
+              fields: assessmentTemplateSearchFields,
+              query: templateSearch.query,
+              get emptyState() {
+                return {
+                  title:
+                    templateSearch.state.query().text.length > 0 ||
+                    templateSearch.state.query().filters.size > 0
+                      ? "No Templates match these filters"
+                      : "No Templates yet",
+                };
+              },
             }}
-            recordId={(template) => template.id}
-            content={templateRecordContent}
-            rows={templates()}
-            state={templateListState()}
           />
 
           <button
@@ -362,7 +359,6 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
             fallback={
               <div class="empty-state assessment-template-editor-empty">
                 <h2 id="template-editor-heading">Choose a Template</h2>
-                <p>Select one from the overview, or create a new Template.</p>
               </div>
             }
           >
@@ -370,12 +366,11 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void saveTemplate();
+                  void trackedSave.save();
                 }}
               >
                 <header class="assessment-template-editor-header">
                   <div>
-                    <p class="eyebrow">Focused editor</p>
                     <h2 id="template-editor-heading">Edit Template</h2>
                   </div>
                   <button
@@ -459,7 +454,8 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
       </div>
       <UnsavedChangesGuard
         dirty={dirty}
-        save={saveTemplate}
+        save={trackedSave.save}
+        inFlightSave={trackedSave.inFlightSave}
         manualLeave={{
           requested: replacementRequested,
           clearRequest: clearReplacementRequest,

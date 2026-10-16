@@ -1,12 +1,13 @@
 // Instructor workflow for creating one reusable Published Question Pool.
 
-import { Show, createSignal, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import type { QuestionBulkMetadataClient } from "../api/question_bulk_metadata";
+import type { ContentClassificationClient } from "../api/content_classification";
 import { decodeQuestionPoolText } from "../api/decoders/question_pool_summary";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import {
@@ -14,6 +15,7 @@ import {
   questionLibraryPickerRepository,
   questionLibraryPickerSources,
   type QuestionPickerEligibility,
+  type QuestionPickerProps,
   type QuestionPickerSelection,
   type QuestionPickerSourceRepository,
 } from "../features/question_picker";
@@ -22,9 +24,16 @@ import {
   questionPoolMemberTuples,
   questionPoolStartingEligibility,
   questionPoolSourcePickerRepository,
+  QuestionPoolSelectionError,
   type QuestionPoolStartingQuestion,
+  type QuestionPoolStartingContext,
 } from "./question_pool_create_model";
 import { RecordSequence } from "./record_list/record_sequence";
+import {
+  UnsavedChangesGuard,
+  confirmUnsavedChanges,
+  trackEditorSave,
+} from "./unsaved_changes_guard";
 import "./question_pool_create_dialog.css";
 
 type CreationState = "choosing" | "reviewing" | "creating" | "created";
@@ -44,29 +53,46 @@ export interface QuestionPoolCreateDialogProps {
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly questionLibrary: QuestionLibraryBrowseRepository;
   readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
+  readonly loadQuestionInspection: QuestionPickerProps["loadQuestionInspection"];
+  readonly questionRevisionPreviewDocumentUrl: QuestionPickerProps["questionRevisionPreviewDocumentUrl"];
+  readonly questionImageUrl: QuestionPickerProps["questionImageUrl"];
   readonly getCurrentQuestionSharedMetadata: QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"];
-  /** Exact Published Question that fixes source-bound Pool membership and classification. */
-  readonly startingQuestion?: QuestionPoolStartingQuestion;
+  readonly classificationClient: Pick<
+    ContentClassificationClient,
+    "listDisciplinesIncludingRetired" | "listSubjects"
+  >;
+  /** Exact Published Question Revisions that fix Pool membership and classification. */
+  readonly startingQuestions?: ReadonlyArray<QuestionPoolStartingQuestion>;
   readonly onTaskPhaseChange: (active: boolean) => void;
   readonly onClose: () => void;
 }
 
 /** Keeps the exact tuple set local until the Instructor creates the Pool. */
 export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): JSX.Element {
-  const sourceBound = props.startingQuestion !== undefined;
+  const startingQuestions = props.startingQuestions ?? [];
+  const sourceBound = startingQuestions.length > 0;
   const [state, setState] = createSignal<CreationState>(sourceBound ? "reviewing" : "choosing");
   const [selection, setSelection] = createSignal<QuestionPickerSelection | undefined>(
     sourceBound ? { questionIds: [], questions: [] } : undefined,
   );
   const [eligibility, setEligibility] = createSignal<QuestionPickerEligibility>();
+  const [startingContext, setStartingContext] = createSignal<QuestionPoolStartingContext>();
   const [title, setTitle] = createSignal("");
   const [description, setDescription] = createSignal("");
   const [error, setError] = createSignal<string>();
+  const creationGuardScope = Symbol("Question Pool creation");
   const [createdPool, setCreatedPool] = createSignal<{
     readonly questionPoolId: string;
     readonly questionPoolEditNumber: number;
   }>();
+  const dirty = (): boolean =>
+    state() !== "created" &&
+    (trimPoolDraft(title()).length > 0 || trimPoolDraft(description()).length > 0);
   let reviewHeading: HTMLHeadingElement | undefined;
+  let disposed = false;
+  onCleanup(() => {
+    disposed = true;
+  });
   const pickerSources = questionLibraryPickerSources(false);
   const basePickerRepository = questionLibraryPickerRepository(
     props.questionLibrary,
@@ -81,65 +107,104 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     if (!sourceBound) return;
     props.onTaskPhaseChange(true);
     queueMicrotask(() => reviewHeading?.focus());
+    void loadStartingContext().catch((cause: unknown) => {
+      if (!disposed)
+        setError(
+          cause instanceof QuestionPoolSelectionError
+            ? cause.message
+            : "Pool eligibility could not be loaded. Try again.",
+        );
+    });
   });
+
+  async function loadStartingContext(): Promise<QuestionPoolStartingContext> {
+    const context = await questionPoolStartingEligibility(
+      startingQuestions,
+      props.getCurrentQuestionSharedMetadata,
+      props.classificationClient,
+    );
+    if (!disposed) {
+      setStartingContext(context);
+      setEligibility(context.eligibility);
+      setError(undefined);
+    }
+    return context;
+  }
 
   async function chooseAgain(): Promise<void> {
     setError(undefined);
     try {
-      const startingQuestion = props.startingQuestion;
-      if (startingQuestion !== undefined) {
-        setEligibility(
-          await questionPoolStartingEligibility(
-            startingQuestion,
-            props.getCurrentQuestionSharedMetadata,
-          ),
-        );
+      if (sourceBound) {
+        if (startingQuestions.length >= MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY) {
+          throw new QuestionPoolSelectionError(
+            "This Pool already has the maximum number of starting Questions.",
+          );
+        }
+        const nextContext = await loadStartingContext();
+        if (disposed) return;
+        setEligibility(nextContext.eligibility);
       }
+      if (disposed) return;
       setState("choosing");
       props.onTaskPhaseChange(false);
-    } catch {
-      setError("Pool eligibility could not be loaded. Keep this review open and try again.");
+    } catch (cause) {
+      if (!disposed)
+        setError(
+          cause instanceof QuestionPoolSelectionError
+            ? cause.message
+            : "Pool eligibility could not be loaded. Try again.",
+        );
     }
   }
 
-  function cancelSelection(): void {
+  async function cancelSelection(): Promise<boolean> {
     if (!sourceBound) {
+      if (!(await confirmUnsavedChanges(creationGuardScope))) return false;
       props.onClose();
-      return;
+      return true;
     }
     setState("reviewing");
     props.onTaskPhaseChange(true);
     queueMicrotask(() => reviewHeading?.focus());
+    return true;
   }
 
-  async function acceptSelection(next: QuestionPickerSelection): Promise<void> {
+  async function closeReview(): Promise<void> {
+    if (await confirmUnsavedChanges(creationGuardScope)) props.onClose();
+  }
+
+  async function acceptSelection(next: QuestionPickerSelection): Promise<boolean> {
     try {
       if (!sourceBound && eligibility() === undefined) {
         const first = next.questions[0];
         if (first === undefined) throw new Error("Choose one Question to establish this Pool.");
-        setEligibility(
-          await questionPoolEligibilityForQuestion(
-            first.questionId,
-            props.getQuestionDetails,
-            props.getCurrentQuestionSharedMetadata,
-          ),
+        const nextEligibility = await questionPoolEligibilityForQuestion(
+          first.questionId,
+          props.getQuestionDetails,
+          props.getCurrentQuestionSharedMetadata,
         );
+        if (disposed) return false;
+        setEligibility(nextEligibility);
       }
+      if (disposed) return false;
       setSelection(next);
       setError(undefined);
       setState("reviewing");
       props.onTaskPhaseChange(true);
       queueMicrotask(() => reviewHeading?.focus());
+      return true;
     } catch {
-      setError(
-        "The selected Question cannot establish Pool eligibility. Choose another published Question.",
-      );
+      if (!disposed)
+        setError(
+          "The selected Question cannot establish Pool eligibility. Choose another published Question.",
+        );
+      return false;
     }
   }
 
-  async function createPool(): Promise<void> {
+  async function createPool(): Promise<boolean> {
     const selected = selection();
-    if (selected === undefined || state() === "creating") return;
+    if (selected === undefined || state() !== "reviewing") return false;
     try {
       decodeQuestionPoolText(trimPoolDraft(title()), "Title", 512);
       decodeQuestionPoolText(trimPoolDraft(description()), "Description", 4000);
@@ -147,36 +212,37 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
       setError(
         "Enter a Title (1-512 characters) and Description (1-4000 characters), without control characters.",
       );
-      return;
+      return false;
     }
     setState("creating");
     setError(undefined);
     try {
       let currentEligibility = eligibility();
-      if (currentEligibility === undefined) {
-        if (props.startingQuestion !== undefined) {
-          currentEligibility = await questionPoolStartingEligibility(
-            props.startingQuestion,
-            props.getCurrentQuestionSharedMetadata,
-          );
-        } else {
-          const first = selected.questions[0];
-          if (first === undefined) {
-            throw new Error("Choose one Question to establish this Pool.");
-          }
-          currentEligibility = await questionPoolEligibilityForQuestion(
-            first.questionId,
-            props.getQuestionDetails,
-            props.getCurrentQuestionSharedMetadata,
-          );
+      if (sourceBound) {
+        const context = await questionPoolStartingEligibility(
+          startingQuestions,
+          props.getCurrentQuestionSharedMetadata,
+          props.classificationClient,
+        );
+        currentEligibility = context.eligibility;
+        setStartingContext(context);
+      } else if (currentEligibility === undefined) {
+        const first = selected.questions[0];
+        if (first === undefined) {
+          throw new Error("Choose one Question to establish this Pool.");
         }
+        currentEligibility = await questionPoolEligibilityForQuestion(
+          first.questionId,
+          props.getQuestionDetails,
+          props.getCurrentQuestionSharedMetadata,
+        );
       }
       const members = await questionPoolMemberTuples(
         selected,
-        props.getQuestionDetails,
+        props.loadQuestionInspection,
         props.getCurrentQuestionSharedMetadata,
         currentEligibility,
-        props.startingQuestion,
+        startingQuestions,
       );
       const created = await props.questionPoolClient.createQuestionPool({
         title: trimPoolDraft(title()),
@@ -185,27 +251,39 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
       });
       setCreatedPool(created);
       setState("created");
-    } catch {
+      return true;
+    } catch (cause) {
+      // ASVS 16.5.1: show known selection conflicts, not unexpected API internals.
       setError(
-        "Question Pool could not be created. Your metadata and selected Questions are still here. Check that every Question has the same Discipline and Subject, then try again.",
+        `${cause instanceof QuestionPoolSelectionError ? cause.message : "Question Pool could not be created. Check that every Question remains available and shares the Pool's Discipline, Subject, Type, and Backend."} Your Title, Description, and selected Questions are still here.`,
       );
       setState("reviewing");
+      return false;
     }
   }
+  const trackedCreate = trackEditorSave(createPool);
 
   return (
     <>
+      <UnsavedChangesGuard
+        scope={creationGuardScope}
+        dirty={dirty}
+        inFlightSave={trackedCreate.inFlightSave}
+        copy={{
+          heading: "Discard Question Pool creation?",
+          description: "Your Pool Title or Description will be discarded.",
+        }}
+      />
       <Show when={state() === "choosing"}>
         <QuestionPicker
           repository={pickerRepository()}
           sources={pickerSources}
+          loadQuestionInspection={props.loadQuestionInspection}
+          questionRevisionPreviewDocumentUrl={props.questionRevisionPreviewDocumentUrl}
+          questionImageUrl={props.questionImageUrl}
           eligibility={eligibility()}
           mode={sourceBound || eligibility() !== undefined ? "many" : "one"}
-          maximumSelection={
-            sourceBound
-              ? MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY - 1
-              : MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
-          }
+          maximumSelection={MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY - startingQuestions.length}
           initialSelection={selection()}
           title={
             sourceBound
@@ -213,13 +291,16 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
               : "Choose published Questions for this Pool"
           }
           instructions={
-            props.startingQuestion === undefined
+            !sourceBound
               ? "Select published Questions for this reusable Pool."
-              : `Results begin filtered to ${props.startingQuestion.disciplineName} / ${props.startingQuestion.subjectName}. The starting Question is already selected.`
+              : startingContext() === undefined
+                ? `The ${startingQuestions.length} starting Questions are already selected.`
+                : `Results begin filtered to ${startingContext()!.disciplineName} / ${startingContext()!.subjectName}. The ${startingQuestions.length} starting Questions are already selected.`
           }
           confirmLabel="Review selected Questions"
           trigger={undefined}
-          onConfirm={(next) => void acceptSelection(next)}
+          onConfirm={acceptSelection}
+          confirmationError={error()}
           onCancel={cancelSelection}
         />
       </Show>
@@ -229,7 +310,6 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
             class="question-pool-create-review"
             aria-labelledby="question-pool-create-heading"
           >
-            <p class="eyebrow">Reusable published content</p>
             <h1
               id="question-pool-create-heading"
               ref={(element) => (reviewHeading = element)}
@@ -237,29 +317,18 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
             >
               Create Question Pool
             </h1>
-            <p class="question-pool-create-introduction">
-              {sourceBound
-                ? "The starting Published Question is already selected. Add interchangeable Questions or create this reusable Pool with it."
-                : "Review the selected Question set and describe the reusable Pool. Their current Revisions are resolved when you create it."}
-            </p>
             <div class="question-pool-create-review-grid">
               <section aria-labelledby="question-pool-selected-heading">
                 <h3 id="question-pool-selected-heading">Selected Questions</h3>
                 <RecordSequence
                   rows={[
-                    ...(props.startingQuestion === undefined
-                      ? []
-                      : [
-                          {
-                            title: props.startingQuestion.questionTitle,
-                            publishedQuestionId:
-                              props.startingQuestion.publishedQuestionRevisionTuple
-                                .publishedQuestionId,
-                            revisionNumber:
-                              props.startingQuestion.publishedQuestionRevisionTuple.revisionNumber,
-                            revisionIsFixed: true,
-                          },
-                        ]),
+                    ...startingQuestions.map((question) => ({
+                      title: question.questionTitle,
+                      publishedQuestionId:
+                        question.publishedQuestionRevisionTuple.publishedQuestionId,
+                      revisionNumber: question.publishedQuestionRevisionTuple.revisionNumber,
+                      revisionIsFixed: true,
+                    })),
                     ...selected().questions.map((question) => ({
                       title: question.row.questionTitle,
                       publishedQuestionId:
@@ -299,16 +368,16 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                         onInput={(event) => setTitle(event.currentTarget.value)}
                       />
                     </label>
-                    <Show when={props.startingQuestion}>
-                      {(starting) => (
+                    <Show when={startingContext()}>
+                      {(context) => (
                         <dl class="question-pool-starting-classification">
                           <div>
                             <dt>Discipline</dt>
-                            <dd>{starting().disciplineName}</dd>
+                            <dd>{context().disciplineName}</dd>
                           </div>
                           <div>
                             <dt>Subject</dt>
-                            <dd>{starting().subjectName}</dd>
+                            <dd>{context().subjectName}</dd>
                           </div>
                         </dl>
                       )}
@@ -323,7 +392,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                     />
                   </label>
                   <Show
-                    when={props.startingQuestion}
+                    when={startingContext()}
                     fallback={
                       <p>
                         The first Question, {selected().questions[0]?.row.questionTitle},
@@ -332,11 +401,11 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                       </p>
                     }
                   >
-                    {(starting) => (
+                    {(context) => (
                       <p>
-                        <strong>{starting().questionTitle}</strong> establishes this Pool's{" "}
-                        {starting().disciplineName} Discipline and {starting().subjectName} Subject.
-                        Every additional Question must share both.
+                        The starting Questions establish this Pool's {context().disciplineName}{" "}
+                        Discipline and {context().subjectName} Subject. Every additional Question
+                        must share both.
                       </p>
                     )}
                   </Show>
@@ -346,6 +415,9 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
             <Show when={state() !== "created"}>
               <Show when={error()}>{(message) => <p role="alert">{message()}</p>}</Show>
               <p class="question-pool-create-actions">
+                <button class="quiet-action" type="button" onClick={() => void closeReview()}>
+                  Cancel
+                </button>{" "}
                 <button
                   class="quiet-action"
                   type="button"
@@ -362,7 +434,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                     trimPoolDraft(description()).length === 0 ||
                     state() === "creating"
                   }
-                  onClick={() => void createPool()}
+                  onClick={() => void trackedCreate.save()}
                 >
                   {state() === "creating"
                     ? "Creating Question Pool..."

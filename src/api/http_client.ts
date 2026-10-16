@@ -10,7 +10,6 @@ import {
   type HttpApiClientConfig,
 } from "./http_client/request";
 import { createResponseClient } from "./http_client/response";
-import { createTeachingOperationsClient } from "./http_client/teaching_operations";
 import { createBlueprintCourseClient } from "./http_client/blueprint_course";
 import { createBlueprintChangeProposalClient } from "./http_client/blueprint_change_proposal";
 import { createCourseInstanceClient } from "./http_client/course_instance";
@@ -25,7 +24,7 @@ import { createStudentAssessmentAttemptNavigationClient } from "./http_client/as
 import { createInstructorAccountClient } from "./http_client/instructor_account";
 import { createCourseGradebookClient } from "./http_client/live_gradebook";
 import { createLiveStudentCourseLandingClient } from "./http_client/live_student_course_landing";
-import { createStudentCourseAttemptHistoryClient } from "./http_client/student_course_attempt_history";
+import { createStudentAttemptHistoryClient } from "./http_client/student_course_attempt_history";
 import { createStudentCourseResponseStatsClient } from "./http_client/student_course_response_stats";
 import { createStudentQuestionDisplayDurationClient } from "./http_client/student_question_display_duration";
 import { createQuestionAvailabilityClient } from "./http_client/question_availability";
@@ -71,7 +70,6 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     client,
     createAuthClient(fetchImplementation, basePath),
     createLiveDemoClient(fetchImplementation, basePath),
-    createTeachingOperationsClient(fetchImplementation, basePath),
     createBlueprintCourseClient(fetchImplementation, basePath),
     createBlueprintChangeProposalClient(fetchImplementation, basePath),
     createCourseInstanceClient(fetchImplementation, basePath),
@@ -86,7 +84,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createInstructorAccountClient(fetchImplementation, basePath),
     createCourseGradebookClient(fetchImplementation, basePath),
     createLiveStudentCourseLandingClient(fetchImplementation, basePath),
-    createStudentCourseAttemptHistoryClient(fetchImplementation, basePath),
+    createStudentAttemptHistoryClient(fetchImplementation, basePath),
     createStudentCourseResponseStatsClient(fetchImplementation, basePath),
     createStudentQuestionDisplayDurationClient(fetchImplementation, basePath),
     createQuestionAvailabilityClient(fetchImplementation, basePath),

@@ -226,28 +226,38 @@ export function createCourseInstanceClient(
         decodeCourseCreationInstructors,
       ),
     listInstallationCourses: (
-      query,
-      cursor,
-      pageSize,
+      browse,
     ): ReturnType<CourseInstanceClient["listInstallationCourses"]> => {
-      const bounded = installationCourseQuery(query);
-      const after = installationCourseCursor(cursor);
-      const pagination = { ...(after === null ? {} : { cursor: after }), pageSize };
-      // ASVS 14.2.1: a nonempty search stays in the JSON body, not the URL.
-      if (bounded.length === 0) {
-        return courseInstanceJson(
-          fetchImplementation,
-          basePath,
-          `/api/sysadmin/courses?pageSize=${pageSize}${after === null ? "" : `&cursor=${encodeURIComponent(after)}`}`,
-          decodeInstallationCoursePage,
-        );
-      }
+      const bounded = installationCourseQuery(browse.query);
+      const after = installationCourseCursor(browse.cursor);
+      if (browse.pageSize !== 50 && browse.pageSize !== 100)
+        throw new ApiProtocolError("installation Course page size is invalid");
+      if (browse.sort !== "nameAscending" && browse.sort !== "nameDescending")
+        throw new ApiProtocolError("installation Course sort is invalid");
+      if (
+        browse.activity.some((value) => value !== "active" && value !== "inactive") ||
+        browse.retention.some(
+          (value) => value !== "active" && value !== "archived" && value !== "deleted",
+        )
+      )
+        throw new ApiProtocolError("installation Course filter is invalid");
+      // ASVS 14.2.1: Course and Instructor search text stays in the JSON body.
       return courseInstanceJson(
         fetchImplementation,
         basePath,
         "/api/sysadmin/courses/search",
         decodeInstallationCoursePage,
-        { method: "POST", body: { query: bounded, ...pagination } },
+        {
+          method: "POST",
+          body: {
+            query: bounded,
+            cursor: after,
+            pageSize: browse.pageSize,
+            sort: browse.sort,
+            activity: browse.activity,
+            retention: browse.retention,
+          },
+        },
       );
     },
     loadInstallationCourse: (courseInstanceId) =>

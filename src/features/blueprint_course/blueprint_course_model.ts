@@ -11,6 +11,8 @@ import type { BlueprintAssessmentEntryInput } from "../../../generated/api/Bluep
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
 import type { AssessmentEntryScoringRule } from "../../../generated/api/AssessmentEntryScoringRule";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
+import type { Theme } from "../../../generated/api/Theme";
+import type { CourseClassificationDraft } from "../../components/course_classification_fields";
 import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionPickerSelection } from "../question_picker";
@@ -20,6 +22,32 @@ export const MAX_REUSABLE_ENTRIES = 1024;
 export const MAX_REUSABLE_TITLE_LENGTH = 200;
 
 export type ReusableEntryDirection = -1 | 1;
+
+export interface BlueprintCourseCreationDraft {
+  readonly shortName: string;
+  readonly longName: string;
+  readonly theme: Theme;
+  readonly classification: CourseClassificationDraft;
+  readonly moduleLabel: string;
+  readonly assessmentTitle: string;
+  readonly content: BlueprintAssessmentContentInput | undefined;
+}
+
+/** Compares only the local content that would become the first Blueprint Revision. */
+export function hasBlueprintCourseCreationChanges(
+  current: BlueprintCourseCreationDraft,
+  initial: BlueprintCourseCreationDraft,
+): boolean {
+  return (
+    current.shortName !== initial.shortName ||
+    current.longName !== initial.longName ||
+    current.theme !== initial.theme ||
+    current.moduleLabel !== initial.moduleLabel ||
+    current.assessmentTitle !== initial.assessmentTitle ||
+    JSON.stringify(current.classification) !== JSON.stringify(initial.classification) ||
+    JSON.stringify(current.content) !== JSON.stringify(initial.content)
+  );
+}
 
 export interface BlueprintCourseValidation {
   readonly valid: boolean;

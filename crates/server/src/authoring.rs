@@ -160,6 +160,7 @@ struct DraftGeneralFeedbackResponse {
     hint: Option<String>,
     worked_solution: Option<String>,
     authors: Vec<QuestionAuthorDisplayName>,
+    parent_published_question_revision_tuple: Option<PublishedQuestionRevisionTuple>,
 }
 
 /// A missing key stays `None`. A present JSON null becomes `Some(None)` so a
@@ -217,6 +218,7 @@ fn authored_support_replacement(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PublishDraftRequest {
     authors: Vec<String>,
+    self_author_position: Option<usize>,
     discipline_uuid: String,
     subject_uuid: String,
     topic_uuid: Option<String>,
@@ -482,6 +484,8 @@ async fn load_general_feedback(
                         hint: draft.hint,
                         worked_solution: draft.worked_solution,
                         authors: draft.authors,
+                        parent_published_question_revision_tuple: draft
+                            .parent_published_question_revision_tuple,
                     })
                     .into_response(),
                 );
@@ -684,6 +688,28 @@ async fn publish_draft(
         Ok(draft) => draft,
         Err(error) => return private_store_error(error),
     };
+    // ASVS 2.2.1/2.2.2 and 8.2.3: a reviewed name position is the only
+    // browser-selected link; the database supplies the current Account ID.
+    if let Some(position) = request.self_author_position {
+        if position >= request.authors.len() || i32::try_from(position).is_err() {
+            return private_error(StatusCode::BAD_REQUEST, "Self author position is invalid");
+        }
+        if draft.parent_published_question_revision_tuple.is_some() {
+            return private_error(
+                StatusCode::BAD_REQUEST,
+                "Question Fork Publication preserves source authorship",
+            );
+        }
+    }
+    let authorship = match question_authorship(request.authors) {
+        Ok(authorship) => authorship,
+        Err(()) => {
+            return private_error(
+                StatusCode::BAD_REQUEST,
+                "Question Publication requires reviewed authors",
+            );
+        }
+    };
     let bytes = match load_verified_source(&state.objects, &draft).await {
         Ok(bytes) => bytes,
         Err(()) => {
@@ -696,15 +722,6 @@ async fn publish_draft(
     if let Err(error) = validate_publication_source(&state, &draft, &bytes).await {
         return publication_source_error(error);
     }
-    let authorship = match question_authorship(request.authors) {
-        Ok(authorship) => authorship,
-        Err(()) => {
-            return private_error(
-                StatusCode::BAD_REQUEST,
-                "Question Publication requires reviewed authors",
-            );
-        }
-    };
     let Some(question_license) = draft.metadata.question_license.clone() else {
         return private_error(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -724,6 +741,7 @@ async fn publish_draft(
         expected_draft_question_edit_number: expected_edit_number,
         workspace: draft.workspace,
         question_authorship: authorship,
+        self_author_position: request.self_author_position,
         initial_shared_tags: draft.metadata.tags.clone(),
         discipline_uuid,
         subject_uuid,

@@ -57,6 +57,7 @@
 \ir 50_functions/published_question_metadata_operations.sql
 \ir 50_functions/question_images.sql
 \ir 50_functions/blueprints.sql
+\ir 50_functions/blueprint_course_matching.sql
 \ir 50_functions/blueprint_operations.sql
 \ir 50_functions/blueprint_history.sql
 \ir 50_functions/blueprint_pools.sql
@@ -77,7 +78,9 @@
 \ir 50_functions/assessment_policy_snapshot.sql
 \ir 50_functions/assessment_entry_snapshot.sql
 \ir 50_functions/assessments.sql
+\ir 50_functions/question_library_matching.sql
 \ir 50_functions/question_library_operations.sql
+\ir 50_functions/question_library_facet_choices.sql
 \ir 50_functions/recognition_titles.sql
 \ir 50_functions/assessment_creation.sql
 \ir 50_functions/assessment_deadline_sync.sql
@@ -108,8 +111,8 @@
 \ir 50_functions/grading_access.sql
 \ir 50_functions/student_assessment_landing.sql
 \ir 50_functions/student_course_attempt_history.sql
-\ir 50_functions/student_course_response_stats.sql
 \ir 50_functions/assessment_attempt_history.sql
+\ir 50_functions/student_course_response_stats.sql
 \ir 50_functions/archived_student_work_recovery.sql
 \ir 50_functions/statistics.sql
 \ir 50_functions/course_retention_transitions.sql

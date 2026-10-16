@@ -17,57 +17,71 @@ pub(super) async fn validate(
     token: SessionTokenHash,
     query: &LibraryObjectSearchRequest,
 ) -> Result<(), Response> {
-    let Some(discipline) = query.discipline_uuid else {
+    if query.discipline_uuids.is_empty() {
         return Ok(());
-    };
+    }
     let invalid = || {
         route_error(
             StatusCode::BAD_REQUEST,
             "Question Library classification is invalid",
         )
     };
-    if !store
+    let disciplines = store
         .list_disciplines_including_retired(token)
         .await
-        .map_err(store_error_response)?
+        .map_err(store_error_response)?;
+    if query
+        .discipline_uuids
         .iter()
-        .any(|item| item.uuid == discipline)
+        .any(|discipline| !disciplines.iter().any(|item| item.uuid == *discipline))
     {
         return Err(invalid());
     }
-    let Some(subject) = query.subject_uuid else {
-        return Ok(());
-    };
-    if !store
-        .list_subjects(token, discipline)
-        .await
-        .map_err(store_error_response)?
+    let mut subjects = Vec::new();
+    for discipline in &query.discipline_uuids {
+        subjects.extend(
+            store
+                .list_subjects(token, *discipline)
+                .await
+                .map_err(store_error_response)?,
+        );
+    }
+    if query
+        .subject_uuids
         .iter()
-        .any(|item| item.uuid == subject)
+        .any(|subject| !subjects.iter().any(|item| item.uuid == *subject))
     {
         return Err(invalid());
     }
-    let Some(topic) = query.topic_uuid else {
-        return Ok(());
-    };
-    if !store
-        .list_topics(token, subject)
-        .await
-        .map_err(store_error_response)?
+    let mut topics = Vec::new();
+    for subject in &query.subject_uuids {
+        topics.extend(
+            store
+                .list_topics(token, *subject)
+                .await
+                .map_err(store_error_response)?,
+        );
+    }
+    if query
+        .topic_uuids
         .iter()
-        .any(|item| item.uuid == topic)
+        .any(|topic| !topics.iter().any(|item| item.uuid == *topic))
     {
         return Err(invalid());
     }
-    let Some(subtopic) = query.subtopic_uuid else {
-        return Ok(());
-    };
-    if !store
-        .list_subtopics(token, topic)
-        .await
-        .map_err(store_error_response)?
+    let mut subtopics = Vec::new();
+    for topic in &query.topic_uuids {
+        subtopics.extend(
+            store
+                .list_subtopics(token, *topic)
+                .await
+                .map_err(store_error_response)?,
+        );
+    }
+    if query
+        .subtopic_uuids
         .iter()
-        .any(|item| item.uuid == subtopic)
+        .any(|subtopic| !subtopics.iter().any(|item| item.uuid == *subtopic))
     {
         return Err(invalid());
     }

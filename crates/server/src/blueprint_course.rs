@@ -93,6 +93,14 @@ pub fn blueprint_course_router(
             get(change_proposals::list_mine),
         )
         .route(
+            "/api/blueprint-change-proposals/facet-choices/state",
+            get(change_proposals::mine_status_choices),
+        )
+        .route(
+            "/api/course-blueprints/{blueprint_course_id}/change-proposals/facet-choices/state",
+            get(change_proposals::target_status_choices),
+        )
+        .route(
             "/api/blueprint-change-proposals/{proposal_id}",
             get(change_proposals::detail),
         )
@@ -107,6 +115,10 @@ pub fn blueprint_course_router(
         .route(
             "/api/course-blueprints",
             get(list::list_blueprints).post(create_blueprint),
+        )
+        .route(
+            "/api/course-blueprints/facet-choices/{field}",
+            get(list::facet_choices),
         )
         .route(
             "/api/course-instances/{course_instance_id}/course-blueprints",

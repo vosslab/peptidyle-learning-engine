@@ -7,6 +7,14 @@ The [October 4 audit](../../archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10
 historical inputs. Their counts and findings must be reconciled with later fixes and current
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md), not treated as fresh acceptance or new product scope.
 
+The current modular UI requirements for PageFrame, SearchBlock, RecordList, Instructor Ribbon
+destinations, and multiple starting Questions for Pool creation are owned by the
+[modular UI completion plan](../../archive/modular_ui_completion_plan.md) and its
+[milestone ledger](../audits/modular_ui_completion_ledger.md). Reconcile the stale checklist wording
+against their milestone-specific accepted evidence and open gates; do not duplicate that work here.
+The modular plan remains active through M32, and this plan still owns the other unresolved Human
+Guidance areas.
+
 ## Autonomous ownership
 
 The manager coordinates fresh implementation, test, and independent review agents by coherent

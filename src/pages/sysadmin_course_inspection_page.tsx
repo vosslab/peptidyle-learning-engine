@@ -12,15 +12,14 @@ import type {
 } from "../api/course_instance";
 import type { SysadminStudentDataAccess } from "../api/sysadmin_student_access";
 import { PageFrame } from "../components/page_frame";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
-import {
-  RecordPageControls,
-  type RecordPageSize,
-} from "../components/record_list/record_page_controls";
+import { RecordList, type RecordContent } from "../components/record_list/record_list";
+import type {
+  RecordField,
+  RecordListQuery,
+  RecordSort,
+} from "../components/record_list/record_fields";
+import { SearchBlock } from "../features/search/search_block";
+import { createSearchState } from "../features/search/search_state";
 import { parseCourseInstanceId } from "../navigation/public_route";
 
 function activityLabel(state: CourseInstanceLifecycleState): string {
@@ -202,115 +201,182 @@ function courseContent(course: InstallationCourseInspection): RecordContent {
 /** Finds installation Courses and opens one inspection row. */
 export function SysadminCourseInspectionListPage(): JSX.Element {
   const runtime = useApplicationApi();
-  const [draft, setDraft] = createSignal("");
-  const [request, setRequest] = createSignal<{
+  type Query = {
     query: string;
-    cursor: string | null;
-    pageSize: RecordPageSize;
-    previousCursors: ReadonlyArray<string | null>;
-  }>({
-    query: "",
-    cursor: null,
-    pageSize: 50,
-    previousCursors: [],
-  });
-  const [courses] = createResource(request, (value) =>
-    runtime.client.listInstallationCourses(value.query, value.cursor, value.pageSize),
-  );
-  const continuation = (): string | null => {
-    const cursor = courses()?.nextCursor;
-    return !courses.loading && courses.error === undefined && typeof cursor === "string"
-      ? cursor
-      : null;
+    sort: "nameAscending" | "nameDescending";
+    activity: ReadonlyArray<CourseInstanceLifecycleState>;
+    retention: ReadonlyArray<CourseRetentionLifecycleState>;
   };
-  const listState = (): RecordListState => {
-    if (courses.loading) return { kind: "loading", label: "Loading Courses..." };
-    if (courses.error !== undefined) {
-      return {
-        kind: "error",
-        title: "Courses unavailable",
-        message: "Courses could not be loaded.",
-      };
-    }
-    return { kind: "ready" };
+  type SortKey = "name";
+  type FilterKey = "activity" | "retention";
+  const [activityChoices, setActivityChoices] = createSignal<
+    ReadonlyArray<{ key: CourseInstanceLifecycleState; count: number }>
+  >([]);
+  const [retentionChoices, setRetentionChoices] = createSignal<
+    ReadonlyArray<{ key: CourseRetentionLifecycleState; count: number }>
+  >([]);
+  const fields: ReadonlyArray<RecordField<InstallationCourseInspection, SortKey, FilterKey>> = [
+    {
+      id: "name",
+      label: "Course",
+      role: "identity",
+      sortKey: "name",
+      value: (course) => course.longName,
+      defaultColumn: { priority: 0, width: "18rem" },
+    },
+    {
+      id: "course_id",
+      label: "Course ID",
+      value: (course) => course.id,
+      defaultColumn: { priority: 1, width: "12rem" },
+    },
+    {
+      id: "short_name",
+      label: "Short name",
+      value: (course) => course.shortName,
+      defaultColumn: { priority: 2, width: "12rem" },
+    },
+    {
+      id: "activity",
+      label: "Activity",
+      filterKey: "activity",
+      value: (course) => course.lifecycleState,
+      defaultColumn: { priority: 3, width: "8rem" },
+    },
+    {
+      id: "retention",
+      label: "Retention",
+      filterKey: "retention",
+      value: (course) => course.retentionLifecycleState,
+      defaultColumn: { priority: 4, width: "8rem" },
+    },
+    {
+      id: "instructor",
+      label: "Instructor",
+      value: (course) => course.instructorDisplayNames,
+      defaultColumn: { priority: 5, width: "12rem" },
+    },
+    {
+      id: "term",
+      label: "Term",
+      value: (course) => `${course.term.startDate} through ${course.term.endDate}`,
+      defaultColumn: { priority: 6, width: "14rem" },
+    },
+  ];
+  const searchState = createSearchState<Query, InstallationCourseInspection, undefined>(
+    {
+      initialQuery: { query: "", sort: "nameAscending", activity: [], retention: [] },
+      maximumPageSize: 100,
+      cleanup: (query) => ({ ...query, query: query.query.trim() }),
+      isEligible: () => true,
+      getText: (query) => query.query,
+      setText: (query, text) => ({ ...query, query: text }),
+      rowId: (course) => course.id,
+      content: courseContent,
+      fetchPage: async (query, cursor, pageSize) => {
+        const page = await runtime.client.listInstallationCourses({
+          ...query,
+          cursor,
+          pageSize: pageSize === 250 ? 100 : pageSize,
+        });
+        setActivityChoices(page.activityChoices);
+        setRetentionChoices(page.retentionChoices);
+        return { items: page.courses, nextCursor: page.nextCursor, filterCounts: undefined };
+      },
+    },
+    { runOnMount: true },
+  );
+  const recordQuery: RecordListQuery<SortKey, FilterKey> = {
+    kind: "paged",
+    sort: {
+      get value(): RecordSort<SortKey> {
+        return {
+          key: "name",
+          direction: searchState.query().sort === "nameAscending" ? "ascending" : "descending",
+        };
+      },
+      onChange: (sort) =>
+        void searchState.apply((current) => ({
+          ...current,
+          sort: sort.direction === "ascending" ? "nameAscending" : "nameDescending",
+        })),
+    },
+    filters: {
+      get values() {
+        return new Map<FilterKey, ReadonlyArray<string>>([
+          ["activity", searchState.query().activity],
+          ["retention", searchState.query().retention],
+        ]);
+      },
+      onChange: (field, values) =>
+        void searchState.apply((current) =>
+          field === "activity"
+            ? { ...current, activity: values as CourseInstanceLifecycleState[] }
+            : { ...current, retention: values as CourseRetentionLifecycleState[] },
+        ),
+      onClear: () =>
+        void searchState.apply((current) => ({ ...current, activity: [], retention: [] })),
+      choices: (field, search, _cursor, signal) => {
+        const source = field === "activity" ? activityChoices() : retentionChoices();
+        return Promise.resolve({
+          choices: signal.aborted
+            ? []
+            : source
+                .filter((choice) => choice.key.includes(search.toLowerCase()))
+                .map((choice) => ({
+                  key: choice.key,
+                  label:
+                    field === "activity"
+                      ? activityLabel(choice.key as CourseInstanceLifecycleState)
+                      : retentionLabel(choice.key as CourseRetentionLifecycleState),
+                  count: choice.count,
+                })),
+          selected: [],
+          nextCursor: null,
+        });
+      },
+    },
   };
 
   return (
-    <PageFrame
-      routeSurface="sysadminCourseInspection"
-      headingId="sysadmin-course-inspection-heading"
-      eyebrow="System administration"
-      title="Courses"
-      lede="Find and inspect Courses across the installation."
-    >
-      <form
-        class="auth-panel"
-        novalidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          setRequest({ query: draft(), cursor: null, pageSize: 50, previousCursors: [] });
-        }}
-      >
-        <h2>Find a Course</h2>
-        <label for="installation-course-find">
-          Course name, Course ID, or Instructor
-          <input
-            id="installation-course-find"
-            name="installationCourseFind"
-            type="search"
-            value={draft()}
-            onInput={(event) => setDraft(event.currentTarget.value)}
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck={false}
-            maxlength={200}
-          />
-        </label>
-        <button class="primary-action" type="submit">
-          Find Courses
-        </button>
-      </form>
-      <RecordList
-        ariaLabel="Installation Courses"
-        emptyState={{
-          title:
-            request().query.trim().length > 0
-              ? "No Course matches that search."
-              : "No Courses are available.",
-        }}
-        recordId={(course) => course.id}
-        content={courseContent}
-        rows={courses()?.courses ?? []}
-        state={listState()}
-      />
-      <RecordPageControls
-        ariaLabel="Installation Course pages"
-        hasPrevious={request().previousCursors.length > 0}
-        hasNext={continuation() !== null}
-        loading={courses.loading}
-        disabled={courses.error !== undefined}
-        onPrevious={() => {
-          if (courses.loading || request().previousCursors.length === 0) return;
-          const previousCursors = request().previousCursors.slice(0, -1);
-          setRequest({
-            ...request(),
-            cursor: request().previousCursors[request().previousCursors.length - 1] ?? null,
-            previousCursors,
-          });
-        }}
-        onNext={() => {
-          const cursor = continuation();
-          if (cursor === null) return;
-          setRequest({
-            ...request(),
-            previousCursors: [...request().previousCursors, request().cursor],
-            cursor,
-          });
-        }}
-        pageSize={request().pageSize}
-        onPageSizeChange={(pageSize) =>
-          setRequest({ ...request(), pageSize, cursor: null, previousCursors: [] })
+    <PageFrame routeSurface="sysadminCourseInspection">
+      <SearchBlock
+        layout="above"
+        state={searchState}
+        controls={
+          <form
+            class="auth-panel"
+            novalidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              void searchState.submit();
+            }}
+          >
+            <label for="installation-course-find">
+              Course name, Course ID, or Instructor
+              <input
+                id="installation-course-find"
+                name="installationCourseFind"
+                type="search"
+                value={searchState.typedText()}
+                onInput={(event) => searchState.setTypedText(event.currentTarget.value)}
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck={false}
+                maxlength={200}
+              />
+            </label>
+            <button class="primary-action" type="submit">
+              Find Courses
+            </button>
+          </form>
         }
+        collection={{
+          ariaLabel: "Installation Courses",
+          fields,
+          query: recordQuery,
+          emptyState: { title: "No Courses match the current search or filters." },
+        }}
       />
     </PageFrame>
   );
@@ -327,13 +393,7 @@ export function SysadminCourseInspectionPage(): JSX.Element {
     course.error === undefined ? course() : undefined;
 
   return (
-    <PageFrame
-      routeSurface="sysadminCourseInspectionDetail"
-      headingId="sysadmin-course-detail-heading"
-      eyebrow="System administration"
-      title={loaded()?.longName ?? "Course"}
-      lede="Inspect the Instructor and Course status. This page does not change the Course."
-    >
+    <PageFrame routeSurface="sysadminCourseInspectionDetail">
       <p>
         <A href="/sysadmin/courses">All Courses</A>
       </p>

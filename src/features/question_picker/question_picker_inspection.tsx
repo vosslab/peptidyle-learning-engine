@@ -1,4 +1,4 @@
-// Answer-free inspection of one Question before it is added to an Assessment.
+// Answer-free inspection of one Question before it is added to a collection.
 
 import { Show, type JSX } from "solid-js";
 

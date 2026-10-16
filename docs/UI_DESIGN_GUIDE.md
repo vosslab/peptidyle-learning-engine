@@ -106,9 +106,11 @@ mode uses dense spreadsheet-style rows with aligned columns and little vertical 
 - Adapt visible columns while preserving shared functionality. Apply shared improvements across
   PLE rather than duplicating the collection interface in individual pages.
 
-These are intended interface requirements, not a claim that every current consumer implements
-them. [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) records current search composition
-and identified gaps. Content-specific matching and authorization remain with each domain.
+This shared pattern is implemented across the applicable collection consumers.
+[SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) explains the composition;
+[modular_ui_completion_ledger.md](active_plans/audits/modular_ui_completion_ledger.md) records
+current consumer acceptance and evidence. This guide describes the design; the ledger records
+runtime proof. Content-specific matching and authorization remain with each domain.
 
 ## Shared SearchBlock interface
 
@@ -135,9 +137,12 @@ filters, results, and merely opening an editor do not count. Editors use the sha
 UnsavedChangesGuard for meaningful unsaved work. Apply the same rule to closing an editor or
 changing a selection within the page: confirm only when the action would discard those edits.
 
-SearchBlock is the intended component. The current SearchPage still wraps PageFrame and mounts
-the search leave guard. See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the
-source review and proposed changes, including unsaved-edit protection.
+The current Library pages place SearchBlock inside PageFrame. SearchBlock renders SearchResults,
+which keeps one RecordList mounted even before a search runs. The Library page supplies the Search
+or Browse layout and its criteria; the shared block does not classify search activity as unsaved
+work. See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the current component
+boundary and [the modular UI ledger](active_plans/audits/modular_ui_completion_ledger.md) for
+consumer status and acceptance evidence.
 
 ## Question Library discovery
 
@@ -175,8 +180,9 @@ unsaved edits. Search prompts and results are temporary working state and are ne
 stored for restoration. Column preferences also reset when the view reopens.
 Pool creation and metadata editors protect meaningful unsaved edits independently of search
 activity. Temporary search state alone also does not require reload or tab-close confirmation.
-See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md#search-and-browse-source-audit) for
-the current layout and leave-guard findings and recommended implementation changes.
+See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the current Search and Browse
+composition. The [modular UI ledger](active_plans/audits/modular_ui_completion_ledger.md) records
+which consumers and acceptance gates are complete.
 
 Assessment editors offer Search and Browse paths, inspection before adding, and bulk addition by
 Question ID. The Pool member picker offers Published Questions only. Data, matching, result fields,
@@ -226,8 +232,9 @@ turning each local group into a card or making an ordinary state change rearrang
   label, and capability-admission changes may update content or paint, but may not change the
   applicable row topology or move a visible control. Identity and geometry evidence must prove that
   a deferred or recovered route does not replace the shell or shift its visible controls.
-- **Contextual and asynchronous state fills a stable frame.** A page owns its heading, recovery,
-  and Page Action at the point where that work occurs. `src/ribbon/ribbon_contract.ts` derives
+- **Contextual and asynchronous state fills a stable frame.** The Ribbon and breadcrumbs identify
+  the page; the page owns its content, recovery, and Page Action where that work occurs.
+  `src/ribbon/ribbon_contract.ts` derives
   settled Instructor task destinations from User Role and Tier 1, while current Student Attempt
   controls retain their route context. Capability availability determines whether a destination is
   admitted without letting a late response add a surprise layout. Immediate selected or pending
@@ -311,10 +318,11 @@ is lavender/purple. Color supplements the visible role label and never communica
 The Instructor task rows are ordered as follows:
 
 - **Courses:** **My Blueprint Courses**, **My Active Courses**, **My Inactive Courses**, **Search
-  Public Blueprint Courses**. All required backed destinations remain visible when their collections
-  are empty; the empty page explains the collection and offers the first useful action.
-- **Questions:** **My Questions**, **My Pools**, **My Drafts**, **Starred**, **Watched**, **Browse
-  Question Library**, **Search Question Library**. Search and Browse are distinct paths into the
+  Blueprint Courses**, **My Change Proposals**. All required backed destinations remain visible
+  when their collections are empty; the empty page explains the collection and offers the first
+  useful action.
+- **Questions:** **My Questions**, **My Pools**, **My Drafts**, **Starred**, **Watched**, **Search
+  Question Library**, **Browse Question Library**. Search and Browse are distinct paths into the
   same Question Library. A task remains Unavailable until its complete workflow is backed. Draft
   Questions remain private authoring rather than Question Library membership.
 - **Assessments:** **Assessments Due Soon**, **My Assessment Templates**. A future or unavailable

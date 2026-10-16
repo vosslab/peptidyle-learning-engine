@@ -596,14 +596,11 @@ function AttemptExperience(props: {
   }
 
   return (
-    <PageFrame
-      routeSurface="assessmentAttempt"
-      eyebrow={`${assessmentTypePresentation(props.context.assessment.assessmentType).label} · Attempt ${props.context.attemptNumber}`}
-      title={props.context.assessment.title}
-    >
+    <PageFrame routeSurface="assessmentAttempt">
       <UnsavedChangesGuard
         dirty={hasUnsavedResponse}
         save={saveBeforeLeaving}
+        inFlightSave={() => activeSave}
         autoSaveOnLeave
         copy={{
           heading: "Your response has not been saved",
@@ -615,6 +612,10 @@ function AttemptExperience(props: {
         }}
       />
       <div class="assessment-attempt-header">
+        <p class="calm-status">
+          {assessmentTypePresentation(props.context.assessment.assessmentType).label} Attempt{" "}
+          {props.context.attemptNumber}
+        </p>
         <Show when={!isSubmitted()}>
           <div>
             <span class="calm-status" role="timer">
@@ -804,7 +805,7 @@ export function AssessmentAttemptPage(): JSX.Element {
       when={context()}
       keyed
       fallback={
-        <PageFrame routeSurface="assessmentAttempt" title="Coursework">
+        <PageFrame routeSurface="assessmentAttempt">
           <Show
             when={loadState() === "rejected"}
             fallback={

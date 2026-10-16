@@ -12,14 +12,20 @@ import type {
 
 export { assessmentPointValueDraft } from "../../assessment_point_value";
 
-export type QuestionEditDirtyEvent =
-  "title" | "move" | "sort" | "remove" | "add" | "saveSucceeded" | "saveFailed";
+export interface AssessmentQuestionContent {
+  readonly title: string;
+  readonly entries: ReadonlyArray<AssessmentEntry>;
+}
 
-/** Keeps the leave guard active until the current structural edit was persisted successfully. */
-export function nextQuestionEditDirty(current: boolean, event: QuestionEditDirtyEvent): boolean {
-  if (event === "saveSucceeded") return false;
-  if (event === "saveFailed") return current;
-  return true;
+/** Compare saved Assessment content, including Entry identity, pins, fields, and order. */
+export function hasUnsavedQuestionChanges(
+  current: AssessmentQuestionContent,
+  saved: AssessmentQuestionContent,
+): boolean {
+  return (
+    current.title !== saved.title ||
+    JSON.stringify(current.entries) !== JSON.stringify(saved.entries)
+  );
 }
 
 /** Builds the closed full-Assessment save payload without dropping unedited fields. */

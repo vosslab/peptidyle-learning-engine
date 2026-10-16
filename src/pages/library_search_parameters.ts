@@ -44,14 +44,14 @@ export function recoverLibrarySearch(search: string): string {
     }
   }
   try {
-    bloomCognitiveProcess(parameters);
+    bloomCognitiveProcesses(parameters);
   } catch {
-    parameters.delete("bloomCognitiveProcess");
+    parameters.delete("bloomCognitiveProcesses");
   }
   try {
-    bloomKnowledgeDimension(parameters);
+    bloomKnowledgeDimensions(parameters);
   } catch {
-    parameters.delete("bloomKnowledgeDimension");
+    parameters.delete("bloomKnowledgeDimensions");
   }
   const serialized = parameters.toString();
   return serialized === "" ? "" : `?${serialized}`;
@@ -68,10 +68,20 @@ function librarySort(parameters: URLSearchParams): QuestionLibraryBrowseQuery["s
   const values = parameters.getAll("sort");
   if (values.length > 1) throw new Error("Question Library sort must appear at most once");
   const value = values[0] ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.sort;
-  if (value !== "titleAscending" && value !== "publishedNewest") {
-    throw new Error("Question Library sort is invalid");
+  switch (value) {
+    case "titleAscending":
+    case "titleDescending":
+    case "kindAscending":
+    case "kindDescending":
+    case "disciplineAscending":
+    case "disciplineDescending":
+    case "questionTypeAscending":
+    case "questionTypeDescending":
+    case "publishedNewest":
+      return value;
+    default:
+      throw new Error("Question Library sort is invalid");
   }
-  return value;
 }
 
 function oneParameter(parameters: URLSearchParams, name: string): string | undefined {
@@ -107,26 +117,22 @@ function libraryOwner(parameters: URLSearchParams): string | null {
   return value;
 }
 
-function bloomCognitiveProcess(
+function bloomCognitiveProcesses(
   parameters: URLSearchParams,
-): QuestionLibraryBrowseQuery["bloomCognitiveProcess"] {
-  const values = parameters.getAll("bloomCognitiveProcess");
-  if (values.length > 1) throw new Error("Bloom Cognitive Process must appear at most once");
-  const value = values[0];
-  if (value === undefined) return null;
-  if (!isBloomCognitiveProcess(value)) throw new Error("Bloom Cognitive Process is invalid");
-  return value;
+): QuestionLibraryBrowseQuery["bloomCognitiveProcesses"] {
+  const values = parameters.getAll("bloomCognitiveProcesses");
+  if (values.some((value) => !isBloomCognitiveProcess(value)))
+    throw new Error("Bloom Cognitive Process is invalid");
+  return values as QuestionLibraryBrowseQuery["bloomCognitiveProcesses"];
 }
 
-function bloomKnowledgeDimension(
+function bloomKnowledgeDimensions(
   parameters: URLSearchParams,
-): QuestionLibraryBrowseQuery["bloomKnowledgeDimension"] {
-  const values = parameters.getAll("bloomKnowledgeDimension");
-  if (values.length > 1) throw new Error("Bloom Knowledge Dimension must appear at most once");
-  const value = values[0];
-  if (value === undefined) return null;
-  if (!isBloomKnowledgeDimension(value)) throw new Error("Bloom Knowledge Dimension is invalid");
-  return value;
+): QuestionLibraryBrowseQuery["bloomKnowledgeDimensions"] {
+  const values = parameters.getAll("bloomKnowledgeDimensions");
+  if (values.some((value) => !isBloomKnowledgeDimension(value)))
+    throw new Error("Bloom Knowledge Dimension is invalid");
+  return values as QuestionLibraryBrowseQuery["bloomKnowledgeDimensions"];
 }
 
 export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
@@ -140,28 +146,16 @@ export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
     search: boundedValues(parameters, "search")[0] ?? "",
     subjects: boundedValues(parameters, "subjects"),
     topics: boundedValues(parameters, "topics"),
-    bloomCognitiveProcess: bloomCognitiveProcess(parameters),
-    bloomKnowledgeDimension: bloomKnowledgeDimension(parameters),
-    authorName: boundedValues(parameters, "authorName")[0] ?? null,
-    backend: boundedValues(parameters, "backend")[0] ?? null,
-    tag: boundedValues(parameters, "tag")[0] ?? null,
-    questionType: boundedValues(parameters, "questionType")[0] ?? null,
-    capability: boundedValues(parameters, "capability")[0] ?? null,
-    questionLicense: boundedValues(parameters, "questionLicense")[0] ?? null,
+    bloomCognitiveProcesses: bloomCognitiveProcesses(parameters),
+    bloomKnowledgeDimensions: bloomKnowledgeDimensions(parameters),
+    authorNames: boundedValues(parameters, "authorNames"),
+    backends: boundedValues(parameters, "backends"),
+    tags: boundedValues(parameters, "tags"),
+    questionTypes: boundedValues(parameters, "questionTypes"),
+    capabilities: boundedValues(parameters, "capabilities"),
+    questionLicenses: boundedValues(parameters, "questionLicenses"),
     sort: librarySort(parameters),
   };
-}
-
-export function hasExactBrowseFilters(query: QuestionLibraryBrowseQuery): boolean {
-  return (
-    query.discipline_uuid !== null ||
-    query.subjects.length > 0 ||
-    query.topics.length > 0 ||
-    query.tag !== null ||
-    query.questionType !== null ||
-    query.bloomCognitiveProcess !== null ||
-    query.bloomKnowledgeDimension !== null
-  );
 }
 
 export function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): string {
@@ -175,17 +169,16 @@ export function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): stri
   for (const subject of query.subjects) parameters.append("subjects", subject);
   for (const topic of query.topics) parameters.append("topics", topic);
   for (const field of [
-    "authorName",
-    "backend",
-    "tag",
-    "questionType",
-    "capability",
-    "questionLicense",
-    "bloomCognitiveProcess",
-    "bloomKnowledgeDimension",
+    "authorNames",
+    "backends",
+    "tags",
+    "questionTypes",
+    "capabilities",
+    "questionLicenses",
+    "bloomCognitiveProcesses",
+    "bloomKnowledgeDimensions",
   ] as const) {
-    const value = query[field];
-    if (value !== null) parameters.set(field, value);
+    for (const value of query[field]) parameters.append(field, value);
   }
   if (query.search !== "") parameters.set("search", query.search);
   if (query.sort !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.sort) {

@@ -129,6 +129,7 @@ export function GeneralFeedbackOnlyPage(props: {
   readonly classificationClient: ContentClassificationClient;
   readonly publishDraft: PleQuestionJsonClient["publish"];
   readonly allowNewLineagePublication: boolean;
+  readonly allowSelfAuthorship: boolean;
   readonly renderSourceEditor?: (state: {
     readonly draftQuestionEditNumber: Accessor<string>;
     readonly setDraftQuestionEditNumber: Setter<string>;
@@ -353,12 +354,7 @@ export function GeneralFeedbackOnlyPage(props: {
   }
 
   return (
-    <PageFrame
-      routeSurface="questionDraftGeneralFeedback"
-      eyebrow="Private instructor authoring"
-      title="Draft Question editor"
-      lede="Edit the exact backend source and the separate Question record metadata. Saved, preview, and publication use one acknowledged Draft snapshot."
-    >
+    <PageFrame routeSurface="questionDraftGeneralFeedback">
       <UnsavedChangesGuard
         autoSaveOnLeave
         dirty={() => !isSaved()}
@@ -522,6 +518,7 @@ export function GeneralFeedbackOnlyPage(props: {
           draftQuestionEditNumber={draftQuestionEditNumber}
           isSaved={isSaved}
           classificationClient={props.classificationClient}
+          allowSelfAuthorship={props.allowSelfAuthorship}
           publish={props.publishDraft}
         />
       </Show>
@@ -537,7 +534,7 @@ export function GeneralFeedbackOnlyPage(props: {
         )}
       </Show>
       <A class="quiet-link" href="/authoring/drafts">
-        Return to My Question Drafts
+        Return to My Drafts
       </A>
     </PageFrame>
   );
@@ -634,10 +631,10 @@ export function QuestionDraftEditorPage(): JSX.Element {
           // Failure card on the content region. PageFrame still owns the stack.
           contentClass="route-error"
           routeSurface="questionDraftEditorInvalid"
-          title="Draft Question not found"
         >
+          <p role="alert">Draft Question not found.</p>
           <A class="primary-link" href="/authoring/drafts">
-            Return to My Question Drafts
+            Return to My Drafts
           </A>
         </PageFrame>
       }
@@ -648,7 +645,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
           <Show
             when={metadataOnlyEditor()}
             fallback={
-              <PageFrame routeSurface="questionDraftEditorLoading" title="Draft Question">
+              <PageFrame routeSurface="questionDraftEditorLoading">
                 <Show
                   when={initialLoadFailed()}
                   fallback={
@@ -688,6 +685,9 @@ export function QuestionDraftEditorPage(): JSX.Element {
                   client.publish(draftQuestion, request, editNumber)
                 }
                 allowNewLineagePublication={!correctionContextRequested(location.search)}
+                allowSelfAuthorship={
+                  generalFeedback().generalFeedback.parentPublishedQuestionRevisionTuple === null
+                }
                 renderSourceEditor={({
                   draftQuestionEditNumber,
                   setDraftQuestionEditNumber,
@@ -729,6 +729,9 @@ export function QuestionDraftEditorPage(): JSX.Element {
             classificationClient={classificationClient}
             responseValidator={wasm}
             correctionParent={correctionTarget()}
+            allowSelfAuthorship={
+              loaded().generalFeedback.parentPublishedQuestionRevisionTuple === null
+            }
           />
         )}
       </Show>

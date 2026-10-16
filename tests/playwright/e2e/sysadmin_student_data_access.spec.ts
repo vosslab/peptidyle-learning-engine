@@ -8,6 +8,7 @@ import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { enterSysadmin } from "../screenshot_corpus/visible_workflows";
 import {
   chooseSeededIdentity,
+  courseChoice,
   observeContextOrigins,
   selectVisibleCourse,
   writeContextOriginReceipt,
@@ -63,7 +64,7 @@ test.describe("Sysadmin Student-data confirmation on the production PLE stack", 
           .getByRole("link", { name: "Open Students", exact: true })
           .click();
         await expect(
-          instructorCoursePage.getByRole("heading", { level: 1, name: "Students", exact: true }),
+          instructorCoursePage.getByRole("main", { name: "Students", exact: true }),
         ).toBeVisible();
       });
 
@@ -71,18 +72,18 @@ test.describe("Sysadmin Student-data confirmation on the production PLE stack", 
         .getByRole("row")
         .filter({ has: instructorCoursePage.getByText("BCHM355-MARY", { exact: true }) });
       await expect(maryRow).toHaveCount(1);
-      const rosterId = (await maryRow.locator("small").textContent())?.trim();
+      const rosterId = (
+        await maryRow.getByText("BCHM355-MARY", { exact: true }).textContent()
+      )?.trim();
       expect(rosterId).toMatch(/^[A-Za-z0-9._-]{1,64}$/u);
 
       await test.step("Morgan's unchecked and cancelled lookups disclose no Student data", async () => {
         await sysadmin.goto("/sign-in");
         await enterSysadmin(sysadmin);
         await sysadmin.getByRole("link", { name: "Find Courses", exact: true }).click();
-        await expect(sysadmin.getByRole("heading", { name: "Courses", exact: true })).toBeVisible();
+        await expect(sysadmin.getByRole("main", { name: "Courses", exact: true })).toBeVisible();
         const openedCoursePage = sysadmin.waitForEvent("popup");
-        await sysadmin
-          .getByRole("listitem")
-          .filter({ has: sysadmin.getByRole("heading", { name: seededCourseTitle, exact: true }) })
+        await courseChoice(sysadmin, seededCourseTitle)
           .getByRole("link", { name: "Inspect", exact: true })
           .click();
         sysadminCoursePage = await openedCoursePage;

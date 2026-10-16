@@ -12,11 +12,11 @@ use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
     LiveAssessmentGradeContribution, LiveStudentAssessmentLandingSummary,
-    LiveStudentCourseActiveAttempt, LiveStudentCourseAttemptHistoryEntry,
+    LiveStudentAttemptHistoryEntry, LiveStudentCourseActiveAttempt,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseLandingSummary, LiveStudentCourseProgressAssessment,
     LiveStudentCourseResponseQuestionStats, LiveStudentLatestFeedback, Page, PageRequest,
-    SessionTokenHash, StoreError,
+    SessionTokenHash, StoreError, StudentAttemptHistoryFacetChoice, StudentAttemptHistoryQuery,
 };
 
 /// PostgreSQL Store for the active Student Course landing.
@@ -216,24 +216,38 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
             .transpose()
     }
 
-    async fn list_live_student_course_attempt_history(
+    async fn list_student_attempt_history(
         &self,
         session_token_hash: SessionTokenHash,
-        course_instance_id: CourseInstanceId,
+        query: StudentAttemptHistoryQuery,
         page: PageRequest,
-    ) -> Result<Page<LiveStudentCourseAttemptHistoryEntry>, StoreError> {
-        let after = page.after.as_ref().map(crate::Cursor::as_str);
+    ) -> Result<Page<LiveStudentAttemptHistoryEntry>, StoreError> {
+        let after = page
+            .after
+            .as_ref()
+            .map(|cursor| uuid::Uuid::parse_str(cursor.as_str()))
+            .transpose()
+            .map_err(|_| invalid("Attempt History cursor"))?;
         let limit = usize::from(page.size.get());
         let mut transaction = self.begin(session_token_hash).await?;
+        let courses = query
+            .course_ids
+            .iter()
+            .map(CourseInstanceId::as_string)
+            .collect::<Vec<_>>();
         let rows = sqlx::query(
-            "SELECT continuation_key, assessment_attempt_id, assessment_id, assessment_title, \
+            "SELECT continuation_key, course_instance_id, course_short_name, course_long_name, \
+             assessment_attempt_id, assessment_id, assessment_title, \
              assessment_attempt_number, started_at_millis, submitted_at_millis, \
              assessment_score_points_earned, assessment_score_points_possible \
-             FROM ple_api.list_live_student_course_attempt_history($1, $2, $3)",
+             FROM ple_api.list_student_attempt_history($1::uuid, $2, $3, $4, $5, $6)",
         )
-        .bind(course_instance_id.as_string())
         .bind(after)
         .bind(i32::from(page.size.get()))
+        .bind(&query.search)
+        .bind(query.state.as_str())
+        .bind(courses)
+        .bind(query.sort.as_str())
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -247,6 +261,60 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
                 .try_get("continuation_key")
                 .map_err(map_sqlx_error)?;
             Some(crate::Cursor::parse(key).map_err(|_| invalid("Attempt History cursor"))?)
+        } else {
+            None
+        };
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(Page { items, next_cursor })
+    }
+
+    async fn list_student_attempt_history_facet_choices(
+        &self,
+        session_token_hash: SessionTokenHash,
+        query: StudentAttemptHistoryQuery,
+        field: &str,
+        choice_search: &str,
+        page: PageRequest,
+    ) -> Result<Page<StudentAttemptHistoryFacetChoice>, StoreError> {
+        let limit = usize::from(page.size.get());
+        let courses = query
+            .course_ids
+            .iter()
+            .map(CourseInstanceId::as_string)
+            .collect::<Vec<_>>();
+        let mut transaction = self.begin(session_token_hash).await?;
+        let rows = sqlx::query(
+            "SELECT continuation_key, facet_key, facet_label, matching_count \
+             FROM ple_api.list_student_attempt_history_facet_choices($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(&query.search)
+        .bind(query.state.as_str())
+        .bind(courses)
+        .bind(field)
+        .bind(choice_search)
+        .bind(page.after.as_ref().map(crate::Cursor::as_str))
+        .bind(i32::from(page.size.get()))
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let items = rows
+            .iter()
+            .take(limit)
+            .map(|row| {
+                let count: i64 = row.try_get("matching_count").map_err(map_sqlx_error)?;
+                Ok(StudentAttemptHistoryFacetChoice {
+                    key: row.try_get("facet_key").map_err(map_sqlx_error)?,
+                    label: row.try_get("facet_label").map_err(map_sqlx_error)?,
+                    count: u64::try_from(count)
+                        .map_err(|_| invalid("Attempt History facet count"))?,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        let next_cursor = if rows.len() > limit {
+            let key: String = rows[limit - 1]
+                .try_get("continuation_key")
+                .map_err(map_sqlx_error)?;
+            Some(crate::Cursor::parse(key).map_err(|_| invalid("Attempt History facet cursor"))?)
         } else {
             None
         };
@@ -363,7 +431,7 @@ fn decode_response_question_stats(
 
 fn decode_attempt_history_entry(
     row: &sqlx::postgres::PgRow,
-) -> Result<LiveStudentCourseAttemptHistoryEntry, StoreError> {
+) -> Result<LiveStudentAttemptHistoryEntry, StoreError> {
     let attempt_number = row
         .try_get::<i32, _>("assessment_attempt_number")
         .map_err(map_sqlx_error)?;
@@ -393,7 +461,20 @@ fn decode_attempt_history_entry(
     let attempt_id: uuid::Uuid = row
         .try_get("assessment_attempt_id")
         .map_err(map_sqlx_error)?;
-    Ok(LiveStudentCourseAttemptHistoryEntry {
+    Ok(LiveStudentAttemptHistoryEntry {
+        course_instance_id: CourseInstanceId::new(
+            row.try_get::<String, _>("course_instance_id")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Course Instance ID"))?,
+        course_short_name: name(
+            row.try_get("course_short_name").map_err(map_sqlx_error)?,
+            "Course short name",
+        )?,
+        course_long_name: name(
+            row.try_get("course_long_name").map_err(map_sqlx_error)?,
+            "Course long name",
+        )?,
         assessment_attempt_id: AssessmentAttemptId::from_uuid(attempt_id),
         assessment_id: assessment_id(row.try_get("assessment_id").map_err(map_sqlx_error)?)?,
         assessment_title: name(

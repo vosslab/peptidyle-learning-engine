@@ -22,13 +22,14 @@ async function studentProfile(runtime: ScenarioRuntime): Promise<void> {
       await page.getByRole("button", { name: "Profile", exact: true }).click();
       await page.getByRole("menuitem", { name: "Profile settings", exact: true }).click();
       await page.locator('[data-route-surface="profile"]').waitFor();
-      await page.getByRole("heading", { level: 1, name: "Your profile", exact: true }).waitFor();
+      await page.getByRole("main", { name: "Profile settings", exact: true }).waitFor();
       await page.getByRole("heading", { level: 2, name: "Avatar Gallery", exact: true }).waitFor();
       await page.getByLabel("Time zone", { exact: true }).waitFor();
       await page
-        .getByRole("list", { name: "Available provided avatars", exact: true })
-        .getByRole("listitem")
-        .first()
+        .getByRole("table", { name: "Available provided avatars", exact: true })
+        .locator('tr[data-record-id="amber-arch"]')
+        .filter({ has: page.getByText("Amber arch", { exact: true }) })
+        .getByRole("radio", { name: "Select Amber arch", exact: true })
         .waitFor();
       await scrollTop(page);
       await runtime.captureCheckpoint(session, checkpoint);

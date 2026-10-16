@@ -83,11 +83,28 @@ export function decodeInstructorAccountList(
   path = "response",
 ): InstructorAccountList {
   const record = decodeRecord(value, path);
-  only(record, path, ["accounts", "displayTimeZone", "nextCursor"]);
+  only(record, path, ["accounts", "displayTimeZone", "nextCursor", "stateChoices"]);
+  const stateChoices = decodeArray(
+    field(record, "stateChoices", path),
+    `${path}.stateChoices`,
+    (value, choicePath) => {
+      const choice = decodeRecord(value, choicePath);
+      only(choice, choicePath, ["key", "count"]);
+      return {
+        key: state(field(choice, "key", choicePath), `${choicePath}.key`),
+        count: decodeSafeInteger(field(choice, "count", choicePath), `${choicePath}.count`),
+      };
+    },
+  );
   return {
     accounts: decodeArray(field(record, "accounts", path), `${path}.accounts`, summary),
     displayTimeZone: zone(field(record, "displayTimeZone", path), `${path}.displayTimeZone`),
-    nextCursor: decodeNullable(field(record, "nextCursor", path), `${path}.nextCursor`, accountId),
+    nextCursor: decodeNullable(
+      field(record, "nextCursor", path),
+      `${path}.nextCursor`,
+      decodeString,
+    ),
+    stateChoices,
   };
 }
 export function decodeInstructorAccount(

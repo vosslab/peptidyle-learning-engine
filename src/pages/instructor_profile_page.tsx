@@ -18,11 +18,7 @@ export function InstructorProfilePage(): JSX.Element {
     applicationApi.client.getInstructorProfile(id),
   );
   return (
-    <PageFrame
-      routeSurface="instructor-profile"
-      eyebrow="PLE Instructor"
-      title="Instructor profile"
-    >
+    <PageFrame routeSurface="instructor-profile">
       <Switch>
         <Match when={accountId() === undefined}>
           <p role="alert">This Instructor Profile address is invalid.</p>

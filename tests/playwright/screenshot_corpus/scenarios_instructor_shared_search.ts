@@ -15,7 +15,7 @@ import {
   openInstructorLibraryBrowse,
 } from "./visible_workflows";
 
-async function loadDefaultLibrary(page: Page): Promise<void> {
+async function refreshLibrarySearch(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Search", exact: true }).click();
 }
 
@@ -49,11 +49,30 @@ async function createSearchPool(
   return { poolTitle, sourceQuestionTitle };
 }
 
-function publishedRows(page: Page): Locator {
-  return page
-    .getByRole("region", { name: "Question Library results", exact: true })
-    .getByRole("list", { name: "Question Library results", exact: true })
-    .getByRole("listitem");
+function resultRows(page: Page): Locator {
+  return page.locator("[data-record-id]");
+}
+
+function titledRow(page: Page, title: string): Locator {
+  return resultRows(page).filter({ has: page.getByText(title, { exact: true }) });
+}
+
+async function filterLibraryObjects(page: Page, kind: "questions" | "pools"): Promise<void> {
+  const filters = page.getByRole("group", { name: "Record filters", exact: true });
+  const collapsedDisclosure = filters.locator("details.record-filters__disclosure:not([open])");
+  if ((await collapsedDisclosure.count()) > 0) {
+    await collapsedDisclosure.locator("summary").click();
+  }
+  await filters.getByRole("button", { name: /^Filter Library object/u }).click();
+  const dialog = page.getByRole("dialog", { name: "Filter Library object", exact: true });
+  if (kind === "questions") {
+    await dialog.getByRole("checkbox", { name: "Published Question" }).check();
+  } else {
+    await dialog.getByRole("checkbox", { name: "Published Question" }).uncheck();
+    await dialog.getByRole("checkbox", { name: "Question Pool" }).check();
+  }
+  await dialog.getByRole("button", { name: "Close filter", exact: true }).click();
+  await filters.locator("details.record-filters__disclosure[open] summary").click();
 }
 
 async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
@@ -61,37 +80,25 @@ async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
   const page = session.page;
   try {
     await enterInstructor(page);
+    const displays = page.getByRole("group", { name: "Record display", exact: true });
     const { poolTitle, sourceQuestionTitle } = await createSearchPool(page);
-    await page.getByLabel("Search Question Library", { exact: true }).fill("");
-    await page
-      .getByRole("combobox", { name: "Question membership", exact: true })
-      .selectOption("inNoPool");
-    await loadDefaultLibrary(page);
-    const rows = publishedRows(page);
-    await rows.filter({ hasText: poolTitle }).first().waitFor();
-    await rows
-      .filter({ has: page.getByRole("link", { name: "Open", exact: true }) })
-      .first()
-      .waitFor();
+    await refreshLibrarySearch(page);
+    const poolRow = titledRow(page, poolTitle);
+    const questionRow = titledRow(page, sourceQuestionTitle);
+    await poolRow.getByRole("link", { name: "Open Question Pool", exact: true }).waitFor();
+    await questionRow.getByRole("link", { name: "Open", exact: true }).waitFor();
     await runtime.captureCheckpoint(session, "library_mixed_results");
-    await page
-      .getByRole("combobox", { name: "Question membership", exact: true })
-      .selectOption("all");
-    await rows
-      .filter({
-        hasText: sourceQuestionTitle,
-        has: page.getByRole("link", { name: "Open", exact: true }),
-      })
-      .first()
-      .waitFor();
+    await filterLibraryObjects(page, "questions");
+    await poolRow.waitFor({ state: "hidden" });
+    await questionRow.getByRole("link", { name: "Open", exact: true }).waitFor();
     await runtime.captureCheckpoint(session, "library_all_questions");
-    await page.getByRole("combobox", { name: "Show", exact: true }).selectOption("pools");
-    await rows.filter({ hasText: poolTitle }).first().waitFor();
-    if ((await rows.getByRole("link", { name: "Open", exact: true }).count()) !== 0) {
+    await filterLibraryObjects(page, "pools");
+    await questionRow.waitFor({ state: "hidden" });
+    await poolRow.getByRole("link", { name: "Open Question Pool", exact: true }).waitFor();
+    if ((await resultRows(page).getByRole("link", { name: "Open", exact: true }).count()) !== 0) {
       throw new Error("Pools-only Library results include a Question.");
     }
     await runtime.captureCheckpoint(session, "library_pools_only");
-    const displays = page.getByRole("group", { name: "Library result display", exact: true });
     for (const [mode, checkpoint] of [
       ["Compact", "library_compact"],
       ["List", "library_list"],
@@ -103,17 +110,14 @@ async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
     await openInstructorLibraryBrowse(page);
     await page.getByRole("button", { name: /^Multiple choice/u }).click();
     await page.getByRole("link", { name: "Search within results", exact: true }).click();
-    const leaveSearch = page.getByRole("dialog", { name: "Leave this search?", exact: true });
-    await leaveSearch.waitFor();
-    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
     await page.getByLabel("Search Question Library", { exact: true }).fill(poolTitle);
     await page.getByLabel("Search Question Library", { exact: true }).press("Enter");
-    await rows.filter({ hasText: poolTitle }).first().waitFor();
-    const link = rows
-      .filter({ hasText: poolTitle })
-      .getByRole("link", { name: "Open Question Pool", exact: true });
+    const link = titledRow(page, poolTitle).getByRole("link", {
+      name: "Open Question Pool",
+      exact: true,
+    });
     await followCaptureLink(page, link);
-    await page.getByRole("heading", { name: poolTitle, exact: true }).waitFor();
+    await page.getByRole("main", { name: poolTitle, exact: true }).waitFor();
     await runtime.captureCheckpoint(session, "library_pool_detail");
   } finally {
     await runtime.close(session);

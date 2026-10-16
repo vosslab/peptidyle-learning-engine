@@ -40,7 +40,7 @@ pub(super) fn from_store(facets: QuestionLibrarySearchFacets) -> QuestionSearchF
     }
 }
 
-pub(super) fn backend_capabilities(backend: QuestionBackend) -> QuestionBackendCapabilities {
+pub(crate) fn backend_capabilities(backend: QuestionBackend) -> QuestionBackendCapabilities {
     match backend {
         QuestionBackend::Ple => QuestionBackendCapabilities::from_iter([
             Capability::ClientRendering,

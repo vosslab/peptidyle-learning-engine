@@ -39,7 +39,7 @@ async function openInstructorProfile(page: Page): Promise<void> {
   await enterInstructor(page);
   await page.getByRole("button", { name: "Profile", exact: true }).click();
   await page.getByRole("menuitem", { name: "Profile settings", exact: true }).click();
-  await page.getByRole("heading", { level: 1, name: "Your profile", exact: true }).waitFor();
+  await page.getByRole("main", { name: "Profile settings", exact: true }).waitFor();
   await page.getByRole("heading", { level: 2, name: "Profile image", exact: true }).waitFor();
   await page.locator(".profile-thumbnail-placeholder").waitFor();
 }
@@ -50,12 +50,12 @@ async function openInstructorDraftList(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Questions", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
-  await page.getByRole("link", { name: "My Draft Questions", exact: true }).click();
-  await page.getByRole("heading", { name: "My Draft Questions", exact: true }).waitFor();
-  await page.getByText("Loading your private Draft Questions...", { exact: true }).waitFor({
-    state: "hidden",
-  });
+  await page.getByRole("main", { name: "Question Library", exact: true }).waitFor();
+  await page.getByRole("link", { name: "My Drafts", exact: true }).click();
+  await page.getByRole("main", { name: "My Drafts", exact: true }).waitFor();
+  await page
+    .locator('nav[aria-label="Private Draft Questions pages"][aria-busy="false"]')
+    .waitFor();
 }
 
 async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
@@ -66,32 +66,29 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+    await session.page.getByRole("main", { name: "My Active Courses", exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_list", session);
     await session.page
       .getByRole("navigation", { name: "Ribbon tasks", exact: true })
       .getByRole("link", { name: "My Inactive Courses", exact: true })
       .click();
-    await session.page.getByRole("heading", { name: "My Inactive Courses", exact: true }).waitFor();
+    await session.page.getByRole("main", { name: "My Inactive Courses", exact: true }).waitFor();
     const inactiveCourses = session.page.locator('[data-route-surface="inactiveCourses"]');
     await inactiveCourses
       .getByRole("heading", { name: "No inactive Courses", exact: true })
       .waitFor({ state: "visible" });
-    if ((await inactiveCourses.getByRole("listitem").count()) !== 0) {
-      throw new Error("The inactive Course list must have zero Course rows for this scenario.");
-    }
     await captureCheckpoint(runtime, "inactive_courses_list", session);
     await session.page.getByRole("link", { name: "My Active Courses", exact: true }).click();
-    await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+    await session.page.getByRole("main", { name: "My Active Courses", exact: true }).waitFor();
     const seededCourse = courseCard(session.page, COURSE_TITLE);
     await followCaptureLink(
       session.page,
       seededCourse.getByRole("link", { name: "Open Course", exact: true }),
     );
-    await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
+    await session.page.getByRole("main", { name: COURSE_TITLE, exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_assignment_workspace", session);
     await session.page.getByRole("link", { name: "Open Students", exact: true }).click();
-    await session.page.getByRole("heading", { name: "Students", exact: true }).waitFor();
+    await session.page.getByRole("main", { name: "Students", exact: true }).waitFor();
     await session.page.getByText("BCHM355-AVERY", { exact: true }).waitFor();
     await captureCheckpoint(runtime, "course_roster_active", session);
     await session.page.locator("summary").filter({ hasText: "Roster tools" }).click();
@@ -107,7 +104,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("navigation", { name: "Breadcrumb", exact: true })
       .getByRole("link", { name: COURSE_TITLE, exact: true })
       .click();
-    await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
+    await session.page.getByRole("main", { name: COURSE_TITLE, exact: true }).waitFor();
     await session.page
       .getByRole("navigation", { name: "Course actions", exact: true })
       .getByRole("link", { name: "Gradebook", exact: true })
@@ -118,19 +115,24 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await session.page.locator(".ple-app-ribbon__brand").click();
     await session.page.waitForURL((url) => url.pathname === "/instructor");
     await session.page.locator('[data-route-surface="courses"]').waitFor();
-    await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+    await session.page.getByRole("main", { name: "My Active Courses", exact: true }).waitFor();
     await session.page
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Assessments", exact: true })
       .click();
-    await session.page
-      .getByRole("heading", { level: 1, name: "Assessments Due Soon", exact: true })
-      .waitFor();
+    await session.page.getByRole("main", { name: "Assessments Due Soon", exact: true }).waitFor();
+    await session.page.getByText("Loading Assessments due soon...", { exact: true }).waitFor({
+      state: "hidden",
+    });
     await Promise.race([
       session.page
         .getByRole("heading", { level: 2, name: "No Assessments are due in the next 7 days." })
         .waitFor(),
-      session.page.getByRole("list", { name: "Assessments due in the next 7 days" }).waitFor(),
+      session.page
+        .getByRole("table", { name: "Assessments due in the next 7 days" })
+        .locator("[data-record-id]")
+        .first()
+        .waitFor(),
     ]);
     await captureCheckpoint(runtime, "assignments_due_soon_empty", session);
   } finally {
@@ -165,9 +167,7 @@ async function instructorPublicProfile(runtime: ScenarioRuntime): Promise<void> 
     });
     await session.page.goto(new URL(`/instructors/${accountId}`, session.page.url()).href);
     await session.page.locator('[data-route-surface="instructor-profile"]').waitFor();
-    await session.page
-      .getByRole("heading", { level: 1, name: "Instructor profile", exact: true })
-      .waitFor();
+    await session.page.getByRole("main", { name: "Instructor Profile", exact: true }).waitFor();
     const profileLink = session.page.getByRole("link", { name: /Elena Martinez/u });
     const unavailable = session.page.getByRole("alert");
     await Promise.race([profileLink.waitFor(), unavailable.waitFor()]);
@@ -188,26 +188,27 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
   try {
     await enterInstructor(session.page);
     await captureCheckpoint(runtime, "library_default", session);
+    await session.page.getByRole("link", { name: "My Pools", exact: true }).click();
+    await session.page.getByRole("main", { name: "My Pools", exact: true }).waitFor();
+    await session.page.getByRole("searchbox", { name: "Search My Pools" }).waitFor();
+    await session.page
+      .locator('nav[aria-label="My Question Pools pages"][aria-busy="false"]')
+      .waitFor();
+    await captureCheckpoint(runtime, "my_pools_default", session);
+    await session.page.getByRole("link", { name: "Search Question Library", exact: true }).click();
+    await session.page.getByRole("main", { name: "Question Library", exact: true }).waitFor();
     const question = await searchNativeMcLibraryQuestion(session.page);
     await captureCheckpoint(runtime, "library_filtered", session);
     await openInstructorLibraryBrowse(session.page);
     await captureCheckpoint(runtime, "library_browse", session);
     await session.page.getByRole("button", { name: /^Multiple choice/u }).click();
     await session.page.getByRole("link", { name: "Search within results", exact: true }).click();
-    const leaveSearch = session.page.getByRole("dialog", {
-      name: "Leave this search?",
-      exact: true,
-    });
-    await leaveSearch.waitFor();
-    await leaveSearch.getByRole("button", { name: "Leave page", exact: true }).click();
+    await session.page.getByRole("main", { name: "Question Library", exact: true }).waitFor();
     await searchNativeMcLibraryQuestion(session.page);
     const result = session.page
-      .locator(".record-list__row")
+      .locator("[data-record-id]")
       .filter({
-        has: session.page.getByRole("heading", {
-          name: question.metadata.questionTitle,
-          exact: true,
-        }),
+        has: session.page.getByText(question.metadata.questionTitle, { exact: true }),
       })
       .filter({ has: session.page.getByRole("link", { name: "Open", exact: true }) })
       .first();
@@ -267,7 +268,7 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+    await session.page.getByRole("main", { name: "My Active Courses", exact: true }).waitFor();
     const blueprintResponses: string[] = [];
     const blueprintResponseBodies: Promise<void>[] = [];
     session.page.on("response", (response) => {
@@ -281,7 +282,8 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
     });
     await session.page.getByRole("link", { name: "My Blueprint Courses", exact: true }).click();
     await session.page
-      .getByRole("heading", { name: "Build reusable course structure", exact: true })
+      .getByRole("main", { name: "My Blueprint Courses", exact: true })
+      .getByRole("region", { name: "Blueprint Courses", exact: true })
       .waitFor();
     const seededCourseTitle = session.page.getByText(COURSE_TITLE, { exact: true });
     const unavailable = session.page.getByRole("alert");
@@ -297,14 +299,12 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
     await followCaptureLink(
       session.page,
       session.page
-        .getByRole("listitem")
-        .filter({ hasText: COURSE_TITLE })
+        .locator("[data-record-id]")
+        .filter({ has: session.page.getByText(COURSE_TITLE, { exact: true }) })
         .getByRole("link", { name: "Open Blueprint Course", exact: true }),
     );
     await session.page.waitForURL(/\/blueprint-courses\/[^/]+$/u);
-    await session.page
-      .getByRole("heading", { level: 1, name: COURSE_TITLE, exact: true })
-      .waitFor();
+    await session.page.getByRole("main", { name: COURSE_TITLE, exact: true }).waitFor();
     await captureCheckpoint(runtime, "blueprint_detail", session);
     await session.page
       .getByRole("link", { name: "My Blueprint Courses", exact: true })
@@ -343,10 +343,10 @@ async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promis
       .click();
     await session.page
       .getByRole("navigation", { name: "Ribbon tasks", exact: true })
-      .getByRole("link", { name: "Search Public Blueprint Courses", exact: true })
+      .getByRole("link", { name: "Search Blueprint Courses", exact: true })
       .click();
     await session.page
-      .getByRole("heading", { level: 1, name: "Search Public Blueprint Courses", exact: true })
+      .getByRole("main", { name: "Search Blueprint Courses", exact: true })
       .waitFor();
     await session.page.getByLabel("Blueprint Course name", { exact: true }).fill("Biochemistry");
     await session.page.getByRole("button", { name: "Search", exact: true }).click();
@@ -366,14 +366,14 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     const question = await searchNativeMcLibraryQuestion(page);
     await openInstructorCourse(page);
     await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
-    await page.getByRole("heading", { name: "Create an Assessment", exact: true }).waitFor();
+    await page.getByRole("main", { name: "New Assessment", exact: true }).waitFor();
     await captureCheckpoint(runtime, "assignment_creation", session);
     await page.getByLabel("Assessment title").fill(ASSIGNMENT_TITLE);
     await page
       .getByRole("combobox", { name: /^Assessment Type/u })
       .selectOption("practice_question_assignment");
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
-    await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
+    await page.getByRole("main", { name: "Questions", exact: true }).waitFor();
     await page
       .getByRole("button", { name: "Choose published Assessment content", exact: true })
       .click();
@@ -398,9 +398,7 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       .getByText("Questions and order saved. Review Assessment Properties when you are ready.")
       .waitFor();
     await page.getByRole("link", { name: "Review Assessment Properties", exact: true }).click();
-    await page
-      .getByRole("heading", { name: "Assessment Properties Editor", exact: true })
-      .waitFor();
+    await page.getByRole("main", { name: "Properties", exact: true }).waitFor();
     await page
       .getByRole("group", { name: "Due date and time", exact: true })
       .locator('input[type="date"]')
@@ -415,13 +413,11 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     await page.getByText("Saved", { exact: true }).waitFor();
     await page.getByRole("link", { name: "Open Student View", exact: true }).click();
     await page.getByRole("note", { name: "Student View preview", exact: true }).waitFor();
-    await page.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }).waitFor();
+    await page.getByRole("main", { name: "Student View", exact: true }).waitFor();
     await runtime.captureCheckpoint(session, "assignment_delivery_check");
     await page.getByRole("link", { name: "Return to assessment", exact: true }).click();
     await page.getByRole("link", { name: "Assessment Properties Editor", exact: true }).click();
-    await page
-      .getByRole("heading", { name: "Assessment Properties Editor", exact: true })
-      .waitFor();
+    await page.getByRole("main", { name: "Properties", exact: true }).waitFor();
     const readiness = page.getByRole("button", { name: "Check release readiness", exact: true });
     await readiness.focus();
     await page.keyboard.press("Enter");
@@ -553,6 +549,16 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         privacyProfile: "instructor_answer_free",
         caption: "Question Library",
         featured: true,
+      },
+      {
+        checkpoint: "my_pools_default",
+        filenameStem: catalogScreenshotFilename("questions", "myPools", "default"),
+        area: "question library",
+        workflow: "owned Question Pools",
+        state: "default",
+        viewport: "laptop",
+        privacyProfile: "instructor_answer_free",
+        caption: "My Pools",
       },
       {
         checkpoint: "library_filtered",
@@ -794,7 +800,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
         state: "filtered results",
         viewport: "laptop",
         privacyProfile: "instructor_answer_free",
-        caption: "Search Public Blueprint Courses",
+        caption: "Search Blueprint Courses",
       },
     ],
     viewportCoverage: viewportCoverage(["laptop"], {

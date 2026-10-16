@@ -112,11 +112,7 @@ function WorkspaceState(props: {
 }): JSX.Element {
   if (props.state === "loading") {
     return (
-      <PageFrame
-        routeSurface="assessmentWorkspaceGate"
-        eyebrow="Instructor assessment workspace"
-        title="Loading assessment workspace"
-      >
+      <PageFrame routeSurface="assessmentWorkspaceGate">
         <p class="loading-state" role="status">
           Loading assessment workspace...
         </p>
@@ -130,11 +126,8 @@ function WorkspaceState(props: {
           // Failure card on the content region. PageFrame still owns the stack.
           contentClass="route-error"
           routeSurface="assessmentWorkspaceGate"
-          eyebrow="Instructor assessment workspace"
-          title="Assessment workspace could not load"
-          headingId="assessment-workspace-load-error"
         >
-          <p>Try loading the current assessment again.</p>
+          <p>The current assessment workspace could not load. Try loading it again.</p>
           <button
             class="primary-action"
             type="button"
@@ -153,8 +146,6 @@ function WorkspaceState(props: {
         // Failure card on the content region. PageFrame still owns the stack.
         contentClass="route-error"
         routeSurface="assessmentWorkspaceGate"
-        eyebrow="Instructor assessment workspace"
-        title="This assessment workspace is unavailable"
       >
         <p>The selected assessment could not be found in this course.</p>
         <A class="primary-link" href="/">

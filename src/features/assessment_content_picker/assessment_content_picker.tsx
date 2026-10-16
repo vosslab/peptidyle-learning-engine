@@ -1,15 +1,16 @@
 // One shared-search dialog for adding either fixed Questions or reusable Question Pools.
 
-import { Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type {
   QuestionLibraryBrowseRepository,
   LibrarySearchRow,
 } from "../../pages/library_page_model";
+import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../../pages/library_page_model";
+import { librarySearchFields, librarySearchRecordQuery } from "../../pages/library_search_fields";
 import { questionLibrarySearchDefinition } from "../../pages/question_library_search_definition";
+import { SearchBlock } from "../search/search_block";
 import { SearchControls } from "../search/search_controls";
-import { SearchResults } from "../search/search_results";
-import { SearchSelectionBar } from "../search/search_selection_bar";
 import { createSearchState } from "../search/search_state";
 import {
   assessmentContentPickerSelection,
@@ -29,9 +30,12 @@ export interface AssessmentContentPickerProps {
 
 /** Selects an ordered Question batch or one Pool with the common request, paging, and display UI. */
 export function AssessmentContentPicker(props: AssessmentContentPickerProps): JSX.Element {
-  const state = createSearchState(questionLibrarySearchDefinition(props.repository), {
-    runOnMount: true,
-  });
+  const state = createSearchState(
+    questionLibrarySearchDefinition(props.repository, EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, true),
+    {
+      runOnMount: true,
+    },
+  );
   const [selectedRows, setSelectedRows] = createSignal<ReadonlyMap<string, LibrarySearchRow>>(
     new Map(),
   );
@@ -134,7 +138,6 @@ export function AssessmentContentPicker(props: AssessmentContentPickerProps): JS
     >
       <header class="assessment-content-picker-dialog__header">
         <div>
-          <p class="eyebrow">Assessment content</p>
           <h2 id="assessment-content-picker-heading">Choose published Assessment content</h2>
           <p id="assessment-content-picker-instructions">
             Questions keep their exact published Revision. Importing a Question Pool uses its
@@ -145,76 +148,65 @@ export function AssessmentContentPicker(props: AssessmentContentPickerProps): JS
           Close picker
         </button>
       </header>
-      <div class="assessment-content-picker-dialog__controls">
-        <SearchControls
-          state={state}
-          textLabel="Search published Assessment content"
-          textPlaceholder="Title or concept"
-          displayAriaLabel="Assessment content result display"
-          onSubmit={submit}
-        >
-          <label>
-            Show
-            <select
-              value={state.query().kind}
-              onChange={(event) =>
-                changeQuery({
-                  kind: event.currentTarget.value as "both" | "questions" | "pools",
-                })
-              }
-            >
-              <option value="both">Questions and Question Pools</option>
-              <option value="questions">Questions only</option>
-              <option value="pools">Question Pools only</option>
-            </select>
-          </label>
-          <label>
-            Question membership
-            <select
-              value={state.query().questions}
-              disabled={state.query().kind === "pools"}
-              onChange={(event) =>
-                changeQuery({ questions: event.currentTarget.value as "inNoPool" | "all" })
-              }
-            >
-              <option value="inNoPool">Questions in no Pool</option>
-              <option value="all">All Questions</option>
-            </select>
-          </label>
-        </SearchControls>
-      </div>
-      <div class="assessment-content-picker-dialog__results">
-        <SearchSelectionBar
-          selectedCount={() => state.selectedIds().size}
-          loadedCount={() => {
-            const current = state.state();
-            return current.kind === "empty" ? 0 : current.rows.length;
-          }}
-          onSelectLoaded={selectLoadedQuestions}
-          onClearSelection={() => {
-            clearSelection();
-          }}
-        >
-          <span class="assessment-content-picker-dialog__selection-copy">
-            <Show when={selectedRows().size > 0}>
-              <span>{selectedRows().size} selected</span>
-            </Show>
-          </span>
-        </SearchSelectionBar>
-        <SearchResults
-          state={state}
-          ariaLabel="Published Assessment content"
-          emptyState={{
+      <SearchBlock
+        layout="above"
+        state={state}
+        controls={
+          <SearchControls
+            state={state}
+            textLabel="Search published Assessment content"
+            textPlaceholder="Title or concept"
+            onSubmit={submit}
+          >
+            <label>
+              Show
+              <select
+                value={state.query().kind}
+                onChange={(event) =>
+                  changeQuery({
+                    kind: event.currentTarget.value as "both" | "questions" | "pools",
+                  })
+                }
+              >
+                <option value="both">Questions and Question Pools</option>
+                <option value="questions">Questions only</option>
+                <option value="pools">Question Pools only</option>
+              </select>
+            </label>
+            <label>
+              Question membership
+              <select
+                value={state.query().questions}
+                disabled={state.query().kind === "pools"}
+                onChange={(event) =>
+                  changeQuery({ questions: event.currentTarget.value as "inNoPool" | "all" })
+                }
+              >
+                <option value="inNoPool">Questions in no Pool</option>
+                <option value="all">All Questions</option>
+              </select>
+            </label>
+          </SearchControls>
+        }
+        collection={{
+          ariaLabel: "Published Assessment content",
+          fields: librarySearchFields,
+          query: librarySearchRecordQuery,
+          emptyState: {
             title: "No published Assessment content matches these choices.",
             message: "Try different text or membership choices.",
-          }}
-          selection={() => ({
+          },
+          selection: () => ({
             kind: "checkbox",
             selectedIds: state.selectedIds,
             onChange: choose,
-          })}
-        />
-      </div>
+            toolbar: {
+              onSelectLoaded: selectLoadedQuestions,
+              onClearSelection: clearSelection,
+            },
+          }),
+        }}
+      />
       <footer class="assessment-content-picker-dialog__footer">
         <button class="quiet-action" type="button" onClick={cancel}>
           Cancel

@@ -1,4 +1,15 @@
-import { For, Show, createMemo, createUniqueId, type Accessor, type JSX } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  mapArray,
+  onCleanup,
+  type Accessor,
+  type JSX,
+} from "solid-js";
 
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import { CopyableQuestionId } from "../copyable_question_id";
@@ -14,7 +25,42 @@ import {
   type RecordCollectionEmptyState,
   type RecordCollectionState,
 } from "./record_collection_state";
+import {
+  recordIdentityField,
+  type RecordField,
+  type RecordFieldValue,
+  type RecordListQuery,
+} from "./record_fields";
+import {
+  defaultRecordActionsWidth,
+  recordColumnWidth,
+  visibleRecordFields,
+  visibleTableWidth,
+  type ColumnChoice,
+} from "./record_column_visibility";
+import { RecordTable, type RecordTableColumn, type RecordTableRowHeader } from "./record_table";
+import { RecordActionControl } from "./record_action_control";
+import { RecordFilterButton, RecordFilterControls } from "./record_filter_controls";
+import { RecordSortHeading, RecordSortMenu, recordSortOptions } from "./record_sort_controls";
+import {
+  RecordListModeControls,
+  RecordListSelectionControls,
+  type RecordListMode,
+  type RecordListSelectionToolbar,
+} from "./record_list_controls";
 import "./record_list.css";
+
+export type {
+  RecordField,
+  RecordFieldScalar,
+  RecordFieldValue,
+  RecordFilterBinding,
+  RecordFilterChoice,
+  RecordFilterChoices,
+  RecordListQuery,
+  RecordSort,
+  RecordSortBinding,
+} from "./record_fields";
 
 export type RecordListState = RecordCollectionState;
 export type RecordListEmptyState = RecordCollectionEmptyState;
@@ -96,21 +142,32 @@ export type RecordListSelection<Row> = {
   readonly selectedIds: Accessor<ReadonlySet<string>>;
   readonly disabled?: (row: Row) => boolean;
   readonly onChange: (row: Row, selected: boolean) => void;
+  /** The domain owns selection changes, caps, and any editor-discard guard. */
+  readonly toolbar?: RecordListSelectionToolbar;
 };
 
-export type RecordListProps<Row> = {
+export type RecordListProps<
+  Row,
+  SortKey extends string = string,
+  FilterKey extends string = string,
+> = {
   readonly rows: ReadonlyArray<Row>;
   readonly recordId: (row: Row) => string;
   readonly content: (row: Row) => RecordContent;
   /** Bounded caller-owned body under the shared identity. */
   readonly renderBody?: (row: Accessor<Row>) => JSX.Element;
   readonly selection?: RecordListSelection<Row>;
-  /** Shared discovery presentation; callers own the local, non-persistent choice. */
-  readonly presentation?: "compact" | "list" | "gallery" | "poster";
   readonly state: RecordListState;
   readonly ariaLabel: string;
   readonly emptyState: RecordListEmptyState;
-};
+} & (
+  | { readonly fields?: never; readonly query?: never }
+  | {
+      /** One field definition supplies every presentation, including initially empty results. */
+      readonly fields: ReadonlyArray<RecordField<Row, SortKey, FilterKey>>;
+      readonly query: RecordListQuery<SortKey, FilterKey>;
+    }
+);
 
 function RecordFactView(props: { readonly fact: RecordFact }): JSX.Element {
   const content = (): JSX.Element => {
@@ -202,51 +259,6 @@ function RecordFactView(props: { readonly fact: RecordFact }): JSX.Element {
   );
 }
 
-function RecordActionControl(props: { readonly action: Accessor<RecordAction> }): JSX.Element {
-  const command = (): Extract<RecordAction, { readonly kind: "command" }> =>
-    props.action() as Extract<RecordAction, { readonly kind: "command" }>;
-  const link = (): Extract<RecordAction, { readonly kind: "link" }> =>
-    props.action() as Extract<RecordAction, { readonly kind: "link" }>;
-
-  return (
-    <Show
-      when={props.action().kind === "link"}
-      fallback={
-        <button
-          class="record-list__action"
-          classList={{ "record-list__action--primary": props.action().primary === true }}
-          type="button"
-          disabled={command().disabled}
-          title={command().title}
-          aria-pressed={command().pressed}
-          aria-expanded={command().expanded}
-          aria-controls={command().controls}
-          ref={(element) => command().ref?.(element)}
-          onClick={(event) => command().onClick(event)}
-        >
-          {props.action().label}
-        </button>
-      }
-    >
-      <a
-        class="record-list__action"
-        classList={{
-          "record-list__action--primary": link().primary === true,
-          "primary-link": link().primary === true,
-        }}
-        href={link().href}
-        target="_blank"
-        rel="noopener"
-        title={link().title}
-        ref={(element) => link().ref?.(element)}
-        onClick={(event) => link().onFollow?.(event)}
-      >
-        {props.action().label}
-      </a>
-    </Show>
-  );
-}
-
 function normalizeRecordActions(
   recordId: string,
   actions: ReadonlyArray<RecordAction>,
@@ -269,6 +281,16 @@ export function RecordSemanticContent(props: {
   const actions = createMemo(() => normalizeRecordActions(props.recordId, props.content().actions));
   const renderBody = props.renderBody;
 
+  function meaningfulDescription(): string | undefined {
+    const { title, description } = props.content();
+    if (description === undefined) return undefined;
+
+    const trimmedDescription = description.trim();
+    if (trimmedDescription.length === 0 || trimmedDescription === title.trim()) return undefined;
+
+    return description;
+  }
+
   return (
     <div class="record-list__semantic-frame">
       <Show when={props.content().media}>
@@ -290,7 +312,7 @@ export function RecordSemanticContent(props: {
       <div class="record-list__content">
         <div class="record-list__identity">
           <h3 class="record-list__title">{props.content().title}</h3>
-          <Show when={props.content().description}>
+          <Show when={meaningfulDescription()}>
             {(description) => <p class="record-list__description">{description()}</p>}
           </Show>
         </div>
@@ -353,45 +375,454 @@ function SemanticRecordRow<Row>(props: {
   );
 }
 
-/**
- * Renders semantic records and their shared loading, empty, and error states.
- * Presentation variants, reordering, and windowing compose outside this focused core.
- */
-export function RecordList<Row>(props: RecordListProps<Row>): JSX.Element {
-  const rowsById = createMemo(() => new Map(props.rows.map((row) => [props.recordId(row), row])));
-  const recordIds = createMemo(() => props.rows.map((row) => props.recordId(row)));
-  const selectionName = `record-list-selection-${createUniqueId()}`;
+function fieldText(value: RecordFieldValue): string {
+  if (value === null) return "";
+  if (Array.isArray(value)) return value.map(String).join(", ");
+  return String(value);
+}
+
+function CompactRecordIdentity<Row>(props: {
+  readonly recordId: string;
+  readonly row: Accessor<Row>;
+  readonly content: (row: Row) => RecordContent;
+  readonly renderBody?: () => JSX.Element;
+  readonly selection?: RecordListSelection<Row>;
+  readonly selectionName: string;
+}): JSX.Element {
+  const content = createMemo(() => props.content(props.row()));
+  const renderBody = props.renderBody;
 
   return (
-    <RecordCollectionStateView
-      state={props.state}
-      isEmpty={props.rows.length === 0}
-      emptyState={props.emptyState}
-    >
-      <div
-        class="record-list record-list--semantic"
-        classList={{
-          "record-list--compact": props.presentation === "compact",
-          "record-list--gallery":
-            props.presentation === "gallery" || props.presentation === "poster",
-          "record-list--poster": props.presentation === "poster",
-        }}
-        role="list"
-        aria-label={props.ariaLabel}
-      >
-        <For each={recordIds()}>
-          {(recordId) => (
-            <SemanticRecordRow
-              recordId={recordId}
-              row={() => rowsById().get(recordId)!}
-              content={props.content}
-              renderBody={props.renderBody}
-              selection={props.selection}
-              selectionName={selectionName}
+    <div class="record-list__compact-identity">
+      <Show when={props.selection}>
+        {(selection) => (
+          <label class="record-list__compact-selection">
+            <input
+              type={selection().kind}
+              name={selection().kind === "radio" ? props.selectionName : undefined}
+              value={props.recordId}
+              checked={selection().selectedIds().has(props.recordId)}
+              disabled={selection().disabled?.(props.row())}
+              onChange={(event) => selection().onChange(props.row(), event.currentTarget.checked)}
             />
-          )}
-        </For>
-      </div>
-    </RecordCollectionStateView>
+            <span class="sr-only">Select {content().title}</span>
+          </label>
+        )}
+      </Show>
+      <span class="record-list__compact-title" title={content().title}>
+        {content().title}
+      </span>
+      {renderBody === undefined ? undefined : (
+        <div class="record-list__compact-body">{renderBody()}</div>
+      )}
+    </div>
+  );
+}
+
+function CompactRecordActions(props: {
+  readonly recordId: string;
+  readonly content: Accessor<RecordContent>;
+}): JSX.Element {
+  const actions = createMemo(() => normalizeRecordActions(props.recordId, props.content().actions));
+
+  return (
+    <div class="record-list__compact-actions">
+      <For each={actions().ids}>
+        {(actionId) => <RecordActionControl action={() => actions().byId.get(actionId)!} />}
+      </For>
+    </div>
+  );
+}
+
+/** Renders records with local display modes, compact-column controls, and shared collection states. */
+export function RecordList<Row, SortKey extends string = string, FilterKey extends string = string>(
+  props: RecordListProps<Row, SortKey, FilterKey>,
+): JSX.Element {
+  const rowsById = createMemo(() => new Map(props.rows.map((row) => [props.recordId(row), row])));
+  const recordIds = createMemo(() => props.rows.map((row) => props.recordId(row)));
+  const bodyModels = mapArray(recordIds, (recordId) => ({
+    recordId,
+    body: props.renderBody?.(() => rowsById().get(recordId)!),
+  }));
+  const bodiesById = createMemo(
+    () => new Map(bodyModels().map((model) => [model.recordId, model.body])),
+  );
+  const selectionName = `record-list-selection-${createUniqueId()}`;
+  const [columnWidths, setColumnWidths] = createSignal<ReadonlyMap<string, number>>(new Map());
+  const [columnChoices, setColumnChoices] = createSignal<ReadonlyMap<string, ColumnChoice>>(
+    new Map(),
+  );
+  const [columnOrder, setColumnOrder] = createSignal<ReadonlyArray<string>>([]);
+  const [mode, setMode] = createSignal<RecordListMode>("compact");
+  const [openFilterKey, setOpenFilterKey] = createSignal<FilterKey | null>(null);
+  let filterTrigger: HTMLButtonElement | undefined;
+  function openFilter(key: FilterKey, trigger: HTMLButtonElement): void {
+    filterTrigger = trigger;
+    setOpenFilterKey(() => key);
+  }
+  function closeFilter(): void {
+    setOpenFilterKey(null);
+    filterTrigger?.focus();
+    filterTrigger = undefined;
+  }
+  const [availableWidth, setAvailableWidth] = createSignal(0);
+  const [rootFontSize, setRootFontSize] = createSignal(16);
+  const identityField = createMemo(() => recordIdentityField(props.fields ?? []));
+  createEffect(() => {
+    const available = new Set((props.fields ?? []).map((field) => field.id));
+    setColumnOrder((current) => {
+      const retained = current.filter((id) => available.has(id));
+      return retained.length === current.length ? current : retained;
+    });
+  });
+  const orderedFieldIds = createMemo((): ReadonlyArray<string> => {
+    const declared = (props.fields ?? []).map((field) => field.id);
+    const available = new Set(declared);
+    const retained = columnOrder().filter((id) => available.has(id));
+    const retainedIds = new Set(retained);
+    return [...retained, ...declared.filter((id) => !retainedIds.has(id))];
+  });
+  function moveColumn(id: string, targetId: string): void {
+    if (id === targetId) return;
+    const next = [...orderedFieldIds()];
+    const from = next.indexOf(id);
+    const target = next.indexOf(targetId);
+    if (from < 0 || target < 0) return;
+    next.splice(from, 1);
+    next.splice(target, 0, id);
+    setColumnOrder(next);
+  }
+  function moveColumnBy(id: string, direction: -1 | 1): void {
+    const order = orderedFieldIds();
+    const index = order.indexOf(id);
+    const neighbor = order[index + direction];
+    if (neighbor !== undefined) moveColumn(id, neighbor);
+  }
+  const recordContent = (record: Row): RecordContent => {
+    const content = props.content(record);
+    const identity = identityField();
+    return identity === undefined ? content : { ...content, title: identity.value(record) };
+  };
+  const hasRecordActions = createMemo(() =>
+    props.rows.some((record) => props.content(record).actions.length > 0),
+  );
+  const defaultActionsWidth = createMemo(() =>
+    defaultRecordActionsWidth(availableWidth(), rootFontSize()),
+  );
+  let widthObserver: ResizeObserver | undefined;
+  onCleanup(() => widthObserver?.disconnect());
+  const visibleFields = createMemo(() =>
+    visibleRecordFields(
+      props.fields ?? [],
+      columnChoices(),
+      availableWidth(),
+      rootFontSize(),
+      hasRecordActions(),
+      recordColumnWidth(identityField()?.defaultColumn.width, rootFontSize()),
+    ),
+  );
+  function chooseColumn(id: string, choice: ColumnChoice | "auto"): void {
+    const next = new Map(columnChoices());
+    if (choice === "auto") next.delete(id);
+    else next.set(id, choice);
+    setColumnChoices(next);
+  }
+  function observeCompactWidth(element: HTMLDivElement): void {
+    widthObserver?.disconnect();
+    setRootFontSize(Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    widthObserver = new ResizeObserver(([entry]) => {
+      if (entry) {
+        setRootFontSize(
+          Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
+        );
+        setAvailableWidth(entry.contentRect.width);
+      }
+    });
+    widthObserver.observe(element);
+  }
+  const row = (recordId: string): Row => rowsById().get(recordId)!;
+  const sortDirection = (key: SortKey | undefined): "ascending" | "descending" | undefined =>
+    key !== undefined && props.query?.sort?.value?.key === key
+      ? props.query.sort.value.direction
+      : undefined;
+  const compactSortSummary = (): string => {
+    const binding = props.query?.sort;
+    const sort = binding?.value;
+    if (!binding || !sort) return "Sort";
+    if (
+      identityField()?.sortKey === sort.key ||
+      visibleFields().some((field) => field.sortKey === sort.key)
+    ) {
+      return "Sort";
+    }
+    const label = recordSortOptions(props.fields ?? [], binding).find(
+      (option) => option.sort.key === sort.key && option.sort.direction === sort.direction,
+    )?.label;
+    return label ? `Sort: ${label}` : "Sort";
+  };
+  const columns = createMemo((): ReadonlyArray<RecordTableColumn<string>> => {
+    const dataColumns: ReadonlyArray<RecordTableColumn<string>> = visibleFields().map((field) => ({
+      id: field.id,
+      header: (
+        <span class="record-filters__heading">
+          <Show
+            when={field.sortKey !== undefined && props.query?.sort !== undefined}
+            fallback={field.label}
+          >
+            <RecordSortHeading
+              label={field.label}
+              sortKey={field.sortKey!}
+              binding={props.query!.sort!}
+            />
+          </Show>
+          <Show when={field.filterKey !== undefined && props.query?.filters}>
+            <RecordFilterButton
+              label={field.label}
+              count={props.query?.filters?.values.get(field.filterKey!)?.length ?? 0}
+              onOpen={(trigger) => openFilter(field.filterKey!, trigger)}
+            />
+          </Show>
+        </span>
+      ),
+      sortDirection: () => sortDirection(field.sortKey),
+      resizeLabel: field.label,
+      width: field.defaultColumn.width,
+      cell: (recordId: string): JSX.Element => (
+        <span
+          class="record-list__compact-value"
+          title={field.render === undefined ? fieldText(field.value(row(recordId))) : undefined}
+        >
+          {field.render?.(row(recordId)) ?? fieldText(field.value(row(recordId)))}
+        </span>
+      ),
+    }));
+
+    return hasRecordActions()
+      ? [
+          ...dataColumns,
+          {
+            id: "record_actions",
+            header: "Actions",
+            resizeLabel: "Actions",
+            minWidth: 112,
+            width: `${defaultActionsWidth()}px`,
+            cell: (recordId: string): JSX.Element => (
+              <CompactRecordActions
+                recordId={recordId}
+                content={() => recordContent(row(recordId))}
+              />
+            ),
+          },
+        ]
+      : dataColumns;
+  });
+
+  const rowHeader = (): RecordTableRowHeader<string> => ({
+    id: identityField()?.id ?? "record_identity",
+    header: (
+      <span class="record-filters__heading">
+        <Show
+          when={identityField()?.sortKey !== undefined && props.query?.sort !== undefined}
+          fallback={identityField()?.label ?? "Record"}
+        >
+          <RecordSortHeading
+            label={identityField()?.label ?? "Record"}
+            sortKey={identityField()!.sortKey!}
+            binding={props.query!.sort!}
+          />
+        </Show>
+        <Show when={identityField()?.filterKey !== undefined && props.query?.filters}>
+          <RecordFilterButton
+            label={identityField()?.label ?? "Record"}
+            count={props.query?.filters?.values.get(identityField()!.filterKey!)?.length ?? 0}
+            onOpen={(trigger) => openFilter(identityField()!.filterKey!, trigger)}
+          />
+        </Show>
+      </span>
+    ),
+    sortDirection: () => sortDirection(identityField()?.sortKey),
+    resizeLabel: identityField()?.label ?? "Record",
+    minWidth: 160,
+    width: identityField()?.defaultColumn.width ?? (props.fields?.length ? "30%" : "65%"),
+    content: (recordId: string): JSX.Element => (
+      <CompactRecordIdentity
+        recordId={recordId}
+        row={() => row(recordId)}
+        content={recordContent}
+        renderBody={props.renderBody ? (): JSX.Element => bodiesById().get(recordId) : undefined}
+        selection={props.selection}
+        selectionName={selectionName}
+      />
+    ),
+  });
+  const orderedColumnIds = (): ReadonlyArray<string> | undefined => {
+    if (!props.fields?.length) return undefined;
+    const shown = new Set(visibleFields().map((field) => field.id));
+    return [
+      ...(identityField() ? [] : ["record_identity"]),
+      ...orderedFieldIds().filter((id) => id === identityField()?.id || shown.has(id)),
+      ...(hasRecordActions() ? ["record_actions"] : []),
+    ];
+  };
+
+  return (
+    <div class="record-list__collection">
+      <RecordListModeControls mode={mode} onChange={setMode} />
+      <Show when={props.query?.sort}>
+        {(binding) => (
+          <Show
+            when={mode() === "compact"}
+            fallback={<RecordSortMenu fields={props.fields ?? []} binding={binding()} />}
+          >
+            <details class="record-sort__disclosure">
+              <summary>{compactSortSummary()}</summary>
+              <RecordSortMenu fields={props.fields ?? []} binding={binding()} />
+            </details>
+          </Show>
+        )}
+      </Show>
+      <Show when={props.query?.filters}>
+        {(binding) => (
+          <RecordFilterControls
+            fields={props.fields ?? []}
+            binding={binding()}
+            compact={mode() === "compact"}
+            openKey={openFilterKey()}
+            onOpen={openFilter}
+            onClose={closeFilter}
+          />
+        )}
+      </Show>
+      <Show when={props.selection?.kind === "checkbox" && props.selection.toolbar}>
+        <RecordListSelectionControls
+          loadedCount={props.rows.length}
+          selectedCount={() => props.selection!.selectedIds().size}
+          toolbar={props.selection!.toolbar!}
+        />
+      </Show>
+      <Show
+        when={mode() === "compact"}
+        fallback={
+          <RecordCollectionStateView
+            state={props.state}
+            isEmpty={props.rows.length === 0}
+            emptyState={props.emptyState}
+          >
+            <div
+              class="record-list record-list--semantic"
+              classList={{
+                "record-list--gallery": mode() === "poster",
+                "record-list--poster": mode() === "poster",
+              }}
+              role="list"
+              aria-label={props.ariaLabel}
+            >
+              <For each={recordIds()}>
+                {(recordId) => (
+                  <SemanticRecordRow
+                    recordId={recordId}
+                    row={() => row(recordId)}
+                    content={recordContent}
+                    renderBody={
+                      props.renderBody ? (): JSX.Element => bodiesById().get(recordId) : undefined
+                    }
+                    selection={props.selection}
+                    selectionName={selectionName}
+                  />
+                )}
+              </For>
+            </div>
+          </RecordCollectionStateView>
+        }
+      >
+        <div class="record-list--compact" ref={observeCompactWidth}>
+          <Show when={props.fields?.length}>
+            <details class="record-list__column-controls">
+              <summary>Columns</summary>
+              <div class="record-list__column-controls-body">
+                <For each={orderedFieldIds()}>
+                  {(id) => {
+                    const field = (): RecordField<Row, SortKey, FilterKey> | undefined =>
+                      props.fields?.find((entry) => entry.id === id);
+                    return (
+                      <div class="record-list__column-move">
+                        <span>{field()?.label}</span>
+                        <button
+                          type="button"
+                          aria-label={`Move ${field()?.label} column left`}
+                          disabled={orderedFieldIds().indexOf(id) === 0}
+                          onClick={() => moveColumnBy(id, -1)}
+                        >
+                          &larr;
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Move ${field()?.label} column right`}
+                          disabled={orderedFieldIds().indexOf(id) === orderedFieldIds().length - 1}
+                          onClick={() => moveColumnBy(id, 1)}
+                        >
+                          &rarr;
+                        </button>
+                      </div>
+                    );
+                  }}
+                </For>
+                <For each={props.fields?.filter((field) => field.role !== "identity")}>
+                  {(field) => (
+                    <label class="record-list__column-choice">
+                      <span>{field.label}</span>
+                      <select
+                        aria-label={`${field.label} column visibility`}
+                        value={columnChoices().get(field.id) ?? "auto"}
+                        onChange={(event) =>
+                          chooseColumn(field.id, event.currentTarget.value as ColumnChoice | "auto")
+                        }
+                      >
+                        <option value="auto">Automatic</option>
+                        <option value="show">Show</option>
+                        <option value="hide">Hide</option>
+                      </select>
+                    </label>
+                  )}
+                </For>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setColumnChoices(new Map());
+                    setColumnWidths(new Map());
+                    setColumnOrder([]);
+                  }}
+                >
+                  Restore default columns
+                </button>
+              </div>
+            </details>
+          </Show>
+          <RecordTable
+            rows={recordIds()}
+            columns={columns()}
+            rowId={(recordId) => recordId}
+            rowHeader={rowHeader()}
+            orderedColumnIds={orderedColumnIds()}
+            onColumnMove={moveColumn}
+            movableColumnIds={orderedFieldIds()}
+            columnWidths={columnWidths()}
+            onColumnWidthsChange={setColumnWidths}
+            minimumWidth={visibleTableWidth(
+              visibleFields(),
+              columnWidths(),
+              availableWidth(),
+              rootFontSize(),
+              hasRecordActions(),
+              rowHeader().id,
+              recordColumnWidth(identityField()?.defaultColumn.width, rootFontSize()),
+            )}
+            state={props.state}
+            ariaLabel={props.ariaLabel}
+            emptyState={props.emptyState}
+          />
+        </div>
+      </Show>
+    </div>
   );
 }

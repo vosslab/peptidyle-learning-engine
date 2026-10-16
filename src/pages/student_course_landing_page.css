@@ -1,5 +1,0 @@
-/* Course-specific spacing around the shared Coursework list. */
-
-.student-coursework > h2 {
-  margin: 0 0 var(--ple-space-2);
-}

@@ -150,7 +150,8 @@ $$;
 
 -- Minimized selection is private Work, never an ordinary archived history feed.
 CREATE FUNCTION ple_private.select_archived_assessment_attempt_evidence(
-    p_course_instance_id text, p_after_assessment_attempt_id uuid, p_limit integer
+    p_course_instance_id text, p_after_assessment_attempt_id uuid, p_limit integer,
+    p_search text, p_assessment_ids text[], p_sort text
 ) RETURNS TABLE (
     student_record_id uuid, assessment_id text, assessment_title text,
     assessment_attempt_id uuid, assessment_attempt_number integer,
@@ -167,12 +168,18 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       LEFT JOIN ple_private.assessment_submission AS submitted
         ON submitted.assessment_attempt_id = work.assessment_attempt_id
      WHERE assessment.course_instance_id = p_course_instance_id
-       AND (p_after_assessment_attempt_id IS NULL OR work.assessment_attempt_id > p_after_assessment_attempt_id)
-       AND p_limit BETWEEN 1 AND 101
+       AND (p_after_assessment_attempt_id IS NULL OR
+            (p_sort = 'attemptAscending' AND work.assessment_attempt_id > p_after_assessment_attempt_id) OR
+            (p_sort = 'attemptDescending' AND work.assessment_attempt_id < p_after_assessment_attempt_id))
+       AND (p_limit IS NULL OR p_limit BETWEEN 1 AND 101)
+       AND (p_search = '' OR position(lower(p_search) IN lower(policy.assessment_title)) > 0)
+       AND (cardinality(p_assessment_ids) = 0 OR assessment.assessment_id::text = ANY(p_assessment_ids))
        -- ASVS 8.2.2/8.3.1: trusted originating Instructor and exact Course.
        AND ple_api.current_session_account_is_instructor()
        AND ple_api.current_session_account_is_course_instructor(p_course_instance_id)
-     ORDER BY work.assessment_attempt_id
+     ORDER BY
+         CASE WHEN p_sort = 'attemptAscending' THEN work.assessment_attempt_id END ASC,
+         CASE WHEN p_sort = 'attemptDescending' THEN work.assessment_attempt_id END DESC
      LIMIT p_limit
 $$;
 
@@ -255,7 +262,8 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(
-    p_course_instance_id text, p_after_assessment_attempt_id uuid, p_limit integer
+    p_course_instance_id text, p_after_assessment_attempt_id uuid, p_limit integer,
+    p_search text, p_assessment_ids text[], p_sort text
 ) RETURNS TABLE (
     course_instance_id text, roster_id text, assessment_id text,
     assessment_title text, assessment_attempt_id uuid,
@@ -268,6 +276,11 @@ BEGIN
     -- Bounded identity keyset pagination; callers can request page size + 1.
     -- ASVS 14.2.6: no Student Record/Account UUID or evidence document in selection.
     IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 101
+       OR p_sort NOT IN ('attemptAscending', 'attemptDescending')
+       OR p_search IS NULL OR char_length(p_search) > 200 OR p_search ~ '[[:cntrl:]]'
+       OR p_assessment_ids IS NULL
+       OR EXISTS (SELECT 1 FROM unnest(p_assessment_ids) AS value
+                   WHERE NOT ple_private.is_canonical_prefixed_public_id(value, 'A'))
        THEN RETURN; END IF;
     SELECT * INTO recovery_course
       FROM ple_api.lock_archived_course_for_recovery(p_course_instance_id);
@@ -282,7 +295,8 @@ BEGIN
         evidence.started_at, evidence.submitted_at,
         recovery_course.student_data_archived_at, recovery_course.delete_due_at
       FROM ple_private.select_archived_assessment_attempt_evidence(
-          recovery_course.course_instance_id, p_after_assessment_attempt_id, p_limit
+          recovery_course.course_instance_id, p_after_assessment_attempt_id, p_limit,
+          p_search, p_assessment_ids, p_sort
       ) AS evidence
       JOIN ple_data.student_record AS student
         ON student.student_record_id = evidence.student_record_id
@@ -290,5 +304,42 @@ BEGIN
       LEFT JOIN ple_private.course_roster_profile AS roster
         ON roster.course_instance_id = student.course_instance_id
        AND roster.student_account_id = student.student_account_id
-     ORDER BY evidence.assessment_attempt_id;
+     ORDER BY
+         CASE WHEN p_sort = 'attemptAscending' THEN evidence.assessment_attempt_id END ASC,
+         CASE WHEN p_sort = 'attemptDescending' THEN evidence.assessment_attempt_id END DESC;
+END $$;
+
+CREATE FUNCTION ple_api.archived_attempt_assessment_choices(
+    p_course_instance_id text, p_search text
+) RETURNS TABLE(assessment_id text, assessment_title text, matching_count bigint)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE recovery_course record;
+BEGIN
+    IF p_search IS NULL OR char_length(p_search) > 200 OR p_search ~ '[[:cntrl:]]' THEN
+        RAISE EXCEPTION 'Recovery search is invalid' USING ERRCODE = '22023';
+    END IF;
+    SELECT * INTO recovery_course
+      FROM ple_api.lock_archived_course_for_recovery(p_course_instance_id);
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Retained Work unavailable' USING ERRCODE = '42501';
+    END IF;
+    RETURN QUERY
+    WITH matching_assessments AS (
+        SELECT evidence.assessment_id, count(*)::bigint AS matching_count
+          FROM ple_private.select_archived_assessment_attempt_evidence(
+              recovery_course.course_instance_id, NULL, NULL,
+              p_search, ARRAY[]::text[], 'attemptAscending'
+          ) AS evidence
+         GROUP BY evidence.assessment_id
+    )
+    SELECT matching.assessment_id, current_policy.assessment_title,
+           matching.matching_count
+      FROM matching_assessments AS matching
+      JOIN ple_data.assessment AS assessment
+        ON assessment.assessment_id = matching.assessment_id
+       AND assessment.course_instance_id = recovery_course.course_instance_id
+      JOIN ple_data.assessment_policy_snapshot AS current_policy
+        ON current_policy.assessment_policy_snapshot_id = assessment.assessment_policy_snapshot_id
+     ORDER BY current_policy.assessment_title, matching.assessment_id;
 END $$;

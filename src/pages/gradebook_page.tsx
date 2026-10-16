@@ -4,95 +4,52 @@ import { useParams } from "@solidjs/router";
 import { Show, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
-import type { CourseGradebook, GradebookExportFormat } from "../api/live_gradebook";
+import type { CourseGradebookStudentWork, GradebookExportFormat } from "../api/live_gradebook";
 import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame";
-import {
-  RecordTable,
-  type RecordTableColumn,
-  type RecordTableRowHeader,
-} from "../components/record_list/record_table";
-import type { RecordCollectionState } from "../components/record_list/record_collection_state";
+import type { RecordContent } from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import { parseCourseInstanceId } from "../navigation/public_route";
-import { formatPointScore } from "../score_format";
+import {
+  compareGradebookWork,
+  gradebookFields,
+  gradebookProgressLabel,
+  gradebookScoreLabel,
+  gradebookWorkId,
+} from "./administration_collection_fields";
 import "./gradebook_record_list.css";
 
-function progressLabel(completion: "inProgress" | "completed" | null): string {
-  if (completion === "completed") return "Completed and scored";
-  if (completion === "inProgress") return "In progress";
-  return "Not started";
-}
-
-function scoreLabel(work: CourseGradebook["studentWork"][number]): string {
-  if (work.score !== null)
-    return formatPointScore(work.score.pointsEarned, work.score.pointsPossible);
-  return work.expiredSubmitting ? "Expired, submitting" : "-";
-}
-
-type GradebookStudentWork = CourseGradebook["studentWork"][number];
-
-const gradebookRowHeader: RecordTableRowHeader<GradebookStudentWork> = {
-  id: "student",
-  header: "Student",
-  width: "var(--gradebook-student-column)",
-  content: (work) => (
-    <>
-      <span>{work.rosterName}</span>
-      <small>{work.rosterId}</small>
-    </>
-  ),
-};
-
-const gradebookColumns: ReadonlyArray<RecordTableColumn<GradebookStudentWork>> = [
-  {
-    id: "coursework",
-    header: "Coursework",
-    width: "var(--gradebook-coursework-column)",
-    cell: (work) => <span>{work.assessmentTitle}</span>,
-  },
-  {
-    id: "progress",
-    header: "Progress status",
-    width: "var(--gradebook-progress-column)",
-    cell: (work) => <span>{progressLabel(work.assessmentAttemptCompletion)}</span>,
-  },
-  {
-    id: "score",
-    header: "Current score",
-    width: "var(--gradebook-score-column)",
-    align: "end",
-    cell: (work) => <span>{scoreLabel(work)}</span>,
-  },
-];
-
-function GradebookEvidence(props: {
-  readonly rows: ReadonlyArray<GradebookStudentWork>;
-  readonly state: RecordCollectionState;
-}): JSX.Element {
-  return (
-    <section class="gradebook-record-table" aria-label="Student progress and scores">
-      <RecordTable
-        rows={props.rows}
-        rowId={(work) => `${work.rosterId}-${work.assessmentId}`}
-        rowHeader={gradebookRowHeader}
-        columns={gradebookColumns}
-        state={props.state}
-        ariaLabel="Student progress and scores"
-        emptyState={{
-          title: "No student progress to review yet",
-          message:
-            "Progress and scores appear here when this Course has active Students and released Coursework.",
-        }}
-      />
-    </section>
-  );
+function gradebookContent(work: CourseGradebookStudentWork): RecordContent {
+  return {
+    title: work.rosterName,
+    description: `${work.rosterId} · ${work.assessmentTitle}`,
+    details: [
+      { kind: "text", label: "Coursework", value: work.assessmentTitle },
+      { kind: "text", label: "Progress status", value: gradebookProgressLabel(work) },
+      { kind: "text", label: "Current score", value: gradebookScoreLabel(work) },
+    ],
+    actions: [],
+  };
 }
 
 function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceId }): JSX.Element {
   const runtime = useApplicationApi();
-  const [gradebook] = createResource(
+  const [studentWork, { refetch }] = createResource(
     () => props.courseInstanceId,
-    runtime.client.getCourseGradebook,
+    async (course) => (await runtime.client.getCourseGradebook(course)).studentWork,
+  );
+  const gradebookSearch = createLocalCompleteSearch(
+    { resource: studentWork, refetchSource: refetch, rows: (value) => value },
+    {
+      fields: gradebookFields,
+      rowId: gradebookWorkId,
+      compare: compareGradebookWork,
+      keyword: (work) =>
+        `${work.rosterName} ${work.rosterId} ${work.assessmentTitle} ${work.assessmentId} ${gradebookProgressLabel(work)} ${gradebookScoreLabel(work)}`,
+      content: gradebookContent,
+    },
   );
   const [downloading, setDownloading] = createSignal(false);
   const [downloadMessage, setDownloadMessage] = createSignal("");
@@ -101,20 +58,6 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
   onCleanup(() => {
     disposed = true;
   });
-
-  const gradebookState = (): RecordCollectionState => {
-    if (gradebook.loading) {
-      return { kind: "loading", label: "Loading student progress and scores..." };
-    }
-    if (gradebook.error !== undefined) {
-      return {
-        kind: "error",
-        title: "Gradebook unavailable",
-        message: "This Course Instance is not available through your current Instructor access.",
-      };
-    }
-    return { kind: "ready" };
-  };
 
   async function download(format: GradebookExportFormat): Promise<void> {
     if (downloading()) return;
@@ -152,15 +95,13 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
   }
 
   return (
-    <PageFrame
-      routeSurface="gradebook"
-      eyebrow="Course progress"
-      title="Gradebook"
-      lede="Review student progress and scores for released Coursework."
-    >
-      <Show when={gradebook()}>
+    <PageFrame routeSurface="gradebook">
+      <Show when={studentWork.state === "ready"}>
         <section class="gradebook-export" aria-label="Download point grades">
-          <p>Export Assessment points. Handle Course weighting and percentages in your home LMS.</p>
+          <p>
+            Export all Assessment points for this Course, including rows outside the current search
+            or page. Handle Course weighting and percentages in your home LMS.
+          </p>
           <div class="gradebook-export-actions" aria-busy={downloading()}>
             <button type="button" disabled={downloading()} onClick={() => void download("csv")}>
               Download CSV
@@ -175,7 +116,30 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
           </Show>
         </section>
       </Show>
-      <GradebookEvidence rows={gradebook()?.studentWork ?? []} state={gradebookState()} />
+      <section class="gradebook-record-table" aria-label="Student progress and scores">
+        <SearchBlock
+          layout="above"
+          controls={
+            <SearchControls state={gradebookSearch.state} textLabel="Search student progress" />
+          }
+          state={gradebookSearch.state}
+          collection={{
+            ariaLabel: "Student progress and scores",
+            fields: gradebookFields,
+            query: gradebookSearch.query,
+            get emptyState() {
+              return gradebookSearch.state.query().text ||
+                gradebookSearch.state.query().filters.size
+                ? { title: "No student progress matches your search." }
+                : {
+                    title: "No student progress to review yet",
+                    message:
+                      "Progress and scores appear here when this Course has active Students and released Coursework.",
+                  };
+            },
+          }}
+        />
+      </section>
     </PageFrame>
   );
 }
@@ -191,7 +155,7 @@ export function GradebookPage(): JSX.Element {
       when={course()}
       keyed
       fallback={
-        <PageFrame routeSurface="gradebook" title="Gradebook unavailable">
+        <PageFrame routeSurface="gradebook">
           <section class="route-error" role="alert">
             <p>Return to your course list, then open the Gradebook again.</p>
           </section>

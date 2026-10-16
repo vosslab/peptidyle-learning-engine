@@ -26,11 +26,11 @@ import {
 import { recognitionTitlesResource } from "../recognition_titles_load";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import { normalizeHumanEnteredPublicId } from "../../question_id";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordFact,
-} from "../../components/record_list/record_list";
+import { type RecordContent, type RecordFact } from "../../components/record_list/record_list";
+import type { RecordField } from "../../components/record_list/record_fields";
+import { SearchBlock } from "../search/search_block";
+import { SearchControls } from "../search/search_controls";
+import { createLocalCompleteSearch } from "../search/local_complete_search_state";
 import { RecordDetailList } from "../../components/record_list/record_detail_list";
 import { BlueprintForkApply } from "./blueprint_fork_apply";
 import { ComparisonMembershipSummary } from "./blueprint_comparison_membership";
@@ -582,6 +582,58 @@ export function BlueprintKnownForks(
       } // ASVS 16.5.1: access loss and unavailable source share a neutral state.
     },
   );
+  const fields: ReadonlyArray<
+    RecordField<BlueprintKnownForkView, "name" | "owner" | "revision", "availability">
+  > = [
+    {
+      id: "name",
+      label: "Name",
+      role: "identity",
+      sortKey: "name",
+      value: (fork) => fork.longName,
+      defaultColumn: { priority: 0, width: "18rem" },
+    },
+    {
+      id: "owner",
+      label: "Owning Instructor",
+      sortKey: "owner",
+      value: (fork) => fork.ownerDisplayName,
+      defaultColumn: { priority: 1, width: "14rem" },
+    },
+    {
+      id: "availability",
+      label: "Availability",
+      filterKey: "availability",
+      value: (fork) => fork.availability,
+      defaultColumn: { priority: 2, width: "9rem" },
+    },
+    {
+      id: "revision",
+      label: "Fork Revision",
+      sortKey: "revision",
+      value: (fork) => fork.currentRevisionTuple.revisionNumber,
+      defaultColumn: { priority: 3, width: "8rem" },
+    },
+  ];
+  const search = createLocalCompleteSearch(
+    { resource: forks, refetchSource: refetch, rows: (value) => value ?? [] },
+    {
+      fields,
+      rowId: (fork) => fork.id,
+      keyword: (fork) => `${fork.longName} ${fork.shortName} ${fork.ownerDisplayName} ${fork.id}`,
+      content: forkContent,
+      compare: (key, left, right) =>
+        key === "revision"
+          ? BigInt(left.currentRevisionTuple.revisionNumber) <
+            BigInt(right.currentRevisionTuple.revisionNumber)
+            ? -1
+            : BigInt(left.currentRevisionTuple.revisionNumber) >
+                BigInt(right.currentRevisionTuple.revisionNumber)
+              ? 1
+              : 0
+          : undefined,
+    },
+  );
   return (
     <section
       class="blueprint-forks"
@@ -604,22 +656,18 @@ export function BlueprintKnownForks(
           Retry loading known forks
         </button>
       </Show>
-      <Show when={!forks.loading && forks()}>
-        {(items) => (
-          <Show
-            when={items().length > 0}
-            fallback={<p>No known forks are visible through your current access.</p>}
-          >
-            <RecordList
-              ariaLabel="Known Blueprint forks"
-              emptyState={{ title: "No known forks are visible through your current access." }}
-              recordId={(fork) => fork.id}
-              content={forkContent}
-              rows={items()}
-              state={{ kind: "ready" }}
-            />
-          </Show>
-        )}
+      <Show when={forks() !== null}>
+        <SearchBlock
+          layout="above"
+          controls={<SearchControls state={search.state} textLabel="Fork name or Instructor" />}
+          state={search.state}
+          collection={{
+            ariaLabel: "Known Blueprint forks",
+            fields,
+            query: search.query,
+            emptyState: { title: "No known forks match." },
+          }}
+        />
       </Show>
       <Show when={selectedFork()} keyed>
         {(forkId) => (

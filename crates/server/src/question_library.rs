@@ -24,7 +24,7 @@ use axum::{
 use axum_extra::extract::Query;
 use learning_data_access::{
     PublishedQuestionLibraryEntry, QuestionLibraryBackendRestriction, QuestionLibrarySearchRequest,
-    QuestionLibrarySearchSort, QuestionLibraryStore, SessionTokenHash, StoreError,
+    QuestionLibraryStore, SessionTokenHash, StoreError,
     postgres::{PostgresContentClassificationStore, PostgresQuestionLibraryStore},
 };
 use objects::{ObjectStore, s3::S3ObjectStore};
@@ -39,19 +39,21 @@ use std::str::FromStr;
 use crate::auth::{AuthError, resolve_session};
 use question_model::UserRole;
 
-const DEFAULT_PAGE_SIZE: u16 = 50;
+pub(crate) const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_PAGE_SIZE: u16 = question_model::MAX_DISCOVERY_PAGE_SIZE as u16;
 const WEBWORK_SOURCE_MEDIA_TYPE: &str = "text/x-wework-pg";
 
 mod classification;
-mod mixed_search;
+mod facet_choice_paging;
+pub(crate) mod facet_choices;
+pub(crate) mod mixed_search;
 use mixed_search::search_library_objects;
-mod facets;
+pub(crate) mod facets;
 mod paging;
-mod query;
+pub(crate) mod query;
 mod search_query;
 mod shared_metadata;
-mod summaries;
+pub(crate) mod summaries;
 mod usage_statistics;
 
 use summaries::{
@@ -85,6 +87,10 @@ pub fn question_library_router(
         .route(
             "/api/library-objects/search",
             get(search_library_objects_route),
+        )
+        .route(
+            "/api/library-objects/search/facet-choices/{field}",
+            get(facet_choices::facet_choices_route),
         )
         .route(
             "/api/library/{public_id}/kind",
@@ -143,6 +149,9 @@ async fn search_library_objects_route(
     headers: HeaderMap,
     Query(query): Query<LibraryObjectSearchQuery>,
 ) -> Response {
+    if query.choice_search.is_some() {
+        return route_error(StatusCode::BAD_REQUEST, "Question Library query is invalid");
+    }
     let query = match LibraryObjectSearchRequest::try_from(query) {
         Ok(query) => query,
         Err((status, message)) => return route_error(status, message),
@@ -150,6 +159,15 @@ async fn search_library_objects_route(
     let (session_hash, is_instructor) = match library_reader_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
+    };
+    let after = match paging::decode_position(&query) {
+        Ok(after) => after,
+        Err(()) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Question Library continuation is invalid",
+            );
+        }
     };
     if let Err(response) =
         classification::validate(&state.classifications, session_hash, &query).await
@@ -162,12 +180,13 @@ async fn search_library_objects_route(
         session_hash,
         is_instructor,
         query,
+        after,
     )
     .await
 }
 
 #[async_trait::async_trait]
-trait QuestionLibraryPageStatistics: Send + Sync {
+pub(crate) trait QuestionLibraryPageStatistics: Send + Sync {
     async fn page_statistics(
         &self,
         session_hash: SessionTokenHash,
@@ -189,7 +208,9 @@ impl QuestionLibraryPageStatistics for PostgresQuestionLibraryStore {
     }
 }
 
-fn eligible_backends(query: &LibraryObjectSearchRequest) -> QuestionLibraryBackendRestriction {
+pub(crate) fn eligible_backends(
+    query: &LibraryObjectSearchRequest,
+) -> QuestionLibraryBackendRestriction {
     if query.backends.is_empty() && query.capabilities.is_empty() {
         return QuestionLibraryBackendRestriction::Any;
     }
@@ -263,10 +284,8 @@ async fn question_details(
         Ok(None) => return concealed(),
         Err(error) => return store_error_response(error),
     };
-    let published_id = entry
-        .published_question_revision_tuple
-        .published_question_id
-        .clone();
+    let publication = entry.published_question_revision_tuple.clone();
+    let published_id = publication.published_question_id.clone();
     let edit_number = entry.availability_edit_number;
     let resolved = match answer_free_question_detail_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
@@ -288,7 +307,15 @@ async fn question_details(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let detail = usage_statistics::details_from_resolved(resolved, evidence);
+    let usage = match state
+        .store
+        .load_question_use_details(session_hash, &publication)
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => return store_error_response(error),
+    };
+    let detail = usage_statistics::details_from_resolved(resolved, evidence, usage);
     question_response(Json(detail).into_response(), edit_number)
 }
 
@@ -320,10 +347,8 @@ async fn question_revision_details(
         Ok(entry) => entry,
         Err(error) => return store_error_response(error),
     };
-    let published_id = entry
-        .published_question_revision_tuple
-        .published_question_id
-        .clone();
+    let publication = entry.published_question_revision_tuple.clone();
+    let published_id = publication.published_question_id.clone();
     let edit_number = entry.availability_edit_number;
     let resolved = match answer_free_question_detail_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
@@ -340,7 +365,15 @@ async fn question_revision_details(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let detail = usage_statistics::details_from_resolved(resolved, evidence);
+    let usage = match state
+        .store
+        .load_question_use_details(session_hash, &publication)
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => return store_error_response(error),
+    };
+    let detail = usage_statistics::details_from_resolved(resolved, evidence, usage);
     question_response(Json(detail).into_response(), edit_number)
 }
 

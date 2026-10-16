@@ -11,7 +11,8 @@ use sqlx::{Postgres, Row, Transaction, postgres::PgRow};
 use super::{Pool, connection::map_sqlx_error};
 use crate::archived_student_work_recovery::{AttemptFacts, RetainedQuestion, Submission};
 use crate::{
-    ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion, RecoverySummary,
+    ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion,
+    RecoveryAssessmentChoice, RecoveryBrowse, RecoverySelectionPage, RecoverySummary,
     SessionTokenHash, StoreError,
 };
 
@@ -62,31 +63,59 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         &self,
         session: SessionTokenHash,
         course_instance_id: CourseInstanceId,
-        after: Option<AssessmentAttemptId>,
-    ) -> Result<Vec<RecoverySummary>, StoreError> {
+        browse: RecoveryBrowse,
+    ) -> Result<RecoverySelectionPage, StoreError> {
         let mut tx = self.begin(session).await?;
+        let assessment_ids = browse
+            .assessment_ids
+            .iter()
+            .map(|id| id.as_string())
+            .collect::<Vec<_>>();
         // ASVS 1.2.4/8.3.1: parameterized protected wrapper repeats exact authority.
         let rows = sqlx::query(
             "SELECT course_instance_id, roster_id, assessment_id, assessment_title, \
              assessment_attempt_id, assessment_attempt_number, started_at::text, \
              submitted_at::text, student_data_archived_at::text, delete_due_at::text \
-             FROM ple_api.select_archived_assessment_attempts_for_recovery($1,$2,101)",
+             FROM ple_api.select_archived_assessment_attempts_for_recovery($1,$2,$3,$4,$5,$6)",
         )
         .bind(course_instance_id.as_string())
-        .bind(after.map(|id| id.as_uuid()))
+        .bind(browse.after.map(|id| id.as_uuid()))
+        .bind(i32::from(browse.page_size) + 1)
+        .bind(&browse.search)
+        .bind(&assessment_ids)
+        .bind(&browse.sort)
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let result = rows.iter().map(summary).collect::<Result<Vec<_>, _>>()?;
-        if result
+        let attempts = rows.iter().map(summary).collect::<Result<Vec<_>, _>>()?;
+        if attempts
             .iter()
             .any(|r| r.course_instance_id != course_instance_id)
         {
             return Err(invalid());
         }
+        let choice_rows = sqlx::query(
+            "SELECT assessment_id, assessment_title, matching_count FROM ple_api.archived_attempt_assessment_choices($1,$2)"
+        ).bind(course_instance_id.as_string()).bind(&browse.search)
+         .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
+        let assessment_choices = choice_rows
+            .iter()
+            .map(|row| {
+                Ok(RecoveryAssessmentChoice {
+                    key: get::<String>(row, "assessment_id")?
+                        .parse()
+                        .map_err(|_| invalid())?,
+                    label: get(row, "assessment_title")?,
+                    count: row.try_get("matching_count").map_err(map_sqlx_error)?,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
         // ASVS 2.3.3: release retention lock before HTTP output or browser wait.
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(result)
+        Ok(RecoverySelectionPage {
+            attempts,
+            assessment_choices,
+        })
     }
 
     async fn recover_retained_work(
@@ -154,7 +183,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
                 published_question_revision_tuple: PublishedQuestionRevisionTuple {
                     published_question_id: question
                         .delivery
-                        .question_id
+                        .published_question_id
                         .parse::<PublishedQuestionId>()
                         .map_err(|_| invalid())?,
                     revision_number: QuestionRevisionNumber::new(question.delivery.revision_number)

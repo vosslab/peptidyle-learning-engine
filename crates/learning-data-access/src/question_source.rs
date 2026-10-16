@@ -224,6 +224,8 @@ pub struct NewQuestionLineagePublicationInput {
     pub question_source_object_record: ObjectRecord,
     /// Reviewed ordered Question Authorship snapshot.
     pub question_authorship: QuestionAuthorship,
+    /// Zero-based reviewed author linked by PostgreSQL to the session Account ID.
+    pub self_author_position: Option<usize>,
     /// Initial shared search tags for the new Published Question lineage.
     pub initial_shared_tags: Vec<Tag>,
     /// Required canonical lineage classification, independent of Revisions.
@@ -256,6 +258,13 @@ impl NewQuestionLineagePublicationInput {
     /// Refuses target object or acceptance facts that do not match this publication.
     pub fn validate(&self) -> Result<(), StoreError> {
         Self::validate_initial_shared_tags(&self.initial_shared_tags)?;
+        if self.self_author_position.is_some_and(|position| {
+            position >= self.question_authorship.authors.len() || i32::try_from(position).is_err()
+        }) {
+            return Err(StoreError::InvalidRecord(
+                "Self author position must select a reviewed Question Author".to_string(),
+            ));
+        }
         let expected_revision_tuple = self.published_question_revision_tuple();
         for asset in &self.question_images {
             asset.validate(&expected_revision_tuple)?;

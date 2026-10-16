@@ -19,13 +19,13 @@ import {
   type CourseClassificationDraft,
 } from "../components/course_classification_fields";
 import { PageFrame } from "../components/page_frame";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
+import type { RecordContent } from "../components/record_list/record_list";
 import { decodeCourseClassification } from "../api/decoders/course_classification";
 import { courseTermFitsActiveLifetime } from "../api/decoders/course_term";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { courseCollectionFields } from "./course_collection_fields";
 import "./course_list_page.css";
 
 type AdoptableBlueprintCourse = Pick<
@@ -45,17 +45,6 @@ function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
 }
 
 type CourseListMode = CourseInstanceLifecycleState;
-
-function coursesForMode(
-  createdCourses: ReadonlyArray<CourseInstanceSummary>,
-  listedCourses: ReadonlyArray<CourseInstanceSummary> | undefined,
-  mode: CourseListMode,
-): ReadonlyArray<CourseInstanceSummary> {
-  const listedIds = new Set(listedCourses?.map((course) => course.id) ?? []);
-  const localOnlyCourses = createdCourses.filter((course) => !listedIds.has(course.id));
-  const combinedCourses = [...localOnlyCourses, ...(listedCourses ?? [])];
-  return combinedCourses.filter((course) => course.lifecycleState === mode);
-}
 
 function BlueprintSourceSelect(props: {
   readonly blueprints: ReadonlyArray<AdoptableBlueprintCourse>;
@@ -94,8 +83,9 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
     const state = session.state();
     return state.kind === "authenticated" && state.session.account.userRole === "instructor";
   });
-  const [courses, { refetch: refetchCourses }] = createResource(isInstructor, async (instructor) =>
-    instructor ? applicationApi.client.listCourseInstances() : [],
+  const [courses, { refetch: refetchCourses, mutate: mutateCourses }] = createResource(
+    isInstructor,
+    async (instructor) => (instructor ? applicationApi.client.listCourseInstances() : []),
   );
   const [creationSource, setCreationSource] = createSignal<"empty" | "adopted">(
     typeof searchParams.blueprint === "string" &&
@@ -122,9 +112,6 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
     },
     async (blueprintCourseId) =>
       (await applicationApi.client.getBlueprintCourse(blueprintCourseId)).blueprintCourse,
-  );
-  const [createdCourses, setCreatedCourses] = createSignal<ReadonlyArray<CourseInstanceSummary>>(
-    [],
   );
   const [blueprintChoice, setBlueprintChoice] = createSignal<string>();
   const [chosenBlueprint, setChosenBlueprint] = createSignal<AdoptableBlueprintCourse>();
@@ -180,34 +167,25 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
     ],
   });
 
-  const visibleCourses = createMemo(() =>
-    coursesForMode(
-      createdCourses(),
-      courses.error === undefined ? courses() : undefined,
-      props.mode,
-    ),
+  const courseSearch = createLocalCompleteSearch(
+    { resource: courses, refetchSource: refetchCourses, rows: (value) => value },
+    {
+      fields: courseCollectionFields,
+      rowId: (course) => course.id,
+      keyword: (course) =>
+        `${course.longName} ${course.shortName} ${course.term.startDate} ${course.term.endDate} ${course.classification.tags.join(" ")}`,
+      inScope: (course) => course.lifecycleState === props.mode,
+      content: courseContent,
+    },
   );
   const isActiveMode = (): boolean => props.mode === "active";
-  const courseListState = (): RecordListState => {
-    if (courses.loading) return { kind: "loading", label: "Loading Course Instances..." };
-    if (courses.error !== undefined) {
-      return {
-        kind: "error",
-        title: "Course Instances unavailable",
-        message: "Course Instances could not be loaded.",
-        retry: () => void refetchCourses(),
-        retryLabel: "Try again",
-      };
-    }
-    return { kind: "ready" };
-  };
   const isCreationExpanded = createMemo(
     () =>
       creationDisclosure() ??
       (isActiveMode() &&
         !courses.loading &&
         courses.error === undefined &&
-        visibleCourses().length === 0),
+        (courses()?.filter((course) => course.lifecycleState === props.mode).length ?? 0) === 0),
   );
   const adoptableBlueprints = createMemo(() => {
     const linked = linkedBlueprint.error === undefined ? linkedBlueprint() : undefined;
@@ -281,8 +259,9 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       if (created.courseInstance.lifecycleState !== "active") {
         throw new Error("A newly created Course Instance must be Active.");
       }
+      await courseSearch.state.clear();
       setCreatedCourseFocusId(created.courseInstance.id);
-      setCreatedCourses((current) => [created.courseInstance, ...current]);
+      mutateCourses((current) => [created.courseInstance, ...(current ?? [])]);
       setCreationDisclosure(false);
       setCreationSource("empty");
       setBlueprintChoice("");
@@ -303,13 +282,6 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   return (
     <PageFrame
       routeSurface={isActiveMode() ? "courses" : "inactiveCourses"}
-      eyebrow="Teaching"
-      title={isActiveMode() ? "My Active Courses" : "My Inactive Courses"}
-      lede={
-        isActiveMode()
-          ? "Start an empty Course Instance or adopt a Blueprint Course with its Assessments. Review dates and settings before releasing Assessments to students."
-          : undefined
-      }
       actions={
         isInstructor() && isActiveMode() ? (
           <button
@@ -335,7 +307,6 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
           novalidate
           onSubmit={(event) => void createCourseInstance(event)}
         >
-          <h2>Create Course Instance</h2>
           <label for="course-creation-source">
             Start with
             <select
@@ -489,27 +460,48 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
           <button class="primary-action" type="submit" disabled={isCreating()}>
             {isCreating() ? "Creating Course Instance..." : "Create Course Instance"}
           </button>
-          <p role="status" aria-live="polite" aria-atomic="true">
-            {creationError() ?? ""}
-          </p>
+          <Show when={creationError()}>{(error) => <p role="alert">{error()}</p>}</Show>
         </form>
       </Show>
       <Show when={!isInstructor()}>
         <p class="empty-state">Course access begins when you hold an active Course Membership.</p>
       </Show>
       <Show when={isInstructor()}>
-        <RecordList
-          ariaLabel={isActiveMode() ? "Active Course Instances" : "Inactive Course Instances"}
-          emptyState={{
-            title: isActiveMode() ? "No Course Instances are teaching yet" : "No inactive Courses",
-            message: isActiveMode()
-              ? "Use Create Course Instance to start an empty Course or adopt a Blueprint Course."
-              : "Inactive Course Instances appear here after their Course Term ends.",
+        <SearchBlock
+          layout="above"
+          controls={
+            <SearchControls
+              state={courseSearch.state}
+              textLabel={isActiveMode() ? "Search active Courses" : "Search inactive Courses"}
+            >
+              <button
+                type="button"
+                class="quiet-action"
+                onClick={() => void courseSearch.state.refresh()}
+              >
+                Refresh Courses
+              </button>
+            </SearchControls>
+          }
+          state={courseSearch.state}
+          collection={{
+            ariaLabel: isActiveMode() ? "Active Course Instances" : "Inactive Course Instances",
+            fields: courseCollectionFields,
+            query: courseSearch.query,
+            get emptyState() {
+              return {
+                title:
+                  courseSearch.state.query().text || courseSearch.state.query().filters.size > 0
+                    ? "No Course Instances match these filters"
+                    : isActiveMode()
+                      ? "No Course Instances are teaching yet"
+                      : "No inactive Courses",
+                message: isActiveMode()
+                  ? undefined
+                  : "Inactive Course Instances appear here after their Course Term ends.",
+              };
+            },
           }}
-          recordId={(course) => course.id}
-          content={courseContent}
-          rows={visibleCourses()}
-          state={courseListState()}
         />
       </Show>
     </PageFrame>

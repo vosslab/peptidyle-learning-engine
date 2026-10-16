@@ -16,6 +16,8 @@ Instances can adopt a Public Blueprint or start empty; generic teaching objects
 are Assessments; current co-Instructors are equal; and PLE uses direct Question
 points without separate weights, Grade Categories, weighted Course Grade
 Schemes, Course percentage calculations, or Instructor grading operations.
+The current Questions tasks include **My Questions**, **My Pools**, and **My Drafts**;
+the Courses tasks include **Search Blueprint Courses** and **My Change Proposals**.
 
 In the historical product reference, Blueprint Courses show reusable course-level content and
 structure. Its old publication/draft labels are superseded by the current
@@ -52,8 +54,8 @@ an image.
 | Course appearance         | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context                                                          |
 | Question Library          | `/library`                                                   | Published Question views, Starred, Watched, Search Question Library, Browse Question Library, filters, and Question IDs             |
 | Question Details          | `/library/AAAA-ZBBB`                                         | Human-facing identity, source context, Question Statistics, and Student-facing prompt                                              |
-| My Draft Questions        | `/workspace`                                                 | Required current Question task; an implementation must show an honest empty state if not yet backed                                |
-| My Draft Question editor  | `/workspace/W-1`                                             | Historical QTI import and PLE Question JSON authoring reference; unavailable in the current Browser Surface                        |
+| My Draft Questions        | `/workspace`                                                 | Historical name and retired placeholder route; the current backed task is My Drafts                                                 |
+| My Draft Question editor  | `/workspace/W-1`                                             | Historical QTI import and PLE Question JSON authoring reference at a retired route                                                   |
 | Live Demo sign-in         | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                                                                   |
 
 The authentication completion pages, invitation redemption, and Assessment Attempt pages are outside

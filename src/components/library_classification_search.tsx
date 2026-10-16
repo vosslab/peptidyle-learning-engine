@@ -7,6 +7,7 @@ import {
   type LibraryClassificationFilter,
 } from "../api/library_classification_filter";
 import { ContentClassificationSelect } from "./content_classification_select";
+import { checkboxChange } from "./controlled_form_change";
 
 export function LibraryClassificationSearch(props: {
   readonly value: LibraryClassificationFilter;
@@ -18,46 +19,50 @@ export function LibraryClassificationSearch(props: {
     <>
       <ContentClassificationSelect
         label="Discipline"
-        value={props.value.discipline_uuid}
+        value={props.value.discipline_uuids[0] ?? null}
         allowRetired
         disabled={props.disabled}
         load={() => props.client.listDisciplinesIncludingRetired()}
-        onChange={(uuid) => props.onChange(libraryClassificationChange("discipline_uuid", uuid))}
+        onChange={(uuid) => props.onChange(libraryClassificationChange("discipline_uuids", uuid))}
       />
       <ContentClassificationSelect
         label="Subject"
-        value={props.value.subject_uuid}
-        parentUuid={props.value.discipline_uuid}
+        value={props.value.subject_uuids[0] ?? null}
+        parentUuid={props.value.discipline_uuids[0] ?? null}
         disabled={props.disabled}
         load={(uuid) => props.client.listSubjects(uuid)}
-        onChange={(uuid) => props.onChange(libraryClassificationChange("subject_uuid", uuid))}
+        onChange={(uuid) => props.onChange(libraryClassificationChange("subject_uuids", uuid))}
       />
-      <Show when={props.value.subject_uuid !== null}>
+      <Show when={props.value.subject_uuids.length > 0}>
         <label>
           <input
             type="checkbox"
             checked={props.value.cross_discipline}
             disabled={props.disabled}
-            onChange={(event) => props.onChange({ cross_discipline: event.currentTarget.checked })}
+            onChange={(event) =>
+              checkboxChange(event.currentTarget, props.value.cross_discipline, (checked) =>
+                props.onChange({ cross_discipline: checked }),
+              )
+            }
           />
           Include this Subject across Disciplines
         </label>
       </Show>
       <ContentClassificationSelect
         label="Topic"
-        value={props.value.topic_uuid}
-        parentUuid={props.value.subject_uuid}
+        value={props.value.topic_uuids[0] ?? null}
+        parentUuid={props.value.subject_uuids[0] ?? null}
         disabled={props.disabled}
         load={(uuid) => props.client.listTopics(uuid)}
-        onChange={(uuid) => props.onChange(libraryClassificationChange("topic_uuid", uuid))}
+        onChange={(uuid) => props.onChange(libraryClassificationChange("topic_uuids", uuid))}
       />
       <ContentClassificationSelect
         label="Subtopic"
-        value={props.value.subtopic_uuid}
-        parentUuid={props.value.topic_uuid}
+        value={props.value.subtopic_uuids[0] ?? null}
+        parentUuid={props.value.topic_uuids[0] ?? null}
         disabled={props.disabled}
         load={(uuid) => props.client.listSubtopics(uuid)}
-        onChange={(uuid) => props.onChange(libraryClassificationChange("subtopic_uuid", uuid))}
+        onChange={(uuid) => props.onChange(libraryClassificationChange("subtopic_uuids", uuid))}
       />
     </>
   );

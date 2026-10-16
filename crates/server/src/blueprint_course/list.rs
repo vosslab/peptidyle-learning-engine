@@ -6,12 +6,14 @@ use super::{
 };
 use axum::{
     Json,
-    extract::{Query, State, rejection::QueryRejection},
+    extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
+use axum_extra::extract::{Query, QueryRejection};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
+    BlueprintCourseFacetChoice, BlueprintCourseFacetChoiceRequest, BlueprintCourseFacetField,
     BlueprintCourseListCursorPosition, BlueprintCourseListRequest, BlueprintCourseListSort,
     BlueprintCourseStore, Cursor, DiscoveryPageRequest, DiscoveryPageSize,
 };
@@ -19,7 +21,7 @@ use question_model::BlueprintCourseSummaryView;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct ListQuery {
     #[serde(default)]
@@ -42,9 +44,22 @@ pub(super) struct ListQuery {
     sort: BlueprintCourseListSort,
     #[serde(default)]
     tag: String,
+    #[serde(default, rename = "discipline_uuids")]
+    discipline_uuids: Vec<Uuid>,
+    #[serde(default, rename = "subject_uuids")]
+    subject_uuids: Vec<Uuid>,
+    #[serde(default, rename = "topic_uuids")]
+    topic_uuids: Vec<Uuid>,
+    #[serde(default, rename = "subtopic_uuids")]
+    subtopic_uuids: Vec<Uuid>,
+    #[serde(default)]
+    tags: Vec<String>,
+    choice_search: Option<String>,
+    choice_cursor: Option<String>,
 }
 
-const BLUEPRINT_LIST_CURSOR_VERSION: u8 = 6;
+const BLUEPRINT_LIST_CURSOR_VERSION: u8 = 7;
+const BLUEPRINT_TRANSPORT_CURSOR_MAX: usize = 16_384;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -63,6 +78,11 @@ struct ListCursor {
     cross_discipline: bool,
     sort: BlueprintCourseListSort,
     tag: String,
+    discipline_uuids: Vec<Uuid>,
+    subject_uuids: Vec<Uuid>,
+    topic_uuids: Vec<Uuid>,
+    subtopic_uuids: Vec<Uuid>,
+    tags: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -70,6 +90,141 @@ struct ListCursor {
 struct ListResponse {
     items: Vec<BlueprintCourseSummaryView>,
     next_cursor: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FacetCursor {
+    version: u8,
+    field: BlueprintCourseFacetField,
+    query: ListQuery,
+    after_label: String,
+    after_key: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FacetResponse {
+    choices: Vec<BlueprintCourseFacetChoice>,
+    selected: Vec<BlueprintCourseFacetChoice>,
+    next_cursor: Option<String>,
+}
+
+pub(super) async fn facet_choices(
+    State(state): State<BlueprintCourseRouteState>,
+    headers: HeaderMap,
+    Path(field): Path<String>,
+    query: Result<Query<ListQuery>, QueryRejection>,
+) -> Response {
+    let field = match field.as_str() {
+        "disciplineUuids" => BlueprintCourseFacetField::DisciplineUuids,
+        "subjectUuids" => BlueprintCourseFacetField::SubjectUuids,
+        "topicUuids" => BlueprintCourseFacetField::TopicUuids,
+        "subtopicUuids" => BlueprintCourseFacetField::SubtopicUuids,
+        "tags" => BlueprintCourseFacetField::Tags,
+        _ => return route_error(StatusCode::BAD_REQUEST, "Blueprint facet field is invalid"),
+    };
+    let Some(Query(mut query)) = query.ok() else {
+        return route_error(StatusCode::BAD_REQUEST, "Blueprint facet query is invalid");
+    };
+    if query.cursor.is_some() || query.page_size.is_some_and(|size| size > 100) {
+        return route_error(StatusCode::BAD_REQUEST, "Blueprint facet query is invalid");
+    }
+    let choice_search = query
+        .choice_search
+        .as_deref()
+        .unwrap_or("")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+    if choice_search.chars().count() > 128 {
+        return route_error(
+            StatusCode::BAD_REQUEST,
+            "Blueprint choice search is invalid",
+        );
+    }
+    query.choice_search = Some(choice_search.clone());
+    let after_position = match query.choice_cursor.take() {
+        Some(token) => {
+            if token.len() > BLUEPRINT_TRANSPORT_CURSOR_MAX {
+                return route_error(
+                    StatusCode::BAD_REQUEST,
+                    "Blueprint choice cursor is invalid",
+                );
+            }
+            let Ok(bytes) = URL_SAFE_NO_PAD.decode(token) else {
+                return route_error(
+                    StatusCode::BAD_REQUEST,
+                    "Blueprint choice cursor is invalid",
+                );
+            };
+            let Ok(cursor) = serde_json::from_slice::<FacetCursor>(&bytes) else {
+                return route_error(
+                    StatusCode::BAD_REQUEST,
+                    "Blueprint choice cursor is invalid",
+                );
+            };
+            if cursor.version != 1 || cursor.field != field || cursor.query != query {
+                return route_error(
+                    StatusCode::BAD_REQUEST,
+                    "Blueprint choice cursor is invalid",
+                );
+            }
+            Some((cursor.after_label, cursor.after_key))
+        }
+        None => None,
+    };
+    let Some(search) = list_request(query.clone()) else {
+        return route_error(StatusCode::BAD_REQUEST, "Blueprint facet query is invalid");
+    };
+    let session = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .blueprints
+        .list_blueprint_course_facet_choices(
+            session,
+            BlueprintCourseFacetChoiceRequest {
+                search,
+                field,
+                choice_search,
+                after_position,
+            },
+        )
+        .await
+    {
+        Ok(page) => {
+            let next_cursor = page.next_position.and_then(|(after_label, after_key)| {
+                let cursor = FacetCursor {
+                    version: 1,
+                    field,
+                    query,
+                    after_label,
+                    after_key,
+                };
+                serde_json::to_vec(&cursor)
+                    .ok()
+                    .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
+            });
+            if next_cursor
+                .as_ref()
+                .is_some_and(|value| value.len() > BLUEPRINT_TRANSPORT_CURSOR_MAX)
+            {
+                return unavailable();
+            }
+            crate::auth::no_store(
+                Json(FacetResponse {
+                    choices: page.choices,
+                    selected: page.selected,
+                    next_cursor,
+                })
+                .into_response(),
+            )
+        }
+        Err(error) => store_error_response(error),
+    }
 }
 
 pub(super) async fn list_blueprints(
@@ -98,6 +253,11 @@ pub(super) async fn list_blueprints(
         request.cross_discipline,
         request.sort,
         request.tag.clone(),
+        request.discipline_uuids.clone(),
+        request.subject_uuids.clone(),
+        request.topic_uuids.clone(),
+        request.subtopic_uuids.clone(),
+        request.tags.clone(),
     );
     match state
         .blueprints
@@ -126,6 +286,11 @@ pub(super) async fn list_blueprints(
                         cross_discipline: binding.9,
                         sort: binding.10,
                         tag: binding.11,
+                        discipline_uuids: binding.12,
+                        subject_uuids: binding.13,
+                        topic_uuids: binding.14,
+                        subtopic_uuids: binding.15,
+                        tags: binding.16,
                     };
                     match serde_json::to_vec(&cursor) {
                         Ok(bytes) => Some(URL_SAFE_NO_PAD.encode(bytes)),
@@ -134,6 +299,12 @@ pub(super) async fn list_blueprints(
                 }
                 None => None,
             };
+            if next_cursor
+                .as_ref()
+                .is_some_and(|value| value.len() > BLUEPRINT_TRANSPORT_CURSOR_MAX)
+            {
+                return unavailable();
+            }
             crate::auth::no_store(
                 Json(ListResponse {
                     items: page.items.into_iter().map(summary_view).collect(),
@@ -159,6 +330,17 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
         || (query.subtopic_uuid.is_some() && query.topic_uuid.is_none())
         || (query.cross_discipline
             && (query.discipline_uuid.is_none() || query.subject_uuid.is_none()))
+        || query.discipline_uuids.len() > 20
+        || query.subject_uuids.len() > 20
+        || query.topic_uuids.len() > 20
+        || query.subtopic_uuids.len() > 20
+        || query.tags.len() > 20
+        || query.tags.iter().any(|value| {
+            value.is_empty()
+                || value.trim_matches(' ') != value
+                || value.chars().count() > 120
+                || value.chars().any(char::is_control)
+        })
     {
         return None;
     }
@@ -169,7 +351,7 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
     let size = DiscoveryPageSize::new(query.page_size.unwrap_or(50)).ok()?;
     let after = match query.cursor {
         Some(token) => {
-            if token.len() > 8192 {
+            if token.len() > BLUEPRINT_TRANSPORT_CURSOR_MAX {
                 return None;
             }
             let cursor: ListCursor =
@@ -187,6 +369,11 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
                 || cursor.cross_discipline != query.cross_discipline
                 || cursor.sort != query.sort
                 || cursor.tag != tag
+                || cursor.discipline_uuids != query.discipline_uuids
+                || cursor.subject_uuids != query.subject_uuids
+                || cursor.topic_uuids != query.topic_uuids
+                || cursor.subtopic_uuids != query.subtopic_uuids
+                || cursor.tags != query.tags
                 || !valid_cursor_position(&cursor.after, query.sort)
             {
                 return None;
@@ -208,6 +395,11 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
         subtopic_uuid: query.subtopic_uuid,
         cross_discipline: query.cross_discipline,
         tag,
+        discipline_uuids: query.discipline_uuids,
+        subject_uuids: query.subject_uuids,
+        topic_uuids: query.topic_uuids,
+        subtopic_uuids: query.subtopic_uuids,
+        tags: query.tags,
     })
 }
 
@@ -217,27 +409,27 @@ fn valid_cursor_position(
 ) -> bool {
     match (sort, position) {
         (
-            BlueprintCourseListSort::Name,
+            BlueprintCourseListSort::Name | BlueprintCourseListSort::NameDescending,
             BlueprintCourseListCursorPosition::Name { long_name, .. },
         ) => long_name.chars().count() <= 500,
         (
-            BlueprintCourseListSort::Adoptions,
+            BlueprintCourseListSort::Adoptions | BlueprintCourseListSort::AdoptionsAscending,
             BlueprintCourseListCursorPosition::Adoptions { long_name, .. },
         )
         | (
-            BlueprintCourseListSort::Students,
+            BlueprintCourseListSort::Students | BlueprintCourseListSort::StudentsAscending,
             BlueprintCourseListCursorPosition::Students { long_name, .. },
         )
         | (
-            BlueprintCourseListSort::Stars,
+            BlueprintCourseListSort::Stars | BlueprintCourseListSort::StarsAscending,
             BlueprintCourseListCursorPosition::Stars { long_name, .. },
         )
         | (
-            BlueprintCourseListSort::Watches,
+            BlueprintCourseListSort::Watches | BlueprintCourseListSort::WatchesAscending,
             BlueprintCourseListCursorPosition::Watches { long_name, .. },
         )
         | (
-            BlueprintCourseListSort::RecentEdits,
+            BlueprintCourseListSort::RecentEdits | BlueprintCourseListSort::RecentEditsAscending,
             BlueprintCourseListCursorPosition::RecentEdits { long_name, .. },
         ) => long_name.chars().count() <= 500,
         _ => false,

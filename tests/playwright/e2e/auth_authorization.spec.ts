@@ -4,12 +4,14 @@
 // - src/pages/sign_in_page.tsx owns seeded-demo entry.
 // - src/pages/course_list_page.tsx owns role-scoped populated and empty Course Instance states.
 // - src/route_access_boundary.tsx owns User Role denial before a protected route reads data.
+// - src/application_shell.tsx owns the named main region, current breadcrumb, and skip-link focus.
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import {
   chooseSeededIdentity,
   chooseSeededIdentityAtSignIn,
+  courseChoice,
   enterStudentCourse,
   observeContextOrigins,
   signOutVisible,
@@ -17,14 +19,14 @@ import {
 } from "./real_stack_ui";
 
 async function expectUsedCourse(page: Page, heading: string, openLinkName: string): Promise<void> {
-  await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
-  const course = page.getByRole("listitem").filter({
-    has: page.getByRole("heading", {
-      level: 3,
-      name: "Biochemistry",
-      exact: true,
-    }),
-  });
+  await expect(page.getByRole("main", { name: heading, exact: true })).toBeVisible();
+  const currentBreadcrumb = page
+    .getByRole("navigation", { name: "Breadcrumb" })
+    .locator('[aria-current="page"]');
+  await expect(currentBreadcrumb).toHaveCount(1);
+  await expect(currentBreadcrumb).toHaveText(heading);
+  await expect(page.locator(".page-frame h1")).toHaveCount(0);
+  const course = courseChoice(page, "Biochemistry");
   await expect(course).toBeVisible();
   await expect(course.getByRole("link", { name: openLinkName, exact: true })).toBeVisible();
 }
@@ -77,6 +79,10 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
     await test.step("Elena enters the seeded Instructor session with its used Course", async () => {
       await chooseSeededIdentity(elena, /Elena/u);
       await expectUsedCourse(elena, "My Active Courses", "Open Course");
+      await expect(elena.locator("#main-content")).toBeFocused();
+      await elena.getByRole("link", { name: "Skip to learning content", exact: true }).focus();
+      await elena.keyboard.press("Enter");
+      await expect(elena.locator("#main-content")).toBeFocused();
     });
 
     await test.step("Mary enters and reenters her enrolled Student session", async () => {
@@ -108,13 +114,7 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
 
     await test.step("Mary receives User Role denial before a Question Library read", async () => {
       await mary.goto("/library");
-      await expect(
-        mary.getByRole("heading", {
-          level: 1,
-          name: "This page is not available to this account",
-          exact: true,
-        }),
-      ).toBeVisible();
+      await expect(mary.locator('[data-route-surface="routeAccessDenied"]')).toBeVisible();
       await expect(
         mary.getByRole("link", { name: "Return to courses", exact: true }),
       ).toBeVisible();

@@ -10,10 +10,50 @@ import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { createDisciplineFromRequest } from "../components/discipline_request";
 import { PageFrame } from "../components/page_frame";
-import { RecordDetailList } from "../components/record_list/record_detail_list";
+import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
+import type { RecordField } from "../components/record_list/record_fields";
+import type { RecordContent } from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 
 const unavailableDisciplines: ReadonlyArray<ContentClassificationItem> = [];
 const unavailableRequests: ReadonlyArray<ContentDisciplineRequest> = [];
+
+const requestFields: ReadonlyArray<RecordField<ContentDisciplineRequest, "name", never>> = [
+  {
+    id: "name",
+    label: "Requested Discipline",
+    role: "identity",
+    value: (item) => item.requestedName,
+    sortKey: "name",
+    defaultColumn: { priority: 1 },
+  },
+  {
+    id: "requester",
+    label: "Requester Account ID",
+    value: (item) => item.requestedByAccountId,
+    defaultColumn: { priority: 2 },
+  },
+];
+
+const disciplineFields: ReadonlyArray<RecordField<ContentClassificationItem, "name", "status">> = [
+  {
+    id: "name",
+    label: "Discipline",
+    role: "identity",
+    value: (item) => item.name,
+    sortKey: "name",
+    defaultColumn: { priority: 1 },
+  },
+  {
+    id: "status",
+    label: "Status",
+    value: (item) => (item.isRetired ? "Retired" : "Active"),
+    filterKey: "status",
+    defaultColumn: { priority: 2 },
+  },
+];
 
 function disciplineFailureCopy(): string {
   return "That Discipline change could not be completed. Check the name and try again.";
@@ -31,6 +71,7 @@ export function ContentDisciplinesPage(): JSX.Element {
     ReadonlyArray<ContentClassificationItem>,
     boolean
   >(isSysadmin, async (allowed) =>
+    // ASVS 8.2.1: the Sysadmin route and server own authorization; the client gate avoids eager fetches.
     allowed ? runtime.client.listDisciplinesIncludingRetired() : unavailableDisciplines,
   );
   const [requests, { mutate: mutateRequests, refetch: refetchRequests }] = createResource<
@@ -43,8 +84,70 @@ export function ContentDisciplinesPage(): JSX.Element {
   const [nameByUuid, setNameByUuid] = createSignal<Record<string, string>>({});
   const [busyUuid, setBusyUuid] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
+  const [pendingNameSave, setPendingNameSave] = createSignal<Promise<boolean>>();
   const [error, setError] = createSignal<string | null>(null);
   const [announcement, setAnnouncement] = createSignal("");
+
+  const requestContent = (item: ContentDisciplineRequest): RecordContent => ({
+    title: item.requestedName,
+    details: [{ kind: "text", label: "Requester Account ID", value: item.requestedByAccountId }],
+    actions: [
+      {
+        id: "create",
+        kind: "command",
+        label: "Create this Discipline",
+        disabled: busyUuid() !== null || creating(),
+        onClick: () => void createFromRequest(item),
+      },
+      {
+        id: "dismiss",
+        kind: "command",
+        label: "Dismiss request",
+        disabled: busyUuid() !== null || creating(),
+        onClick: () => void dismissRequest(item),
+      },
+    ],
+  });
+
+  const disciplineContent = (item: ContentClassificationItem): RecordContent => ({
+    title: item.name,
+    details: [{ kind: "text", label: "Status", value: item.isRetired ? "Retired" : "Active" }],
+    actions: [
+      {
+        id: "save-name",
+        kind: "command",
+        label: "Save name",
+        disabled: creating() || busyUuid() !== null || displayedName(item) === item.name,
+        onClick: () => trackNameSave(rename(item)),
+      },
+      {
+        id: "change-retirement",
+        kind: "command",
+        label: item.isRetired ? "Restore Discipline" : "Retire Discipline",
+        disabled: creating() || busyUuid() !== null,
+        onClick: () => void changeRetirement(item),
+      },
+    ],
+  });
+
+  const requestSearch = createLocalCompleteSearch(
+    { resource: requests, refetchSource: refetchRequests, rows: (value) => value },
+    {
+      fields: requestFields,
+      rowId: (item) => item.uuid,
+      keyword: (item) => `${item.requestedName} ${item.requestedByAccountId}`,
+      content: requestContent,
+    },
+  );
+  const disciplineSearch = createLocalCompleteSearch(
+    { resource: disciplines, refetchSource: refetch, rows: (value) => value },
+    {
+      fields: disciplineFields,
+      rowId: (item) => item.uuid,
+      keyword: (item) => item.name,
+      content: disciplineContent,
+    },
+  );
 
   function displayedName(item: ContentClassificationItem): string {
     return nameByUuid()[item.uuid] ?? item.name;
@@ -54,13 +157,30 @@ export function ContentDisciplinesPage(): JSX.Element {
     setNameByUuid((current) => ({ ...current, [uuid]: name }));
   }
 
-  function updateItem(updated: ContentClassificationItem): void {
+  const hasUnsavedName = (): boolean =>
+    newName().trim().length > 0 ||
+    (disciplines() ?? []).some((item) => displayedName(item) !== item.name);
+
+  function trackNameSave(operation: Promise<boolean>): void {
+    void setPendingNameSave(operation);
+    const clearPending = (): void => {
+      if (pendingNameSave() === operation) setPendingNameSave(undefined);
+    };
+    void operation.then(clearPending, clearPending);
+  }
+
+  function updateItem(updated: ContentClassificationItem, savedName = false): void {
     mutate((current) =>
       current === undefined
         ? current
         : current.map((item) => (item.uuid === updated.uuid ? updated : item)),
     );
-    setNameByUuid((current) => ({ ...current, [updated.uuid]: updated.name }));
+    if (savedName)
+      setNameByUuid((current) => {
+        const remaining = { ...current };
+        delete remaining[updated.uuid];
+        return remaining;
+      });
   }
 
   async function createFromRequest(request: ContentDisciplineRequest): Promise<void> {
@@ -98,9 +218,9 @@ export function ContentDisciplinesPage(): JSX.Element {
     }
   }
 
-  async function create(event: SubmitEvent): Promise<void> {
+  async function create(event: SubmitEvent): Promise<boolean> {
     event.preventDefault();
-    if (creating()) return;
+    if (creating() || busyUuid() !== null) return false;
     const name = newName();
     setCreating(true);
     setError(null);
@@ -109,23 +229,27 @@ export function ContentDisciplinesPage(): JSX.Element {
       mutate((current) => (current === undefined ? current : [...current, created]));
       setNewName("");
       setAnnouncement(`Discipline ${created.name} created.`);
+      return true;
     } catch {
       setError(disciplineFailureCopy());
+      return false;
     } finally {
       setCreating(false);
     }
   }
 
-  async function rename(item: ContentClassificationItem): Promise<void> {
-    if (busyUuid() !== null) return;
+  async function rename(item: ContentClassificationItem): Promise<boolean> {
+    if (busyUuid() !== null || creating()) return false;
     setBusyUuid(item.uuid);
     setError(null);
     try {
       const updated = await runtime.client.renameDiscipline(item.uuid, displayedName(item));
-      updateItem(updated);
+      updateItem(updated, true);
       setAnnouncement(`Discipline renamed to ${updated.name}.`);
+      return true;
     } catch {
       setError(disciplineFailureCopy());
+      return false;
     } finally {
       setBusyUuid(null);
     }
@@ -153,13 +277,15 @@ export function ContentDisciplinesPage(): JSX.Element {
   }
 
   return (
-    <PageFrame
-      routeSurface="contentDisciplines"
-      headingId="content-disciplines-heading"
-      eyebrow="System administration"
-      title="Disciplines"
-      lede="Manage the stable shared vocabulary used by Courses and Library Objects. Retired Disciplines remain visible for existing content and discovery, but are unavailable for new classification choices."
-    >
+    <PageFrame routeSurface="contentDisciplines">
+      <UnsavedChangesGuard
+        dirty={hasUnsavedName}
+        inFlightSave={pendingNameSave}
+        copy={{
+          heading: "Discard Discipline name changes?",
+          description: "The Discipline names entered here have not been saved.",
+        }}
+      />
       <p class="sr-only" role="status" aria-live="polite">
         {announcement()}
       </p>
@@ -167,7 +293,7 @@ export function ContentDisciplinesPage(): JSX.Element {
         class="auth-panel"
         aria-busy={creating()}
         novalidate
-        onSubmit={(event) => void create(event)}
+        onSubmit={(event) => trackNameSave(create(event))}
       >
         <h2>Create Discipline</h2>
         <label for="content-discipline-name">
@@ -180,55 +306,25 @@ export function ContentDisciplinesPage(): JSX.Element {
             onInput={(event) => setNewName(event.currentTarget.value)}
             maxlength={120}
             required
+            disabled={creating()}
           />
         </label>
-        <button class="primary-action" type="submit" disabled={creating()}>
+        <button class="primary-action" type="submit" disabled={creating() || busyUuid() !== null}>
           {creating() ? "Creating Discipline..." : "Create Discipline"}
         </button>
       </form>
-      <RecordDetailList
-        ariaLabel="Discipline requests"
-        emptyState={{ title: "No Discipline requests are open." }}
-        recordId={(item) => item.uuid}
-        rows={requests() ?? []}
-        state={
-          requests.loading
-            ? { kind: "loading", label: "Loading Discipline requests..." }
-            : requests.error !== undefined
-              ? {
-                  kind: "error",
-                  message:
-                    "Discipline requests could not load. Check your connection and try again.",
-                  retry: () => void refetchRequests(),
-                }
-              : { kind: "ready" }
+      <SearchBlock
+        layout="above"
+        controls={
+          <SearchControls state={requestSearch.state} textLabel="Search Discipline requests" />
         }
-        renderRecord={(item) => (
-          <div class="auth-panel">
-            <h2>{item.requestedName}</h2>
-            <p>
-              Requester Account ID <span>{item.requestedByAccountId}</span>
-            </p>
-            <p>
-              <button
-                class="quiet-action"
-                type="button"
-                disabled={busyUuid() === item.uuid}
-                onClick={() => void createFromRequest(item)}
-              >
-                Create this Discipline
-              </button>{" "}
-              <button
-                class="quiet-action"
-                type="button"
-                disabled={busyUuid() === item.uuid}
-                onClick={() => void dismissRequest(item)}
-              >
-                Dismiss request
-              </button>
-            </p>
-          </div>
-        )}
+        state={requestSearch.state}
+        collection={{
+          ariaLabel: "Discipline requests",
+          emptyState: { title: "No Discipline requests match your search." },
+          fields: requestFields,
+          query: requestSearch.query,
+        }}
       />
       <Show when={error()}>
         {(message) => (
@@ -237,56 +333,28 @@ export function ContentDisciplinesPage(): JSX.Element {
           </section>
         )}
       </Show>
-      <RecordDetailList
-        ariaLabel="Disciplines"
-        emptyState={{ title: "No Disciplines are available." }}
-        recordId={(item) => item.uuid}
-        rows={disciplines() ?? []}
-        state={
-          disciplines.loading
-            ? { kind: "loading", label: "Loading Disciplines..." }
-            : disciplines.error !== undefined
-              ? {
-                  kind: "error",
-                  message: "Disciplines could not load. Check your connection and try again.",
-                  retry: () => void refetch(),
-                }
-              : { kind: "ready" }
-        }
-        renderRecord={(item) => (
-          <div class="auth-panel">
-            <h2>{item.name}</h2>
-            <p>{item.isRetired ? "Retired: unavailable for new choices." : "Active."}</p>
+      <SearchBlock
+        layout="above"
+        controls={<SearchControls state={disciplineSearch.state} textLabel="Search Disciplines" />}
+        state={disciplineSearch.state}
+        collection={{
+          ariaLabel: "Disciplines",
+          emptyState: { title: "No Disciplines match your search." },
+          fields: disciplineFields,
+          query: disciplineSearch.query,
+          renderBody: (item) => (
             <label>
               Discipline name
               <input
                 type="text"
-                value={displayedName(item)}
-                onInput={(event) => setDisplayedName(item.uuid, event.currentTarget.value)}
+                value={displayedName(item())}
+                onInput={(event) => setDisplayedName(item().uuid, event.currentTarget.value)}
                 maxlength={120}
-                disabled={busyUuid() === item.uuid}
+                disabled={busyUuid() === item().uuid}
               />
             </label>
-            <p>
-              <button
-                class="quiet-action"
-                type="button"
-                disabled={busyUuid() === item.uuid || displayedName(item) === item.name}
-                onClick={() => void rename(item)}
-              >
-                Save name
-              </button>{" "}
-              <button
-                class="quiet-action"
-                type="button"
-                disabled={busyUuid() === item.uuid}
-                onClick={() => void changeRetirement(item)}
-              >
-                {item.isRetired ? "Restore Discipline" : "Retire Discipline"}
-              </button>
-            </p>
-          </div>
-        )}
+          ),
+        }}
       />
     </PageFrame>
   );

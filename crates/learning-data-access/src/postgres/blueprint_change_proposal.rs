@@ -34,11 +34,44 @@ use crate::{
 
 #[async_trait]
 impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
+    async fn blueprint_change_proposal_status_counts(
+        &self,
+        session: SessionTokenHash,
+        scope: BlueprintChangeProposalListScope,
+        text: &str,
+    ) -> Result<[i64; 3], StoreError> {
+        let (target, mine) = match scope {
+            BlueprintChangeProposalListScope::Mine => (None, true),
+            BlueprintChangeProposalListScope::Target(id) => (Some(id.as_string()), false),
+        };
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session)
+            .await?;
+        let row =
+            sqlx::query("SELECT * FROM ple_api.blueprint_change_proposal_status_counts($1,$2,$3)")
+                .bind(target)
+                .bind(mine)
+                .bind(text)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+        let counts = [
+            row.try_get("proposed_count").map_err(map_sqlx_error)?,
+            row.try_get("stale_count").map_err(map_sqlx_error)?,
+            row.try_get("accepted_count").map_err(map_sqlx_error)?,
+        ];
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(counts)
+    }
+
     async fn list_blueprint_change_proposals(
         &self,
         session: SessionTokenHash,
         scope: BlueprintChangeProposalListScope,
         page: PageRequest,
+        text: &str,
+        ascending: bool,
+        status: &str,
     ) -> Result<Page<BlueprintChangeProposalSummary>, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
@@ -60,16 +93,20 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             }
         };
         // ASVS 1.2.4, 8.2.2/3, 8.3.2: bounded participant SQL reauthorizes every page.
-        let rows =
-            sqlx::query("SELECT * FROM ple_api.list_blueprint_change_proposals($1,$2,$3,$4,$5)")
-                .bind(target)
-                .bind(mine)
-                .bind(after_created_at)
-                .bind(after_id)
-                .bind(i32::from(page.size.get()) + 1)
-                .fetch_all(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
+        let rows = sqlx::query(
+            "SELECT * FROM ple_api.list_blueprint_change_proposals($1,$2,$3,$4,$5,$6,$7,$8)",
+        )
+        .bind(target)
+        .bind(mine)
+        .bind(after_created_at)
+        .bind(after_id)
+        .bind(i32::from(page.size.get()) + 1)
+        .bind(text)
+        .bind(ascending)
+        .bind(status)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let more = rows.len() > usize::from(page.size.get());
         let retained = rows.iter().take(usize::from(page.size.get()));
         let items = retained
@@ -79,7 +116,9 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         let next_cursor = if more {
             let last = retained.last().ok_or_else(invalid)?;
             let timestamp: String = last.try_get("created_at_key").map_err(map_sqlx_error)?;
-            let id: uuid::Uuid = last.try_get("proposal_id").map_err(map_sqlx_error)?;
+            let id: uuid::Uuid = last
+                .try_get("blueprint_change_proposal_id")
+                .map_err(map_sqlx_error)?;
             Some(Cursor::parse(format!("{timestamp}|{id}")).map_err(|_| invalid())?)
         } else {
             None
@@ -463,7 +502,9 @@ async fn read_accepted_in_transaction(
     let Json(decision): Json<BlueprintChangeProposalAcceptedDecision> =
         row.try_get("decision").map_err(map_sqlx_error)?;
     Ok(Some(AcceptedBlueprintChangeProposal {
-        proposal_id: row.try_get("proposal_id").map_err(map_sqlx_error)?,
+        proposal_id: row
+            .try_get("blueprint_change_proposal_id")
+            .map_err(map_sqlx_error)?,
         actor: parse_account_id(row.try_get("actor_account_id").map_err(map_sqlx_error)?)?,
         accepted_at: Timestamp::from_unix_millis(
             row.try_get("accepted_at_ms").map_err(map_sqlx_error)?,
@@ -523,7 +564,9 @@ async fn read_sources_in_transaction(
     let source_content = content_row(source)?;
     let target_content = content_row(target)?;
     let proposal = StoredBlueprintChangeProposal {
-        proposal_id: source.try_get("proposal_id").map_err(map_sqlx_error)?,
+        proposal_id: source
+            .try_get("blueprint_change_proposal_id")
+            .map_err(map_sqlx_error)?,
         proposer: source
             .try_get("proposer_account_id")
             .map_err(map_sqlx_error)
@@ -644,7 +687,9 @@ fn proposal_summary(
         _ => return Err(invalid()),
     };
     Ok(BlueprintChangeProposalSummary {
-        proposal_id: row.try_get("proposal_id").map_err(map_sqlx_error)?,
+        proposal_id: row
+            .try_get("blueprint_change_proposal_id")
+            .map_err(map_sqlx_error)?,
         created_at: Timestamp::from_unix_millis(
             row.try_get("created_at_ms").map_err(map_sqlx_error)?,
         ),

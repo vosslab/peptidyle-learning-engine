@@ -1,6 +1,5 @@
 // Question Library content and API rules supplied to the shared search session.
 import type { RecordContent, RecordFact } from "../components/record_list/record_list";
-import type { LibraryObjectSearchSort } from "../../generated/api/LibraryObjectSearchSort";
 import type {
   SearchAppliedFilter,
   SearchDefinition,
@@ -114,34 +113,55 @@ export function librarySearchContent(row: LibrarySearchRow): RecordContent {
   return row.kind === "question" ? questionLibraryContent(row) : poolContent(row);
 }
 
+/** Criteria that can narrow a Library result set independently of result order or display. */
+export function hasLibrarySearchCriteria(query: QuestionLibraryBrowseQuery): boolean {
+  return (
+    query.search.length > 0 ||
+    query.kind !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.kind ||
+    query.questions !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.questions ||
+    (query.ownerAccountId !== null && query.ownerAccountId.length > 0) ||
+    query.authorship !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.authorship ||
+    query.discipline_uuids.length > 0 ||
+    query.subject_uuids.length > 0 ||
+    query.topic_uuids.length > 0 ||
+    query.subtopic_uuids.length > 0 ||
+    query.authorNames.length > 0 ||
+    query.backends.length > 0 ||
+    query.tags.length > 0 ||
+    query.subjects.length > 0 ||
+    query.topics.length > 0 ||
+    query.bloomCognitiveProcesses.length > 0 ||
+    query.bloomKnowledgeDimensions.length > 0 ||
+    query.questionTypes.length > 0 ||
+    query.capabilities.length > 0 ||
+    query.questionLicenses.length > 0
+  );
+}
+
 export function questionLibrarySearchDefinition(
   repository: QuestionLibraryBrowseRepository,
   initialQuery: QuestionLibraryBrowseQuery = EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-): SearchDefinition<
-  QuestionLibraryBrowseQuery,
-  LibrarySearchRow,
-  QuestionLibraryFilterCounts,
-  LibraryObjectSearchSort
-> {
+  predefined = false,
+  fixedKind?: QuestionLibraryBrowseQuery["kind"],
+  fixedOwnerAccountId?: string,
+): SearchDefinition<QuestionLibraryBrowseQuery, LibrarySearchRow, QuestionLibraryFilterCounts> {
   return {
     initialQuery,
-    cleanup: normalizeQuestionLibraryBrowseQuery,
+    // ASVS 8.2.2: every UI query transition retains the signed-in owner scope.
+    cleanup: (query) =>
+      normalizeQuestionLibraryBrowseQuery({
+        ...query,
+        kind: fixedKind ?? query.kind,
+        ownerAccountId: fixedOwnerAccountId ?? query.ownerAccountId,
+      }),
+    isEligible: (query) => predefined || hasLibrarySearchCriteria(query),
     getText: (query) => query.search,
     setText: (query, search) => ({ ...query, search }),
     rowId: (row) => row.displayId,
     content: librarySearchContent,
-    sort: {
-      label: "Order results",
-      options: [
-        { value: "titleAscending", label: "Title (A-Z)" },
-        { value: "publishedNewest", label: "Recently published" },
-      ],
-      get: (query) => query.sort,
-      set: (query, sort): QuestionLibraryBrowseQuery => ({ ...query, sort }),
-    },
     appliedFilters: (query): ReadonlyArray<SearchAppliedFilter<QuestionLibraryBrowseQuery>> => {
       const filters: SearchAppliedFilter<QuestionLibraryBrowseQuery>[] = [];
-      if (query.kind !== "both") {
+      if (fixedKind === undefined && query.kind !== "both") {
         filters.push({
           id: "kind",
           label: `Show: ${query.kind === "questions" ? "Questions" : "Question Pools"}`,
@@ -155,7 +175,7 @@ export function questionLibrarySearchDefinition(
           clear: (value) => ({ ...value, questions: "all" }),
         });
       }
-      if (query.ownerAccountId !== null) {
+      if (fixedOwnerAccountId === undefined && query.ownerAccountId !== null) {
         filters.push({
           id: "owner",
           label: `Owner: ${query.ownerAccountId}`,
@@ -168,21 +188,22 @@ export function questionLibrarySearchDefinition(
           label: `Search: ${query.search}`,
           clear: (value: QuestionLibraryBrowseQuery) => ({ ...value, search: "" }),
         });
-      const scalarFilters: ReadonlyArray<readonly [keyof QuestionLibraryBrowseQuery, string]> = [
-        ["authorName", "Author"],
-        ["backend", "Backend"],
-        ["tag", "Tag"],
-        ["questionType", "Question type"],
-        ["questionLicense", "License"],
-        ["capability", "Capability"],
-      ];
-      for (const [field, name] of scalarFilters) {
+      const multiValueFilters: ReadonlyArray<readonly [keyof QuestionLibraryBrowseQuery, string]> =
+        [
+          ["authorNames", "Author"],
+          ["backends", "Backend"],
+          ["tags", "Tag"],
+          ["questionTypes", "Question type"],
+          ["questionLicenses", "License"],
+          ["capabilities", "Capability"],
+        ];
+      for (const [field, name] of multiValueFilters) {
         const value = query[field];
-        if (typeof value === "string" && value) {
+        if (Array.isArray(value) && value.length > 0) {
           filters.push({
             id: field,
-            label: `${name}: ${value}`,
-            clear: (current: QuestionLibraryBrowseQuery) => ({ ...current, [field]: null }),
+            label: `${name}: ${value.join(", ")}`,
+            clear: (current: QuestionLibraryBrowseQuery) => ({ ...current, [field]: [] }),
           });
         }
       }
@@ -198,42 +219,42 @@ export function questionLibrarySearchDefinition(
           label: `Topic: ${query.topics.join(", ")}`,
           clear: (value: QuestionLibraryBrowseQuery) => ({ ...value, topics: [] }),
         });
-      if (query.discipline_uuid !== null)
+      if (query.discipline_uuids.length > 0)
         filters.push({
           id: "discipline",
           label: "Discipline filter",
           clear: (value) => ({
             ...value,
-            discipline_uuid: null,
-            subject_uuid: null,
-            topic_uuid: null,
-            subtopic_uuid: null,
+            discipline_uuids: [],
+            subject_uuids: [],
+            topic_uuids: [],
+            subtopic_uuids: [],
             cross_discipline: false,
           }),
         });
-      if (query.subject_uuid !== null)
+      if (query.subject_uuids.length > 0)
         filters.push({
           id: "classification-subject",
           label: "Classification subject",
           clear: (value) => ({
             ...value,
-            subject_uuid: null,
-            topic_uuid: null,
-            subtopic_uuid: null,
+            subject_uuids: [],
+            topic_uuids: [],
+            subtopic_uuids: [],
             cross_discipline: false,
           }),
         });
-      if (query.topic_uuid !== null)
+      if (query.topic_uuids.length > 0)
         filters.push({
           id: "classification-topic",
           label: "Classification topic",
-          clear: (value) => ({ ...value, topic_uuid: null, subtopic_uuid: null }),
+          clear: (value) => ({ ...value, topic_uuids: [], subtopic_uuids: [] }),
         });
-      if (query.subtopic_uuid !== null)
+      if (query.subtopic_uuids.length > 0)
         filters.push({
           id: "classification-subtopic",
           label: "Classification subtopic",
-          clear: (value) => ({ ...value, subtopic_uuid: null }),
+          clear: (value) => ({ ...value, subtopic_uuids: [] }),
         });
       if (query.cross_discipline)
         filters.push({
@@ -241,17 +262,17 @@ export function questionLibrarySearchDefinition(
           label: "Include cross-discipline questions",
           clear: (value) => ({ ...value, cross_discipline: false }),
         });
-      if (query.bloomCognitiveProcess !== null)
+      if (query.bloomCognitiveProcesses.length > 0)
         filters.push({
           id: "bloom-cognitive-process",
-          label: `Bloom cognitive process: ${query.bloomCognitiveProcess}`,
-          clear: (value) => ({ ...value, bloomCognitiveProcess: null }),
+          label: `Bloom cognitive process: ${query.bloomCognitiveProcesses.join(", ")}`,
+          clear: (value) => ({ ...value, bloomCognitiveProcesses: [] }),
         });
-      if (query.bloomKnowledgeDimension !== null)
+      if (query.bloomKnowledgeDimensions.length > 0)
         filters.push({
           id: "bloom-knowledge-dimension",
-          label: `Bloom knowledge dimension: ${query.bloomKnowledgeDimension}`,
-          clear: (value) => ({ ...value, bloomKnowledgeDimension: null }),
+          label: `Bloom knowledge dimension: ${query.bloomKnowledgeDimensions.join(", ")}`,
+          clear: (value) => ({ ...value, bloomKnowledgeDimensions: [] }),
         });
       return filters;
     },

@@ -20,6 +20,7 @@ import { expect, test, type FrameLocator, type Page, type Route } from "@playwri
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import {
   chooseSeededIdentityAtSignIn,
+  courseChoice,
   observeContextOrigins,
   relativeIsoDate,
   writeOriginReceipt,
@@ -33,8 +34,8 @@ const WEBWORK = "Genetic Disorders from Descriptions";
 const FIB = `${TITLE} native FiB`;
 
 async function publishFib(page: Page): Promise<void> {
-  await page.getByRole("link", { name: "My Draft Questions", exact: true }).click();
-  await page.getByRole("heading", { name: "My Draft Questions", exact: true }).waitFor();
+  await page.getByRole("link", { name: "My Drafts", exact: true }).click();
+  await page.getByRole("main", { name: "My Drafts", exact: true }).waitFor();
   await page.getByLabel("Question source format").selectOption("pleQuestionJson");
   await page.getByRole("button", { name: "Create Draft Question", exact: true }).click();
   await page.getByLabel("Question Title", { exact: true }).fill(FIB);
@@ -60,12 +61,10 @@ async function publishFib(page: Page): Promise<void> {
 async function instructor(page: Page): Promise<void> {
   await page.goto("/sign-in");
   await chooseSeededIdentityAtSignIn(page, /Elena/u);
-  await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
+  await page.getByRole("main", { name: "Question Library", exact: true }).waitFor();
   await publishFib(page);
   await page.getByRole("link", { name: "Courses", exact: true }).click();
-  const card = page
-    .getByRole("listitem")
-    .filter({ has: page.getByRole("heading", { name: COURSE, exact: true }) });
+  const card = courseChoice(page, COURSE);
   await followCaptureLink(page, card.getByRole("link", { name: "Open Course", exact: true }));
   await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
   await page.getByLabel("Assessment title", { exact: true }).fill(TITLE);
@@ -116,9 +115,12 @@ async function studentAttempt(page: Page): Promise<void> {
   await openStudentCourse(page, COURSE);
   await page.getByRole("link", { name: "Coursework", exact: true }).click();
   const row = page
-    .getByRole("listitem")
-    .filter({ has: page.getByRole("heading", { name: TITLE, exact: true }) });
-  await followCaptureLink(page, row.getByRole("link").first());
+    .locator("[data-record-id]")
+    .filter({ has: page.getByText(TITLE, { exact: true }) });
+  await followCaptureLink(
+    page,
+    row.getByRole("link", { name: "Open Unit Review Assignment", exact: true }),
+  );
   const attempt = page.locator('[data-route-surface="assessmentAttempt"]');
   const start = page.getByRole("button", { name: /^(Start|Resume) Unit Review Assignment$/u });
   await Promise.race([attempt.waitFor(), start.waitFor()]);

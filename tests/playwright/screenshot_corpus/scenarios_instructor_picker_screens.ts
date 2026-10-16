@@ -108,7 +108,7 @@ async function openAssessmentContentPicker(page: Page): Promise<void> {
     .getByRole("combobox", { name: /^Assessment Type/u })
     .selectOption("practice_question_assignment");
   await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
-  await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
+  await page.getByRole("main", { name: "Questions", exact: true }).waitFor();
   await page
     .getByRole("button", { name: "Choose published Assessment content", exact: true })
     .click();
@@ -116,12 +116,16 @@ async function openAssessmentContentPicker(page: Page): Promise<void> {
     name: "Choose published Assessment content",
     exact: true,
   });
-  const rows = picker.getByRole("list", {
+  const results = picker.getByRole("table", {
     name: "Published Assessment content",
     exact: true,
   });
-  await rows.getByRole("listitem").nth(1).waitFor();
-  await rows.getByRole("listitem").filter({ hasText: poolTitle }).first().waitFor();
+  const rows = results.locator("[data-record-id]");
+  await rows.nth(1).waitFor();
+  await rows
+    .filter({ has: page.getByText(poolTitle, { exact: true }) })
+    .first()
+    .waitFor();
   await requireOpaqueDialogSurface(picker);
 }
 

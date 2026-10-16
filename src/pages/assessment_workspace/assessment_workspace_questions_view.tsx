@@ -19,12 +19,12 @@ import {
   type AssessmentWorkspaceContextValue,
 } from "./assessment_workspace_live_page";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
-import { nextQuestionEditDirty } from "./assessment_workspace_questions_model";
 import {
   AssessmentContentPicker,
   type AssessmentContentPickerSelection,
 } from "../../features/assessment_content_picker";
 import { UnsavedChangesGuard } from "./unsaved_changes_guard";
+import { trackEditorSave } from "../../components/unsaved_changes_guard";
 import {
   AssessmentBlueprintContentSummary,
   currentBlueprintUpdateContent,
@@ -34,7 +34,6 @@ import "./assessment_questions_record_list.css";
 export interface AssessmentWorkspaceQuestionsViewArgs {
   readonly workspace: AssessmentWorkspaceContextValue;
   readonly dirty: Accessor<boolean>;
-  readonly setDirty: Setter<boolean>;
   readonly save: () => Promise<boolean>;
   readonly message: Accessor<string>;
   readonly setMessage: Setter<string>;
@@ -120,7 +119,6 @@ export function AssessmentWorkspaceQuestionsView(
   const {
     workspace,
     dirty,
-    setDirty,
     save,
     message,
     setMessage,
@@ -160,6 +158,7 @@ export function AssessmentWorkspaceQuestionsView(
   } = args;
   const [assessmentContentPickerOpen, setAssessmentContentPickerOpen] = createSignal(false);
   const [questionIdBatch, setQuestionIdBatch] = createSignal("");
+  const trackedSave = trackEditorSave(save);
   let assessmentContentPickerTrigger: HTMLButtonElement | undefined;
 
   return (
@@ -167,12 +166,12 @@ export function AssessmentWorkspaceQuestionsView(
       // Question Sequence editor body. PageFrame owns the stack.
       contentClass="assessment-workspace-questions"
       routeSurface="assessmentWorkspace"
-      headingId="assessment-questions-heading"
-      eyebrow="Assessment workspace"
-      title="Assessment Question Editor"
-      lede="Every Entry retains its exact Question Revision and stable identity for future Attempts."
     >
-      <UnsavedChangesGuard dirty={dirty} save={save} />
+      <UnsavedChangesGuard
+        dirty={dirty}
+        save={trackedSave.save}
+        inFlightSave={trackedSave.inFlightSave}
+      />
       <AssessmentWorkspaceIdentity />
       <Show when={message()}>
         {(value) => (
@@ -281,7 +280,6 @@ export function AssessmentWorkspaceQuestionsView(
           onInput={(event) => {
             if (needsReload()) return;
             setTitle(event.currentTarget.value);
-            setDirty((current) => nextQuestionEditDirty(current, "title"));
           }}
         />
       </label>
@@ -468,7 +466,7 @@ export function AssessmentWorkspaceQuestionsView(
           class="primary-action"
           type="button"
           disabled={busy() || needsReload()}
-          onClick={() => void save()}
+          onClick={() => void trackedSave.save()}
         >
           {busy() ? "Saving Questions..." : "Save Questions and order"}
         </button>

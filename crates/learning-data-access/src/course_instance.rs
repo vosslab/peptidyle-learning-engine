@@ -119,6 +119,15 @@ pub struct InstallationCourseInspection {
     pub instructor_display_names: Vec<String>,
 }
 
+/// Whole-result facet count; each field excludes its own active filter.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallationCourseFacetChoice {
+    pub field_name: String,
+    pub choice_key: String,
+    pub matching_count: i64,
+}
+
 fn valid_name(value: &str) -> bool {
     !value.is_empty() && value == value.trim() && value.chars().count() <= 200
 }
@@ -227,8 +236,19 @@ pub trait CourseInstanceStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         query: &str,
+        sort: &str,
+        activity: &[String],
+        retention: &[String],
         page: DiscoveryPageRequest,
     ) -> Result<Page<InstallationCourseInspection>, StoreError>;
+
+    async fn list_installation_course_facets(
+        &self,
+        session_token_hash: SessionTokenHash,
+        query: &str,
+        activity: &[String],
+        retention: &[String],
+    ) -> Result<Vec<InstallationCourseFacetChoice>, StoreError>;
 
     /// Reads one installation Course for the current Sysadmin.
     async fn load_installation_course(

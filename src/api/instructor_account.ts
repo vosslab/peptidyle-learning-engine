@@ -10,8 +10,9 @@ export type InstructorAccountPageSize = 50 | 100 | 250;
 export interface InstructorAccountBrowse {
   readonly query: string;
   readonly state: InstructorAccountState | null;
-  readonly pageSize: InstructorAccountPageSize;
-  readonly afterAccountId: AccountId | null;
+  readonly sort: "idAscending" | "idDescending";
+  readonly pageSize: 50 | 100;
+  readonly cursor: string | null;
 }
 
 /** The only Instructor Account fields available to the browser. */
@@ -27,8 +28,12 @@ export interface InstructorAccountSummary {
 export interface InstructorAccountList {
   readonly accounts: ReadonlyArray<InstructorAccountSummary>;
   readonly displayTimeZone: string;
-  /** Last Account ID on this page when another page exists. */
-  readonly nextCursor: AccountId | null;
+  /** Query-bound opaque cursor for another page. */
+  readonly nextCursor: string | null;
+  readonly stateChoices: ReadonlyArray<{
+    readonly key: InstructorAccountState;
+    readonly count: number;
+  }>;
 }
 
 /** Create input is sent once and is never reflected by any browser-safe DTO. */

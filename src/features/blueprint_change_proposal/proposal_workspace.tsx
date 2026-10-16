@@ -9,16 +9,17 @@ import {
   type JSX,
 } from "solid-js";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
-import type { BlueprintChangeProposalPageView } from "../../../generated/api/BlueprintChangeProposalPageView";
+import type { BlueprintChangeProposalSummaryView } from "../../../generated/api/BlueprintChangeProposalSummaryView";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import type { BlueprintChangeProposalClient } from "../../api/blueprint_change_proposal";
 import { useApplicationApi } from "../../api/application_api";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 import { PageFrame } from "../../components/page_frame";
-import { RecordList, type RecordContent } from "../../components/record_list/record_list";
+import type { RecordContent } from "../../components/record_list/record_list";
 import { useSelectedDisplayDateTimeFormatter } from "../../selected_display_zone";
 import { ProposalReview } from "./proposal_review";
+import { ProposalSearch } from "./proposal_search";
 
 type Client = BlueprintCourseClient & BlueprintChangeProposalClient;
 function recordPath(id: string): string {
@@ -26,7 +27,7 @@ function recordPath(id: string): string {
   return `/blueprint-change-proposals/${encodeURIComponent(id)}`;
 }
 
-function proposalState(item: BlueprintChangeProposalPageView["items"][number]): string {
+function proposalState(item: BlueprintChangeProposalSummaryView): string {
   if (item.accepted) {
     return `Accepted target Revision ${item.accepted.targetRevisionTuple.revisionNumber}`;
   }
@@ -36,7 +37,7 @@ function proposalState(item: BlueprintChangeProposalPageView["items"][number]): 
 
 function proposalContent(
   formatDateTime: (timestamp: number | Date) => string,
-  item: BlueprintChangeProposalPageView["items"][number],
+  item: BlueprintChangeProposalSummaryView,
 ): RecordContent {
   const title = `${item.sourceNames.longName} to ${item.targetNames.longName}`;
   return {
@@ -79,86 +80,13 @@ export function ProposalRecords(props: {
   readonly target?: string;
   readonly formatDateTime: (timestamp: number | Date) => string;
 }): JSX.Element {
-  const [page, setPage] = createSignal<BlueprintChangeProposalPageView>();
-  const [busy, setBusy] = createSignal(false),
-    [failed, setFailed] = createSignal(false);
-  const [opened, setOpened] = createSignal(false);
-  let loadGeneration = 0;
-  createEffect(() => {
-    const target = props.target;
-    void target;
-    ++loadGeneration;
-    setPage(undefined);
-    setOpened(false);
-    setBusy(false);
-    setFailed(false);
-  });
-  onCleanup(() => {
-    ++loadGeneration;
-  });
-  async function load(cursor?: string): Promise<void> {
-    if (busy()) return;
-    const generation = ++loadGeneration;
-    const target = props.target;
-    setBusy(true);
-    setFailed(false);
-    try {
-      const result = target
-        ? await props.client.listBlueprintChangeProposalsForTarget(target, cursor)
-        : await props.client.listMyBlueprintChangeProposals(cursor);
-      if (generation !== loadGeneration || target !== props.target) return;
-      setPage({
-        ...result,
-        items: cursor ? [...(page()?.items ?? []), ...result.items] : result.items,
-      });
-    } catch {
-      if (generation === loadGeneration) setFailed(true);
-    } finally {
-      if (generation === loadGeneration) setBusy(false);
-    }
-  }
   return (
-    <section class="blueprint-proposal">
-      <h2>
-        {props.target
-          ? "Incoming / submitted Change Proposals for this target"
-          : "My Change Proposals"}
-      </h2>
-      <button
-        type="button"
-        disabled={busy()}
-        onClick={() => {
-          setOpened(true);
-          void load();
-        }}
-      >
-        {busy() ? "Loading records..." : opened() ? "Refresh records" : "Open records"}
-      </button>
-      <Show when={failed()}>
-        <p role="alert">Records could not load. Refresh records to try again.</p>
-      </Show>
-      <Show when={page()}>
-        {(value) => (
-          <>
-            <RecordList
-              ariaLabel="Blueprint Change Proposals"
-              emptyState={{ title: "No authorized Change Proposals in this view." }}
-              recordId={(item) => item.proposalId}
-              content={(item) => proposalContent(props.formatDateTime, item)}
-              rows={value().items}
-              state={{ kind: "ready" }}
-            />
-            <Show when={value().nextCursor}>
-              {(cursor) => (
-                <button type="button" disabled={busy()} onClick={() => void load(cursor())}>
-                  Load more records
-                </button>
-              )}
-            </Show>
-          </>
-        )}
-      </Show>
-    </section>
+    <ProposalSearch
+      client={props.client}
+      target={props.target}
+      formatDateTime={props.formatDateTime}
+      content={(item) => proposalContent(props.formatDateTime, item)}
+    />
   );
 }
 
@@ -368,11 +296,7 @@ export function MyChangeProposalsLivePage(): JSX.Element {
   const formatInAccountZone = useSelectedDisplayDateTimeFormatter();
   const formatDateTime = (timestamp: number | Date): string => formatInAccountZone()(timestamp);
   return (
-    <PageFrame
-      title="My Change Proposals"
-      lede="Your own submissions across target Blueprints, including retained accepted records."
-      routeSurface="myChangeProposals"
-    >
+    <PageFrame routeSurface="myChangeProposals">
       <ProposalRecords client={api.client} formatDateTime={formatDateTime} />
     </PageFrame>
   );
@@ -388,7 +312,7 @@ export function ChangeProposalDetailLivePage(): JSX.Element {
     (id) => api.client.getBlueprintChangeProposal(id),
   );
   return (
-    <PageFrame title="Review Blueprint Change Proposal" routeSurface="changeProposalDetail">
+    <PageFrame routeSurface="changeProposalDetail">
       <A href="/blueprint-change-proposals">My Change Proposals</A>
       <Show when={detail.loading}>
         <p role="status">Loading frozen proposal evidence...</p>

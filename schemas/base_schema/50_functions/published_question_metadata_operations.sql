@@ -157,6 +157,8 @@ SET search_path = pg_catalog, ple_private AS $$
         p_bloom_knowledge_dimension::ple_data.bloom_knowledge_dimension)
 $$;
 
+SET LOCAL ROLE ple_private_owner;
+
 CREATE FUNCTION ple_private.bulk_replace_published_question_metadata(
     p_selection jsonb, p_patch jsonb
 ) RETURNS TABLE(published_question_id text, metadata_edit_number bigint)
@@ -327,6 +329,16 @@ BEGIN
            )
          FOR UPDATE OF metadata, lineage;
         IF NOT FOUND OR current_availability <> 'available' THEN
+            RAISE EXCEPTION USING ERRCODE = '42501',
+                MESSAGE = 'Bulk Published Question metadata target is not available';
+        END IF;
+        -- ASVS 8.2.2/8.3.1: resolve authority for each locked target from
+        -- the authenticated actor, before any row in the batch is written.
+        IF NOT EXISTS (
+               SELECT 1 FROM ple_data.question_current_owner AS owner
+                WHERE owner.published_question_id = selected.selected_question_id
+                  AND owner.owner_account_id = actor_id
+        ) THEN
             RAISE EXCEPTION USING ERRCODE = '42501',
                 MESSAGE = 'Bulk Published Question metadata target is not available';
         END IF;

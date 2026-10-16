@@ -1,17 +1,38 @@
-// Private in-app Watch inbox for the signed-in Instructor.
+// Private, searchable in-app Watch activity for the signed-in Instructor.
 
 import { A } from "@solidjs/router";
-import { Show, createResource, type JSX } from "solid-js";
+import { Show, type JSX } from "solid-js";
 
-import type { LibraryWatchNotification } from "../api/library_watch_notification";
+import type {
+  LibraryWatchEventKind,
+  LibraryWatchNotification,
+  LibraryWatchPage,
+  LibraryWatchQuery,
+  LibraryWatchTargetKind,
+} from "../api/library_watch_notification";
 import { useApplicationApi } from "../api/application_api";
 import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
 import { PageFrame } from "../components/page_frame";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
+import type { RecordContent } from "../components/record_list/record_list";
+import type {
+  RecordField,
+  RecordFilterChoices,
+  RecordListQuery,
+} from "../components/record_list/record_fields";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createSearchState } from "../features/search/search_state";
+import type { SearchDefinition, SearchPage } from "../features/search/search_session";
+
+const INITIAL_QUERY: LibraryWatchQuery = {
+  q: "",
+  targetKinds: [],
+  eventKinds: [],
+  direction: "descending",
+};
+
+type WatchFilter = "targetKind" | "eventKind";
+type WatchSort = "occurredAt";
 
 function eventLabel(value: LibraryWatchNotification): string {
   switch (value.eventKind) {
@@ -32,107 +53,260 @@ function targetHref(value: LibraryWatchNotification): string {
   return `/library/${encodeURIComponent(value.targetPublicId)}`;
 }
 
-function inboxFailed(value: unknown): value is Error {
-  return value instanceof Error;
-}
-
 export function notificationContent(
   formatTimestamp: (timestamp: number | Date) => string,
 ): (notification: LibraryWatchNotification) => RecordContent {
-  return (notification) => {
-    const target = targetHref(notification);
-    return {
-      title: eventLabel(notification),
-      description: `${targetLabel(notification)}: ${notification.targetPublicId}`,
-      details: [
-        {
-          kind: "text" as const,
-          label:
-            notification.targetKind === "questionPool"
-              ? "Question Pool Edit Number"
-              : "Question Revision Number",
-          value: String(
-            notification.targetKind === "questionPool"
-              ? notification.questionPoolEditNumber
-              : notification.questionRevisionNumber,
-          ),
-        },
-        ...(notification.forkedPublicId === null
-          ? []
-          : [{ kind: "text" as const, label: "Fork ID", value: notification.forkedPublicId }]),
-        {
-          kind: "time" as const,
-          label: "Occurred",
-          value: formatTimestamp(notification.occurredAt),
-          dateTime: new Date(notification.occurredAt).toISOString(),
-        },
-      ],
-      actions: [
-        {
-          id: "open-target",
-          kind: "link" as const,
-          label: notification.targetKind === "question" ? "Open Question" : "Open Question Pool",
-          href: target,
-          primary: true,
-        },
-      ],
-    };
+  return (notification) => ({
+    title: eventLabel(notification),
+    description: `${targetLabel(notification)}: ${notification.targetPublicId}`,
+    details: [
+      {
+        kind: "text",
+        label:
+          notification.targetKind === "questionPool"
+            ? "Question Pool Edit Number"
+            : "Question Revision Number",
+        value: String(
+          notification.targetKind === "questionPool"
+            ? notification.questionPoolEditNumber
+            : notification.questionRevisionNumber,
+        ),
+      },
+      ...(notification.forkedPublicId === null
+        ? []
+        : [{ kind: "text" as const, label: "Fork ID", value: notification.forkedPublicId }]),
+      {
+        kind: "time",
+        label: "Occurred",
+        value: formatTimestamp(notification.occurredAt),
+        dateTime: new Date(notification.occurredAt).toISOString(),
+      },
+    ],
+    actions: [
+      {
+        id: "open-target",
+        kind: "link",
+        label: notification.targetKind === "question" ? "Open Question" : "Open Question Pool",
+        href: targetHref(notification),
+        primary: true,
+      },
+    ],
+  });
+}
+
+function watchFields(
+  formatTimestamp: () => (timestamp: number | Date) => string,
+): ReadonlyArray<RecordField<LibraryWatchNotification, WatchSort, WatchFilter>> {
+  return [
+    {
+      id: "activity",
+      label: "Activity",
+      role: "identity",
+      filterKey: "eventKind",
+      value: eventLabel,
+      defaultColumn: { priority: 0, width: "12rem" },
+    },
+    {
+      id: "target",
+      label: "Library ID",
+      value: (row) => row.targetPublicId,
+      defaultColumn: { priority: 1, width: "10rem" },
+    },
+    {
+      id: "targetKind",
+      label: "Library object",
+      filterKey: "targetKind",
+      value: targetLabel,
+      defaultColumn: { priority: 2, width: "12rem" },
+    },
+    {
+      id: "occurredAt",
+      label: "Occurred",
+      sortKey: "occurredAt",
+      value: (row) => row.occurredAt,
+      render: (row) => (
+        <time dateTime={new Date(row.occurredAt).toISOString()}>
+          {formatTimestamp()(row.occurredAt)}
+        </time>
+      ),
+      defaultColumn: { priority: 3, width: "12rem" },
+    },
+    {
+      id: "forkedPublicId",
+      label: "Fork ID",
+      value: (row) => row.forkedPublicId,
+      defaultColumn: { priority: 4, width: "10rem", visible: false },
+    },
+  ];
+}
+
+function cleanQuery(query: LibraryWatchQuery): LibraryWatchQuery {
+  return {
+    q: query.q.trim().toLowerCase().slice(0, 120),
+    targetKinds: [...new Set(query.targetKinds)].sort(),
+    eventKinds: [...new Set(query.eventKinds)].sort(),
+    direction: query.direction,
   };
 }
 
-function notificationId(notification: LibraryWatchNotification): string {
-  return [
-    notification.eventKind,
-    notification.targetPublicId,
-    notification.occurredAt,
-    notification.questionRevisionNumber ?? "",
-    notification.questionPoolEditNumber ?? "",
-    notification.forkedPublicId ?? "",
-  ].join("-");
+function watchDefinition(
+  load: (
+    query: LibraryWatchQuery,
+    cursor: string | null,
+    size: number,
+  ) => Promise<LibraryWatchPage>,
+  content: (row: LibraryWatchNotification) => RecordContent,
+): SearchDefinition<LibraryWatchQuery, LibraryWatchNotification, LibraryWatchPage> {
+  return {
+    initialQuery: INITIAL_QUERY,
+    cleanup: cleanQuery,
+    isEligible: () => true,
+    getText: (query) => query.q,
+    setText: (query, q) => ({ ...query, q }),
+    rowId: (row) => row.eventId,
+    content,
+    fetchPage: async (
+      query,
+      cursor,
+      size,
+    ): Promise<SearchPage<LibraryWatchNotification, LibraryWatchPage>> => {
+      const page = await load(query, cursor, size);
+      return { items: page.notifications, nextCursor: page.nextCursor, filterCounts: page };
+    },
+    appliedFilters: (query) => [
+      ...query.targetKinds.map((value) => ({
+        id: `target-${value}`,
+        label: `Library object: ${value === "question" ? "Published Question" : "Question Pool"}`,
+        clear: (current: LibraryWatchQuery): LibraryWatchQuery => ({
+          ...current,
+          targetKinds: current.targetKinds.filter((kind) => kind !== value),
+        }),
+      })),
+      ...query.eventKinds.map((value) => ({
+        id: `event-${value}`,
+        label: `Event: ${value === "membersChanged" ? "Questions changed" : value}`,
+        clear: (current: LibraryWatchQuery): LibraryWatchQuery => ({
+          ...current,
+          eventKinds: current.eventKinds.filter((kind) => kind !== value),
+        }),
+      })),
+    ],
+  };
 }
 
-/** Shows only this active Instructor's private, newest-first Watch inbox. */
+function facetChoices(
+  field: WatchFilter,
+  page: LibraryWatchPage,
+  selected: ReadonlyArray<string>,
+  search: string,
+): RecordFilterChoices {
+  const labels: Record<string, string> = {
+    question: "Published Question",
+    questionPool: "Question Pool",
+    revision: "New Revision",
+    membersChanged: "Questions changed",
+    fork: "New fork",
+  };
+  const counts = field === "targetKind" ? page.targetKindFacets : page.eventKindFacets;
+  const values =
+    field === "targetKind" ? ["question", "questionPool"] : ["revision", "membersChanged", "fork"];
+  const choices = values.map((key) => ({
+    key,
+    label: labels[key] ?? key,
+    count: counts.find((count) => count.value === key)?.count ?? 0,
+  }));
+  const term = search.trim().toLowerCase();
+  return {
+    choices: choices.filter((choice) => choice.label.toLowerCase().includes(term)),
+    selected: choices.filter((choice) => selected.includes(choice.key)),
+    nextCursor: null,
+  };
+}
+
+/** Shows this active Instructor's entire snapshot-authorized Watch history. */
 export function LibraryWatchNotificationsPage(): JSX.Element {
-  const runtime = useApplicationApi();
-  const [notifications, { refetch }] = createResource(() =>
-    runtime.client.getLibraryWatchNotifications(),
-  );
-  const failed = (): boolean => inboxFailed(notifications.error);
+  const client = useApplicationApi().client;
   const formatTimestamp = useSelectedDisplayDateTimeFormatter();
-  const notificationListState = (): RecordListState => {
-    if (notifications.loading) return { kind: "loading", label: "Loading Watch activity..." };
-    if (failed()) {
-      return {
-        kind: "error",
-        title: "Watch activity could not load",
-        message: "Check your connection and try again.",
-        retry: (): void => void refetch(),
-      };
-    }
-    return { kind: "ready" };
+  const load = (
+    query: LibraryWatchQuery,
+    cursor: string | null,
+    size: number,
+  ): Promise<LibraryWatchPage> => client.getLibraryWatchNotifications(query, cursor, size);
+  const state = createSearchState(
+    watchDefinition(load, (row) => notificationContent(formatTimestamp())(row)),
+    {
+      runOnMount: true,
+    },
+  );
+  const recordQuery: RecordListQuery<WatchSort, WatchFilter> = {
+    kind: "paged",
+    sort: {
+      get value() {
+        return { key: "occurredAt" as const, direction: state.query().direction };
+      },
+      onChange: (sort) =>
+        void state.apply((current) => ({ ...current, direction: sort.direction })),
+    },
+    filters: {
+      get values() {
+        return new Map<WatchFilter, ReadonlyArray<string>>([
+          ["targetKind", state.query().targetKinds],
+          ["eventKind", state.query().eventKinds],
+        ]);
+      },
+      onChange: (key, values) =>
+        void state.apply((current) =>
+          key === "targetKind"
+            ? { ...current, targetKinds: values as ReadonlyArray<LibraryWatchTargetKind> }
+            : { ...current, eventKinds: values as ReadonlyArray<LibraryWatchEventKind> },
+        ),
+      onClear: () =>
+        void state.apply((current) => ({ ...current, targetKinds: [], eventKinds: [] })),
+      choices: async (key, search) => {
+        const query = state.query();
+        const withoutOwn =
+          key === "targetKind" ? { ...query, targetKinds: [] } : { ...query, eventKinds: [] };
+        const page = await load(withoutOwn, null, 1);
+        return facetChoices(
+          key,
+          page,
+          key === "targetKind" ? query.targetKinds : query.eventKinds,
+          search,
+        );
+      },
+    },
   };
 
   return (
-    <PageFrame
-      routeSurface="libraryWatchNotifications"
-      headingId="library-watch-notifications-heading"
-      eyebrow="Question Library"
-      title="Watch activity"
-      lede="New Revisions and forks for Published Questions, and changes and forks for Question Pools you watch. Your watch list and this inbox are private."
-    >
-      <RecordList
-        ariaLabel="Private Watch activity"
-        emptyState={{
-          title: "No Watch activity yet",
-          message:
-            "New Revisions and forks, and Question Pool changes and forks, will appear here.",
+    <PageFrame routeSurface="libraryWatchNotifications">
+      <SearchBlock
+        layout="above"
+        state={state}
+        controls={
+          <SearchControls
+            state={state}
+            textLabel="Search Watch activity"
+            textPlaceholder="Library ID or event"
+          />
+        }
+        collection={{
+          ariaLabel: "Private Watch activity",
+          emptyState: {
+            title: "No matching Watch activity",
+            message: "Try another Library ID, event, or filter.",
+          },
+          fields: watchFields(formatTimestamp),
+          query: recordQuery,
         }}
-        content={(notification) => notificationContent(formatTimestamp())(notification)}
-        recordId={notificationId}
-        rows={notifications() ?? []}
-        state={notificationListState()}
       />
-      <Show when={!notifications.loading && !failed() && notifications()?.length === 0}>
+      <Show
+        when={
+          state.state().kind === "empty" &&
+          state.query().q.length === 0 &&
+          state.query().targetKinds.length === 0 &&
+          state.query().eventKinds.length === 0
+        }
+      >
         <p>
           <A class="primary-link" href="/library">
             Open Question Library

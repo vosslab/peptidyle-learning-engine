@@ -7,11 +7,14 @@ import {
   decodeRecord,
   decodeSafeInteger,
   decodeStringEnum,
+  decodeString,
+  decodeUuid,
 } from "../decoder";
 import { decodeLibraryObjectId, field, requireOnlyFields } from "./shared";
 import type {
   LibraryWatchEventKind,
   LibraryWatchNotification,
+  LibraryWatchPage,
   LibraryWatchTargetKind,
 } from "../library_watch_notification";
 
@@ -41,6 +44,7 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "targetKind",
+    "eventId",
     "targetPublicId",
     "eventKind",
     "questionRevisionNumber",
@@ -69,6 +73,7 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
     decodeLibraryObjectId,
   );
   const common = {
+    eventId: decodeUuid(field(record, "eventId", path), `${path}.eventId`),
     targetKind: decodeStringEnum(
       field(record, "targetKind", path),
       `${path}.targetKind`,
@@ -151,11 +156,50 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
   }
 }
 
-export function decodeLibraryWatchNotifications(
+function facets(
   value: unknown,
-  path = "response",
-): ReadonlyArray<LibraryWatchNotification> {
+  path: string,
+  choices: ReadonlyArray<string>,
+): LibraryWatchPage["targetKindFacets"] {
+  return decodeArray(value, path, (item, itemPath) => {
+    const record = decodeRecord(item, itemPath);
+    requireOnlyFields(record, itemPath, ["value", "count"]);
+    const key = decodeString(field(record, "value", itemPath), `${itemPath}.value`);
+    if (!choices.includes(key)) throw new DecodeError(`${itemPath}.value`, "a Watch facet value");
+    const count = decodeSafeInteger(field(record, "count", itemPath), `${itemPath}.count`);
+    if (count < 0) throw new DecodeError(`${itemPath}.count`, "a nonnegative count");
+    return { value: key, count };
+  });
+}
+
+export function decodeLibraryWatchPage(value: unknown, path = "response"): LibraryWatchPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["notifications"]);
-  return decodeArray(field(record, "notifications", path), `${path}.notifications`, notification);
+  requireOnlyFields(record, path, [
+    "notifications",
+    "nextCursor",
+    "targetKindFacets",
+    "eventKindFacets",
+  ]);
+  return {
+    notifications: decodeArray(
+      field(record, "notifications", path),
+      `${path}.notifications`,
+      notification,
+    ),
+    nextCursor: decodeNullable(
+      field(record, "nextCursor", path),
+      `${path}.nextCursor`,
+      decodeString,
+    ),
+    targetKindFacets: facets(
+      field(record, "targetKindFacets", path),
+      `${path}.targetKindFacets`,
+      TARGET_KINDS,
+    ),
+    eventKindFacets: facets(
+      field(record, "eventKindFacets", path),
+      `${path}.eventKindFacets`,
+      EVENT_KINDS,
+    ),
+  };
 }

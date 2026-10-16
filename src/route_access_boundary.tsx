@@ -17,7 +17,7 @@ interface RouteAccessDeniedProps {
 
 function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
   onMount(() => {
-    queueMicrotask(() => document.getElementById("route-access-denied-heading")?.focus());
+    queueMicrotask(() => document.getElementById("main-content")?.focus());
   });
   return (
     <div role="alert" aria-atomic="true">
@@ -26,12 +26,10 @@ function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
         contentClass="route-error"
         routeSurface="routeAccessDenied"
         deniedRoute={props.route.id}
-        headingId="route-access-denied-heading"
-        headingTabIndex={-1}
-        eyebrow="Account tools"
-        title="This page is not available to this account"
-        lede="Your available account tools remain available."
       >
+        <p>
+          This page is not available to this account. Your available account tools remain available.
+        </p>
         <A class="primary-link" href="/">
           Return to courses
         </A>

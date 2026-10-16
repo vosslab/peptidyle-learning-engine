@@ -2,30 +2,15 @@
 
 import { MAX_ASSESSMENT_ATTEMPT_LIMIT } from "../../../generated/api/MAX_ASSESSMENT_ATTEMPT_LIMIT";
 import { MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS";
-import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
-import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
 import type { HypotheticalStudentViewScenarioModifiers } from "../../../generated/api/HypotheticalStudentViewScenarioModifiers";
-import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
-import type { AccountTimeZone } from "../../../generated/api/AccountTimeZone";
-import type { PendingCourseInvitationsPage } from "../../../generated/api/PendingCourseInvitationsPage";
 import {
   DecodeError,
-  decodeNullable,
   decodeRecord,
   decodeSafeInteger,
   decodeString,
   decodeStringEnum,
-  decodeUuid,
 } from "../decoder";
-import {
-  decodeBoundedArray,
-  decodeCursor,
-  decodeTimestamp,
-  field,
-  requireOnlyFields,
-} from "./shared";
-
-const INVITATION_STATES = ["pending", "expired", "accepted", "declined", "revoked"] as const;
+import { field, requireOnlyFields } from "./shared";
 
 function closed(
   value: unknown,
@@ -36,39 +21,6 @@ function closed(
   requireOnlyFields(record, path, keys);
   for (const key of keys) field(record, key, path);
   return record;
-}
-
-function boundedTrimmedText(value: unknown, path: string, maximum: number): string {
-  const text = decodeString(value, path);
-  if (text.trim() !== text || text.trim().length === 0 || Array.from(text).length > maximum) {
-    throw new DecodeError(path, `trimmed nonblank text no longer than ${maximum} Unicode scalars`);
-  }
-  return text;
-}
-
-function canonicalPositivePostgresBigint(value: unknown, path: string): string {
-  const parsed = decodeString(value, path);
-  if (!/^[1-9][0-9]{0,18}$/u.test(parsed) || BigInt(parsed) > 9_223_372_036_854_775_807n) {
-    throw new DecodeError(path, "a canonical positive PostgreSQL bigint decimal");
-  }
-  return parsed;
-}
-
-function pageCursor(value: unknown, path: string): string | null {
-  return decodeNullable(value, path, decodeCursor);
-}
-
-function displayTimeZone(value: unknown, path: string): AccountTimeZone {
-  const timeZone = decodeString(value, path);
-  if (timeZone.length === 0 || timeZone.length > 255 || timeZone.trim() !== timeZone) {
-    throw new DecodeError(path, "a bounded exact IANA time-zone name");
-  }
-  try {
-    new Intl.DateTimeFormat(undefined, { timeZone });
-  } catch {
-    throw new DecodeError(path, "a browser-supported IANA time-zone name");
-  }
-  return timeZone;
 }
 
 function positiveInteger(value: unknown, path: string, maximum: number): number {
@@ -193,54 +145,4 @@ export function decodeHypotheticalStudentViewScenarioModifiers(
   path = "request",
 ): HypotheticalStudentViewScenarioModifiers {
   return decodeAccommodationAdjustmentWrite(value, path);
-}
-
-export function decodePendingCourseInvitationsPage(
-  value: unknown,
-  path = "response",
-): PendingCourseInvitationsPage {
-  const record = closed(value, path, ["displayTimeZone", "invitations", "nextCursor"]);
-  return {
-    // ASVS 8.2.3/14.2.6: viewer-owned metadata belongs to the outer page only.
-    displayTimeZone: displayTimeZone(record.displayTimeZone, `${path}.displayTimeZone`),
-    invitations: decodeBoundedArray(
-      record.invitations,
-      `${path}.invitations`,
-      MAX_TEACHING_PAGE_SIZE,
-      (entry, entryPath) => {
-        const invitation = closed(entry, entryPath, [
-          "id",
-          "courseLabel",
-          "state",
-          "expiresAt",
-          "state_precondition",
-        ]);
-        return {
-          id: decodeUuid(invitation.id, `${entryPath}.id`),
-          courseLabel: boundedTrimmedText(
-            invitation.courseLabel,
-            `${entryPath}.courseLabel`,
-            MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
-          ),
-          state: decodeStringEnum(invitation.state, `${entryPath}.state`, INVITATION_STATES),
-          expiresAt: decodeTimestamp(invitation.expiresAt, `${entryPath}.expiresAt`),
-          state_precondition: canonicalPositivePostgresBigint(
-            invitation.state_precondition,
-            `${entryPath}.state_precondition`,
-          ),
-        };
-      },
-    ),
-    nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
-  };
-}
-
-export function decodeCourseInvitationTerminalActionRequest(
-  value: unknown,
-  path = "request",
-): CourseInvitationTerminalActionRequest {
-  const record = closed(value, path, ["action"]);
-  return {
-    action: decodeStringEnum(record.action, `${path}.action`, ["accept", "decline"] as const),
-  };
 }

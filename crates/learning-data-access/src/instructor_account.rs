@@ -43,7 +43,15 @@ pub struct InstructorAccountList {
     /// Exact self-owned IANA zone for the authenticated Sysadmin viewer.
     pub display_time_zone: AccountTimeZone,
     /// Account ID of the last row when another row exists past this page.
-    pub next_cursor: Option<AccountId>,
+    pub next_cursor: Option<String>,
+    pub state_choices: Vec<InstructorAccountStateChoice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstructorAccountStateChoice {
+    pub key: InstructorAccountState,
+    pub count: i64,
 }
 
 /// Sysadmin list constraints. A page size scans one server page; None returns the filtered list.
@@ -53,10 +61,18 @@ pub struct InstructorAccountBrowse {
     pub query: Option<String>,
     /// One Account State, or every state when absent.
     pub state: Option<InstructorAccountState>,
-    /// Return rows after this Account ID. The first page has no cursor.
-    pub after_account_id: Option<AccountId>,
+    pub sort: InstructorAccountSort,
+    /// Query-bound cursor; the first page has no cursor.
+    pub cursor: Option<String>,
     /// 50, 100, or 250. None is the complete filtered list.
     pub page_size: Option<i32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum InstructorAccountSort {
+    IdAscending,
+    IdDescending,
 }
 
 /// Account record created by a Sysadmin after outside vetting.

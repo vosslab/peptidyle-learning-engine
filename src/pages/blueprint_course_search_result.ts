@@ -1,4 +1,4 @@
-// Public Blueprint search result content. The list renders this record shape.
+// Shared Blueprint discovery result content. The list renders this record shape.
 
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { RecordContent } from "../components/record_list/record_list";
@@ -7,16 +7,18 @@ function blueprintCoursePath(blueprintCourseId: string): string {
   return `/blueprint-courses/${encodeURIComponent(blueprintCourseId)}`;
 }
 
-function editDate(editedAtMillis: number): string {
-  return new Date(editedAtMillis).toLocaleDateString();
-}
-
-/** Compact public result: name, classification, author, and search-ranking signals. */
-export function publicBlueprintContent(course: BlueprintCourseSummaryView): RecordContent {
+/** Reusable result facts and inspection action for both Blueprint collections. */
+export function blueprintCourseContent(
+  course: BlueprintCourseSummaryView,
+  formatTimestamp: (timestamp: number | Date) => string,
+): RecordContent {
   return {
     title: course.long_name,
-    description: course.short_name,
+    description: course.short_name === course.long_name ? undefined : course.short_name,
     details: [
+      ...(course.availability === "archived"
+        ? [{ kind: "text" as const, label: "Availability", value: "Archived" }]
+        : []),
       {
         kind: "text",
         label: "Current Blueprint Revision",
@@ -31,7 +33,11 @@ export function publicBlueprintContent(course: BlueprintCourseSummaryView): Reco
       { kind: "text", label: "Institution", value: course.owner_affiliation },
       { kind: "text", label: "Stars", value: course.star_count.toLocaleString() },
       { kind: "text", label: "Watches", value: course.watcher_count.toLocaleString() },
-      { kind: "text", label: "Last edited", value: editDate(course.last_edited_at_millis) },
+      {
+        kind: "text",
+        label: "Last edited",
+        value: formatTimestamp(course.last_edited_at_millis),
+      },
       { kind: "text", label: "Adoptions", value: course.total_adoptions.toLocaleString() },
       {
         kind: "text",

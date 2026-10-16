@@ -10,7 +10,7 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionDetails,
     QuestionDetailsPromptView, QuestionSearchResult, QuestionStatistics, QuestionUsageTotals,
-    QuestionUseDetails, QuestionUseSummary, ReusableQuestionView, ReusableSelectionAvailability,
+    QuestionUseDetails, ReusableQuestionView, ReusableSelectionAvailability,
 };
 
 use super::{
@@ -59,6 +59,7 @@ pub(crate) async fn answer_free_reusable_question_view(
 pub(super) fn details_from_resolved(
     resolved: ResolvedQuestionLibraryEntry,
     evidence: QuestionStatistics,
+    usage: QuestionUseDetails,
 ) -> QuestionDetails {
     QuestionDetails {
         summary: resolved.summary,
@@ -70,16 +71,7 @@ pub(super) fn details_from_resolved(
         },
         response_preview: resolved.response_preview,
         evidence,
-        usage: QuestionUseDetails {
-            summary: QuestionUseSummary {
-                global_course_count: 0,
-                global_assessment_count: 0,
-                own_course_count: 0,
-                own_assessment_count: 0,
-            },
-            own_courses: Vec::new(),
-            own_courses_truncated: false,
-        },
+        usage,
     }
 }
 

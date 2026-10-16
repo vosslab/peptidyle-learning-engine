@@ -452,7 +452,7 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
     p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid,
     p_published_question_id text, p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
-    p_target_created_at_millis bigint, p_authorship jsonb,
+    p_target_created_at_millis bigint, p_authorship jsonb, p_self_author_position integer,
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
@@ -485,6 +485,8 @@ BEGIN
        OR p_target_media_type IS NULL OR char_length(btrim(p_target_media_type)) NOT BETWEEN 1 AND 255
        OR p_target_created_at_millis IS NULL OR p_authorship IS NULL
        OR jsonb_typeof(p_authorship) <> 'array' OR jsonb_array_length(p_authorship) NOT BETWEEN 1 AND 16
+       OR (p_self_author_position IS NOT NULL AND
+           (p_self_author_position < 0 OR p_self_author_position >= jsonb_array_length(p_authorship)))
        OR p_discipline_uuid IS NULL OR p_subject_uuid IS NULL
        OR (p_subtopic_uuid IS NOT NULL AND p_topic_uuid IS NULL)
        OR NOT ple_data.question_metadata_tags_are_valid(p_initial_shared_tags)
@@ -522,6 +524,12 @@ BEGIN
     IF NOT FOUND OR v_current_draft_question_edit_number <> p_expected_draft_question_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Question Publication Draft Question Edit Number is stale or not in its workspace';
+    END IF;
+    -- ASVS 2.2.2, 2.3.3, 8.2.3: source authorship is copied on forks;
+    -- only a fresh lineage may bind one reviewed name to the session actor.
+    IF v_parent_published_question_id IS NOT NULL AND p_self_author_position IS NOT NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Fork Publication preserves source authorship';
     END IF;
     IF (v_parent_published_question_id IS NULL)
             IS DISTINCT FROM (v_reserved_published_question_id IS NULL)
@@ -654,7 +662,9 @@ BEGIN
     ELSE
         INSERT INTO ple_data.question_revision_authorship(
             published_question_id, revision_number, author_position, author_display_name, author_account_id
-        ) SELECT p_published_question_id, 1, author.ordinality::integer, author.value #>> '{}', NULL::uuid
+        ) SELECT p_published_question_id, 1, author.ordinality::integer, author.value #>> '{}',
+                 CASE WHEN author.ordinality - 1 = p_self_author_position
+                      THEN actor_id::ple_data.account_id ELSE NULL::ple_data.account_id END
             FROM jsonb_array_elements(p_authorship) WITH ORDINALITY AS author(value, ordinality);
     END IF;
     INSERT INTO ple_data.question_revision_license(published_question_id, revision_number, spdx_expression)
@@ -702,7 +712,7 @@ CREATE FUNCTION ple_api.publish_new_question_lineage(
     p_draft_question_uuid uuid, p_expected_draft_question_edit_number bigint, p_authoring_workspace_id uuid,
     p_published_question_id text, p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
-    p_target_created_at_millis bigint, p_authorship jsonb,
+    p_target_created_at_millis bigint, p_authorship jsonb, p_self_author_position integer,
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
@@ -712,6 +722,7 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_new_question_lineage(p_draft_question_uuid, p_expected_draft_question_edit_number,
         p_authoring_workspace_id, p_published_question_id, p_target_object_id, p_target_object_address, p_target_sha256,
         p_target_size_bytes, p_target_media_type, p_target_created_at_millis, p_authorship,
+        p_self_author_position,
         p_initial_shared_tags, p_discipline_uuid, p_subject_uuid,
         p_topic_uuid, p_subtopic_uuid, p_license,
         p_reason_for_edit, p_ownership_event_id, p_publication_event_id, p_availability_event_id,

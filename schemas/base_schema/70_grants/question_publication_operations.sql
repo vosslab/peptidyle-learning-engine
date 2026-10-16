@@ -39,19 +39,19 @@ SET LOCAL ROLE ple_private_owner;
 
 REVOKE ALL ON FUNCTION ple_private.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_private.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) FROM PUBLIC;
+        text, bigint, jsonb, integer, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_private.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_private.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) TO ple_api_owner;
+        text, bigint, jsonb, integer, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_api.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) FROM PUBLIC;
+        text, bigint, jsonb, integer, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_api.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) TO ple_app;
+        text, bigint, jsonb, integer, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) TO ple_app;
 

@@ -1,8 +1,9 @@
-import { For, batch, type JSX } from "solid-js";
+import { For, Show, batch, type JSX } from "solid-js";
 
 import type { ContentClassificationClient } from "../../api/content_classification";
 import { AuthoringClassificationLevel } from "../../components/authoring_classification_level";
 import { ContentClassificationSelect } from "../../components/content_classification_select";
+import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 export { canPublishWebworkDraft, isDraftSnapshotSaved } from "./question_publication_review_model";
 
 export type QuestionPublicationReviewFieldsProps = {
@@ -10,20 +11,40 @@ export type QuestionPublicationReviewFieldsProps = {
   readonly changed: ReadonlyArray<string>;
   readonly isSaved: () => boolean;
   readonly isLocked: () => boolean;
+  readonly reviewDirty: () => boolean;
   readonly authorshipText: string;
+  readonly selfAuthorPosition: number | null;
+  readonly allowSelfAuthorship: boolean;
   readonly disciplineUuid: string | null;
   readonly subjectUuid: string | null;
   readonly topicUuid: string | null;
   readonly subtopicUuid: string | null;
   readonly classificationClient: ContentClassificationClient;
   readonly onAuthorshipTextChange: (value: string) => void;
+  readonly onSelfAuthorPositionChange: (position: number | null) => void;
   readonly onAuthorshipInput: (element: HTMLTextAreaElement) => void;
   readonly onDisciplineChange: (uuid: string | null) => void;
   readonly onSubjectChange: (uuid: string | null) => void;
   readonly onTopicChange: (uuid: string | null) => void;
   readonly onSubtopicChange: (uuid: string | null) => void;
   readonly onPublish: () => void;
+  readonly onDiscardReviewChanges: () => void;
 };
+
+/** Stays mounted with the editor's review state, including while its form is hidden. */
+export function QuestionPublicationReviewGuard(props: {
+  readonly dirty: () => boolean;
+}): JSX.Element {
+  return (
+    <UnsavedChangesGuard
+      dirty={props.dirty}
+      copy={{
+        heading: "Publication review changes have not been published",
+        description: "Publish the Question to keep your review changes, or discard them.",
+      }}
+    />
+  );
+}
 
 /** Shared authorship and content classification review used by Native and WebWork Drafts. */
 export function QuestionPublicationReviewFields(
@@ -49,13 +70,34 @@ export function QuestionPublicationReviewFields(
           value={props.authorshipText}
           onInput={(event) => props.onAuthorshipTextChange(event.currentTarget.value)}
           aria-describedby="ple-question-json-authorship-help"
-          disabled={props.isLocked()}
+          disabled={props.isLocked() || !props.allowSelfAuthorship}
         />
         <span id="ple-question-json-authorship-help" class="ple-question-json-authoring__help">
-          Enter one to sixteen distinct names, one per line. This reviewed text, not account
-          information, is published with the question.
+          {props.allowSelfAuthorship
+            ? "Enter one to sixteen distinct names, one per line."
+            : "These inherited author names are preserved from the source Question."}
         </span>
       </label>
+      <Show when={props.allowSelfAuthorship}>
+        <label class="ple-question-json-authoring__field">
+          <span>Which author are you?</span>
+          <select
+            value={props.selfAuthorPosition === null ? "" : String(props.selfAuthorPosition)}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              props.onSelfAuthorPositionChange(value === "" ? null : Number(value));
+            }}
+            disabled={props.isLocked()}
+          >
+            <option value="">None of these authors</option>
+            <For each={props.authorshipText.split("\n").map((name) => name.trim())}>
+              {(name, position) => (
+                <option value={position()}>{name || `Author ${position() + 1}`}</option>
+              )}
+            </For>
+          </select>
+        </label>
+      </Show>
       <div class="publication-classification-fields">
         <ContentClassificationSelect
           label="Discipline"
@@ -135,6 +177,16 @@ export function QuestionPublicationReviewFields(
       >
         Confirm and publish
       </button>
+      <Show when={props.reviewDirty()}>
+        <button
+          type="button"
+          class="quiet-action"
+          disabled={props.isLocked()}
+          onClick={props.onDiscardReviewChanges}
+        >
+          Discard review changes
+        </button>
+      </Show>
     </div>
   );
 }

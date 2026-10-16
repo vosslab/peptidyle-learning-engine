@@ -1,15 +1,19 @@
-// Instructor-only discovery of available Public Blueprint Courses.
-
-import { createEffect, createSignal, type JSX } from "solid-js";
+// Shared Instructor discovery of Public and Archived Blueprint Courses.
+import { Show, type JSX } from "solid-js";
 
 import type { BlueprintCourseClient } from "../api/blueprint_course";
 import type { ContentClassificationClient } from "../api/content_classification";
 import { useSessionBootstrap } from "../auth/session_context";
+import { PageFrame } from "../components/page_frame";
+import { SearchBlock } from "../features/search/search_block";
 import { SearchControls } from "../features/search/search_controls";
-import { SearchResults } from "../features/search/search_results";
-import { SearchPage } from "../features/search/search_page";
 import { createSearchState } from "../features/search/search_state";
+import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
 import { BlueprintSearchClassification } from "./blueprint_course_search_classification";
+import {
+  blueprintCourseSearchFields,
+  blueprintCourseSearchRecordQuery,
+} from "./blueprint_course_search_fields";
 import {
   blueprintCourseSearchDefinition,
   type BlueprintCourseSearchQuery,
@@ -17,45 +21,44 @@ import {
 import "../features/blueprint_course/blueprint_course.css";
 
 export interface PublicBlueprintSearchPageProps {
-  readonly client: Pick<BlueprintCourseClient, "listBlueprintCourses"> &
+  readonly client: Pick<
+    BlueprintCourseClient,
+    "listBlueprintCourses" | "listBlueprintCourseFacetChoices"
+  > &
     ContentClassificationClient;
 }
 
-/** Public Blueprint Course discovery using the shared submitted-search boundary. */
-export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps): JSX.Element {
+export interface BlueprintCourseCollectionProps extends PublicBlueprintSearchPageProps {
+  readonly scope: "public" | "all";
+  readonly actions?: JSX.Element;
+}
+
+/** Both routes submit the same whole-collection predicates to one paged query owner. */
+export function BlueprintCourseCollection(props: BlueprintCourseCollectionProps): JSX.Element {
   const sessionState = useSessionBootstrap().state();
   if (sessionState.kind !== "authenticated") {
-    throw new Error("Public Blueprint Search requires an authenticated session scope");
+    throw new Error("Blueprint Course discovery requires an authenticated session scope");
   }
-  const searchState = createSearchState(blueprintCourseSearchDefinition(props.client));
+  const formatTimestamp = useSelectedDisplayDateTimeFormatter();
+  const searchState = createSearchState(
+    blueprintCourseSearchDefinition(props.client, formatTimestamp, props.scope),
+    { runOnMount: props.scope === "all" },
+  );
   const query = searchState.query;
-  const [tagText, setTagText] = createSignal(query().tag);
-  let committedTag = query().tag;
-
-  createEffect(() => {
-    const nextTag = query().tag;
-    if (nextTag === committedTag) return;
-    committedTag = nextTag;
-    setTagText(nextTag);
+  const fields = blueprintCourseSearchFields(props.client, props.scope, formatTimestamp);
+  const recordQuery = blueprintCourseSearchRecordQuery({
+    query,
+    apply: searchState.apply,
+    client: props.client,
+    scope: props.scope,
   });
 
   function applyFilters(change: Partial<BlueprintCourseSearchQuery>): void {
-    void searchState.apply({ ...query(), ...change });
-  }
-
-  function submitSearch(): void {
-    void searchState.apply({ ...query(), query: searchState.typedText(), tag: tagText() });
+    void searchState.apply((current) => ({ ...current, ...change }));
   }
 
   const controls = (
-    <SearchControls
-      state={searchState}
-      textLabel="Blueprint Course name"
-      displayAriaLabel="Blueprint result display"
-      onSubmit={submitSearch}
-      onClear={() => setTagText("")}
-      hasDraft={() => tagText().length > 0}
-    >
+    <SearchControls state={searchState} textLabel="Blueprint Course name">
       <label>
         <input
           type="checkbox"
@@ -64,6 +67,16 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
         />{" "}
         Promoted only
       </label>
+      <Show when={props.scope === "all"}>
+        <label>
+          <input
+            type="checkbox"
+            checked={query().includeArchived}
+            onChange={(event) => applyFilters({ includeArchived: event.currentTarget.checked })}
+          />{" "}
+          Include Archived
+        </label>
+      </Show>
       <div class="blueprint-public-search__classification">
         <BlueprintSearchClassification
           client={props.client}
@@ -73,41 +86,38 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
           }
         />
       </div>
-      <label class="blueprint-public-search__query" for="public-blueprint-tag">
-        <span>Tag</span>
-        <input
-          id="public-blueprint-tag"
-          type="search"
-          value={tagText()}
-          onInput={(event) => setTagText(event.currentTarget.value)}
-        />
-      </label>
     </SearchControls>
   );
-  const results = (
-    <section class="blueprint-public-search" aria-labelledby="public-blueprint-results-heading">
-      <h2 id="public-blueprint-results-heading">Available Public Blueprint Courses</h2>
-      <SearchResults
+  return (
+    <>
+      {props.actions}
+      <SearchBlock
         state={searchState}
-        ariaLabel="Available Public Blueprint Courses"
-        emptyState={{
-          title: "No available Public Blueprint Courses match.",
-          message: "Try another name or classification, or clear the search.",
+        layout="above"
+        controls={controls}
+        collection={{
+          ariaLabel: props.scope === "all" ? "Blueprint Courses" : "Public Blueprint Courses",
+          fields,
+          query: recordQuery,
+          initialEmptyState: {
+            title: "Enter a name or choose a classification to search.",
+            message: "",
+          },
+          emptyState: {
+            title: "No Blueprint Courses match.",
+            message: "Try another name or classification, or clear the search.",
+          },
         }}
       />
-    </section>
+    </>
   );
+}
 
+/** Public discovery keeps its own route title and visibility scope. */
+export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps): JSX.Element {
   return (
-    <SearchPage
-      state={searchState}
-      hasDraft={() => tagText().length > 0}
-      toolbar={controls}
-      results={results}
-      routeSurface="publicBlueprintSearch"
-      eyebrow="Blueprint Courses"
-      title="Search Public Blueprint Courses"
-      lede="Find reusable course structure by short or long name. Open a Blueprint Course to inspect it or create a Course Instance."
-    />
+    <PageFrame routeSurface="publicBlueprintSearch">
+      <BlueprintCourseCollection client={props.client} scope="public" />
+    </PageFrame>
   );
 }

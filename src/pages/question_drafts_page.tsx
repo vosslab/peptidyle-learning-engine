@@ -1,15 +1,14 @@
 // question_drafts_page.tsx - private Authoring Workspace entry and Draft Question list.
 
 import { useNavigate } from "@solidjs/router";
-import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createResource, createSignal, type JSX } from "solid-js";
 
 import { PageFrame } from "../components/page_frame";
 import { QuestionImportScreen } from "./question_import_screen";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
+import type { RecordContent } from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import { decodePublishedQuestionRevisionTuple } from "../api/decoders/shared";
@@ -20,6 +19,11 @@ import {
   QUESTION_DRAFT_CREATION_FORMATS,
   type QuestionDraftCreationFormat,
 } from "../api/question_draft_creation";
+import {
+  compareDraftEditNumbers,
+  questionDraftSearchFields,
+  type DraftSearchSortKey,
+} from "./question_drafts_search_fields";
 import "./question_drafts_page.css";
 
 type DraftSummary = {
@@ -96,9 +100,9 @@ async function listDrafts(): Promise<ReadonlyArray<DraftSummary>> {
     credentials: "same-origin",
     cache: "no-store",
   });
-  if (!response.ok) throw new Error("My Question Drafts is unavailable.");
+  if (!response.ok) throw new Error("My Drafts is unavailable.");
   const value: unknown = await response.json();
-  if (!isDraftList(value)) throw new Error("My Question Drafts returned an invalid response.");
+  if (!isDraftList(value)) throw new Error("My Drafts returned an invalid response.");
   return value.items;
 }
 
@@ -126,7 +130,6 @@ export function QuestionDraftsPage(): JSX.Element {
   const navigate = useNavigate();
   const [drafts, { refetch }] = createResource(listDrafts);
   const draftCreationClient = createQuestionDraftCreationClient();
-  const draftsLoadFailed = createMemo(() => drafts.error !== undefined);
   const [creating, setCreating] = createSignal(false);
   const [importing, setImporting] = createSignal(false);
   const [creationFormat, setCreationFormat] =
@@ -136,20 +139,17 @@ export function QuestionDraftsPage(): JSX.Element {
   const [pendingDelete, setPendingDelete] = createSignal<DraftSummary>();
   const [deleteMessage, setDeleteMessage] = createSignal<string>();
   const [message, setMessage] = createSignal<PageMessage>();
-  const draftListState = createMemo<RecordListState>(() => {
-    if (drafts.loading) {
-      return { kind: "loading", label: "Loading your private Draft Questions..." };
-    }
-    if (draftsLoadFailed()) {
-      return {
-        kind: "error",
-        title: "My Question Drafts is unavailable.",
-        message: "Try loading your Draft Questions again.",
-        retry: (): void => void refetch(),
-      };
-    }
-    return { kind: "ready" };
-  });
+  const draftSearch = createLocalCompleteSearch(
+    { resource: drafts, refetchSource: refetch, rows: (value) => value },
+    {
+      fields: questionDraftSearchFields,
+      rowId: (draft) => draft.draftQuestionId,
+      keyword: (draft) => `${draft.questionTitle} ${draft.questionDescription}`,
+      compare: (key: DraftSearchSortKey, left, right) =>
+        key === "editNumber" ? compareDraftEditNumbers(left, right) : undefined,
+      content: (draft) => draftContent(draft, deleting, requestDelete),
+    },
+  );
 
   async function createDraft(): Promise<void> {
     if (creating()) return;
@@ -229,18 +229,9 @@ export function QuestionDraftsPage(): JSX.Element {
   }
 
   return (
-    <PageFrame
-      routeSurface="questionDrafts"
-      eyebrow="Private instructor authoring"
-      title="My Draft Questions"
-      lede="Draft Questions stay in your Authoring Workspace until you publish a validated question."
-    >
+    <PageFrame routeSurface="questionDrafts">
       <Show when={!importing()}>
-        <section class="question-draft-creation" aria-labelledby="question-draft-creation-heading">
-          <h2 id="question-draft-creation-heading">Create a private Draft Question</h2>
-          <p>
-            Choose the source format for this Draft. Its Backend, format, and PG path stay fixed.
-          </p>
+        <section class="question-draft-creation" aria-label="Create a Draft Question">
           <form
             class="question-draft-creation__form"
             onSubmit={(event) => {
@@ -276,8 +267,7 @@ export function QuestionDraftsPage(): JSX.Element {
                 />
               </label>
               <p id="question-draft-webwork-path-help">
-                Enter the allowed relative PG path for the configured WebWork Library. This path
-                becomes part of the Draft binding.
+                Use a registered relative PG path. It stays fixed for this Draft.
               </p>
             </Show>
             <button
@@ -317,15 +307,33 @@ export function QuestionDraftsPage(): JSX.Element {
         )}
       </Show>
       <Show when={!importing()}>
-        <RecordList
-          rows={drafts() ?? []}
-          content={(draft) => draftContent(draft, deleting, requestDelete)}
-          recordId={(draft) => draft.draftQuestionId}
-          state={draftListState()}
-          ariaLabel="Private Draft Questions"
-          emptyState={{
-            title: "No Draft Questions yet",
-            message: "Create a Draft Question to begin authoring privately.",
+        <SearchBlock
+          layout="above"
+          controls={
+            <SearchControls state={draftSearch.state} textLabel="Search My Drafts">
+              <button
+                type="button"
+                class="quiet-action"
+                onClick={() => void draftSearch.state.refresh()}
+              >
+                Refresh drafts
+              </button>
+            </SearchControls>
+          }
+          state={draftSearch.state}
+          collection={{
+            ariaLabel: "Private Draft Questions",
+            fields: questionDraftSearchFields,
+            query: draftSearch.query,
+            get emptyState() {
+              return {
+                title:
+                  draftSearch.state.query().text.length > 0 ||
+                  draftSearch.state.query().filters.size > 0
+                    ? "No Draft Questions match these filters"
+                    : "No Draft Questions yet",
+              };
+            },
           }}
         />
       </Show>

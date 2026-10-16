@@ -15,6 +15,7 @@ import { LibraryWatchNotificationsPage } from "./pages/library_watch_notificatio
 import { LibraryObjectDetailPage } from "./pages/library_object_detail_page";
 import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
 import { MyQuestionsPage } from "./pages/my_questions_page";
+import { MyPoolsPage } from "./pages/my_pools_page";
 import { StarredQuestionsPage } from "./pages/starred_questions_page";
 import { QuestionDraftsPage } from "./pages/question_drafts_page";
 import { CourseInstancePage } from "./pages/course_instance_page";
@@ -35,7 +36,6 @@ import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
 import { ProfilePage } from "./pages/profile_page";
 import { InstructorProfilePage } from "./pages/instructor_profile_page";
-import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
 import {
@@ -80,7 +80,6 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   profile: ProfilePage,
   instructorProfile: InstructorProfilePage,
   signIn: SignInPage,
-  pendingCourseInvitations: AccountPendingInvitationsPage,
   studentCourseInvitations: StudentCourseInvitationsPage,
   studentCourseInvitation: StudentCourseInvitationPage,
   studentCourseLanding: StudentCourseLandingPage,
@@ -103,6 +102,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   libraryWatchNotifications: LibraryWatchNotificationsPage,
   questionDetail: LibraryObjectDetailPage,
   myQuestions: MyQuestionsPage,
+  myPools: MyPoolsPage,
   starredQuestions: StarredQuestionsPage,
   questionDrafts: QuestionDraftsPage,
   questionDraftEditor: QuestionDraftEditorPage,

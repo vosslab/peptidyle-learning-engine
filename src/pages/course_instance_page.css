@@ -1,35 +1,12 @@
 /* Course Instance keeps the ordered teaching workflow ahead of administration. */
 
-.course-instance-page__assessments,
 .course-instance-page__details {
   display: grid;
   gap: var(--ple-space-3);
 }
 
-.course-instance-page__section-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--ple-space-5);
-  align-items: end;
-  padding-block-end: var(--ple-space-3);
-  border-block-end: 1px solid color-mix(in srgb, var(--ple-ink) 12%, transparent);
-}
-
-.course-instance-page__section-heading h2,
 .course-instance-page__details h2 {
   margin: 0;
-}
-
-.course-instance-page__section-lede {
-  max-inline-size: 68ch;
-  margin: var(--ple-space-1) 0 0;
-  color: var(--ple-muted);
-}
-
-.course-instance-page__details {
-  margin-block-start: var(--ple-section-gap);
-  padding-block-start: var(--ple-section-gap);
-  border-block-start: 1px solid color-mix(in srgb, var(--ple-ink) 12%, transparent);
 }
 
 .course-instance-page__detail-grid {
@@ -138,13 +115,8 @@
 }
 
 @media (max-width: 48rem) {
-  .course-instance-page__section-heading,
   .course-instance-page__detail-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .course-instance-page__section-heading .primary-link {
-    justify-self: start;
   }
 
   .course-instance-page__detail-group--wide {

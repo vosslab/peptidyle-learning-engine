@@ -49,8 +49,8 @@ its URL works.
 Preserve the settled Instructor mappings:
 
 - **Courses:** My Blueprint Courses, My Active Courses, My Inactive Courses,
-  Search Public Blueprint Courses.
-- **Questions:** My Questions, My Draft Questions, Starred, Watched, Search
+  Search Blueprint Courses, My Change Proposals.
+- **Questions:** My Questions, My Pools, My Drafts, Starred, Watched, Search
   Question Library, Browse Question Library.
 - **Assessments:** Assessments Due Soon, My Assessment Templates.
 

@@ -1,43 +1,30 @@
 // Live Sysadmin Instructor Account workflow; it never renders Authentication Email.
 
-import { Show, createMemo, createResource, createSignal, type Accessor, type JSX } from "solid-js";
+import { Show, createEffect, createSignal, type JSX } from "solid-js";
 
 import type {
   InstructorAccountBrowse,
-  InstructorAccountList,
-  InstructorAccountPageSize,
   InstructorAccountState,
   InstructorAccountSummary,
 } from "../api/instructor_account";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { PageFrame } from "../components/page_frame";
-import {
-  RecordList,
-  type RecordContent,
-  type RecordListState,
-} from "../components/record_list/record_list";
+import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
+import { type RecordContent } from "../components/record_list/record_list";
+import type {
+  RecordField,
+  RecordListQuery,
+  RecordSort,
+} from "../components/record_list/record_fields";
+import { SearchBlock } from "../features/search/search_block";
+import { createSearchState } from "../features/search/search_state";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { PROVIDED_AVATAR_CATALOG } from "../features/profile_avatar/avatar_catalog_generated";
 import { formatSignInLabel } from "./instructor_account_model";
-import "./instructor_accounts_page.css";
 
-const unavailableAccountList: InstructorAccountList = {
-  accounts: [],
-  displayTimeZone: "UTC",
-  nextCursor: null,
-};
-
-function accountStateFilter(value: string): InstructorAccountState | null {
-  if (value === "active" || value === "deactivated" || value === "closed") return value;
-  return null;
-}
-
-function accountPageSize(value: string): InstructorAccountPageSize {
-  if (value === "100") return 100;
-  if (value === "250") return 250;
-  return 50;
-}
+type AccountSortKey = "id";
+type AccountFilterKey = "state";
 
 function stateLabel(state: InstructorAccountSummary["state"]): string {
   switch (state) {
@@ -63,38 +50,132 @@ function accountAvatarMedia(account: InstructorAccountSummary): RecordContent["m
 export function InstructorAccountsPage(): JSX.Element {
   const runtime = useApplicationApi();
   const session = useSessionBootstrap();
-  const isSysadmin = createMemo(() => {
-    const current = session.state();
-    return current.kind === "authenticated" && current.session.account.userRole === "sysadmin";
-  });
-  const [draftQuery, setDraftQuery] = createSignal("");
-  const [activeQuery, setActiveQuery] = createSignal("");
-  const [stateFilter, setStateFilter] = createSignal<InstructorAccountState | null>(null);
-  const [pageSize, setPageSize] = createSignal<InstructorAccountPageSize>(50);
-  const [afterAccountId, setAfterAccountId] = createSignal<InstructorAccountSummary["id"] | null>(
-    null,
-  );
-  const [cursorStack, setCursorStack] = createSignal<
-    ReadonlyArray<InstructorAccountSummary["id"] | null>
-  >([]);
-  const [accounts, { refetch, mutate }] = createResource<
-    InstructorAccountList,
-    InstructorAccountBrowse | false
-  >(
-    () =>
-      isSysadmin()
-        ? {
-            query: activeQuery(),
-            state: stateFilter(),
-            pageSize: pageSize(),
-            afterAccountId: afterAccountId(),
-          }
-        : false,
-    async (source) => {
-      if (source === false) return unavailableAccountList;
-      return runtime.client.findInstructorAccounts(source);
+  const [displayTimeZone, setDisplayTimeZone] = createSignal("UTC");
+  const accountFields: ReadonlyArray<
+    RecordField<InstructorAccountSummary, AccountSortKey, AccountFilterKey>
+  > = [
+    {
+      id: "account_id",
+      label: "Account ID",
+      role: "identity",
+      sortKey: "id",
+      value: (account) => account.id,
+      defaultColumn: { priority: 0, width: "12rem" },
     },
+    {
+      id: "state",
+      label: "State",
+      filterKey: "state",
+      value: (account) => account.state,
+      defaultColumn: { priority: 1, width: "9rem" },
+    },
+    {
+      id: "last_sign_in",
+      label: "Last sign-in",
+      value: (account) => account.lastSuccessfulSignIn,
+      render: (account) =>
+        formatSignInLabel(
+          account.lastSuccessfulSignIn,
+          createDisplayDateTimeFormatter(displayTimeZone()),
+        ),
+      defaultColumn: { priority: 2, width: "14rem" },
+    },
+    {
+      id: "avatar",
+      label: "Avatar",
+      value: (account) => account.providedAvatarId,
+      defaultColumn: { priority: 3, width: "8rem", visible: false },
+    },
+  ];
+  const [stateChoices, setStateChoices] = createSignal<
+    ReadonlyArray<{ key: InstructorAccountState; count: number }>
+  >([]);
+  const searchState = createSearchState<
+    Pick<InstructorAccountBrowse, "query" | "state" | "sort">,
+    InstructorAccountSummary,
+    undefined
+  >(
+    {
+      initialQuery: { query: "", state: null, sort: "idAscending" },
+      maximumPageSize: 100,
+      cleanup: (query) => ({ ...query, query: query.query.trim() }),
+      isEligible: () => true,
+      getText: (query) => query.query,
+      setText: (query, text) => ({ ...query, query: text }),
+      rowId: (account) => account.id,
+      content: accountContent,
+      fetchPage: async (query, cursor, pageSize) => {
+        const current = session.state();
+        if (current.kind !== "authenticated" || current.session.account.userRole !== "sysadmin") {
+          throw new Error("Instructor Account access unavailable");
+        }
+        const page = await runtime.client.findInstructorAccounts({
+          ...query,
+          cursor,
+          pageSize: pageSize === 250 ? 100 : pageSize,
+        });
+        setDisplayTimeZone(page.displayTimeZone);
+        setStateChoices(page.stateChoices);
+        return { items: page.accounts, nextCursor: page.nextCursor, filterCounts: undefined };
+      },
+    },
+    {},
   );
+  let openedForSession = false;
+  createEffect(() => {
+    const current = session.state();
+    if (
+      !openedForSession &&
+      current.kind === "authenticated" &&
+      current.session.account.userRole === "sysadmin"
+    ) {
+      openedForSession = true;
+      void searchState.open(searchState.query());
+    }
+  });
+  const accountQuery: RecordListQuery<AccountSortKey, AccountFilterKey> = {
+    kind: "paged",
+    sort: {
+      get value(): RecordSort<AccountSortKey> {
+        return {
+          key: "id",
+          direction: searchState.query().sort === "idAscending" ? "ascending" : "descending",
+        };
+      },
+      onChange: (sort) =>
+        void searchState.apply((current) => ({
+          ...current,
+          sort: sort.direction === "ascending" ? "idAscending" : "idDescending",
+        })),
+    },
+    filters: {
+      get values() {
+        return new Map<AccountFilterKey, ReadonlyArray<string>>([
+          ["state", searchState.query().state === null ? [] : [searchState.query().state!]],
+        ]);
+      },
+      onChange: (_field, values) =>
+        void searchState.apply((current) => ({
+          ...current,
+          state: (values[0] as InstructorAccountState | undefined) ?? null,
+        })),
+      onClear: () => void searchState.apply((current) => ({ ...current, state: null })),
+      choices: (_field, search, _cursor, signal) => {
+        const list = stateChoices().filter((choice) => choice.key.includes(search.toLowerCase()));
+        return Promise.resolve({
+          choices: signal.aborted
+            ? []
+            : list.map((choice) => ({
+                key: choice.key,
+                label: stateLabel(choice.key),
+                count: choice.count,
+              })),
+          selected: [],
+          nextCursor: null,
+        });
+      },
+    },
+  };
   const [email, setEmail] = createSignal("");
   const [firstName, setFirstName] = createSignal("");
   const [lastName, setLastName] = createSignal("");
@@ -106,33 +187,8 @@ export function InstructorAccountsPage(): JSX.Element {
   const [announcement, setAnnouncement] = createSignal("");
   const [pendingDeactivation, setPendingDeactivation] =
     createSignal<InstructorAccountSummary | null>(null);
-
-  const accountListState = (): RecordListState => {
-    if (accounts.loading) return { kind: "loading", label: "Loading Instructor Accounts..." };
-    if (accounts.error !== undefined) {
-      return {
-        kind: "error",
-        title: "Instructor Accounts unavailable",
-        message: "Instructor Accounts could not load. Check your connection and try again.",
-        retry: () => void refetch(),
-        retryLabel: "Retry",
-      };
-    }
-    return { kind: "ready" };
-  };
-
-  function updateAccount(updated: InstructorAccountSummary): void {
-    mutate((current) =>
-      current === undefined
-        ? current
-        : {
-            ...current,
-            accounts: current.accounts.map((account) =>
-              account.id === updated.id ? updated : account,
-            ),
-          },
-    );
-  }
+  const [editingDeactivation, setEditingDeactivation] =
+    createSignal<InstructorAccountSummary | null>(null);
 
   function setReason(accountId: string, reason: string): void {
     setReasonByAccountId((current) => ({ ...current, [accountId]: reason }));
@@ -147,52 +203,15 @@ export function InstructorAccountsPage(): JSX.Element {
     });
   }
 
-  function resetPage(): void {
-    setAfterAccountId(null);
-    setCursorStack([]);
-  }
-
   function findAccounts(event: SubmitEvent): void {
     event.preventDefault();
-    const query = draftQuery().trim();
+    const query = searchState.typedText().trim();
     if ([...query].length > 320 || /[\p{Cc}]/u.test(query)) {
       setError("Enter a name or email within 320 characters.");
       return;
     }
     setError(null);
-    resetPage();
-    setActiveQuery(query);
-    setAnnouncement("Instructor Account list updated.");
-  }
-
-  function changeStateFilter(value: string): void {
-    setError(null);
-    resetPage();
-    setStateFilter(accountStateFilter(value));
-    setAnnouncement("Instructor Account list updated.");
-  }
-
-  function changePageSize(value: string): void {
-    setError(null);
-    resetPage();
-    setPageSize(accountPageSize(value));
-    setAnnouncement("Instructor Account list updated.");
-  }
-
-  function showNextPage(): void {
-    const cursor = accounts()?.nextCursor ?? null;
-    if (cursor === null || accounts.loading) return;
-    setCursorStack((current) => [...current, afterAccountId()]);
-    setAfterAccountId(cursor);
-    setAnnouncement("Instructor Account list updated.");
-  }
-
-  function showPreviousPage(): void {
-    const stack = cursorStack();
-    const previous = stack[stack.length - 1];
-    if (previous === undefined) return;
-    setCursorStack(stack.slice(0, -1));
-    setAfterAccountId(previous);
+    void searchState.apply((current) => ({ ...current, query }));
     setAnnouncement("Instructor Account list updated.");
   }
 
@@ -223,11 +242,7 @@ export function InstructorAccountsPage(): JSX.Element {
         lastName: lastName(),
         affiliation: affiliation(),
       });
-      mutate((current) => {
-        if (current === undefined) return current;
-        const accounts = [created.account, ...current.accounts];
-        return { ...current, accounts };
-      });
+      void searchState.refresh();
       setEmail("");
       setFirstName("");
       setLastName("");
@@ -255,6 +270,7 @@ export function InstructorAccountsPage(): JSX.Element {
       return;
     }
     setError(null);
+    setEditingDeactivation(null);
     setPendingDeactivation(account);
   }
 
@@ -269,7 +285,8 @@ export function InstructorAccountsPage(): JSX.Element {
     setAccountBusy(account.id, true);
     setError(null);
     try {
-      updateAccount(await runtime.client.deactivateInstructorAccount(account.id, { reason }));
+      await runtime.client.deactivateInstructorAccount(account.id, { reason });
+      void searchState.refresh();
       setReason(account.id, "");
       setAnnouncement(`Instructor Account ${account.id} deactivated.`);
     } catch {
@@ -284,7 +301,8 @@ export function InstructorAccountsPage(): JSX.Element {
     setAccountBusy(account.id, true);
     setError(null);
     try {
-      updateAccount(await runtime.client.reactivateInstructorAccount(account.id));
+      await runtime.client.reactivateInstructorAccount(account.id);
+      void searchState.refresh();
       setAnnouncement(`Instructor Account ${account.id} reactivated.`);
     } catch {
       setError(failureCopy());
@@ -312,12 +330,10 @@ export function InstructorAccountsPage(): JSX.Element {
   }
 
   function accountContent(account: InstructorAccountSummary): RecordContent {
-    const formatSignIn = createDisplayDateTimeFormatter(accounts()?.displayTimeZone ?? "UTC");
+    const formatSignIn = createDisplayDateTimeFormatter(displayTimeZone());
     return {
       title: account.id,
       details: [
-        // ASVS 8.2.3 / 14.2.6: this list is Instructor Accounts only, so the role is Instructor.
-        { kind: "text", label: "Role:", value: "Instructor" },
         { kind: "text", label: "State:", value: stateLabel(account.state) },
         {
           kind: "text",
@@ -327,127 +343,81 @@ export function InstructorAccountsPage(): JSX.Element {
       ],
       media: accountAvatarMedia(account),
       actions:
-        account.state === "deactivated"
+        account.state === "active"
           ? [
               {
-                id: "reactivate",
+                id: "deactivate",
+                kind: "command" as const,
+                label: "Deactivate",
+                disabled: busyAccountIds().has(account.id),
+                onClick: (): void => {
+                  setError(null);
+                  setEditingDeactivation(account);
+                },
+              },
+              {
+                id: "resend-setup-email",
                 kind: "command" as const,
                 label: busyAccountIds().has(account.id)
-                  ? "Updating..."
-                  : "Reactivate Instructor Account",
-                primary: true,
+                  ? "Sending setup email..."
+                  : "Send setup email again",
                 disabled: busyAccountIds().has(account.id),
-                onClick: () => void reactivate(account),
+                onClick: () => void resendSetupEmail(account),
               },
             ]
-          : [],
+          : account.state === "deactivated"
+            ? [
+                {
+                  id: "reactivate",
+                  kind: "command" as const,
+                  label: busyAccountIds().has(account.id)
+                    ? "Updating..."
+                    : "Reactivate Instructor Account",
+                  primary: true,
+                  disabled: busyAccountIds().has(account.id),
+                  onClick: () => void reactivate(account),
+                },
+              ]
+            : [],
     };
   }
 
-  function renderAccountBody(account: Accessor<InstructorAccountSummary>): JSX.Element {
-    return (
-      <>
-        <Show when={account().state === "active"}>
-          <section
-            class="instructor-account-consequence"
-            aria-label="Deactivate Instructor Account"
-          >
-            <p>Deactivation ends current sessions and blocks sign-in until reactivation.</p>
-            <label for={`deactivate-reason-${account().id}`}>
-              Deactivation reason
-              <input
-                id={`deactivate-reason-${account().id}`}
-                name={`deactivationReason-${account().id}`}
-                type="text"
-                value={reasonByAccountId()[account().id] ?? ""}
-                onInput={(event) => setReason(account().id, event.currentTarget.value)}
-                maxlength={1000}
-                required
-              />
-            </label>
-            <button
-              class="quiet-action"
-              type="button"
-              disabled={busyAccountIds().has(account().id)}
-              onClick={() => requestDeactivation(account())}
-            >
-              {busyAccountIds().has(account().id) ? "Updating..." : "Deactivate Instructor Account"}
-            </button>
-            <button
-              class="quiet-action"
-              type="button"
-              disabled={busyAccountIds().has(account().id)}
-              onClick={() => void resendSetupEmail(account())}
-            >
-              Send setup email again
-            </button>
-          </section>
-        </Show>
-        <Show when={account().state === "closed"}>
-          <p>This Instructor Account is closed and cannot be changed here.</p>
-        </Show>
-      </>
-    );
-  }
-
   return (
-    <PageFrame
-      routeSurface="instructorAccounts"
-      headingId="instructor-accounts-heading"
-      eyebrow="System administration"
-      title="Instructor Accounts"
-      lede="Create and manage Instructor Account access. Each row shows the Account ID, Instructor role, account state, and last successful sign-in. Email and display name stay off this list."
-    >
+    <PageFrame routeSurface="instructorAccounts">
       <p class="sr-only" role="status" aria-live="polite">
         {announcement()}
       </p>
-      <form class="auth-panel" novalidate onSubmit={findAccounts}>
-        <h2>Find an Instructor Account</h2>
-        <label for="instructor-account-find">
-          Name or email
-          <input
-            id="instructor-account-find"
-            name="instructorAccountFind"
-            type="search"
-            value={draftQuery()}
-            onInput={(event) => setDraftQuery(event.currentTarget.value)}
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck={false}
-            maxlength={320}
-          />
-        </label>
-        <label for="instructor-account-state">
-          Account state
-          <select
-            id="instructor-account-state"
-            name="accountState"
-            value={stateFilter() ?? ""}
-            onChange={(event) => changeStateFilter(event.currentTarget.value)}
-          >
-            <option value="">Any state</option>
-            <option value="active">Active</option>
-            <option value="deactivated">Deactivated</option>
-            <option value="closed">Closed</option>
-          </select>
-        </label>
-        <label for="instructor-account-page-size">
-          Accounts per page
-          <select
-            id="instructor-account-page-size"
-            name="accountPageSize"
-            value={String(pageSize())}
-            onChange={(event) => changePageSize(event.currentTarget.value)}
-          >
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="250">250</option>
-          </select>
-        </label>
-        <button class="primary-action" type="submit">
-          Find Instructor Account
-        </button>
-      </form>
+      <SearchBlock
+        layout="above"
+        state={searchState}
+        controls={
+          <form class="auth-panel" novalidate onSubmit={findAccounts}>
+            <label for="instructor-account-find">
+              Name or email
+              <input
+                id="instructor-account-find"
+                name="instructorAccountFind"
+                type="search"
+                value={searchState.typedText()}
+                onInput={(event) => searchState.setTypedText(event.currentTarget.value)}
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck={false}
+                maxlength={320}
+              />
+            </label>
+            <button class="primary-action" type="submit">
+              Find Instructor Account
+            </button>
+          </form>
+        }
+        collection={{
+          ariaLabel: "Instructor Accounts",
+          fields: accountFields,
+          query: accountQuery,
+          emptyState: { title: "No Instructor Accounts match the current search or filters." },
+        }}
+      />
       <form
         class="auth-panel"
         aria-busy={creating()}
@@ -520,40 +490,6 @@ export function InstructorAccountsPage(): JSX.Element {
           </section>
         )}
       </Show>
-      <div class="action-row">
-        <button
-          class="quiet-action"
-          type="button"
-          disabled={cursorStack().length === 0 || accounts.loading}
-          onClick={showPreviousPage}
-        >
-          Previous Instructor Accounts
-        </button>
-        <button
-          class="quiet-action"
-          type="button"
-          disabled={accounts.loading || (accounts()?.nextCursor ?? null) === null}
-          onClick={showNextPage}
-        >
-          Next Instructor Accounts
-        </button>
-      </div>
-      <RecordList
-        ariaLabel="Instructor Accounts"
-        emptyState={{
-          title:
-            activeQuery().length > 0
-              ? "No Instructor Account matches that name or email."
-              : stateFilter() === null
-                ? "No Instructor Accounts are available."
-                : "No Instructor Account matches that state.",
-        }}
-        recordId={(account) => account.id}
-        content={accountContent}
-        renderBody={renderAccountBody}
-        rows={accounts()?.accounts ?? []}
-        state={accountListState()}
-      />
       <Show when={pendingDeactivation()}>
         {(account) => (
           <dialog
@@ -573,6 +509,7 @@ export function InstructorAccountsPage(): JSX.Element {
             </p>
             <div class="action-row">
               <button
+                ref={(element) => queueMicrotask(() => element.focus())}
                 class="quiet-action"
                 type="button"
                 onClick={() => setPendingDeactivation(null)}
@@ -580,7 +517,6 @@ export function InstructorAccountsPage(): JSX.Element {
                 Keep this account active
               </button>
               <button
-                ref={(element) => queueMicrotask(() => element.focus())}
                 class="primary-action"
                 type="button"
                 onClick={() => void deactivate(account())}
@@ -591,6 +527,66 @@ export function InstructorAccountsPage(): JSX.Element {
           </dialog>
         )}
       </Show>
+      <Show when={editingDeactivation()}>
+        {(account) => (
+          <dialog
+            class="confirmation-dialog"
+            aria-labelledby="instructor-deactivation-editor-heading"
+            aria-describedby="instructor-deactivation-editor-copy"
+            ref={(element) => queueMicrotask(() => element.showModal())}
+            onCancel={(event) => {
+              event.preventDefault();
+              setEditingDeactivation(null);
+            }}
+          >
+            <h2 id="instructor-deactivation-editor-heading">Deactivate Instructor Account</h2>
+            <p id="instructor-deactivation-editor-copy">
+              Deactivation ends current sessions and blocks sign-in until reactivation. Enter the
+              reason that stays with this account state change.
+            </p>
+            <label for={`deactivate-reason-${account().id}`}>
+              Deactivation reason
+              <input
+                id={`deactivate-reason-${account().id}`}
+                name={`deactivationReason-${account().id}`}
+                type="text"
+                value={reasonByAccountId()[account().id] ?? ""}
+                onInput={(event) => setReason(account().id, event.currentTarget.value)}
+                maxlength={1000}
+                required
+              />
+            </label>
+            <div class="action-row">
+              <button
+                class="quiet-action"
+                type="button"
+                onClick={() => setEditingDeactivation(null)}
+              >
+                Keep this account active
+              </button>
+              <button
+                class="primary-action"
+                type="button"
+                disabled={busyAccountIds().has(account().id)}
+                onClick={() => requestDeactivation(account())}
+              >
+                Continue to confirmation
+              </button>
+            </div>
+          </dialog>
+        )}
+      </Show>
+      <UnsavedChangesGuard
+        dirty={() =>
+          [email(), firstName(), lastName(), affiliation()].some((value) => value.length > 0) ||
+          Object.values(reasonByAccountId()).some((reason) => reason.length > 0)
+        }
+        copy={{
+          heading: "Discard Instructor Account changes?",
+          description:
+            "The new account details or deactivation reasons entered here have not been used.",
+        }}
+      />
     </PageFrame>
   );
 }

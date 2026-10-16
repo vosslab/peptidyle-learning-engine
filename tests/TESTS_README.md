@@ -25,7 +25,7 @@ establish either connected result.
 
 - `test_*.py`: repo-owned behavior tests and unchanged vendored hygiene tests.
 - `test_*.mjs`: Node tests that exercise focused TypeScript behavior without shared mock infrastructure.
-- `playwright/e2e/`: two production-browser scenarios and their shared helper.
+- `playwright/e2e/`: registered production-browser specs and their shared helper.
 - `e2e/`: connected SQL oracles, their runners, browser orchestration, and runtime Compose profiles.
 - `../crates/`: Rust unit tests beside their owning implementation.
 - `_temp/`: ignored one-time verification, removed after the work it supports.

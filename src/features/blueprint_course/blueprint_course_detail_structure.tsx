@@ -84,14 +84,9 @@ export function BlueprintCourseDetailStructure(
     >
       <header class="blueprint-course-section-heading">
         <div>
-          <p class="eyebrow">Reusable course structure</p>
           <h2 id="blueprint-structure-heading">
             {props.editing ? "Edit Blueprint Assessments" : "Blueprint Assessments"}
           </h2>
-          <p>
-            Assessments define reusable teaching settings and Questions, never Students or delivery
-            dates.
-          </p>
         </div>
       </header>
       <Show when={props.editing && props.canEdit}>

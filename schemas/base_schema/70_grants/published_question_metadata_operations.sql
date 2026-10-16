@@ -22,6 +22,8 @@ GRANT EXECUTE ON FUNCTION ple_api.replace_published_question_metadata(
     text, integer, bigint, text, text, text, text[], uuid, uuid, uuid, uuid, text, text, text
 ) TO ple_app;
 
+SET LOCAL ROLE ple_private_owner;
+
 REVOKE ALL ON FUNCTION ple_private.bulk_replace_published_question_metadata(jsonb, jsonb)
     FROM PUBLIC;
 

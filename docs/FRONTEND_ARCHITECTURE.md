@@ -30,10 +30,10 @@ documented for migration, but new product copy uses the Human Guidance term.
 
 The primary Ribbon tabs are Courses, Questions, and Assessments.
 
-- Courses: My Blueprint Courses, My Active Courses, My Inactive Courses, and
-  Search Public Blueprint Courses.
-- Questions: My Questions, My Draft Questions, Starred, Watched, Search
-  Question Library, and Browse Question Library.
+- Courses: My Blueprint Courses, My Active Courses, My Inactive Courses,
+  Search Blueprint Courses, and My Change Proposals.
+- Questions: My Questions, My Pools, My Drafts, Starred, Watched,
+  Search Question Library, and Browse Question Library.
 - Assessments: Assessments Due Soon and My Assessment Templates.
 
 The Question Library is one subject-agnostic collection designed for thousands

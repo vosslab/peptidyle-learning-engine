@@ -23,13 +23,8 @@
   align-items: start;
 }
 
-.assessment-content-picker-dialog__controls,
-.assessment-content-picker-dialog__results {
+.assessment-content-picker-dialog__controls {
   margin-block: var(--ple-space-3);
-}
-
-.assessment-content-picker-dialog__selection-copy {
-  align-self: center;
 }
 
 @media (max-width: 44rem) {

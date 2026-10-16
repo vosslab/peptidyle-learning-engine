@@ -1,7 +1,10 @@
-import { Show, createEffect, createSignal, type Accessor, type JSX } from "solid-js";
+import { Show, createEffect, createSignal, onCleanup, type Accessor, type JSX } from "solid-js";
 
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { PublishedQuestionSharedMetadata } from "../../generated/api/PublishedQuestionSharedMetadata";
+import type { QuestionBackend } from "../../generated/api/QuestionBackend";
+import { decodeQuestionType } from "../api/decoders/question_response_format";
+import { QUESTION_BACKENDS } from "../api/decoders/shared";
 import type { ContentClassificationClient } from "../api/content_classification";
 import type {
   QuestionBulkMetadataClient,
@@ -13,13 +16,14 @@ import type {
 } from "../api/question_pool_search_metadata";
 import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
+import type { QuestionPoolStartingQuestion } from "../components/question_pool_create_model";
+import type { RecordAction } from "../components/record_list/record_list";
+import { confirmUnsavedChanges } from "../components/unsaved_changes_guard";
 import {
   QuestionPoolSearchMetadataEditor,
   type QuestionPoolSearchMetadataTarget,
 } from "../components/question_pool_search_metadata_editor";
-import { SearchSelectionBar } from "../features/search/search_selection_bar";
 import type { SearchStateController } from "../features/search/search_state";
-import type { LibraryObjectSearchSort } from "../../generated/api/LibraryObjectSearchSort";
 import type {
   LibrarySearchRow,
   QuestionLibraryBrowseQuery,
@@ -27,7 +31,11 @@ import type {
 } from "./library_page_model";
 
 type SelectedLibraryRow =
-  | { readonly kind: "question"; readonly title: string }
+  | {
+      readonly kind: "question";
+      readonly title: string;
+      readonly startingQuestion: QuestionPoolStartingQuestion;
+    }
   | {
       readonly kind: "pool";
       readonly title: string;
@@ -35,17 +43,20 @@ type SelectedLibraryRow =
     };
 
 export type LibraryBulkActionsController = {
+  readonly guardScope: symbol;
   readonly busy: Accessor<boolean>;
   readonly selectionNotice: Accessor<string | null>;
   readonly questionTitles: Accessor<ReadonlyMap<string, string>>;
   readonly selectedQuestionCount: Accessor<number>;
   readonly selectedPoolCount: Accessor<number>;
+  readonly toolbarActions: Accessor<ReadonlyArray<RecordAction>>;
   readonly clearForQueryChange: () => void;
-  readonly updateSelection: (row: LibrarySearchRow, selected: boolean) => void;
-  readonly selectLoaded: () => void;
-  readonly clearSelection: () => void;
+  readonly updateSelection: (row: LibrarySearchRow, selected: boolean) => Promise<void>;
+  readonly selectLoaded: () => Promise<void>;
+  readonly clearSelection: () => Promise<void>;
   readonly openQuestionMetadataEditor: () => Promise<void>;
-  readonly openPoolMetadataEditor: () => void;
+  readonly openPoolMetadataEditor: () => Promise<void>;
+  readonly openPoolCreation: () => Promise<void>;
   readonly setEditorBusy: (busy: boolean) => void;
   readonly metadata: Accessor<ReadonlyArray<PublishedQuestionSharedMetadata> | null>;
   readonly poolTargets: Accessor<ReadonlyArray<QuestionPoolSearchMetadataTarget> | null>;
@@ -66,16 +77,18 @@ type LibraryBulkActionsControllerProps = {
   readonly state: SearchStateController<
     QuestionLibraryBrowseQuery,
     LibrarySearchRow,
-    QuestionLibraryFilterCounts,
-    LibraryObjectSearchSort
+    QuestionLibraryFilterCounts
   >;
   readonly displayedRows: Accessor<ReadonlyArray<LibrarySearchRow>>;
   readonly refresh: () => Promise<void>;
   readonly metadataClient: QuestionBulkMetadataClient;
+  readonly onCreatePoolFromQuestions: (
+    startingQuestions: ReadonlyArray<QuestionPoolStartingQuestion>,
+  ) => void;
+  readonly guardScope: symbol;
 };
 
-function selectedRow(row: LibrarySearchRow): SelectedLibraryRow {
-  if (row.kind === "question") return { kind: "question", title: row.questionTitle };
+function selectedPoolRow(row: Extract<LibrarySearchRow, { kind: "pool" }>): SelectedLibraryRow {
   return {
     kind: "pool",
     title: row.title,
@@ -88,6 +101,26 @@ function selectedRow(row: LibrarySearchRow): SelectedLibraryRow {
       topicUuid: row.topicUuid,
       subtopicUuid: row.subtopicUuid,
       tags: row.tags,
+    },
+  };
+}
+
+export function selectedQuestionRow(
+  row: Extract<LibrarySearchRow, { kind: "question" }>,
+): SelectedLibraryRow {
+  if (!QUESTION_BACKENDS.includes(row.backend as QuestionBackend)) {
+    throw new Error("The selected Question has an unknown Backend.");
+  }
+  return {
+    kind: "question",
+    title: row.questionTitle,
+    startingQuestion: {
+      publishedQuestionRevisionTuple: row.publishedQuestionRevisionTuple,
+      questionTitle: row.questionTitle,
+      disciplineName: row.classification.disciplineName,
+      subjectName: row.classification.subjectName,
+      questionType: decodeQuestionType(row.questionType, "selected Question Type"),
+      backend: row.backend as QuestionBackend,
     },
   };
 }
@@ -111,6 +144,15 @@ export function createLibraryBulkActions(
   const [selectedRows, setSelectedRows] = createSignal<ReadonlyMap<string, SelectedLibraryRow>>(
     new Map(),
   );
+  let disposed = false;
+  let metadataReadId = 0;
+  onCleanup(() => {
+    disposed = true;
+  });
+
+  async function mayDiscardEditor(): Promise<boolean> {
+    return (await confirmUnsavedChanges(props.guardScope)) && !disposed;
+  }
 
   createEffect(() => {
     const rows = props.displayedRows();
@@ -119,7 +161,8 @@ export function createLibraryBulkActions(
       const next = new Map<string, SelectedLibraryRow>();
       for (const [id, row] of current) if (selected.has(id)) next.set(id, row);
       for (const row of rows)
-        if (selected.has(row.displayId)) next.set(row.displayId, selectedRow(row));
+        if (selected.has(row.displayId) && row.kind === "pool")
+          next.set(row.displayId, selectedPoolRow(row));
       return next;
     });
   });
@@ -135,10 +178,48 @@ export function createLibraryBulkActions(
         row.kind === "question" ? [[id, row.title]] : [],
       ),
     );
+  const toolbarActions = (): ReadonlyArray<RecordAction> => [
+    ...(selectedQuestionCount() > 0
+      ? [
+          {
+            id: "create-pool-from-questions",
+            kind: "command" as const,
+            label: `Create Pool from Questions (${selectedQuestionCount()})`,
+            primary: true,
+            onClick: (): void => void openPoolCreation(),
+          },
+        ]
+      : []),
+    ...(selectedQuestionCount() > 0
+      ? [
+          {
+            id: "edit-question-metadata",
+            kind: "command" as const,
+            label: `Edit Question metadata (${selectedQuestionCount()})`,
+            primary: true,
+            onClick: (): void => void openQuestionMetadataEditor(),
+          },
+        ]
+      : []),
+    ...(selectedPoolCount() > 0
+      ? [
+          {
+            id: "edit-pool-search-fields",
+            kind: "command" as const,
+            label: `Edit Pool search fields (${selectedPoolCount()})`,
+            primary: true,
+            onClick: (): void => void openPoolMetadataEditor(),
+          },
+        ]
+      : []),
+  ];
 
   function clearEditorState(): void {
+    metadataReadId += 1;
     setMetadata(null);
     setPoolTargets(null);
+    setLoading(false);
+    setBusy(false);
     setLoadError(false);
     setUpdateResults(null);
     setPoolUpdateResults(null);
@@ -146,8 +227,9 @@ export function createLibraryBulkActions(
   function clearForQueryChange(): void {
     clearEditorState();
   }
-  function updateSelection(row: LibrarySearchRow, selected: boolean): void {
+  async function updateSelection(row: LibrarySearchRow, selected: boolean): Promise<void> {
     const selectedIds = props.state.selectedIds();
+    if (selectedIds.has(row.displayId) === selected) return;
     if (
       selected &&
       !selectedIds.has(row.displayId) &&
@@ -158,18 +240,45 @@ export function createLibraryBulkActions(
       );
       return;
     }
+    if (!(await mayDiscardEditor())) return;
+    let nextRow: SelectedLibraryRow | undefined;
+    if (selected) {
+      try {
+        nextRow = row.kind === "question" ? selectedQuestionRow(row) : selectedPoolRow(row);
+      } catch {
+        setSelectionNotice("The selected Question could not be loaded. Try selecting it again.");
+        return;
+      }
+    }
     props.state.select(row, selected);
     setSelectedRows((current) => {
       const next = new Map(current);
-      if (selected) next.set(row.displayId, selectedRow(row));
+      if (selected && nextRow !== undefined) next.set(row.displayId, nextRow);
       else next.delete(row.displayId);
       return next;
     });
     clearEditorState();
     setSelectionNotice(null);
   }
-  function selectLoaded(): void {
+  async function selectLoaded(): Promise<void> {
+    if (props.displayedRows().every((row) => props.state.selectedIds().has(row.displayId))) return;
+    if (!(await mayDiscardEditor())) return;
+    const rows = props
+      .displayedRows()
+      .filter((row) => !props.state.selectedIds().has(row.displayId))
+      .slice(0, MAX_BULK_QUESTION_METADATA_ITEMS - props.state.selectedIds().size);
+    let added: ReadonlyArray<[string, SelectedLibraryRow]>;
+    try {
+      added = rows.map((row): [string, SelectedLibraryRow] => [
+        row.displayId,
+        row.kind === "question" ? selectedQuestionRow(row) : selectedPoolRow(row),
+      ]);
+    } catch {
+      setSelectionNotice("Some selected Questions could not be loaded. Try again.");
+      return;
+    }
     props.state.selectLoaded();
+    setSelectedRows((current) => new Map([...current, ...added]));
     clearEditorState();
     setSelectionNotice(
       props.displayedRows().length > MAX_BULK_QUESTION_METADATA_ITEMS
@@ -177,35 +286,51 @@ export function createLibraryBulkActions(
         : `Selected all ${props.displayedRows().length} loaded Library items.`,
     );
   }
-  function clearSelection(): void {
+  async function clearSelection(): Promise<void> {
+    if (props.state.selectedIds().size === 0) return;
+    if (!(await mayDiscardEditor())) return;
     props.state.clearSelection();
     setSelectedRows(new Map());
     clearEditorState();
     setSelectionNotice("Selection cleared.");
   }
   async function openQuestionMetadataEditor(): Promise<void> {
+    if (!(await mayDiscardEditor())) return;
+    clearEditorState();
+    const readId = metadataReadId;
     setLoading(true);
     setBusy(true);
     setLoadError(false);
     setUpdateResults(null);
     try {
       const selection = questionLibraryBulkSelectionRequest([...selectedQuestionIds()]);
-      setMetadata(
-        await props.metadataClient.getCurrentQuestionSharedMetadata(selection.questionIds),
+      const current = await props.metadataClient.getCurrentQuestionSharedMetadata(
+        selection.questionIds,
       );
+      if (!disposed && readId === metadataReadId) setMetadata(current);
     } catch {
-      setLoadError(true);
+      if (!disposed && readId === metadataReadId) setLoadError(true);
     } finally {
-      setLoading(false);
-      setBusy(false);
+      if (!disposed && readId === metadataReadId) {
+        setLoading(false);
+        setBusy(false);
+      }
     }
   }
-  function openPoolMetadataEditor(): void {
+  async function openPoolMetadataEditor(): Promise<void> {
+    if (!(await mayDiscardEditor())) return;
+    clearEditorState();
     setPoolTargets(
       [...selectedRows().values()].flatMap((row) => (row.kind === "pool" ? [row.target] : [])),
     );
-    setMetadata(null);
-    setLoadError(false);
+  }
+  async function openPoolCreation(): Promise<void> {
+    if (!(await mayDiscardEditor())) return;
+    const startingQuestions = [...selectedRows().values()].flatMap((row) =>
+      row.kind === "question" ? [row.startingQuestion] : [],
+    );
+    if (startingQuestions.length === 0) return;
+    props.onCreatePoolFromQuestions(startingQuestions);
   }
   function finishUpdate(kind: SelectedLibraryRow["kind"]): void {
     const completedIds = [...selectedRows()].flatMap(([id, row]) =>
@@ -229,17 +354,20 @@ export function createLibraryBulkActions(
     finishUpdate("pool");
   }
   return {
+    guardScope: props.guardScope,
     busy,
     selectionNotice,
     questionTitles,
     selectedQuestionCount,
     selectedPoolCount,
+    toolbarActions,
     clearForQueryChange,
     updateSelection,
     selectLoaded,
     clearSelection,
     openQuestionMetadataEditor,
     openPoolMetadataEditor,
+    openPoolCreation,
     setEditorBusy: setBusy,
     metadata,
     poolTargets,
@@ -258,8 +386,6 @@ export type LibraryBulkActionsProps = {
   readonly metadataClient: QuestionBulkMetadataClient;
   readonly poolMetadataClient: QuestionPoolSearchMetadataClient;
   readonly classificationClient: ContentClassificationClient;
-  readonly selectedCount: () => number;
-  readonly loadedCount: () => number;
 };
 
 /** Renders the two established metadata editors for one mixed, globally capped selection. */
@@ -267,34 +393,6 @@ export function LibraryBulkActions(props: LibraryBulkActionsProps): JSX.Element 
   const controller = props.controller;
   return (
     <>
-      <SearchSelectionBar
-        selectedCount={props.selectedCount}
-        loadedCount={props.loadedCount}
-        disabled={controller.busy}
-        onSelectLoaded={controller.selectLoaded}
-        onClearSelection={controller.clearSelection}
-      >
-        <Show when={controller.selectedQuestionCount() > 0}>
-          <button
-            type="button"
-            class="primary-action"
-            disabled={controller.busy()}
-            onClick={() => void controller.openQuestionMetadataEditor()}
-          >
-            Edit Question metadata ({controller.selectedQuestionCount()})
-          </button>
-        </Show>
-        <Show when={controller.selectedPoolCount() > 0}>
-          <button
-            type="button"
-            class="primary-action"
-            disabled={controller.busy()}
-            onClick={controller.openPoolMetadataEditor}
-          >
-            Edit Pool search fields ({controller.selectedPoolCount()})
-          </button>
-        </Show>
-      </SearchSelectionBar>
       <Show when={controller.loading()}>
         <p class="loading-state" role="status">
           Reading current metadata for selected Questions...
@@ -320,6 +418,7 @@ export function LibraryBulkActions(props: LibraryBulkActionsProps): JSX.Element 
             classificationClient={props.classificationClient}
             initialMetadata={metadata()}
             questionTitles={controller.questionTitles()}
+            guardScope={props.controller.guardScope}
             onBusyChange={controller.setEditorBusy}
             onCancel={controller.cancelEditor}
             onSuccess={controller.metadataUpdateSucceeded}
@@ -332,7 +431,9 @@ export function LibraryBulkActions(props: LibraryBulkActionsProps): JSX.Element 
             client={props.poolMetadataClient}
             classificationClient={props.classificationClient}
             targets={targets()}
+            guardScope={props.controller.guardScope}
             disabled={controller.busy()}
+            onCancel={controller.cancelEditor}
             onSuccess={controller.poolMetadataUpdateSucceeded}
           />
         )}

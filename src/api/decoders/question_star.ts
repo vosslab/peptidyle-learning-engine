@@ -1,6 +1,5 @@
 // Strict decoder for the closed Published Question Star projection.
 
-import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS";
 import {
   DecodeError,
   decodeArray,
@@ -10,7 +9,9 @@ import {
   decodeNullable,
   decodeRecord,
 } from "../decoder";
-import { decodeQuestionId, field, requireOnlyFields } from "./shared";
+import { decodeAccountId, field, requireOnlyFields } from "./shared";
+import { decodeLibrarySearchClassification, decodeQuestionSearchResult } from "./question_library";
+import { decodeQuestionSearchFacets } from "./question_type_facets";
 import { validateCanonicalPublicId } from "../../question_id";
 import type {
   QuestionStarProjection,
@@ -75,34 +76,38 @@ export function decodeQuestionStarProjection(
   };
 }
 
-function decodeQuestionTitle(value: unknown, path: string): string {
-  const title = decodeNonemptyString(value, path);
-  if (
-    title !== title.trim() ||
-    CONTROL_CHARACTER.test(title) ||
-    Array.from(title).length > MAX_QUESTION_TITLE_UNICODE_SCALARS
-  ) {
-    throw new DecodeError(path, "a Question title");
-  }
-  return title;
-}
-
 function decodeStarredQuestionSummary(value: unknown, path: string): StarredQuestionSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionId", "questionTitle"]);
+  requireOnlyFields(record, path, [
+    "question",
+    "ownerAccountId",
+    "classification",
+    "starredAtMicros",
+  ]);
+  const starredAtMicros = decodeNonnegativeInteger(
+    field(record, "starredAtMicros", path),
+    `${path}.starredAtMicros`,
+  );
+  if (!Number.isSafeInteger(starredAtMicros))
+    throw new DecodeError(`${path}.starredAtMicros`, "a safe microsecond timestamp");
   return {
-    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    questionTitle: decodeQuestionTitle(
-      field(record, "questionTitle", path),
-      `${path}.questionTitle`,
+    question: decodeQuestionSearchResult(field(record, "question", path), `${path}.question`),
+    ownerAccountId: decodeAccountId(
+      field(record, "ownerAccountId", path),
+      `${path}.ownerAccountId`,
     ),
+    classification: decodeLibrarySearchClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
+    starredAtMicros,
   };
 }
 
 /** Rejects Account identity and every field outside the personal Star collection. */
 export function decodeStarredQuestionPage(value: unknown, path = "response"): StarredQuestionPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["items", "nextCursor"]);
+  requireOnlyFields(record, path, ["items", "nextCursor", "facets"]);
   const nextCursor = decodeNullable(
     field(record, "nextCursor", path),
     `${path}.nextCursor`,
@@ -114,5 +119,6 @@ export function decodeStarredQuestionPage(value: unknown, path = "response"): St
   return {
     items: decodeArray(field(record, "items", path), `${path}.items`, decodeStarredQuestionSummary),
     nextCursor,
+    facets: decodeQuestionSearchFacets(field(record, "facets", path), `${path}.facets`),
   };
 }

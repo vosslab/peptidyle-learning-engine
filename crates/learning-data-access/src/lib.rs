@@ -38,7 +38,8 @@ mod library_watch_notification;
 mod live_gradebook;
 mod live_student_course_landing;
 pub use archived_student_work_recovery::{
-    ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion, RecoverySummary,
+    ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion,
+    RecoveryAssessmentChoice, RecoveryBrowse, RecoverySelectionPage, RecoverySummary,
 };
 mod object_record;
 mod pagination;
@@ -151,14 +152,18 @@ pub use blueprint_change_proposal::{
     CreateBlueprintChangeProposalInput, StoredBlueprintChangeProposal,
 };
 pub use blueprint_course::{
-    ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseListCursorPosition,
-    BlueprintCourseListRequest, BlueprintCourseListSort, BlueprintCourseStore,
-    BlueprintPromotionStore, RecognitionTitles, StoredBlueprintAssessment,
+    ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseFacetChoice,
+    BlueprintCourseFacetChoiceRequest, BlueprintCourseFacetChoiceResult, BlueprintCourseFacetField,
+    BlueprintCourseListCursorPosition, BlueprintCourseListRequest, BlueprintCourseListSort,
+    BlueprintCourseStore, BlueprintPromotionStore, RecognitionTitles, StoredBlueprintAssessment,
     StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
     StoredBlueprintCourseContent, StoredBlueprintCourseSummary, StoredBlueprintModule,
     StoredBlueprintPoolMembers, StoredBlueprintPromotion, StoredBlueprintRevision,
 };
-pub use blueprint_history::{BlueprintHistoryKind, BlueprintHistoryStore};
+pub use blueprint_history::{
+    BlueprintHistoryKind, BlueprintHistoryQuery, BlueprintHistoryResult, BlueprintHistorySort,
+    BlueprintHistoryStore,
+};
 pub use blueprint_lineage::{
     BlueprintComparisonSources, BlueprintForkSource, BlueprintLineageStore,
     ForkBlueprintCourseReceipt, StoredKnownBlueprintFork,
@@ -181,7 +186,7 @@ pub use course_instance::{
     CourseClassificationUpdate, CourseCreationInstructor, CourseInstanceCreationSource,
     CourseInstanceLifecycleState, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
     CourseRetentionLifecycleState, CreateCourseInstanceInput, CreatedCourseInstance,
-    InstallationCourseInspection,
+    InstallationCourseFacetChoice, InstallationCourseInspection,
 };
 pub use course_roster::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
@@ -214,23 +219,27 @@ pub(crate) use imathas_question_backend_session::{
 };
 pub use instructor_account::{
     CreateInstructorAccountInput, CreatedInstructorAccount, DeactivateInstructorAccountInput,
-    InstructorAccountBrowse, InstructorAccountList, InstructorAccountState, InstructorAccountStore,
-    InstructorAccountSummary,
+    InstructorAccountBrowse, InstructorAccountList, InstructorAccountSort, InstructorAccountState,
+    InstructorAccountStateChoice, InstructorAccountStore, InstructorAccountSummary,
 };
 pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
     PendingInvitationExport, PendingInvitationRecipient,
 };
 pub use library_watch_notification::{
-    LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification, LibraryWatchTargetKind,
+    LibraryWatchActivity, LibraryWatchCursorPosition, LibraryWatchDirection, LibraryWatchEventKind,
+    LibraryWatchFacetCount, LibraryWatchInboxPage, LibraryWatchInboxQuery, LibraryWatchInboxStore,
+    LibraryWatchNotification, LibraryWatchTargetKind,
 };
 pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
 pub use live_student_course_landing::{
     LiveAssessmentGradeContribution, LiveStudentAssessmentLandingSummary,
-    LiveStudentCourseActiveAttempt, LiveStudentCourseAttemptHistoryEntry,
+    LiveStudentAttemptHistoryEntry, LiveStudentCourseActiveAttempt,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseLandingSummary, LiveStudentCourseProgressAssessment,
     LiveStudentCourseResponseQuestionStats, LiveStudentLatestFeedback,
+    StudentAttemptHistoryFacetChoice, StudentAttemptHistoryQuery, StudentAttemptHistorySort,
+    StudentAttemptHistoryState,
 };
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
@@ -255,10 +264,11 @@ pub use question_image_publication::{
 };
 pub use question_library::{
     LibrarySearchEntry, PublishedQuestionAvailability, PublishedQuestionLibraryEntry,
-    QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
+    QuestionLibraryBackendRestriction, QuestionLibraryFacetChoiceRequest,
+    QuestionLibraryFacetChoiceResult, QuestionLibrarySearchCursorPosition,
     QuestionLibrarySearchFacets, QuestionLibrarySearchPage, QuestionLibrarySearchRequest,
-    QuestionLibrarySearchSort, QuestionLibraryStore, QuestionLibraryTextField,
-    QuestionLibraryTextTerm,
+    QuestionLibrarySearchScope, QuestionLibrarySearchSort, QuestionLibraryStore,
+    QuestionLibraryTextField, QuestionLibraryTextTerm,
 };
 pub use question_metadata::QuestionMetadataStore;
 pub use question_pool_bulk_metadata::{
@@ -281,9 +291,7 @@ pub use question_source::{
     NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
     PreparedQuestionImagePublication,
 };
-pub use question_star::{
-    QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor, StarredQuestionSummary,
-};
+pub use question_star::{QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor};
 pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};
 pub use retention::{CourseRetentionDueAction, CourseRetentionDueActionKind, CourseRetentionStore};
 pub use retention_notification::{

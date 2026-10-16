@@ -1,6 +1,7 @@
 // One controlled vocabulary selector shared by publication and bulk metadata editing.
 
 import { For, Show, createResource, type JSX } from "solid-js";
+import { selectChange } from "./controlled_form_change";
 import "./content_classification_select.css";
 
 type VocabularyItem = { readonly uuid: string; readonly name: string; readonly isRetired: boolean };
@@ -37,7 +38,11 @@ export function ContentClassificationSelect(props: {
         disabled={
           props.disabled || items.loading || Boolean(items.error) || props.parentUuid === null
         }
-        onChange={(event) => props.onChange(event.currentTarget.value || null)}
+        onChange={(event) =>
+          selectChange(event.currentTarget, props.value ?? "", (value) =>
+            props.onChange(value || null),
+          )
+        }
       >
         <option value="">{items.loading ? "Loading..." : `Select ${props.label}`}</option>
         <For each={items.error ? [] : items()}>

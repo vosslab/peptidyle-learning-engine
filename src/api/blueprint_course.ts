@@ -8,6 +8,17 @@ import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCo
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
 import type { BlueprintRevisionView } from "../../generated/api/BlueprintRevisionView";
 import type { BlueprintHistoryPageView } from "../../generated/api/BlueprintHistoryPageView";
+
+export type BlueprintHistoryQuery = {
+  readonly q: string;
+  readonly sort: "sequence" | "recordedAt" | "name";
+  readonly direction: "ascending" | "descending";
+  readonly availability: ReadonlyArray<"public" | "archived">;
+};
+
+export type BlueprintHistoryPage = BlueprintHistoryPageView & {
+  readonly availabilityFacets: { readonly publicCount: number; readonly archivedCount: number };
+};
 import type { BlueprintComparisonView } from "../../generated/api/BlueprintComparisonView";
 import type { BlueprintKnownForkView } from "../../generated/api/BlueprintKnownForkView";
 import type { BlueprintCourseSaveResponse } from "../../generated/api/BlueprintCourseSaveResponse";
@@ -40,7 +51,50 @@ export interface BlueprintCourseClassificationSearch {
 
 /** Closed server-owned ordering choices for My Blueprint Courses. */
 export type BlueprintCourseListSort =
-  "name" | "adoptions" | "students" | "stars" | "watches" | "recentEdits";
+  | "name"
+  | "nameDescending"
+  | "adoptions"
+  | "adoptionsAscending"
+  | "students"
+  | "studentsAscending"
+  | "stars"
+  | "starsAscending"
+  | "watches"
+  | "watchesAscending"
+  | "recentEdits"
+  | "recentEditsAscending";
+
+export type BlueprintCourseFacetField =
+  "disciplineUuids" | "subjectUuids" | "topicUuids" | "subtopicUuids" | "tags";
+
+export type BlueprintCourseFacetFilters = Readonly<
+  Record<BlueprintCourseFacetField, ReadonlyArray<string>>
+>;
+
+export interface BlueprintCourseFacetRequest {
+  readonly includeArchived: boolean;
+  readonly publicOnly: boolean;
+  readonly promotedOnly: boolean;
+  readonly query: string;
+  readonly classification: BlueprintCourseClassificationSearch;
+  readonly sort: BlueprintCourseListSort;
+  readonly tag: string;
+  readonly facets: BlueprintCourseFacetFilters;
+}
+
+export interface BlueprintCourseFacetChoices {
+  readonly choices: ReadonlyArray<{
+    readonly key: string;
+    readonly label: string;
+    readonly count: number;
+  }>;
+  readonly selected: ReadonlyArray<{
+    readonly key: string;
+    readonly label: string;
+    readonly count: number;
+  }>;
+  readonly nextCursor: string | null;
+}
 
 export interface LoadedBlueprintCourse {
   readonly blueprintCourse: BlueprintCourseView;
@@ -73,10 +127,11 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   ) => Promise<BlueprintMetadataTransition>;
   readonly listBlueprintHistory: (
     blueprintCourseId: BlueprintCourseId,
-    kind?: "revisions" | "metadata",
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<BlueprintHistoryPageView>;
+    kind: "revisions" | "metadata",
+    query: BlueprintHistoryQuery,
+    cursor: string | null,
+    pageSize: number,
+  ) => Promise<BlueprintHistoryPage>;
   readonly getBlueprintPoolMembers: (
     blueprintCourseId: BlueprintCourseId,
     assessmentId: BlueprintAssessmentId,
@@ -113,7 +168,14 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     classification?: BlueprintCourseClassificationSearch,
     sort?: BlueprintCourseListSort,
     tag?: string,
+    facets?: BlueprintCourseFacetFilters,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
+  readonly listBlueprintCourseFacetChoices: (
+    field: BlueprintCourseFacetField,
+    request: BlueprintCourseFacetRequest,
+    choiceSearch: string,
+    choiceCursor: string | null,
+  ) => Promise<BlueprintCourseFacetChoices>;
   readonly getBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,
   ) => Promise<LoadedBlueprintCourse>;

@@ -1,10 +1,10 @@
 // Strict, bounded decoding for immutable Blueprint history and recorded metadata.
 import type { BlueprintHistoryEntryView } from "../../../generated/api/BlueprintHistoryEntryView";
-import type { BlueprintHistoryPageView } from "../../../generated/api/BlueprintHistoryPageView";
+import type { BlueprintHistoryPage } from "../blueprint_course";
 import { THEME_VALUES } from "../../../generated/api/Theme";
-import { DecodeError, decodeRecord, decodeStringEnum } from "../decoder";
-import { decodeBlueprintRevisionNumber, text } from "./blueprint_course";
-import { decodeCursorPage, decodeTimestamp, field, requireOnlyFields } from "./shared";
+import { DecodeError, decodeRecord, decodeSafeInteger, decodeStringEnum } from "../decoder";
+import { blueprintEditNumber, decodeBlueprintRevisionNumber, text } from "./blueprint_course";
+import { decodeBoundedArray, decodeTimestamp, field, requireOnlyFields } from "./shared";
 import { decodeCourseClassification } from "./course_classification";
 
 function entry(value: unknown, path: string): BlueprintHistoryEntryView {
@@ -25,6 +25,7 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
   if (kind === "metadataChange") {
     requireOnlyFields(record, path, [
       "kind",
+      "blueprintEditNumber",
       "shortName",
       "longName",
       "availability",
@@ -34,6 +35,10 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
     ]);
     return {
       kind,
+      blueprintEditNumber: blueprintEditNumber(
+        field(record, "blueprintEditNumber", path),
+        `${path}.blueprintEditNumber`,
+      ),
       shortName: text(field(record, "shortName", path), `${path}.shortName`),
       classification: decodeCourseClassification(
         field(record, "classification", path),
@@ -54,7 +59,33 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
 export function decodeBlueprintHistoryPageView(
   value: unknown,
   path = "response",
-): BlueprintHistoryPageView {
-  const page = decodeCursorPage(value, path, entry);
-  return { items: [...page.items], nextCursor: page.nextCursor };
+): BlueprintHistoryPage {
+  const page = decodeRecord(value, path);
+  requireOnlyFields(page, path, ["items", "nextCursor", "availabilityFacets"]);
+  const cursor = field(page, "nextCursor", path);
+  if (
+    cursor !== null &&
+    (typeof cursor !== "string" || cursor.length === 0 || cursor.length > 8192)
+  )
+    throw new DecodeError(`${path}.nextCursor`, "a bounded history cursor or null");
+  const facets = decodeRecord(
+    field(page, "availabilityFacets", path),
+    `${path}.availabilityFacets`,
+  );
+  requireOnlyFields(facets, `${path}.availabilityFacets`, ["publicCount", "archivedCount"]);
+  const publicCount = decodeSafeInteger(
+    field(facets, "publicCount", path),
+    `${path}.availabilityFacets.publicCount`,
+  );
+  const archivedCount = decodeSafeInteger(
+    field(facets, "archivedCount", path),
+    `${path}.availabilityFacets.archivedCount`,
+  );
+  if (publicCount < 0 || archivedCount < 0)
+    throw new DecodeError(`${path}.availabilityFacets`, "nonnegative counts");
+  return {
+    items: [...decodeBoundedArray(field(page, "items", path), `${path}.items`, 100, entry)],
+    nextCursor: cursor,
+    availabilityFacets: { publicCount, archivedCount },
+  };
 }

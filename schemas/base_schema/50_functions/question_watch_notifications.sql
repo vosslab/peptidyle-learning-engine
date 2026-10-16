@@ -135,43 +135,112 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_pool_watch_fork_event();
 
 -- ASVS 8.2.1/8.3.1: this self-only Inbox derives the Account solely from the
 -- installed server session and reveals neither recipient nor Watch facts.
-CREATE FUNCTION ple_data.read_current_library_watch_notifications(p_limit integer)
-RETURNS TABLE(
-    target_kind text, target_public_id text, event_kind text,
-    question_revision_number bigint, question_pool_edit_number bigint,
-    forked_public_id text, occurred_at_millis bigint
-) LANGUAGE plpgsql STABLE SECURITY DEFINER
+CREATE FUNCTION ple_data.match_current_library_watch_events(
+    p_search text, p_target_kinds text[], p_event_kinds text[]
+)
+RETURNS SETOF ple_data.library_watch_event LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
-    IF p_limit NOT BETWEEN 1 AND 100 OR actor_id IS NULL
-       OR NOT ple_api.current_session_account_is_instructor() THEN
+    IF actor_id IS NULL OR NOT ple_api.current_session_account_is_instructor()
+       OR p_search IS NULL OR length(p_search) > 120
+       OR p_target_kinds IS NULL OR p_event_kinds IS NULL
+       OR array_position(p_target_kinds, NULL) IS NOT NULL
+       OR array_position(p_event_kinds, NULL) IS NOT NULL
+       OR NOT (p_target_kinds <@ ARRAY['question', 'question_pool']::text[])
+       OR NOT (p_event_kinds <@ ARRAY['revision', 'members_changed', 'fork']::text[]) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Library Watch inbox requires an active Instructor Account';
+            MESSAGE = 'Library Watch inbox requires a valid active Instructor query';
     END IF;
     RETURN QUERY
-    SELECT event.target_kind::text, event.target_public_id, event.event_kind::text,
-           event.question_revision_number::bigint, event.question_pool_edit_number,
-           event.forked_public_id,
-           (EXTRACT(EPOCH FROM event.occurred_at) * 1000)::bigint
+    SELECT event.*
       FROM ple_data.library_watch_event_recipient AS recipient
       JOIN ple_data.library_watch_event AS event
         ON event.event_id = recipient.library_watch_event_id
      WHERE recipient.recipient_account_id = actor_id
-     ORDER BY event.occurred_at DESC, event.event_id DESC
+       AND (cardinality(p_target_kinds) = 0 OR event.target_kind::text = ANY(p_target_kinds))
+       AND (cardinality(p_event_kinds) = 0 OR event.event_kind::text = ANY(p_event_kinds))
+       AND (p_search = '' OR strpos(lower(event.target_public_id), p_search) > 0
+            OR strpos(lower(coalesce(event.forked_public_id, '')), p_search) > 0
+            OR strpos(lower(CASE event.event_kind::text
+                WHEN 'revision' THEN 'New Revision'
+                WHEN 'members_changed' THEN 'Questions changed'
+                ELSE 'New fork' END), p_search) > 0);
+END
+$$;
+
+CREATE FUNCTION ple_data.read_current_library_watch_notifications(
+    p_search text, p_target_kinds text[], p_event_kinds text[],
+    p_ascending boolean, p_after_at timestamptz, p_after_id uuid, p_limit integer
+)
+RETURNS TABLE(
+    event_id uuid, target_kind text, target_public_id text, event_kind text,
+    question_revision_number bigint, question_pool_edit_number bigint,
+    forked_public_id text, occurred_at_millis bigint, occurred_at_cursor text
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 251 OR p_ascending IS NULL
+       OR (p_after_at IS NULL) != (p_after_id IS NULL) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Library Watch page is invalid';
+    END IF;
+    RETURN QUERY
+    SELECT event.event_id, event.target_kind::text, event.target_public_id, event.event_kind::text,
+           event.question_revision_number::bigint, event.question_pool_edit_number,
+           event.forked_public_id,
+           (EXTRACT(EPOCH FROM event.occurred_at) * 1000)::bigint,
+           to_char(event.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+      FROM ple_data.match_current_library_watch_events(
+          p_search, p_target_kinds, p_event_kinds
+      ) AS event
+     WHERE p_after_at IS NULL
+        OR (p_ascending AND (event.occurred_at, event.event_id) > (p_after_at, p_after_id))
+        OR (NOT p_ascending AND (event.occurred_at, event.event_id) < (p_after_at, p_after_id))
+     ORDER BY CASE WHEN p_ascending THEN event.occurred_at END ASC,
+              CASE WHEN p_ascending THEN event.event_id END ASC,
+              CASE WHEN NOT p_ascending THEN event.occurred_at END DESC,
+              CASE WHEN NOT p_ascending THEN event.event_id END DESC
      LIMIT p_limit;
 END
 $$;
 
+CREATE FUNCTION ple_data.read_current_library_watch_facets(
+    p_search text, p_target_kinds text[], p_event_kinds text[]
+)
+RETURNS TABLE(facet_field text, facet_value text, facet_count bigint)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT 'target_kind'::text, event.target_kind::text, count(*)
+      FROM ple_data.match_current_library_watch_events($1, ARRAY[]::text[], $3) AS event
+     GROUP BY event.target_kind
+    UNION ALL
+    SELECT 'event_kind'::text, event.event_kind::text, count(*)
+      FROM ple_data.match_current_library_watch_events($1, $2, ARRAY[]::text[]) AS event
+     GROUP BY event.event_kind
+$$;
+
 SET LOCAL ROLE ple_api_owner;
 
-CREATE FUNCTION ple_api.read_current_library_watch_notifications(p_limit integer)
+CREATE FUNCTION ple_api.read_current_library_watch_notifications(
+    p_search text, p_target_kinds text[], p_event_kinds text[],
+    p_ascending boolean, p_after_at timestamptz, p_after_id uuid, p_limit integer
+)
 RETURNS TABLE(
-    target_kind text, target_public_id text, event_kind text,
+    event_id uuid, target_kind text, target_public_id text, event_kind text,
     question_revision_number bigint, question_pool_edit_number bigint,
-    forked_public_id text, occurred_at_millis bigint
+    forked_public_id text, occurred_at_millis bigint, occurred_at_cursor text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT * FROM ple_data.read_current_library_watch_notifications($1)
+    SELECT * FROM ple_data.read_current_library_watch_notifications($1, $2, $3, $4, $5, $6, $7)
+$$;
+
+CREATE FUNCTION ple_api.read_current_library_watch_facets(
+    p_search text, p_target_kinds text[], p_event_kinds text[]
+)
+RETURNS TABLE(facet_field text, facet_value text, facet_count bigint)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT * FROM ple_data.read_current_library_watch_facets($1, $2, $3)
 $$;

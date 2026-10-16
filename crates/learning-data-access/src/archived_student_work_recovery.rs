@@ -24,6 +24,29 @@ pub struct RecoverySummary {
     pub delete_due_at: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct RecoveryBrowse {
+    pub search: String,
+    pub assessment_ids: Vec<question_model::AssessmentId>,
+    pub sort: String,
+    pub after: Option<AssessmentAttemptId>,
+    pub page_size: u16,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecoveryAssessmentChoice {
+    pub key: question_model::AssessmentId,
+    pub label: String,
+    pub count: i64,
+}
+
+#[derive(Debug)]
+pub struct RecoverySelectionPage {
+    pub attempts: Vec<RecoverySummary>,
+    pub assessment_choices: Vec<RecoveryAssessmentChoice>,
+}
+
 /// Materialized evidence, not restoration, current scoring or executable content.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,8 +91,8 @@ pub trait ArchivedStudentWorkRecoveryStore: Send + Sync {
         &self,
         session: SessionTokenHash,
         course_instance_id: CourseInstanceId,
-        after: Option<AssessmentAttemptId>,
-    ) -> Result<Vec<RecoverySummary>, StoreError>;
+        browse: RecoveryBrowse,
+    ) -> Result<RecoverySelectionPage, StoreError>;
 
     async fn recover_retained_work(
         &self,
@@ -110,7 +133,7 @@ pub(crate) struct Submission {
 pub(crate) struct Delivery {
     assessment_content_entry_index: u32,
     pub issued_position: u32,
-    pub question_id: String,
+    pub published_question_id: String,
     pub revision_number: u32,
     point_value: f64,
     scoring_rule: String,
@@ -178,7 +201,7 @@ pub(crate) struct Reproduction {
     renderer_version: Option<String>,
     grader_name: Option<String>,
     grader_version: Option<String>,
-    source_object_id: Option<String>,
+    source_object_record_id: Option<String>,
     source_object_checksum: Option<String>,
     question_seed: Option<String>,
     generated_parameter_sha256: Option<String>,

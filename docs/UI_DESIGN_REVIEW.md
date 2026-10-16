@@ -16,10 +16,10 @@ finalization, or Instructor grading operations.
 
 | Area | Current resolution |
 | --- | --- |
-| Global shell | Keep stable Ribbon, Context Row, Task Row when applicable, breadcrumbs, page heading, and content geometry. Sign Out belongs in the Profile menu. |
+| Global shell | Keep stable Ribbon, Context Row, Task Row when applicable, breadcrumbs, and content geometry. The Ribbon and breadcrumbs identify the page; PageFrame begins with useful content and actions. Sign Out belongs in the Profile menu. |
 | Instructor primary navigation | Courses, Questions, and Assessments. Do not split Question Library or Blueprint Courses into competing primary tabs. |
-| Course tasks | My Blueprint Courses, My Active Courses, My Inactive Courses, and Search Public Blueprint Courses. |
-| Question tasks | My Questions, My Draft Questions, Starred, Watched, Search Question Library, and Browse Question Library. Search and Browse remain distinct actions. |
+| Course tasks | My Blueprint Courses, My Active Courses, My Inactive Courses, Search Blueprint Courses, and My Change Proposals. |
+| Question tasks | My Questions, My Pools, My Drafts, Starred, Watched, Search Question Library, and Browse Question Library. Search and Browse remain distinct actions. |
 | Assessment tasks | Assessments Due Soon and My Assessment Templates. |
 | Assessment editor | Use Assessment Question Editor for composition and Assessment Properties Editor for settings. An Edit Number is not a Revision. |
 | Student work | Use Coursework collectively and the specific Assessment Type for an item. Present one Question at a time with navigation to all Questions and saved status. |

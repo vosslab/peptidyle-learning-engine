@@ -1391,33 +1391,19 @@ rule, [application_shell.tsx](../src/application_shell.tsx), and
 
 ### PageFrame owns page-level structure
 
-**Decision.** `PageFrame` owns page identity and fixed page-level layout: the
-required title, optional `eyebrow` and `lede`, optional page-level actions,
-content origin, standard vertical spacing, and width. Its content is one
-column stack. `PageSection`, in the same module, owns an in-page heading,
-optional helper and actions, and that section's body. `contentClass` remains
-only for a task-specific arrangement inside that stack. Reading width is the
-default; a route selects `fullWidth` only for dense content, using the
-page-layout contract rather than the Ribbon contract. The frame root has fixed
-production geometry and is not caller-classed.
+**Decision.** `PageFrame` owns route content width, standard vertical spacing,
+page-level actions, and a one-column content stack. The Ribbon and breadcrumbs
+identify the page. Reading width is the default; a route selects `fullWidth`
+only for dense content. `contentClass` is for a task-specific arrangement
+inside the stack.
 
-**Why.** The WP-C1 baseline found 44 page-heading candidates: 24 used eyebrow,
-title, and lede; 14 used eyebrow and title; four used only an eyebrow; and two
-used only a title. My Active Courses and My Draft Questions also repeat the
-page-level create action before their collections
-([course_list_page.tsx](../src/pages/course_list_page.tsx),
-[question_drafts_page.tsx](../src/pages/question_drafts_page.tsx)). Those
-controls remain supplied by their page, while actions inside a form, editor,
-or record remain task content. The shared frame places admitted page-level
-slots consistently, as [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) requires.
+**Why.** Page identity already belongs to the shared Ribbon and breadcrumb
+navigation. Keeping the frame focused on content geometry and page-level
+actions gives routes a consistent layout without duplicating page identity.
 
-**Consequence.** `PageFrame` places WP-C1-admitted page-level slots in the same
-location and gives page content one fixed origin and spacing region. Callers
-provide only the controls and subject-specific children. A page
-may omit the eyebrow, lede, or actions, while every frame supplies one title.
-Only routes that need dense content select `fullWidth`; ordinary routes inherit
-the reading width. This makes one-off frame-width and root-class overrides
-unavailable to page callers.
+**Consequence.** Callers provide page actions and task content. Ordinary routes
+inherit the reading width; dense routes opt into `fullWidth`. The frame does
+not define a page title or in-page section abstraction.
 
 **Owner.** [src/components/page_frame.tsx](../src/components/page_frame.tsx)
 and [src/components/page_frame.css](../src/components/page_frame.css).

@@ -37,14 +37,12 @@ async function sysadminStudentDataConfirmation(runtime: ScenarioRuntime): Promis
   try {
     await enterSysadmin(page);
     await page.getByRole("link", { name: "Find Courses", exact: true }).click();
-    await page.getByRole("heading", { name: "Courses", exact: true }).waitFor();
+    await page.getByRole("main", { name: "Courses", exact: true }).waitFor();
     const courseLink = page
-      .getByRole("listitem")
+      .getByRole("table", { name: "Installation Courses", exact: true })
+      .locator("tr[data-record-id]")
       .filter({
-        has: page.getByRole("heading", {
-          name: "Biochemistry",
-          exact: true,
-        }),
+        has: page.getByText("Biochemistry", { exact: true }),
       })
       .getByRole("link", { name: "Inspect", exact: true });
     await followCaptureLink(page, courseLink);
@@ -80,7 +78,7 @@ async function openInstructorAccounts(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Instructor Accounts", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Instructor Accounts", exact: true }).waitFor();
+  await page.getByRole("main", { name: "Instructor Accounts", exact: true }).waitFor();
   await page
     .getByText("Loading Instructor Accounts...", { exact: true })
     .waitFor({ state: "hidden" });
@@ -88,13 +86,14 @@ async function openInstructorAccounts(page: Page): Promise<void> {
 
 function instructorAccount(page: Page, accountId: string): Locator {
   return page
-    .getByRole("listitem")
-    .filter({ has: page.getByRole("heading", { name: accountId, exact: true }) });
+    .getByRole("table", { name: "Instructor Accounts", exact: true })
+    .locator(`tr[data-record-id="${accountId}"]`)
+    .filter({ has: page.getByText(accountId, { exact: true }) });
 }
 
 async function reloadInstructorAccounts(page: Page): Promise<void> {
   await page.reload({ waitUntil: "commit" });
-  await page.getByRole("heading", { name: "Instructor Accounts", exact: true }).waitFor();
+  await page.getByRole("main", { name: "Instructor Accounts", exact: true }).waitFor();
   await page
     .getByText("Loading Instructor Accounts...", { exact: true })
     .waitFor({ state: "hidden" });
@@ -125,10 +124,10 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
       .getByText("Instructor Account created, but setup email could not be sent.", { exact: true })
       .waitFor();
     const newest = page
-      .getByRole("list", { name: "Instructor Accounts", exact: true })
-      .getByRole("listitem")
+      .getByRole("table", { name: "Instructor Accounts", exact: true })
+      .locator("tr[data-record-id]")
       .first();
-    const accountId = (await newest.getByRole("heading", { level: 3 }).innerText()).trim();
+    const accountId = (await newest.locator(".record-list__compact-title").innerText()).trim();
     if (!isCanonicalAccountId(accountId)) {
       throw new Error("created Instructor Account lacks a canonical public ID");
     }
@@ -143,21 +142,29 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("dialog")
       .getByRole("button", { name: "Deactivate Instructor Account", exact: true })
       .click();
-    await created.getByText("Deactivated", { exact: true }).waitFor();
+    await created
+      .getByRole("button", { name: "Reactivate Instructor Account", exact: true })
+      .waitFor();
     await captureCheckpoint(runtime, "account_deactivated", session);
 
     // The backend list order is not a UI ordering contract. Verify persistence after capturing the
     // visible lifecycle transitions in the client-owned order.
     await reloadInstructorAccounts(page);
     created = instructorAccount(page, accountId);
-    await created.getByText("Deactivated", { exact: true }).waitFor();
+    await created
+      .getByRole("button", { name: "Reactivate Instructor Account", exact: true })
+      .waitFor();
     await created
       .getByRole("button", { name: "Reactivate Instructor Account", exact: true })
       .click();
-    await created.getByText("Active", { exact: true }).waitFor();
+    await created
+      .getByRole("button", { name: "Deactivate Instructor Account", exact: true })
+      .waitFor();
     await reloadInstructorAccounts(page);
     created = instructorAccount(page, accountId);
-    await created.getByText("Active", { exact: true }).waitFor();
+    await created
+      .getByRole("button", { name: "Deactivate Instructor Account", exact: true })
+      .waitFor();
   } finally {
     await runtime.close(session);
   }

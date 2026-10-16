@@ -15,7 +15,7 @@ use super::{DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 /// then immediately constructs the same strict model value.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct LibraryObjectSearchQuery {
+pub(crate) struct LibraryObjectSearchQuery {
     #[serde(default)]
     kind: question_model::LibrarySearchKind,
     #[serde(default)]
@@ -35,19 +35,19 @@ pub(super) struct LibraryObjectSearchQuery {
     #[serde(default)]
     topics: Vec<String>,
     #[serde(default)]
-    discipline_uuid: Option<uuid::Uuid>,
+    discipline_uuids: Vec<uuid::Uuid>,
     #[serde(default)]
-    subject_uuid: Option<uuid::Uuid>,
+    subject_uuids: Vec<uuid::Uuid>,
     #[serde(default)]
-    topic_uuid: Option<uuid::Uuid>,
+    topic_uuids: Vec<uuid::Uuid>,
     #[serde(default)]
-    subtopic_uuid: Option<uuid::Uuid>,
+    subtopic_uuids: Vec<uuid::Uuid>,
     #[serde(default)]
     cross_discipline: bool,
     #[serde(default)]
-    bloom_cognitive_process: Vec<BloomCognitiveProcess>,
+    bloom_cognitive_processes: Vec<BloomCognitiveProcess>,
     #[serde(default)]
-    bloom_knowledge_dimension: Vec<BloomKnowledgeDimension>,
+    bloom_knowledge_dimensions: Vec<BloomKnowledgeDimension>,
     #[serde(default)]
     question_types: Vec<question_model::QuestionType>,
     #[serde(default)]
@@ -62,6 +62,8 @@ pub(super) struct LibraryObjectSearchQuery {
     cursor: Option<String>,
     #[serde(default)]
     page_size: Option<u16>,
+    #[serde(default)]
+    pub(crate) choice_search: Option<String>,
 }
 
 impl TryFrom<LibraryObjectSearchQuery> for LibraryObjectSearchRequest {
@@ -79,12 +81,6 @@ impl TryFrom<LibraryObjectSearchQuery> for LibraryObjectSearchRequest {
                 "Question Library page size is invalid",
             ));
         }
-        if query.bloom_cognitive_process.len() > 1 || query.bloom_knowledge_dimension.len() > 1 {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Question Library Bloom filter is invalid",
-            ));
-        }
         LibraryObjectSearchRequest {
             kind: query.kind,
             questions: query.questions,
@@ -95,13 +91,13 @@ impl TryFrom<LibraryObjectSearchQuery> for LibraryObjectSearchRequest {
             tags: query.tags,
             subjects: query.subjects,
             topics: query.topics,
-            discipline_uuid: query.discipline_uuid,
-            subject_uuid: query.subject_uuid,
-            topic_uuid: query.topic_uuid,
-            subtopic_uuid: query.subtopic_uuid,
+            discipline_uuids: query.discipline_uuids,
+            subject_uuids: query.subject_uuids,
+            topic_uuids: query.topic_uuids,
+            subtopic_uuids: query.subtopic_uuids,
             cross_discipline: query.cross_discipline,
-            bloom_cognitive_process: query.bloom_cognitive_process.into_iter().next(),
-            bloom_knowledge_dimension: query.bloom_knowledge_dimension.into_iter().next(),
+            bloom_cognitive_processes: query.bloom_cognitive_processes,
+            bloom_knowledge_dimensions: query.bloom_knowledge_dimensions,
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,

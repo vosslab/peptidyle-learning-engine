@@ -1,5 +1,5 @@
 import { A } from "@solidjs/router";
-import { Show, createEffect, createSignal, type Accessor, type JSX } from "solid-js";
+import { Show, batch, createEffect, createSignal, type Accessor, type JSX } from "solid-js";
 
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionType } from "../../../generated/api/QuestionType";
@@ -8,8 +8,15 @@ import { parseReviewedQuestionAuthorship } from "../../api/question_authorship";
 import type { DraftQuestionRouteId } from "../../navigation/public_route";
 import { buildRoutePath } from "../../ribbon/ribbon_route_path";
 import type { PleQuestionJsonPublicationRequest } from "./question_json_repository";
-import { canPublishWebworkDraft } from "./question_publication_review_model";
-import { QuestionPublicationReviewFields } from "./question_publication_review_fields";
+import {
+  canPublishWebworkDraft,
+  isPublicationReviewDirty,
+  type PublicationReviewSnapshot,
+} from "./question_publication_review_model";
+import {
+  QuestionPublicationReviewFields,
+  QuestionPublicationReviewGuard,
+} from "./question_publication_review_fields";
 
 export type DraftWebworkPublicationControlProps = {
   readonly draftQuestion: DraftQuestionRouteId;
@@ -19,6 +26,7 @@ export type DraftWebworkPublicationControlProps = {
   readonly draftQuestionEditNumber: Accessor<string>;
   readonly isSaved: Accessor<boolean>;
   readonly classificationClient: ContentClassificationClient;
+  readonly allowSelfAuthorship: boolean;
   readonly publish: (
     draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
@@ -34,17 +42,57 @@ export function DraftWebworkPublicationControl(
   const [publishing, setPublishing] = createSignal(false);
   const [error, setError] = createSignal("");
   const [authorshipText, setAuthorshipText] = createSignal(props.authors().join("\n"));
-  const [authorshipEdited, setAuthorshipEdited] = createSignal(false);
+  const [selfAuthorPosition, setSelfAuthorPosition] = createSignal<number | null>(null);
   const [disciplineUuid, setDisciplineUuid] = createSignal<string | null>(null);
   const [subjectUuid, setSubjectUuid] = createSignal<string | null>(null);
   const [topicUuid, setTopicUuid] = createSignal<string | null>(null);
   const [subtopicUuid, setSubtopicUuid] = createSignal<string | null>(null);
+  const [reviewEdited, setReviewEdited] = createSignal(false);
+  const [reviewBaseline, setReviewBaseline] = createSignal<PublicationReviewSnapshot>({
+    authorshipText: props.authors().join("\n"),
+    selfAuthorPosition: null,
+    disciplineUuid: null,
+    subjectUuid: null,
+    topicUuid: null,
+    subtopicUuid: null,
+  });
   const [publishedSummary, setPublishedSummary] = createSignal<QuestionSummary>();
   let authorshipInput: HTMLTextAreaElement | undefined;
 
   createEffect(() => {
-    if (!authorshipEdited()) setAuthorshipText(props.authors().join("\n"));
+    const authorshipText = props.authors().join("\n");
+    if (!reviewEdited()) {
+      setSelfAuthorPosition(null);
+      setAuthorshipText(authorshipText);
+      if (reviewBaseline().authorshipText !== authorshipText)
+        setReviewBaseline({ ...reviewBaseline(), authorshipText });
+    }
   });
+
+  const reviewSnapshot = (): PublicationReviewSnapshot => ({
+    authorshipText: authorshipText(),
+    selfAuthorPosition: selfAuthorPosition(),
+    disciplineUuid: disciplineUuid(),
+    subjectUuid: subjectUuid(),
+    topicUuid: topicUuid(),
+    subtopicUuid: subtopicUuid(),
+  });
+  const reviewDirty = (): boolean =>
+    publishedSummary() === undefined &&
+    isPublicationReviewDirty(reviewSnapshot(), reviewBaseline());
+  function discardReviewChanges(): void {
+    const baseline = reviewBaseline();
+    batch(() => {
+      setAuthorshipText(baseline.authorshipText);
+      setSelfAuthorPosition(baseline.selfAuthorPosition);
+      setDisciplineUuid(baseline.disciplineUuid);
+      setSubjectUuid(baseline.subjectUuid);
+      setTopicUuid(baseline.topicUuid);
+      setSubtopicUuid(baseline.subtopicUuid);
+      setReviewEdited(false);
+      setError("");
+    });
+  }
 
   const isLocked = (): boolean => publishing() || publishedSummary() !== undefined;
   const canReview = (): boolean =>
@@ -75,6 +123,7 @@ export function DraftWebworkPublicationControl(
         props.draftQuestion,
         {
           authorship,
+          selfAuthorPosition: props.allowSelfAuthorship ? selfAuthorPosition() : null,
           disciplineUuid: discipline,
           subjectUuid: subject,
           topicUuid: topicUuid(),
@@ -96,6 +145,7 @@ export function DraftWebworkPublicationControl(
 
   return (
     <section class="editor-panel" aria-labelledby="draft-webwork-publish-heading">
+      <QuestionPublicationReviewGuard dirty={reviewDirty} />
       <h2 id="draft-webwork-publish-heading">Publish review</h2>
       <p>Review the saved WebWork Draft before creating a new Question ID.</p>
       <Show when={!props.isSaved()}>
@@ -123,24 +173,45 @@ export function DraftWebworkPublicationControl(
           changed={["WebWork PG/PGML source", "Question record metadata", "WebWork Question Type"]}
           isSaved={props.isSaved}
           isLocked={isLocked}
+          reviewDirty={reviewDirty}
           authorshipText={authorshipText()}
+          selfAuthorPosition={selfAuthorPosition()}
+          allowSelfAuthorship={props.allowSelfAuthorship}
           disciplineUuid={disciplineUuid()}
           subjectUuid={subjectUuid()}
           topicUuid={topicUuid()}
           subtopicUuid={subtopicUuid()}
           classificationClient={props.classificationClient}
           onAuthorshipTextChange={(value) => {
-            setAuthorshipEdited(true);
+            setReviewEdited(true);
+            setSelfAuthorPosition(null);
             setAuthorshipText(value);
+          }}
+          onSelfAuthorPositionChange={(position) => {
+            setReviewEdited(true);
+            setSelfAuthorPosition(position);
           }}
           onAuthorshipInput={(element) => {
             authorshipInput = element;
           }}
-          onDisciplineChange={setDisciplineUuid}
-          onSubjectChange={setSubjectUuid}
-          onTopicChange={setTopicUuid}
-          onSubtopicChange={setSubtopicUuid}
+          onDisciplineChange={(uuid) => {
+            setReviewEdited(true);
+            setDisciplineUuid(uuid);
+          }}
+          onSubjectChange={(uuid) => {
+            setReviewEdited(true);
+            setSubjectUuid(uuid);
+          }}
+          onTopicChange={(uuid) => {
+            setReviewEdited(true);
+            setTopicUuid(uuid);
+          }}
+          onSubtopicChange={(uuid) => {
+            setReviewEdited(true);
+            setSubtopicUuid(uuid);
+          }}
           onPublish={() => void publish()}
+          onDiscardReviewChanges={discardReviewChanges}
         />
       </Show>
       <Show when={error()}>

@@ -528,12 +528,19 @@ DROP FUNCTION IF EXISTS ple_api.list_blueprint_courses(
     uuid, uuid, uuid, uuid, boolean, text
 );
 
+DROP FUNCTION IF EXISTS ple_api.list_blueprint_courses(
+    boolean, boolean, boolean, text, text, bigint, text, text, integer,
+    uuid, uuid, uuid, uuid, boolean, text, uuid[], uuid[], uuid[], uuid[], text[]
+);
+
 CREATE FUNCTION ple_api.list_blueprint_courses(
     p_include_archived boolean, p_public_only boolean, p_promoted_only boolean, p_query text,
     p_sort text, p_after_count bigint, p_after_long_name text, p_after_blueprint_course_id text,
     p_limit integer,
     p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
-    p_subtopic_uuid uuid, p_cross_discipline boolean, p_tag text
+    p_subtopic_uuid uuid, p_cross_discipline boolean, p_tag text,
+    p_discipline_uuids uuid[], p_subject_uuids uuid[], p_topic_uuids uuid[],
+    p_subtopic_uuids uuid[], p_tags text[]
 )
 RETURNS TABLE (
     blueprint_course_id text, short_name text, long_name text, availability text,
@@ -551,39 +558,15 @@ BEGIN
     -- ASVS 2.2.1/3: reject contradictory visibility and unbounded pages.
     IF p_limit < 1 OR p_limit > 251 OR (p_public_only AND p_include_archived)
        OR length(p_query) > 256
-       OR p_sort NOT IN ('name', 'adoptions', 'students', 'stars', 'watches', 'recentEdits')
+       OR p_sort NOT IN ('name', 'nameDescending', 'adoptions', 'adoptionsAscending',
+                         'students', 'studentsAscending', 'stars', 'starsAscending',
+                         'watches', 'watchesAscending', 'recentEdits', 'recentEditsAscending')
        OR (p_after_long_name IS NULL) <> (p_after_blueprint_course_id IS NULL)
-       OR (p_sort = 'name' AND p_after_count IS NOT NULL)
-       OR (p_sort <> 'name' AND
+       OR (p_sort IN ('name', 'nameDescending') AND p_after_count IS NOT NULL)
+       OR (p_sort NOT IN ('name', 'nameDescending') AND
            ((p_after_count IS NULL) <> (p_after_long_name IS NULL)))
        OR (p_after_count IS NOT NULL AND p_after_count < 0) THEN
         RAISE EXCEPTION 'invalid Blueprint discovery page' USING ERRCODE = '22023';
-    END IF;
-    -- ASVS 2.2.1: an exact tag is optional, bounded, and never a name pattern.
-    IF p_tag IS NULL OR p_tag <> btrim(p_tag) OR length(p_tag) > 120
-       OR p_tag ~ '[[:cntrl:]]' THEN
-        RAISE EXCEPTION 'invalid Blueprint discovery page' USING ERRCODE = '22023';
-    END IF;
-    -- ASVS 2.2.2/8.3.1: validate identity and actual parents through authenticated reads.
-    IF (p_subject_uuid IS NOT NULL AND p_discipline_uuid IS NULL)
-       OR (p_topic_uuid IS NOT NULL AND p_subject_uuid IS NULL)
-       OR (p_subtopic_uuid IS NOT NULL AND p_topic_uuid IS NULL)
-       OR (p_cross_discipline AND (p_discipline_uuid IS NULL OR p_subject_uuid IS NULL)) THEN
-        RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
-    END IF;
-    IF (p_discipline_uuid IS NOT NULL AND NOT EXISTS (
-            SELECT 1 FROM ple_api.list_content_disciplines_including_retired() AS item
-             WHERE item.content_discipline_id = p_discipline_uuid))
-       OR (p_subject_uuid IS NOT NULL AND NOT EXISTS (
-            SELECT 1 FROM ple_api.list_content_subjects(p_discipline_uuid) AS item
-             WHERE item.content_subject_id = p_subject_uuid))
-       OR (p_topic_uuid IS NOT NULL AND NOT EXISTS (
-            SELECT 1 FROM ple_api.list_content_topics(p_subject_uuid) AS item
-             WHERE item.content_topic_id = p_topic_uuid))
-       OR (p_subtopic_uuid IS NOT NULL AND NOT EXISTS (
-            SELECT 1 FROM ple_api.list_content_subtopics(p_topic_uuid) AS item
-             WHERE item.content_subtopic_id = p_subtopic_uuid)) THEN
-        RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
     END IF;
     RETURN QUERY
     WITH matching AS MATERIALIZED (
@@ -643,34 +626,28 @@ BEGIN
            course.content_discipline_id, course.content_subject_id, course.content_topic_id,
            course.content_subtopic_id, course.tags, course.theme_id
       FROM ple_data.blueprint_course AS course
-     WHERE ple_api.current_session_account_is_instructor()
-       AND (NOT p_public_only OR course.availability = 'public')
-       AND (NOT p_promoted_only OR course.promoted)
-       AND (p_cross_discipline OR p_discipline_uuid IS NULL
-            OR course.content_discipline_id = p_discipline_uuid)
-       AND (p_subject_uuid IS NULL OR course.content_subject_id = p_subject_uuid)
-       AND (p_topic_uuid IS NULL OR course.content_topic_id = p_topic_uuid)
-       AND (p_subtopic_uuid IS NULL OR course.content_subtopic_id = p_subtopic_uuid)
-       -- Exact tag membership stays outside the Discipline hierarchy.
-       AND (p_tag = '' OR p_tag = ANY(course.tags))
-       -- ASVS 1.2.4: parameters remain literal text, including LIKE metacharacters.
-       AND (p_query = '' OR course.short_name ILIKE
-            '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%'
-            OR course.long_name ILIKE
-            '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%')
-       AND (
-           -- Archived Blueprints enter discovery only when explicitly requested.
-           course.availability = 'public'
-           OR (p_include_archived AND course.availability = 'archived')
-       )
+      JOIN ple_api.matching_blueprint_course_ids(
+          p_include_archived, p_public_only, p_promoted_only, p_query,
+          p_discipline_uuid, p_subject_uuid, p_topic_uuid, p_subtopic_uuid,
+          p_cross_discipline, p_tag, p_discipline_uuids, p_subject_uuids,
+          p_topic_uuids, p_subtopic_uuids, p_tags
+      ) AS hit ON hit.blueprint_course_id = course.blueprint_course_id
     )
     SELECT matched.* FROM matching AS matched
      WHERE p_after_long_name IS NULL
         OR (p_sort = 'name' AND
             (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
             (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))
+        OR (p_sort = 'nameDescending' AND
+            (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") <
+            (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))
         OR (p_sort = 'adoptions' AND
             (matched.total_adoptions < p_after_count
+             OR (matched.total_adoptions = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'adoptionsAscending' AND
+            (matched.total_adoptions > p_after_count
              OR (matched.total_adoptions = p_after_count
                  AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
                      (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
@@ -679,8 +656,18 @@ BEGIN
              OR (matched.total_students_ever_enrolled = p_after_count
                  AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
                      (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'studentsAscending' AND
+            (matched.total_students_ever_enrolled > p_after_count
+             OR (matched.total_students_ever_enrolled = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
         OR (p_sort = 'stars' AND
             (matched.star_count < p_after_count
+             OR (matched.star_count = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'starsAscending' AND
+            (matched.star_count > p_after_count
              OR (matched.star_count = p_after_count
                  AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
                      (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
@@ -689,19 +676,38 @@ BEGIN
              OR (matched.watcher_count = p_after_count
                  AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
                      (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'watchesAscending' AND
+            (matched.watcher_count > p_after_count
+             OR (matched.watcher_count = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
         OR (p_sort = 'recentEdits' AND
             (matched.last_edited_at_millis < p_after_count
              OR (matched.last_edited_at_millis = p_after_count
                  AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
                      (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+        OR (p_sort = 'recentEditsAscending' AND
+            (matched.last_edited_at_millis > p_after_count
+             OR (matched.last_edited_at_millis = p_after_count
+                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
+                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
      ORDER BY
        CASE WHEN p_sort = 'name' THEN matched.long_name END COLLATE "C" ASC,
+       CASE WHEN p_sort = 'nameDescending' THEN matched.long_name END COLLATE "C" DESC,
        CASE WHEN p_sort = 'adoptions' THEN matched.total_adoptions END DESC,
+       CASE WHEN p_sort = 'adoptionsAscending' THEN matched.total_adoptions END ASC,
        CASE WHEN p_sort = 'students' THEN matched.total_students_ever_enrolled END DESC,
+       CASE WHEN p_sort = 'studentsAscending' THEN matched.total_students_ever_enrolled END ASC,
        CASE WHEN p_sort = 'stars' THEN matched.star_count END DESC,
+       CASE WHEN p_sort = 'starsAscending' THEN matched.star_count END ASC,
        CASE WHEN p_sort = 'watches' THEN matched.watcher_count END DESC,
+       CASE WHEN p_sort = 'watchesAscending' THEN matched.watcher_count END ASC,
        CASE WHEN p_sort = 'recentEdits' THEN matched.last_edited_at_millis END DESC,
-       matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C"
+       CASE WHEN p_sort = 'recentEditsAscending' THEN matched.last_edited_at_millis END ASC,
+       CASE WHEN p_sort <> 'nameDescending' THEN matched.long_name END COLLATE "C" ASC,
+       CASE WHEN p_sort = 'nameDescending' THEN matched.long_name END COLLATE "C" DESC,
+       CASE WHEN p_sort <> 'nameDescending' THEN matched.blueprint_course_id END COLLATE "C" ASC,
+       CASE WHEN p_sort = 'nameDescending' THEN matched.blueprint_course_id END COLLATE "C" DESC
      LIMIT p_limit;
 END
 $$;

@@ -11,6 +11,7 @@ import type { PleQuestionJsonDocument } from "./question_json_source";
 
 export type PleQuestionJsonPublicationRequest = {
   readonly authorship: QuestionAuthorship;
+  readonly selfAuthorPosition: number | null;
   readonly disciplineUuid: string;
   readonly subjectUuid: string;
   readonly topicUuid: string | null;

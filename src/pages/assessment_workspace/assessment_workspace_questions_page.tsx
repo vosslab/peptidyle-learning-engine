@@ -15,8 +15,8 @@ import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
   appendAvailableFixedQuestion,
   deliveredAssessmentQuestionCount,
+  hasUnsavedQuestionChanges,
   moveAssessmentEntry,
-  nextQuestionEditDirty,
   questionSaveInput,
   questionRevisionKey,
   removeAssessmentEntry,
@@ -54,7 +54,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
-  const [dirty, setDirty] = createSignal(false);
+  const [savedContent, setSavedContent] = createSignal({
+    title: initial.title,
+    entries: initial.entries,
+  });
+  const dirty = createMemo(() =>
+    hasUnsavedQuestionChanges({ title: title(), entries: entries() }, savedContent()),
+  );
   const [blueprintReview, setBlueprintReview] = createSignal<AssessmentBlueprintUpdateReview>();
   const [poolDetails, setPoolDetails] = createSignal<
     ReadonlyMap<AssessmentEntryId, QuestionPoolView>
@@ -181,7 +187,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       return;
     }
     setEntries((current) => moveAssessmentEntry(current, index, offset));
-    setDirty((current) => nextQuestionEditDirty(current, "move"));
     setMessage("Entry order changed. Save Questions when ready.");
   }
 
@@ -194,7 +199,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       return;
     }
     setEntries(sorted);
-    setDirty((dirtyState) => nextQuestionEditDirty(dirtyState, "sort"));
     setMessage("Entries sorted by Bloom Classification. Save Questions when ready.");
   }
 
@@ -208,7 +212,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       return;
     }
     setEntries((current) => removeAssessmentEntry(current, index));
-    setDirty((current) => nextQuestionEditDirty(current, "remove"));
     setMessage("Entry removed. Save Questions when ready.");
   }
 
@@ -247,7 +250,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       }
       return next;
     });
-    setDirty((current) => nextQuestionEditDirty(current, "add"));
     return candidates.length;
   }
 
@@ -343,8 +345,12 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
     setBusy(true);
     try {
-      await workspace.save(questionSaveInput(workspace.assessment().workspace, title(), entries()));
-      setDirty((current) => nextQuestionEditDirty(current, "saveSucceeded"));
+      const saved = await workspace.save(
+        questionSaveInput(workspace.assessment().workspace, title(), entries()),
+      );
+      setEntries(saved.workspace.entries);
+      setTitle(saved.workspace.title);
+      setSavedContent({ title: saved.workspace.title, entries: saved.workspace.entries });
       setMessage("Questions and order saved. Review Assessment Properties when you are ready.");
       return true;
     } catch (error: unknown) {
@@ -355,7 +361,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
           ? "This assessment changed elsewhere. Reload latest assessment before saving; your current Entries remain here."
           : "Questions were not saved. Try again.",
       );
-      setDirty((current) => nextQuestionEditDirty(current, "saveFailed"));
       return false;
     } finally {
       setBusy(false);
@@ -370,12 +375,12 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       );
       return;
     }
-    if (discardLocalChanges) setDirty(false);
     setBusy(true);
     try {
       const latest = await workspace.reloadAssessment();
       setEntries(latest.workspace.entries);
       setTitle(latest.workspace.title);
+      setSavedContent({ title: latest.workspace.title, entries: latest.workspace.entries });
       if ((await loadPoolDetails(latest.workspace.entries)) === "loaded") {
         setNeedsReload(false);
         setMessage("Latest assessment loaded. Review its complete ordered Entries.");
@@ -459,6 +464,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       const latest = await workspace.reloadAssessment();
       setEntries(latest.workspace.entries);
       setTitle(latest.workspace.title);
+      setSavedContent({ title: latest.workspace.title, entries: latest.workspace.entries });
       if ((await loadPoolDetails(latest.workspace.entries)) === "loaded") {
         setNeedsReload(false);
         setMessage(success);
@@ -488,7 +494,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
           : currentEntry,
       ),
     );
-    setDirty((current) => nextQuestionEditDirty(current, "add"));
     setMessage("Selection count changed for this Assessment. Save Questions when ready.");
   }
 
@@ -570,7 +575,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     };
     setEntries([...currentEntries, addedEntry]);
     setPoolImport(undefined);
-    setDirty((current) => nextQuestionEditDirty(current, "add"));
     setMessage("Reusable Question Pool reference added. Save Questions when ready.");
     void loadPoolDetails([...currentEntries, addedEntry]);
   }
@@ -578,7 +582,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   return AssessmentWorkspaceQuestionsView({
     workspace,
     dirty,
-    setDirty,
     save,
     message,
     setMessage,

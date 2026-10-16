@@ -1,6 +1,8 @@
 // library_page_model.ts - bounded, transport-validated Question Library browse state.
 
 import type { SearchState } from "../features/search/search_session";
+import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
+import type { RecordFilterChoices } from "../components/record_list/record_fields";
 import type { RecordPageSize } from "../components/record_list/record_page_sizes";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import {
@@ -17,6 +19,7 @@ import type { QuestionStatistics } from "../../generated/api/QuestionStatistics"
 import type { QuestionAuthor } from "../../generated/api/QuestionAuthor";
 import type { QuestionPoolMetadataEditNumber } from "../../generated/api/QuestionPoolMetadataEditNumber";
 import type { QuestionPoolEditNumber } from "../../generated/api/QuestionPoolEditNumber";
+import type { LibrarySearchClassification } from "../../generated/api/LibrarySearchClassification";
 import { decodeQuestionAuthorship } from "../api/question_authorship";
 import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
 import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
@@ -34,7 +37,10 @@ import {
   QUESTION_BACKENDS,
   decodePublishedQuestionRevisionTuple,
 } from "../api/decoders/shared";
-import { decodeQuestionStatistics } from "../api/decoders/question_library";
+import {
+  decodeLibrarySearchClassification,
+  decodeQuestionStatistics,
+} from "../api/decoders/question_library";
 import { decodeBloomClassificationView } from "../api/decoders/bloom_classification";
 
 /** A browser-safe current Question Library record. */
@@ -66,6 +72,7 @@ export interface QuestionLibraryBrowseRow {
 
 /** Shared fields projected from each Library Object kind at the browser row boundary. */
 export interface LibraryObjectCommonRow {
+  readonly classification: LibrarySearchClassification;
   readonly title: string;
   readonly description: string;
   readonly ownerAccountId: string;
@@ -126,16 +133,16 @@ export interface QuestionLibraryBrowseQuery extends LibraryClassificationFilter 
   readonly questions: "inNoPool" | "all";
   readonly ownerAccountId: string | null;
   readonly search: string;
-  readonly authorName: string | null;
-  readonly backend: string | null;
-  readonly tag: string | null;
+  readonly authorNames: ReadonlyArray<string>;
+  readonly backends: ReadonlyArray<string>;
+  readonly tags: ReadonlyArray<string>;
   readonly subjects: ReadonlyArray<string>;
   readonly topics: ReadonlyArray<string>;
-  readonly bloomCognitiveProcess: BloomCognitiveProcess | null;
-  readonly bloomKnowledgeDimension: BloomKnowledgeDimension | null;
-  readonly questionType: string | null;
-  readonly capability: string | null;
-  readonly questionLicense: string | null;
+  readonly bloomCognitiveProcesses: ReadonlyArray<BloomCognitiveProcess>;
+  readonly bloomKnowledgeDimensions: ReadonlyArray<BloomKnowledgeDimension>;
+  readonly questionTypes: ReadonlyArray<string>;
+  readonly capabilities: ReadonlyArray<string>;
+  readonly questionLicenses: ReadonlyArray<string>;
   /** Closed server-resolved authorship scope; browser rows never carry Account identity. */
   readonly authorship: QuestionSearchAuthorship;
   /** Server-owned deterministic order retained with this exact query. */
@@ -194,6 +201,12 @@ export interface QuestionLibraryBrowseRepository {
     cursor: string | null,
     pageSize?: QuestionLibraryPageSize,
   ) => Promise<unknown>;
+  readonly listFacetChoices: (
+    field: LibraryFacetField,
+    query: QuestionLibraryBrowseQuery,
+    search: string,
+    cursor: string | null,
+  ) => Promise<RecordFilterChoices>;
 }
 
 export interface QuestionLibraryFilterCounts {
@@ -279,6 +292,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
     ...kindKey,
   ];
   const commonFields = [
+    "classification",
     "title",
     "description",
     "ownerAccountId",
@@ -358,6 +372,10 @@ function decodeLibraryObjectQuestionRow(value: unknown, path: string): LibraryOb
     backend: boundedText(value["backend"], `${path}.backend`),
     tags: stringList(value["tags"], `${path}.tags`),
     license: decodeNullableQuestionLicense(value["license"], `${path}.license`),
+    classification: decodeLibrarySearchClassification(
+      value["classification"],
+      `${path}.classification`,
+    ),
   };
 }
 
@@ -366,6 +384,7 @@ function decodePoolRow(value: unknown, path: string): QuestionLibraryPoolRow {
     !isRecord(value) ||
     !hasExactKeys(value, [
       "backend",
+      "classification",
       "bloom",
       "description",
       "disciplineIsRetired",
@@ -435,6 +454,10 @@ function decodePoolRow(value: unknown, path: string): QuestionLibraryPoolRow {
       value["subtopicUuid"] === null
         ? null
         : boundedText(value["subtopicUuid"], `${path}.subtopicUuid`),
+    classification: decodeLibrarySearchClassification(
+      value["classification"],
+      `${path}.classification`,
+    ),
   };
 }
 
@@ -597,19 +620,25 @@ export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   questions: "inNoPool",
   ownerAccountId: null,
   search: "",
-  authorName: null,
-  backend: null,
-  tag: null,
+  authorNames: [],
+  backends: [],
+  tags: [],
   subjects: [],
   topics: [],
-  bloomCognitiveProcess: null,
-  bloomKnowledgeDimension: null,
-  questionType: null,
-  capability: null,
-  questionLicense: null,
+  bloomCognitiveProcesses: [],
+  bloomKnowledgeDimensions: [],
+  questionTypes: [],
+  capabilities: [],
+  questionLicenses: [],
   authorship: "any",
   sort: "titleAscending",
 };
+
+function normalizeLibraryTextFilterKeys(values: ReadonlyArray<string>): string[] {
+  return [
+    ...new Set(values.map((value) => value.trim().replace(/\s+/g, " ").toLowerCase())),
+  ].sort();
+}
 
 export function normalizeQuestionLibraryBrowseQuery(
   query: QuestionLibraryBrowseQuery,
@@ -621,16 +650,16 @@ export function normalizeQuestionLibraryBrowseQuery(
     questions: poolsOnly ? "all" : query.questions,
     ownerAccountId: query.ownerAccountId === null ? null : query.ownerAccountId.trim(),
     search: query.search.trim().replace(/\s+/g, " "),
-    authorName: poolsOnly ? null : query.authorName,
-    backend: query.backend,
-    tag: query.tag,
-    subjects: query.subjects.map((subject) => subject.trim().replace(/\s+/g, " ")),
-    topics: query.topics.map((topic) => topic.trim().replace(/\s+/g, " ")),
-    bloomCognitiveProcess: query.bloomCognitiveProcess,
-    bloomKnowledgeDimension: query.bloomKnowledgeDimension,
-    questionType: query.questionType,
-    capability: query.capability,
-    questionLicense: query.questionLicense,
+    authorNames: poolsOnly ? [] : normalizeLibraryTextFilterKeys(query.authorNames),
+    backends: query.backends,
+    tags: normalizeLibraryTextFilterKeys(query.tags),
+    subjects: normalizeLibraryTextFilterKeys(query.subjects),
+    topics: normalizeLibraryTextFilterKeys(query.topics),
+    bloomCognitiveProcesses: query.bloomCognitiveProcesses,
+    bloomKnowledgeDimensions: query.bloomKnowledgeDimensions,
+    questionTypes: query.questionTypes,
+    capabilities: query.capabilities,
+    questionLicenses: query.questionLicenses,
     authorship: poolsOnly ? "any" : query.authorship,
     sort: query.sort,
   };

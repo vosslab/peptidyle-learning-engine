@@ -56,6 +56,11 @@ CREATE POLICY question_ownership_data_owner_access ON ple_data.question_ownershi
 CREATE POLICY question_star_data_owner_access ON ple_data.question_star
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 
+CREATE POLICY question_star_private_owner_current_instructor_read ON ple_data.question_star
+    FOR SELECT TO ple_private_owner
+    USING (ple_api.current_session_account_is_instructor()
+           AND instructor_account_id = ple_api.current_session_account_id());
+
 CREATE POLICY question_watch_data_owner_access ON ple_data.question_watch
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 

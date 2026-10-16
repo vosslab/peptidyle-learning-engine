@@ -44,7 +44,13 @@ GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(text), ple_api.update_course
     ple_api.reset_student_signup_access(text, text),
     ple_api.restore_student_course_access(uuid, text, text) TO ple_app;
 
-REVOKE ALL ON FUNCTION ple_api.list_installation_courses(text, text, text, integer),
+-- The private Student Attempt History reader reuses the self-only Course projection.
+GRANT EXECUTE ON FUNCTION ple_api.list_live_student_course_landing()
+    TO ple_private_owner;
+
+REVOKE ALL ON FUNCTION ple_api.list_installation_courses(text, text, text, integer, text, text[], text[]),
+    ple_api.installation_course_facet_choices(text, text[], text[]),
     ple_api.load_installation_course(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.list_installation_courses(text, text, text, integer),
+GRANT EXECUTE ON FUNCTION ple_api.list_installation_courses(text, text, text, integer, text, text[], text[]),
+    ple_api.installation_course_facet_choices(text, text[], text[]),
     ple_api.load_installation_course(text) TO ple_app;

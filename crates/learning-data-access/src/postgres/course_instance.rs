@@ -15,7 +15,8 @@ use crate::{
     CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceLifecycleState,
     CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CourseRetentionLifecycleState,
     CreateCourseInstanceInput, CreatedCourseInstance, Cursor, DiscoveryPageRequest,
-    InstallationCourseInspection, Page, SessionTokenHash, StoreError,
+    InstallationCourseFacetChoice, InstallationCourseInspection, Page, SessionTokenHash,
+    StoreError,
 };
 
 const COURSE_CREATION_IDENTITY_ATTEMPTS: usize = 8;
@@ -29,7 +30,7 @@ const LOAD_COURSE_INSTANCE_SQL: &str = "SELECT course_instance_id, short_name, l
 const LIST_INSTALLATION_COURSES_SQL: &str = "SELECT course_instance_id, short_name, long_name, \
      term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, \
      course_lifecycle_state, retention_lifecycle_state, instructor_display_names, cursor_long_name \
-     FROM ple_api.list_installation_courses($1, $2, $3, $4)";
+     FROM ple_api.list_installation_courses($1, $2, $3, $4, $5, $6, $7)";
 const LOAD_INSTALLATION_COURSE_SQL: &str = "SELECT course_instance_id, short_name, long_name, \
      term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, \
      course_lifecycle_state, retention_lifecycle_state, instructor_display_names \
@@ -38,6 +39,9 @@ const LOAD_INSTALLATION_COURSE_SQL: &str = "SELECT course_instance_id, short_nam
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct InstallationCourseCursor {
     query: String,
+    sort: String,
+    activity: Vec<String>,
+    retention: Vec<String>,
     page_size: u16,
     long_name: String,
     course_instance_id: String,
@@ -382,6 +386,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         &self,
         session_token_hash: SessionTokenHash,
         query: &str,
+        sort: &str,
+        activity: &[String],
+        retention: &[String],
         page: DiscoveryPageRequest,
     ) -> Result<Page<InstallationCourseInspection>, StoreError> {
         let mut transaction = self
@@ -397,6 +404,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 let position = serde_json::from_str::<InstallationCourseCursor>(cursor.as_str())
                     .map_err(|_| invalid("installation Course cursor"))?;
                 if position.query != query
+                    || position.sort != sort
+                    || position.activity != activity
+                    || position.retention != retention
                     || position.page_size != page.size.get()
                     || position.long_name.is_empty()
                     || position.long_name != position.long_name.trim()
@@ -421,6 +431,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                     .map(|position| position.course_instance_id.as_str()),
             )
             .bind(i32::from(page.size.get()))
+            .bind(sort)
+            .bind(activity)
+            .bind(retention)
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -440,6 +453,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 .ok_or_else(|| invalid("installation Course cursor"))?;
             let position = InstallationCourseCursor {
                 query: query.to_owned(),
+                sort: sort.to_owned(),
+                activity: activity.to_vec(),
+                retention: retention.to_vec(),
                 page_size: page.size.get(),
                 long_name: last.long_name.clone(),
                 course_instance_id: last.id.as_str().to_owned(),
@@ -455,6 +471,33 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             items: courses,
             next_cursor,
         })
+    }
+
+    async fn list_installation_course_facets(
+        &self,
+        session_token_hash: SessionTokenHash,
+        query: &str,
+        activity: &[String],
+        retention: &[String],
+    ) -> Result<Vec<InstallationCourseFacetChoice>, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        let rows = sqlx::query("SELECT field_name, choice_key, matching_count FROM ple_api.installation_course_facet_choices($1,$2,$3)")
+            .bind(query).bind(activity).bind(retention)
+            .fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
+        let choices = rows
+            .iter()
+            .map(|row| {
+                Ok(InstallationCourseFacetChoice {
+                    field_name: row.try_get("field_name").map_err(map_sqlx_error)?,
+                    choice_key: row.try_get("choice_key").map_err(map_sqlx_error)?,
+                    matching_count: row.try_get("matching_count").map_err(map_sqlx_error)?,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(choices)
     }
 
     async fn load_installation_course(

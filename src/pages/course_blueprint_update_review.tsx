@@ -5,7 +5,12 @@ import type {
   CourseBlueprintUpdateReview,
 } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
-import { RecordList, type RecordContent } from "../components/record_list/record_list";
+import { assessmentTypePresentation } from "../assessment_type_presentation";
+import type { RecordField } from "../components/record_list/record_fields";
+import type { RecordContent } from "../components/record_list/record_list";
+import { SearchBlock } from "../features/search/search_block";
+import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
 import { assessmentRouteId } from "../navigation/public_route";
 
 function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string {
@@ -17,6 +22,37 @@ function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string
   }
   return assessment.matchesSource ? "Matches source" : "Changes available";
 }
+
+type UpdateSortKey = "title" | "type" | "update";
+type UpdateFilterKey = "type" | "update";
+const updateFields: ReadonlyArray<
+  RecordField<CourseAssessmentBlueprintUpdateSummary, UpdateSortKey, UpdateFilterKey>
+> = [
+  {
+    id: "title",
+    label: "Assessment",
+    role: "identity",
+    sortKey: "title",
+    value: (assessment) => assessment.title,
+    defaultColumn: { priority: 0, width: "20rem" },
+  },
+  {
+    id: "type",
+    label: "Type",
+    sortKey: "type",
+    filterKey: "type",
+    value: (assessment) => assessmentTypePresentation(assessment.assessmentType).label,
+    defaultColumn: { priority: 1, width: "11rem" },
+  },
+  {
+    id: "update",
+    label: "Update",
+    sortKey: "update",
+    filterKey: "update",
+    value: updateLabel,
+    defaultColumn: { priority: 2, width: "14rem" },
+  },
+];
 
 function assessmentUpdateContent(
   courseInstanceId: CourseInstanceId,
@@ -53,15 +89,27 @@ export function CourseBlueprintUpdateReviewList(props: {
   const [opened, setOpened] = createSignal(false);
   const [review, { refetch }] = createResource(
     () => (opened() ? props.courseInstanceId : false),
-    async (courseInstanceId): Promise<CourseBlueprintUpdateReview | null> => {
+    async (courseInstanceId): Promise<CourseBlueprintUpdateReview> => {
       try {
         return await applicationApi.client.getCourseBlueprintUpdateReview(courseInstanceId);
       } catch {
         // Access loss and unavailable parents share one non-enumerating recovery state.
-        return null;
+        throw new Error("Blueprint updates are unavailable through your current access.");
       }
     },
   );
+  const updateSearch = createLocalCompleteSearch(
+    { resource: review, refetchSource: refetch, rows: (summary) => summary.assessments },
+    {
+      fields: updateFields,
+      rowId: (assessment) => assessment.assessmentId,
+      keyword: (assessment) =>
+        `${assessment.title} ${assessment.assessmentId} ${assessmentTypePresentation(assessment.assessmentType).label} ${updateLabel(assessment)}`,
+      content: assessmentUpdateContent(props.courseInstanceId),
+    },
+  );
+  const sourceRevisionContext = (): CourseBlueprintUpdateReview | undefined =>
+    review.state === "ready" || review.state === "refreshing" ? review.latest : undefined;
 
   return (
     <>
@@ -95,49 +143,38 @@ export function CourseBlueprintUpdateReviewList(props: {
               Refresh Blueprint updates
             </button>
           </div>
-          <Show when={review.loading}>
-            <p class="loading-state" role="status">
-              Loading Blueprint updates...
-            </p>
-          </Show>
-          <Show when={!review.loading && review() === null}>
-            <p class="route-error" role="alert">
-              Blueprint updates are unavailable through your current access. Try refreshing.
-            </p>
-          </Show>
-          <Show when={!review.loading && review()}>
+          <Show when={sourceRevisionContext()}>
             {(summary) => (
-              <>
-                <p class="page-lede" data-blueprint-source-revision>
-                  Source Blueprint {summary().currentBlueprintCourseRevisionTuple.blueprintCourseId}
-                  , Revision {summary().currentBlueprintCourseRevisionTuple.revisionNumber} under
-                  review.
-                </p>
-                <p class="instructor-list__metadata">
-                  Review and approve changes separately for each Assessment. The original Course
-                  adoption remains Revision{" "}
-                  {summary().adoptedBlueprintCourseRevisionTuple.revisionNumber}.
-                </p>
-                <Show
-                  when={summary().assessments.length > 0}
-                  fallback={
-                    <p class="empty-state">
-                      No Assessments copied from this Blueprint are available to review.
-                    </p>
-                  }
-                >
-                  <RecordList
-                    ariaLabel="Blueprint Assessment updates"
-                    emptyState={{ title: "No Blueprint Assessment updates" }}
-                    recordId={(assessment) => assessment.assessmentId}
-                    content={assessmentUpdateContent(props.courseInstanceId)}
-                    rows={summary().assessments}
-                    state={{ kind: "ready" }}
-                  />
-                </Show>
-              </>
+              <p class="page-lede" data-blueprint-source-revision>
+                Source Blueprint {summary().currentBlueprintCourseRevisionTuple.blueprintCourseId}{" "}
+                at current Revision {summary().currentBlueprintCourseRevisionTuple.revisionNumber};
+                adopted Revision {summary().adoptedBlueprintCourseRevisionTuple.revisionNumber}.
+              </p>
             )}
           </Show>
+          <SearchBlock
+            layout="above"
+            controls={
+              <SearchControls
+                state={updateSearch.state}
+                textLabel="Search Blueprint Assessment updates"
+              />
+            }
+            state={updateSearch.state}
+            collection={{
+              ariaLabel: "Blueprint Assessment updates",
+              fields: updateFields,
+              query: updateSearch.query,
+              get emptyState() {
+                return {
+                  title:
+                    updateSearch.state.query().text || updateSearch.state.query().filters.size
+                      ? "No Blueprint Assessment updates match your search."
+                      : "No Assessments copied from this Blueprint are available to review.",
+                };
+              },
+            }}
+          />
         </section>
       </Show>
     </>
