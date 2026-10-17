@@ -22,7 +22,7 @@ resolver = "2"
 [workspace.package]
 version = "26.10.0"
 edition = "2024"
-rust-version = "1.97.1"
+rust-version = "1.99.1"
 
 # The 2026-08-12 storage audit measured 67 GiB of incremental state and another
 # 68 GiB of full-debug dependency artifacts after the repository's broad
