@@ -18,7 +18,8 @@
     "@solidjs/router": ">=1.0.0",
     "dompurify": ">=3.4.17",
     "solid-js": ">=1.9.15",
-    "temml": ">=0.13.5"
+    "temml": ">=0.13.5",
+    "playwright": ">=1.64.1"
   },
   "devDependencies": {
     "@axe-core/playwright": ">=4.13.0",
@@ -31,7 +32,6 @@
     "esbuild-plugin-solid": ">=0.6.0",
     "eslint": ">=10.10.0",
     "globals": ">=17.12.0",
-    "playwright": ">=1.63.0",
     "prettier": ">=3.9.6",
     "tsx": ">=4.23.13",
     "typescript": ">=6.0.3 <6.1.0",
