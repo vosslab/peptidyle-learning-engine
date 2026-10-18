@@ -1,13 +1,13 @@
 // Search state and browser mapping for one Instructor's private Starred collection.
 
 import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
-import type { RecordFilterChoices } from "../components/data_sheet/record_fields";
+import type { RecordFilterChoices } from "../components/data_sheet/data_sheet_fields";
 import type { RecordContent } from "../components/data_sheet/record_content";
 import type {
   SearchDefinition,
   SearchPage,
   SearchPageRequest,
-} from "../components/search_block/search_session";
+} from "../components/search_block/search_definition";
 import type { ApiClient } from "../api/client";
 import type { StarredQuestionSort } from "../api/question_star";
 import {
@@ -16,14 +16,17 @@ import {
   questionLibraryRowFromResult,
 } from "../api/question_library_repository";
 import {
-  decodeLibrarySearchPage,
-  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-  normalizeQuestionLibraryBrowseQuery,
   type LibraryObjectQuestionRow,
   type QuestionLibraryBrowseQuery,
   type QuestionLibraryFilterCounts,
-} from "./library_page_model";
-import { questionLibraryContent } from "./question_library_search_definition";
+  type LibrarySearchPage,
+  type QuestionLibraryPageSize,
+} from "../api/question_library_projection";
+import {
+  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  normalizeQuestionLibraryBrowseQuery,
+} from "../features/question_library/library_query";
+import { questionLibraryContent } from "../features/question_library/question_library_search_definition";
 
 export interface StarredBrowseQuery extends QuestionLibraryBrowseQuery {
   readonly starredSort: StarredQuestionSort;
@@ -92,7 +95,7 @@ export function starredSearchRepository(client: ApiClient): {
   search: (
     query: QuestionLibraryBrowseQuery,
     page: SearchPageRequest,
-  ) => Promise<ReturnType<typeof decodeLibrarySearchPage>>;
+  ) => Promise<LibrarySearchPage>;
   listFacetChoices: (
     field: LibraryFacetField,
     query: QuestionLibraryBrowseQuery,
@@ -104,7 +107,7 @@ export function starredSearchRepository(client: ApiClient): {
     async search(
       query: QuestionLibraryBrowseQuery,
       pageRequest: SearchPageRequest,
-    ): Promise<ReturnType<typeof decodeLibrarySearchPage>> {
+    ): Promise<LibrarySearchPage> {
       const starredQuery = query as StarredBrowseQuery;
       const request = libraryObjectSearchRequest(
         { ...starredQuery, kind: "questions", questions: "all", sort: "titleAscending" },
@@ -119,10 +122,13 @@ export function starredSearchRepository(client: ApiClient): {
       const rawRows = page.items.map((item) =>
         questionLibraryRowFromResult({ kind: "question", ...item }),
       );
-      const decoded = decodeLibrarySearchPage({
-        items: rawRows,
+      return {
+        items: rawRows.map((row, index) => ({
+          ...row,
+          starredAtMicros: page.items[index]!.starredAtMicros,
+        })),
         pageNumber: page.pageNumber,
-        pageSize: page.pageSize,
+        pageSize: page.pageSize as QuestionLibraryPageSize,
         totalCount: page.totalCount,
         aggregates: libraryFacetAggregates(page),
         facetTruncation: {
@@ -131,14 +137,7 @@ export function starredSearchRepository(client: ApiClient): {
           subjects: page.facets.subjectsTruncated,
           topics: page.facets.topicsTruncated,
         },
-      });
-      return {
-        ...decoded,
-        items: decoded.items.map((row, index) => ({
-          ...row,
-          starredAtMicros: page.items[index]!.starredAtMicros,
-        })),
-      };
+      } satisfies LibrarySearchPage;
     },
     async listFacetChoices(
       field: LibraryFacetField,

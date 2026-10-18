@@ -11,7 +11,7 @@ import { ApiRequestError } from "../../api/http_client/error";
 import { useApplicationApi } from "../../api/application_api";
 import { createQuestionLibraryRepository } from "../../api/question_library_repository";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
-import type { LibrarySearchRow } from "../library_page_model";
+import type { LibrarySearchRow } from "../../api/question_library_projection";
 import type { AssessmentContentPickerSelection } from "../../features/assessment_content_picker";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {

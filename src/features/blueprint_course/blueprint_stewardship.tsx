@@ -12,8 +12,8 @@ import type { RecordContent } from "../../components/data_sheet/record_content";
 import type {
   RecordField,
   RecordFilterChoices,
-  RecordListQuery,
-} from "../../components/data_sheet/record_fields";
+  DataSheetQuery,
+} from "../../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../../components/search_block/search_block";
 import { SearchControls } from "../../components/search_block/search_controls";
 import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
@@ -22,7 +22,7 @@ import type {
   SearchPageRequest,
   SearchDefinition,
   SearchPage,
-} from "../../components/search_block/search_session";
+} from "../../components/search_block/search_definition";
 
 type StarredInstructorRow = { readonly id: string; readonly displayName: string };
 const instructorFields: ReadonlyArray<RecordField<StarredInstructorRow, "name", "name">> = [
@@ -169,7 +169,7 @@ function watchEventContent(
   };
 }
 
-/** The surrounding Instructor detail route mounts this only for Public or Archived Blueprints. */
+/** The surrounding Instructor detail route mounts this for an accessible Blueprint. */
 export function BlueprintStewardship(props: Props): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const [notice, setNotice] = createSignal("");
@@ -305,8 +305,7 @@ export function BlueprintStewardship(props: Props): JSX.Element {
                 state={instructorSearch.state}
                 collection={{
                   ariaLabel: "Instructors who starred this Blueprint",
-                  fields: instructorFields,
-                  query: instructorSearch.query,
+                  ...instructorSearch.collection,
                   emptyState: { title: "No Instructor Stars to show." },
                 }}
               />
@@ -361,8 +360,7 @@ function WatchActivity(props: Props & { readonly refreshRevision: number }): JSX
     previousRefreshRevision = revision;
     void state.refresh();
   });
-  const recordQuery: RecordListQuery<WatchSort, WatchFilter> = {
-    kind: "paged",
+  const recordQuery: DataSheetQuery<WatchSort, WatchFilter> = {
     sort: {
       get value() {
         return { key: "occurredAt" as const, direction: state.query().direction };

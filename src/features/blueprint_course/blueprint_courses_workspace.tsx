@@ -1,8 +1,7 @@
 // My Blueprint Courses uses the same complete discovery query as Public Search.
 import { Show, createSignal, type JSX } from "solid-js";
 
-import { PageFrame } from "../../components/page_frame/page_frame";
-import { BlueprintCourseCollection } from "../../pages/blueprint_course_search_page";
+import { BlueprintCourseCollection } from "./blueprint_course_collection";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import { BlueprintCourseImport } from "./blueprint_exchange";
 import type { BlueprintCoursesWorkspaceProps } from "./blueprint_course_workspace_types";
@@ -29,7 +28,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
   );
 
   return (
-    <PageFrame routeSurface="blueprintCourses">
+    <>
       <Show when={failure() !== ""}>
         <p class="blueprint-course-notice" role="alert">
           {failure()}
@@ -51,6 +50,6 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
           onFailure={setFailure}
         />
       </Show>
-    </PageFrame>
+    </>
   );
 }

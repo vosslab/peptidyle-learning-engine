@@ -1,5 +1,5 @@
 import type { RecoveredQuestion } from "../api/course_student_work_recovery";
-import type { RecordField } from "./data_sheet/record_fields";
+import type { RecordField } from "./data_sheet/data_sheet_fields";
 import type { RecordContent } from "./data_sheet/record_content";
 import { labeledQuestionRecognition } from "../features/recognition_label";
 

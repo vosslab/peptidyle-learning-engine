@@ -1,7 +1,7 @@
 import { Show, type JSX } from "solid-js";
 
-import { inputChange, selectChange } from "../components/controlled_form_change";
-import type { QuestionLibraryBrowseQuery } from "./library_page_model";
+import { inputChange, selectChange } from "../../components/controlled_form_change";
+import type { QuestionLibraryBrowseQuery } from "../../api/question_library_projection";
 
 export type LibrarySearchFiltersProps = {
   readonly query: () => QuestionLibraryBrowseQuery;

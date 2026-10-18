@@ -18,7 +18,7 @@ BEGIN
       WHERE blueprint_course_id = p_blueprint_course_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_is_instructor()
        OR (course_row.owner_account_id <> ple_api.current_session_account_id()
-                       AND course_row.availability NOT IN ('public', 'archived')) THEN
+                       AND course_row.availability NOT IN ('active', 'archived')) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Pool is unavailable';
     END IF;
     SELECT content INTO content_value FROM ple_data.blueprint_course_revision

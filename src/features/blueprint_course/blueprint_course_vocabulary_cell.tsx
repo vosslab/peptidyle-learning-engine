@@ -3,7 +3,7 @@ import { createResource, type JSX } from "solid-js";
 import type {
   ContentClassificationClient,
   ContentClassificationItem,
-} from "../api/content_classification";
+} from "../../api/content_classification";
 
 type Level = "discipline" | "subject" | "topic" | "subtopic";
 

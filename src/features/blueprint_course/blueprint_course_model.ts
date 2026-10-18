@@ -69,7 +69,7 @@ export function blueprintLifecyclePresentation(
   readAccess: BlueprintCourseReadAccess,
 ): BlueprintLifecyclePresentation {
   const owner = readAccess === "blueprint_course_owner";
-  if (availability === "public") {
+  if (availability === "active") {
     return {
       meaning:
         "Instructors can browse and adopt this Blueprint Course. Its current Revision is reusable.",
@@ -83,7 +83,7 @@ export function blueprintLifecyclePresentation(
   }
   return {
     meaning:
-      "This Blueprint Course is read-only and unavailable for new Course Instance creation. Restore it to Public to make it available again.",
+      "This Blueprint Course is read-only and unavailable for new Course Instance creation. Restore it to Active to make it available again.",
     canAdopt: false,
     canEdit: false,
     canArchive: false,

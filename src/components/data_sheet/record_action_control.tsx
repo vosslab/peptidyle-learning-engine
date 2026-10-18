@@ -1,6 +1,6 @@
 import { Show, type Accessor, type JSX } from "solid-js";
 
-import { useRecordInteractions } from "./record_interactions";
+import { useRecordInteractions } from "./data_sheet_interactions";
 
 import type { RecordAction } from "./record_content";
 

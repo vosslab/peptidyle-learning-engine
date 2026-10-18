@@ -18,11 +18,10 @@ import { useAppearance } from "../../appearance/appearance_context";
 import { ThemeChooser } from "../../appearance/theme_chooser";
 import { UnsavedChangesGuard, trackEditorSave } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
-import { PageFrame } from "../../components/page_frame/page_frame";
 import { useSelectedDisplayDateTimeFormatter } from "../../selected_display_zone";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { parseBlueprintCourseId } from "../../navigation/public_route";
-import { blueprintDetailCollectionLink } from "../../pages/blueprint_course_search_return_state";
+import { blueprintDetailCollectionLink } from "./blueprint_course_search_return_state";
 import {
   useClearRouteScopeLabels,
   usePublishRouteScopeLabels,
@@ -608,14 +607,12 @@ export function BlueprintCourseDetailWorkspace(
     if (activePublication !== undefined) clearRouteScopeLabels(activePublication);
   });
   return (
-    <PageFrame
-      routeSurface="blueprintCourseDetail"
-      actions={
+    <>
+      <nav class="blueprint-course-detail-navigation" aria-label="Blueprint Course collection">
         <A class="quiet-link" href={blueprintCollection().href}>
           {blueprintCollection().label}
         </A>
-      }
-    >
+      </nav>
       <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>
@@ -695,18 +692,11 @@ export function BlueprintCourseDetailWorkspace(
                 onInvalidDraftChange={setInvalidDraft}
                 onChangeAssessment={changeAssessment}
               />
-              <Show
-                when={
-                  loaded().view.availability === "public" ||
-                  loaded().view.availability === "archived"
-                }
-              >
-                <BlueprintStewardship
-                  client={props.client}
-                  blueprintCourseId={loaded().view.id}
-                  formatDateTime={formatDateTime}
-                />
-              </Show>
+              <BlueprintStewardship
+                client={props.client}
+                blueprintCourseId={loaded().view.id}
+                formatDateTime={formatDateTime}
+              />
               <CourseClassificationEditor
                 value={loaded().view.classification}
                 editNumber={loaded().view.blueprint_edit_number}
@@ -849,6 +839,6 @@ export function BlueprintCourseDetailWorkspace(
             "Blueprint Theme was not saved. Resolve the metadata error before leaving.",
         }}
       />
-    </PageFrame>
+    </>
   );
 }

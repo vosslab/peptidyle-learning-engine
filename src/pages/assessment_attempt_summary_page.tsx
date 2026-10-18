@@ -160,8 +160,7 @@ export function AssessmentAttemptHistoryContent(props: {
           collection={{
             ariaLabel: "Recorded Question work",
             initialMode: "cards",
-            fields: assessmentAttemptRecordFields,
-            query: recordedSearch.query,
+            ...recordedSearch.collection,
             emptyState: { title: "No recorded Questions match your search." },
             renderBody: (question) => (
               <div class="attempt-summary__question">

@@ -1,8 +1,8 @@
 import { For, Show, createMemo, type Accessor, type JSX } from "solid-js";
 
-import { RecordInteractionControls, useRecordInteractions } from "./record_interactions";
+import { RecordInteractionControls, useRecordInteractions } from "./data_sheet_interactions";
 
-import type { RecordFieldValue } from "./record_fields";
+import type { RecordFieldValue } from "./data_sheet_fields";
 import { RecordActionControl } from "./record_action_control";
 import {
   normalizeRecordActions,

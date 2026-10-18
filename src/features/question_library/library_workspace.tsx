@@ -1,27 +1,25 @@
-// library_page.tsx - injected Question Library browse surface; route wiring follows the server contract.
+// library_workspace.tsx - injected Question Library browse surface; route wiring follows the server contract.
 
 import { useLocation, useNavigate } from "@solidjs/router";
 import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
 
 import { createLibraryBulkActions, LibraryBulkActions } from "./library_bulk_actions";
-import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
-import type { QuestionPoolStartingQuestion } from "../components/question_pool_create_model";
-import type { QuestionDetails } from "../../generated/api/QuestionDetails";
-import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
-import type { QuestionPickerProps } from "../features/question_picker";
-import type { QuestionBulkMetadataClient } from "../api/question_bulk_metadata";
-import type { QuestionPoolSearchMetadataClient } from "../api/question_pool_search_metadata";
-import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
-import { useSessionBootstrap } from "../auth/session_context";
-import { PageFrame } from "../components/page_frame/page_frame";
-import { confirmUnsavedChanges } from "../components/unsaved_changes_guard";
-import "./library_page.css";
-import { createSearchState } from "../components/search_block/search_state";
-import { SearchControls } from "../components/search_block/search_controls";
-import { SearchBlock } from "../components/search_block/search_block";
+import { QuestionPoolCreateDialog } from "../../components/question_pool_create_dialog";
+import type { QuestionPoolStartingQuestion } from "../../components/question_pool_create_model";
+import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
+import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
+import type { QuestionPickerProps } from "../question_picker";
+import type { QuestionBulkMetadataClient } from "../../api/question_bulk_metadata";
+import type { QuestionPoolSearchMetadataClient } from "../../api/question_pool_search_metadata";
+import type { QuestionPoolCreationClient } from "../../api/question_pool_creation";
+import { useSessionBootstrap } from "../../auth/session_context";
+import { confirmUnsavedChanges } from "../../components/unsaved_changes_guard";
+import "./library_workspace.css";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { SearchBlock } from "../../components/search_block/search_block";
 import { fixedKindLibrarySearchFields, librarySearchFields } from "./library_search_fields";
-import { libraryRecordQuery } from "./library_record_filters";
 import {
+  createQuestionLibraryCollection,
   hasLibrarySearchCriteria,
   questionLibrarySearchDefinition,
 } from "./question_library_search_definition";
@@ -33,18 +31,18 @@ import {
   recoverLibrarySearch,
 } from "./library_search_parameters";
 import {
-  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryBrowseQuery,
-} from "./library_page_model";
+} from "../../api/question_library_projection";
+import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "./library_query";
 
-export interface LibraryPageProps {
+export interface LibraryWorkspaceProps {
   readonly mode: "search" | "browse";
   readonly collectionScope?: "myQuestions" | "myPools";
   readonly repository: QuestionLibraryBrowseRepository;
   readonly metadataClient: QuestionBulkMetadataClient;
   readonly poolMetadataClient: QuestionPoolSearchMetadataClient;
-  readonly classificationClient: import("../api/content_classification").ContentClassificationClient;
+  readonly classificationClient: import("../../api/content_classification").ContentClassificationClient;
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly getQuestionDetails: (questionId: PublishedQuestionId) => Promise<QuestionDetails>;
   readonly loadQuestionInspection: QuestionPickerProps["loadQuestionInspection"];
@@ -53,7 +51,7 @@ export interface LibraryPageProps {
 }
 
 /** Question Library UI with the production repository injected by the route composition. */
-export function LibraryPage(props: LibraryPageProps): JSX.Element {
+export function LibraryWorkspace(props: LibraryWorkspaceProps): JSX.Element {
   const myQuestions = props.collectionScope === "myQuestions";
   const myPools = props.collectionScope === "myPools";
   const personalCollection = myQuestions || myPools;
@@ -101,20 +99,24 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   }
   const initialHandoffQuery = routeHandoff(location.search);
   const [invalidLinkOptions, setInvalidLinkOptions] = createSignal(initialHandoffQuery === null);
+  const [recordFilterError, setRecordFilterError] = createSignal<string | null>(null);
   let disposed = false;
   const metadataGuardScope = Symbol("Library metadata editors");
   onCleanup(() => {
     disposed = true;
   });
-  const searchState = createSearchState(
-    questionLibrarySearchDefinition(
+  const library = createQuestionLibraryCollection({
+    definition: questionLibrarySearchDefinition(
       props.repository,
       initialQuery,
       personalCollection,
       myQuestions ? "questions" : myPools ? "pools" : undefined,
       myPools ? sessionScope.account.id : undefined,
     ),
-    {
+    repository: props.repository,
+    classificationClient: props.classificationClient,
+    fields: personalCollection ? fixedKindLibrarySearchFields : librarySearchFields,
+    options: {
       initialQuery: initialHandoffQuery ?? initialQuery,
       beforeQueryChange: async (): Promise<boolean> => {
         if (!(await confirmUnsavedChanges(metadataGuardScope)) || disposed) return false;
@@ -122,18 +124,11 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         return true;
       },
     },
-  );
-  const query = searchState.query;
-  const [recordFilterError, setRecordFilterError] = createSignal<string | null>(null);
-  const recordQuery = libraryRecordQuery({
-    query,
-    apply: searchState.apply,
-    sort: searchState.sort,
-    replacementRevision: searchState.replacementRevision,
-    repository: props.repository,
-    classificationClient: props.classificationClient,
     onError: setRecordFilterError,
   });
+  const searchState = library.state;
+  const query = searchState.query;
+  const recordQuery = library.collection.query;
   const state = searchState.state;
   const selectedIds = searchState.selectedIds;
   const [questionPoolCreateOpen, setQuestionPoolCreateOpen] = createSignal(false);
@@ -208,19 +203,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   }
 
   return (
-    <PageFrame
-      // Library controls, browse groups, and the active pool-creation review.
-      contentClass={`library-page${questionPoolTaskActive() ? " question-pool-task-active" : ""}`}
-      routeSurface={
-        myQuestions
-          ? "myQuestions"
-          : myPools
-            ? "myPools"
-            : props.mode === "browse"
-              ? "library-browse"
-              : "library"
-      }
-    >
+    <div class={`library-page${questionPoolTaskActive() ? " question-pool-task-active" : ""}`}>
       <SearchBlock
         state={searchState}
         layout={props.mode === "search" ? "above" : "beside"}
@@ -307,8 +290,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             : myPools
               ? "My Question Pools"
               : "Question Library results",
-          fields: personalCollection ? fixedKindLibrarySearchFields : librarySearchFields,
-          query: recordQuery,
+          ...library.collection,
           disabled: editorBusy,
           initialEmptyState: personalCollection
             ? undefined
@@ -385,6 +367,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           />
         </div>
       </Show>
-    </PageFrame>
+    </div>
   );
 }

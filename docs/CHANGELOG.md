@@ -12,9 +12,25 @@
 
 ### Fixes and Maintenance
 
+- Kept validated Library collection responses typed through shared projection, removing duplicate
+  page decoding; consolidated Draft list and delete operations in the renamed Draft API client.
+- Clarified that every Blueprint Course is Public to Instructors, while Active and Archived
+  describe lifecycle. New and forked Blueprints start Active; Archived remains visible and
+  forkable, but read-only, outside normal discovery, and unavailable for adoption.
+- Simplified shared collection setup: `createSearchState` is the sole reactive controller,
+  `SearchBlock` adapts its lifecycle, and `DataSheetBlock` owns controls and presentation. Local
+  searches return one state plus fields and query binding; one Library assembly serves its three
+  consumers. Removed the unused query kind and kept reorder bindings on stable IDs while preserving
+  page and domain behavior.
 - Grouped shared PageFrame, DataSheet, and SearchBlock code under named component directories;
   moved the Pool member sort helper beside its caller and folded DataSheet controls into their
   owner. Updated imports and current architecture links without changing collection behavior.
+- Moved Blueprint discovery and Question Library workflows into their feature owners. The four
+  Library page compositions own PageFrame and route identity; APIs and route behavior remain
+  unchanged. Updated current architecture links.
+- Canonical fast checks pass after the ownership moves (9,427 tests plus Rust, TypeScript, lint,
+  and formatting). Maintained Blueprint and Library runtime captures pass across eleven local
+  screenshots; no screenshot artifact was published.
 - Deleted the remaining 74 one-time TEMP source/probe files and 3 runner-only configs while
   retaining useful evidence and established test workflows.
 

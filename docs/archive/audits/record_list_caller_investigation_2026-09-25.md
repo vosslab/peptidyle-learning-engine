@@ -145,7 +145,7 @@ record header or a page-specific row surface. Source line numbers are investigat
 
 | Caller | Required behavior | Shared treatment / owner |
 | --- | --- | --- |
-| [library_page.tsx](../../../src/pages/library_page.tsx):716 | Title/recent-publication server order, editor-busy disabling, query reset and return-state restoration | RecordSortControl; WP-C8 supplies it, WP-L1.library_page migrates the owner |
+| [library_workspace.tsx](../../../src/features/question_library/library_workspace.tsx):716 | Title/recent-publication server order, editor-busy disabling, query reset and return-state restoration | RecordSortControl; WP-C8 supplies it, WP-L1.library_page migrates the owner |
 | [blueprint_courses_workspace.tsx](../../../src/features/blueprint_course/blueprint_courses_workspace.tsx):243 | Name/adoption/student sort over loaded Course records | Same control; WP-P4 replaces the partial local comparator with query-wide API/SQL ordering |
 | [assessment_workspace_questions_page.tsx](../../../src/pages/assessment_workspace/assessment_workspace_questions_page.tsx):214 | Sort draft entries by Bloom, mark dirty and save explicitly | Existing domain command through shared action styling in the view; retain this model's policy |
 
@@ -173,7 +173,7 @@ Its scope and per-file navigation handoffs remain intact.
 
 ### What exists
 
-- [library_page_model.ts](../../../src/pages/library_page_model.ts):41 and
+- [library_query.ts](../../../src/features/question_library/library_query.ts):41 and
   [QuestionSearchResult](../../../crates/question_model/src/question_library.rs#L503) expose title, description,
   metadata and exact revision, with no thumbnail or prompt payload. RecordList cannot derive a
   faithful image from those rows alone.

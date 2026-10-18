@@ -104,7 +104,7 @@ BEGIN
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_blueprint_course_id, v_actor, p_short_name, p_long_name,
-        'public', v_blueprint_edit_number, v_now,
+        'active', v_blueprint_edit_number, v_now,
         p_discipline, p_subject, p_topic, p_subtopic, p_tags, p_theme
     );
     INSERT INTO ple_data.blueprint_course_create_receipt
@@ -176,7 +176,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
     END IF;
     -- ASVS 8.3.1 / 2.3.1: enforce the lifecycle under the owner lock,
-    -- including retries and no-op Saves; restore to Public before writing.
+    -- including retries and no-op Saves; restore to Active before writing.
     IF v_course.availability = 'archived' THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Archived Blueprint Course is read-only';
@@ -339,7 +339,7 @@ DECLARE
 BEGIN
     IF NOT ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
        OR p_expected_blueprint_edit_number IS NULL
-       OR p_availability NOT IN ('public', 'archived')
+       OR p_availability NOT IN ('active', 'archived')
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint availability change is invalid';
@@ -357,8 +357,8 @@ BEGIN
     IF v_course.blueprint_edit_number <> p_expected_blueprint_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata Edit Number is stale';
     END IF;
-    IF (v_course.availability = 'public' AND p_availability <> 'archived')
-       OR (v_course.availability = 'archived' AND p_availability <> 'public') THEN
+    IF (v_course.availability = 'active' AND p_availability <> 'archived')
+       OR (v_course.availability = 'archived' AND p_availability <> 'active') THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Blueprint lifecycle transition is not permitted';
     END IF;
@@ -539,7 +539,7 @@ DROP FUNCTION IF EXISTS ple_api.list_blueprint_courses(
 );
 
 CREATE FUNCTION ple_api.list_blueprint_courses(
-    p_include_archived boolean, p_public_only boolean, p_promoted_only boolean, p_query text,
+    p_include_archived boolean, p_active_only boolean, p_promoted_only boolean, p_query text,
     p_sort text, p_page_number bigint, p_page_size integer,
     p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
     p_subtopic_uuid uuid, p_cross_discipline boolean, p_tag text,
@@ -562,7 +562,7 @@ BEGIN
     -- ASVS 2.2.1/3: reject contradictory visibility and unbounded pages.
     IF p_page_number IS NULL OR p_page_number < 1 OR p_page_number > 4294967295
        OR p_page_size IS NULL OR p_page_size < 1 OR p_page_size > 250
-       OR (p_public_only AND p_include_archived)
+       OR (p_active_only AND p_include_archived)
        OR length(p_query) > 256
        OR p_sort NOT IN ('name', 'nameDescending', 'adoptions', 'adoptionsAscending',
                          'students', 'studentsAscending', 'stars', 'starsAscending',
@@ -628,7 +628,7 @@ BEGIN
            course.content_subtopic_id, course.tags, course.theme_id
       FROM ple_data.blueprint_course AS course
       JOIN ple_api.matching_blueprint_course_ids(
-          p_include_archived, p_public_only, p_promoted_only, p_query,
+          p_include_archived, p_active_only, p_promoted_only, p_query,
           p_discipline_uuid, p_subject_uuid, p_topic_uuid, p_subtopic_uuid,
           p_cross_discipline, p_tag, p_discipline_uuids, p_subject_uuids,
           p_topic_uuids, p_subtopic_uuids, p_tags
@@ -712,11 +712,11 @@ AS $$
       -- All Blueprint ancestors are readable by active Instructors; roots have no source.
       LEFT JOIN ple_data.blueprint_course AS source
         ON source.blueprint_course_id = course.parent_blueprint_course_id
-       AND source.availability IN ('public', 'archived')
+       AND source.availability IN ('active', 'archived')
      WHERE ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
        AND course.blueprint_course_id = p_blueprint_course_id
        AND ple_api.current_session_account_is_instructor()
-       AND course.availability IN ('public', 'archived')
+       AND course.availability IN ('active', 'archived')
 $$;
 
 
@@ -740,7 +740,7 @@ AS $$
        AND course.blueprint_course_id = p_blueprint_course_id
        AND revision.blueprint_revision_number = p_blueprint_revision_number
        AND ple_api.current_session_account_is_instructor()
-       AND course.availability IN ('public', 'archived')
+       AND course.availability IN ('active', 'archived')
 $$;
 
 

@@ -4,7 +4,7 @@ import { type JSX } from "solid-js";
 
 import type { RecordContent } from "../../components/data_sheet/record_content";
 import type { DataSheetSelection } from "../../components/data_sheet/data_sheet_state";
-import type { RecordField } from "../../components/data_sheet/record_fields";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../../components/search_block/search_block";
 import { SearchControls } from "../../components/search_block/search_controls";
 import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
@@ -132,8 +132,7 @@ export function ProvidedAvatarPicker(props: ProvidedAvatarPickerProps): JSX.Elem
         collection={{
           ariaLabel: "Available provided avatars",
           emptyState: { title: "No avatars match your search." },
-          fields: avatarFields,
-          query: avatarSearch.query,
+          ...avatarSearch.collection,
           selection: () => selection,
         }}
       />

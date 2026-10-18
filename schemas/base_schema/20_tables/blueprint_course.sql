@@ -22,7 +22,7 @@ CREATE TABLE ple_data.blueprint_course (
         REFERENCES ple_data.content_topic(content_subject_id, content_topic_id),
     FOREIGN KEY (content_topic_id, content_subtopic_id)
         REFERENCES ple_data.content_subtopic(content_topic_id, content_subtopic_id),
-    availability ple_data.blueprint_availability NOT NULL DEFAULT 'public',
+    availability ple_data.blueprint_availability NOT NULL DEFAULT 'active',
     promoted boolean NOT NULL DEFAULT false,
     parent_blueprint_course_id ple_data.blueprint_course_id,
     parent_blueprint_revision_number integer CHECK (
@@ -264,30 +264,30 @@ CREATE TABLE ple_private.blueprint_course_watch_notification (
 
 SET LOCAL ROLE ple_data_owner;
 
-COMMENT ON TABLE ple_data.blueprint_revision_question_pin IS 'role: revision, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_revision_question_pin IS 'role: revision, deleted by none for saved Blueprint Revisions. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_revision_module IS 'role: revision, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_revision_module IS 'role: revision, deleted by none for saved Blueprint Revisions. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_revision_event IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_revision_event IS 'role: event, deleted by none for saved Blueprint Revisions. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_metadata_event IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_metadata_event IS 'role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_course_create_receipt IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_course_create_receipt IS 'role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_course_save_receipt IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_course_save_receipt IS 'role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_change_proposal IS 'role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_change_proposal IS 'role: current state, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_change_proposal_acceptance IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_change_proposal_acceptance IS 'role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_course_star IS 'role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_course_star IS 'role: current state, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
-COMMENT ON TABLE ple_data.blueprint_course_watch IS 'role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
-
-SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_data.blueprint_course_watch IS 'role: current state, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
 SET LOCAL ROLE ple_private_owner;
-COMMENT ON TABLE ple_private.blueprint_course_watch_notification IS 'role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+
+SET LOCAL ROLE ple_private_owner;
+COMMENT ON TABLE ple_private.blueprint_course_watch_notification IS 'role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
 SET LOCAL ROLE ple_data_owner;
 

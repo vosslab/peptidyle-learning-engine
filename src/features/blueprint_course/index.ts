@@ -1,9 +1,9 @@
-export {
-  BlueprintCourseDetailWorkspace,
-  BlueprintCoursesWorkspace,
-  type BlueprintCourseDetailWorkspaceProps,
-  type BlueprintCoursesWorkspaceProps,
-} from "./blueprint_course_workspace";
+export { BlueprintCourseDetailWorkspace } from "./blueprint_course_detail_workspace";
+export { BlueprintCoursesWorkspace } from "./blueprint_courses_workspace";
+export type {
+  BlueprintCourseDetailWorkspaceProps,
+  BlueprintCoursesWorkspaceProps,
+} from "./blueprint_course_workspace_types";
 export {
   appendPickedFixedEntries,
   appendPickedPool,

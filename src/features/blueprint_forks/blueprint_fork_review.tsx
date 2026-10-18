@@ -21,7 +21,7 @@ import { comparisonRecognitionIds, recognizedIdList } from "../recognition_label
 import { recognitionTitlesResource } from "../recognition_titles_load";
 import { normalizeHumanEnteredPublicId } from "../../question_id";
 import type { RecordContent, RecordFact } from "../../components/data_sheet/record_content";
-import type { RecordField } from "../../components/data_sheet/record_fields";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../../components/search_block/search_block";
 import { SearchControls } from "../../components/search_block/search_controls";
 import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
@@ -288,8 +288,7 @@ function Comparison(props: {
           state={related.state}
           collection={{
             ariaLabel: "Assessments related by shared Questions",
-            fields,
-            query: related.query,
+            ...related.collection,
             emptyState: { title: "No Assessments share Question IDs or match your search." },
           }}
         />
@@ -313,8 +312,7 @@ function Comparison(props: {
           state={leftOnly.state}
           collection={{
             ariaLabel: "Left-only Assessments",
-            fields,
-            query: leftOnly.query,
+            ...leftOnly.collection,
             emptyState: { title: "No left-only Assessments match." },
           }}
         />
@@ -334,8 +332,7 @@ function Comparison(props: {
           state={rightOnly.state}
           collection={{
             ariaLabel: "Right-only Assessments",
-            fields,
-            query: rightOnly.query,
+            ...rightOnly.collection,
             emptyState: { title: "No right-only Assessments match." },
           }}
         />
@@ -654,8 +651,7 @@ export function BlueprintKnownForks(
           state={search.state}
           collection={{
             ariaLabel: "Known Blueprint forks",
-            fields,
-            query: search.query,
+            ...search.collection,
             emptyState: { title: "No known forks match." },
           }}
         />

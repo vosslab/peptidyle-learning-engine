@@ -2,7 +2,7 @@
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.matching_blueprint_course_ids(
-    p_include_archived boolean, p_public_only boolean, p_promoted_only boolean, p_query text,
+    p_include_archived boolean, p_active_only boolean, p_promoted_only boolean, p_query text,
     p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
     p_subtopic_uuid uuid, p_cross_discipline boolean, p_tag text,
     p_discipline_uuids uuid[], p_subject_uuids uuid[], p_topic_uuids uuid[],
@@ -13,7 +13,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 BEGIN
-    IF (p_public_only AND p_include_archived)
+    IF (p_active_only AND p_include_archived)
        OR p_query IS NULL OR length(p_query) > 256 OR p_query ~ '[[:cntrl:]]'
        OR p_tag IS NULL OR p_tag <> btrim(p_tag) OR length(p_tag) > 120
        OR p_tag ~ '[[:cntrl:]]'
@@ -54,7 +54,7 @@ BEGIN
     SELECT course.blueprint_course_id::text
       FROM ple_data.blueprint_course AS course
      WHERE ple_api.current_session_account_is_instructor()
-       AND (NOT p_public_only OR course.availability = 'public')
+       AND (NOT p_active_only OR course.availability = 'active')
        AND (NOT p_promoted_only OR course.promoted)
        AND (p_cross_discipline OR p_discipline_uuid IS NULL
             OR course.content_discipline_id = p_discipline_uuid)
@@ -75,7 +75,7 @@ BEGIN
             '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%'
             OR course.long_name ILIKE
             '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%')
-       AND (course.availability = 'public'
+       AND (course.availability = 'active'
             OR (p_include_archived AND course.availability = 'archived'));
 END
 $$;
@@ -83,7 +83,7 @@ $$;
 -- Count complete matching courses with the target column's own facet omitted.
 -- Selected values are returned separately even when they fall beyond the choice page.
 CREATE FUNCTION ple_api.blueprint_course_facet_choices(
-    p_field text, p_include_archived boolean, p_public_only boolean,
+    p_field text, p_include_archived boolean, p_active_only boolean,
     p_promoted_only boolean, p_query text, p_discipline_uuid uuid,
     p_subject_uuid uuid, p_topic_uuid uuid, p_subtopic_uuid uuid,
     p_cross_discipline boolean, p_tag text, p_discipline_uuids uuid[],
@@ -108,7 +108,7 @@ BEGIN
     WITH hits AS MATERIALIZED (
         SELECT hit.blueprint_course_id
           FROM ple_api.matching_blueprint_course_ids(
-              p_include_archived, p_public_only, p_promoted_only, p_query,
+              p_include_archived, p_active_only, p_promoted_only, p_query,
               p_discipline_uuid, p_subject_uuid, p_topic_uuid, p_subtopic_uuid,
               p_cross_discipline, p_tag,
               CASE WHEN p_field = 'disciplineUuids' THEN ARRAY[]::uuid[] ELSE p_discipline_uuids END,

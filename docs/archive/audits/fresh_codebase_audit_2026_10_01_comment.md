@@ -253,17 +253,17 @@ historical-reference rows have deliberately narrower review depth. Evidence is s
 | [question_response_preview.tsx](../../../src/components/question_response_preview.tsx) | refine | full-source | HOTSPOT preview calls its image resolver directly while QuestionPromptRenderer validates exact same-origin revision routes; use the same resolver validation at this second rendering boundary. |  |
 | [question_star_control.tsx](../../../src/components/question_star_control.tsx) | refine | full-source | Existing counterpart of the new Pool Star control also lacks local load/mutation failure handling; consolidate the durable star-control behavior instead of copying this weakness. |  |
 | [question_watch_control.tsx](../../../src/components/question_watch_control.tsx) | refine | full-source | Existing question Watch control lacks the local retry/error handling present in the newer Pool Watch control. |  |
-| [record_collection_state.tsx](../../../src/components/data_sheet/record_collection_state.tsx) | neutral | full-source | Shared loading/empty/error state presentation. |  |
-| [record_detail_list.tsx](../../../src/components/record_list/record_detail_list.tsx) | neutral | full-source | Semantic record-detail list adapter. |  |
+| [data_sheet_collection_state.tsx](../../../src/components/data_sheet/data_sheet_collection_state.tsx) | neutral | full-source | Shared loading/empty/error state presentation. |  |
+| `src/components/record_list/record_detail_list.tsx` (retired) | neutral | full-source | Semantic record-detail list adapter. |  |
 | [record_family.css](../../../src/components/data_sheet/record_family.css) | neutral | full-source | Shared record styling. |  |
 | [record_list.css](../../../src/components/data_sheet/data_sheet.css) | neutral | full-source | Shared record-list styling. |  |
-| [record_list.tsx](../../../src/components/record_list/record_list.tsx) | neutral | full-source | Shared record-list renderer. |  |
+| `src/components/record_list/record_list.tsx` (retired) | neutral | full-source | Shared record-list renderer. |  |
 | `src/components/record_list/record_list_image_browser.tsx` | neutral | full-source | Existing record image browser. |  |
 | `src/components/record_list/record_list_presentation.ts` | neutral | full-source | Record presentation types. |  |
 | [record_list_reorder.tsx](../../../src/components/data_sheet/record_reorder.tsx) | good | full-source | Native drag destinations are now validated against current indices and disabled state before persistence is requested. |  |
-| [record_outline_list.tsx](../../../src/components/record_list/record_outline_list.tsx) | neutral | full-source | Existing outline-list adapter. |  |
-| [record_page_controls.tsx](../../../src/components/data_sheet/record_page_controls.tsx) | neutral | full-source | Existing page controls. |  |
-| [record_sequence.tsx](../../../src/components/record_list/record_sequence.tsx) | good | full-source | Reuses the validated drag-destination helper rather than duplicating drop checks. |  |
+| `src/components/record_list/record_outline_list.tsx` (retired) | neutral | full-source | Existing outline-list adapter. |  |
+| [data_sheet_page_controls.tsx](../../../src/components/data_sheet/data_sheet_page_controls.tsx) | neutral | full-source | Existing page controls. |  |
+| `src/components/record_list/record_sequence.tsx` (retired) | good | full-source | Reuses the validated drag-destination helper rather than duplicating drop checks. |  |
 | `src/components/record_list/record_sort_control.tsx` | neutral | full-source | Existing sort control. |  |
 | `src/components/record_list/record_table.tsx` | neutral | full-source | Existing semantic table adapter. |  |
 | [student_assessment_attempt_navigation.css](../../../src/components/student_assessment_attempt_navigation.css) | neutral | full-source | Navigation presentation styles. |  |

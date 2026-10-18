@@ -447,7 +447,7 @@ const CAPABILITY_DECLARATIONS = {
     clientMethod: "BlueprintCourseClient::listBlueprintCourses",
     serverEvidence: { kind: "registeredHandler", handler: "GET /api/course-blueprints" },
     evidence: [
-      "src/pages/blueprint_course_search_page.tsx",
+      "src/features/blueprint_course/blueprint_course_collection.tsx",
       "src/api/http_client/blueprint_course.ts",
     ],
   },

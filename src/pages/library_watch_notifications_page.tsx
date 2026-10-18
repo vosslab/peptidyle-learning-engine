@@ -10,7 +10,7 @@ import type {
   LibraryWatchQuery,
   LibraryWatchTargetKind,
 } from "../api/library_watch_notification";
-import type { SearchPageRequest } from "../components/search_block/search_session";
+import type { SearchPageRequest } from "../components/search_block/search_definition";
 import { useApplicationApi } from "../api/application_api";
 import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
 import { PageFrame } from "../components/page_frame/page_frame";
@@ -18,12 +18,12 @@ import type { RecordContent } from "../components/data_sheet/record_content";
 import type {
   RecordField,
   RecordFilterChoices,
-  RecordListQuery,
-} from "../components/data_sheet/record_fields";
+  DataSheetQuery,
+} from "../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
 import { createSearchState } from "../components/search_block/search_state";
-import type { SearchDefinition, SearchPage } from "../components/search_block/search_session";
+import type { SearchDefinition, SearchPage } from "../components/search_block/search_definition";
 
 const INITIAL_QUERY: LibraryWatchQuery = {
   q: "",
@@ -238,8 +238,7 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
       runOnMount: true,
     },
   );
-  const recordQuery: RecordListQuery<WatchSort, WatchFilter> = {
-    kind: "paged",
+  const recordQuery: DataSheetQuery<WatchSort, WatchFilter> = {
     sort: {
       get value() {
         return { key: "occurredAt" as const, direction: state.query().direction };

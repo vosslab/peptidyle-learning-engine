@@ -1,17 +1,17 @@
-import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
+import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { Accessor } from "solid-js";
-import type { ContentClassificationClient } from "../api/content_classification";
+import type { ContentClassificationClient } from "../../api/content_classification";
 import type {
   BlueprintCourseClient,
   BlueprintCourseFacetField,
   BlueprintCourseListSort,
-} from "../api/blueprint_course";
+} from "../../api/blueprint_course";
 import type {
   RecordField,
   RecordFilterChoices,
-  RecordListQuery,
+  DataSheetQuery,
   RecordSort,
-} from "../components/data_sheet/record_fields";
+} from "../../components/data_sheet/data_sheet_fields";
 import type { BlueprintCourseSearchQuery } from "./blueprint_course_search_definition";
 import { blueprintVocabularyCell } from "./blueprint_course_vocabulary_cell";
 
@@ -39,7 +39,7 @@ const orders: ReadonlyArray<{
 /** Compact fields and stable IDs shared by both Blueprint collections. */
 export function blueprintCourseSearchFields(
   client: ContentClassificationClient,
-  scope: "public" | "all",
+  scope: "active" | "all",
   formatTimestamp: Accessor<(timestamp: number | Date) => string>,
 ): ReadonlyArray<
   RecordField<BlueprintCourseSummaryView, BlueprintRecordSortKey, BlueprintCourseFacetField>
@@ -85,21 +85,21 @@ export function blueprintCourseSearchFields(
       id: "institution",
       label: "Institution",
       value: (course) => course.owner_affiliation,
-      defaultColumn: { priority: 4, width: "12rem", visible: scope === "public" },
+      defaultColumn: { priority: 4, width: "12rem", visible: scope === "active" },
     },
     {
       id: "adoptions",
       label: "Adoptions",
       sortKey: "adoptions",
       value: (course) => course.total_adoptions,
-      defaultColumn: { priority: 5, width: "7rem", visible: scope === "public" },
+      defaultColumn: { priority: 5, width: "7rem", visible: scope === "active" },
     },
     {
       id: "students",
       label: "Students",
       sortKey: "students",
       value: (course) => course.total_students_ever_enrolled,
-      defaultColumn: { priority: 6, width: "7rem", visible: scope === "public" },
+      defaultColumn: { priority: 6, width: "7rem", visible: scope === "active" },
     },
     {
       id: "stars",
@@ -132,7 +132,7 @@ export function blueprintCourseSearchFields(
     {
       id: "availability",
       label: "Availability",
-      value: (course) => (course.availability === "archived" ? "Archived" : "Public"),
+      value: (course) => (course.availability === "archived" ? "Archived" : "Active"),
       defaultColumn: { priority: 8, width: "8rem", visible: scope === "all" },
     },
     {
@@ -158,7 +158,7 @@ export function blueprintCourseSearchFields(
       label: "Tags",
       filterKey: "tags",
       value: (course) => course.classification.tags,
-      defaultColumn: { priority: 11, width: "9rem", visible: scope === "public" },
+      defaultColumn: { priority: 11, width: "9rem", visible: scope === "active" },
     },
   ];
 }
@@ -173,10 +173,9 @@ export function blueprintCourseSearchRecordQuery(props: {
     query: (current: BlueprintCourseSearchQuery) => BlueprintCourseSearchQuery,
   ) => Promise<void>;
   readonly client: Pick<BlueprintCourseClient, "listBlueprintCourseFacetChoices">;
-  readonly scope: "public" | "all";
-}): RecordListQuery<BlueprintRecordSortKey, BlueprintCourseFacetField> {
+  readonly scope: "active" | "all";
+}): DataSheetQuery<BlueprintRecordSortKey, BlueprintCourseFacetField> {
   return {
-    kind: "paged",
     sort: {
       get value(): RecordSort<BlueprintRecordSortKey> | null {
         return orders.find((entry) => entry.order === props.query().sort)?.sort ?? null;
@@ -222,7 +221,7 @@ export function blueprintCourseSearchRecordQuery(props: {
           field,
           {
             includeArchived: props.scope === "all" && current.includeArchived,
-            publicOnly: props.scope === "public",
+            activeOnly: props.scope === "active",
             promotedOnly: current.promotedOnly,
             query: current.query,
             classification: current.classification,

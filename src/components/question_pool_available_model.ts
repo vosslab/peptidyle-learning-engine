@@ -4,7 +4,7 @@ import type { QuestionPickerEligibility } from "../features/question_picker";
 import type {
   QuestionLibraryBrowseQuery,
   QuestionLibraryBrowseRepository,
-} from "../pages/library_page_model";
+} from "../api/question_library_projection";
 
 const memberLicenses = ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"];
 

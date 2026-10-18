@@ -9,48 +9,20 @@ import type { RecordContent } from "../components/data_sheet/record_content";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
 import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
-import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
-import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
-import { decodePublishedQuestionRevisionTuple } from "../api/decoders/shared";
 import {
-  createQuestionDraftCreationClient,
+  createQuestionDraftClient,
   isAllowedWebworkPgPath,
   isQuestionDraftCreationFormat,
   QUESTION_DRAFT_CREATION_FORMATS,
+  type DraftQuestionSummary,
   type QuestionDraftCreationFormat,
-} from "../api/question_draft_creation";
+} from "../api/question_draft_client";
 import {
   compareDraftEditNumbers,
   questionDraftSearchFields,
   type DraftSearchSortKey,
 } from "./question_drafts_search_fields";
 import "./question_drafts_page.css";
-
-type DraftSummary = {
-  readonly draftQuestionId: DraftQuestionRouteId;
-  readonly draftQuestionEditNumber: string;
-  readonly questionTitle: string;
-  readonly questionDescription: string;
-  readonly parentPublishedQuestionRevisionTuple: PublishedQuestionRevisionTuple | null;
-};
-
-function isParentRevisionTuple(value: unknown): value is PublishedQuestionRevisionTuple | null {
-  if (value === null) return true;
-  try {
-    decodePublishedQuestionRevisionTuple(value, "draft.parentPublishedQuestionRevisionTuple", true);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isDraftQuestionEditNumber(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[1-9][0-9]*$/u.test(value) &&
-    BigInt(value) <= 9_223_372_036_854_775_807n
-  );
-}
 
 type PageMessage = {
   readonly kind: "error" | "success";
@@ -66,9 +38,9 @@ function shortContentPreview(questionDescription: string): string | undefined {
 }
 
 function draftContent(
-  draft: DraftSummary,
+  draft: DraftQuestionSummary,
   deleting: () => boolean,
-  requestDelete: (draft: DraftSummary) => void,
+  requestDelete: (draft: DraftQuestionSummary) => void,
 ): RecordContent {
   return {
     title: draft.questionTitle,
@@ -94,49 +66,18 @@ function draftContent(
   };
 }
 
-async function listDrafts(): Promise<ReadonlyArray<DraftSummary>> {
-  const response = await fetch("/api/authoring/drafts", {
-    headers: { accept: "application/json" },
-    credentials: "same-origin",
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error("My Drafts is unavailable.");
-  const value: unknown = await response.json();
-  if (!isDraftList(value)) throw new Error("My Drafts returned an invalid response.");
-  return value.items;
-}
-
-function isDraftList(value: unknown): value is { readonly items: ReadonlyArray<DraftSummary> } {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  if (Object.keys(record).length !== 1 || !Array.isArray(record.items)) return false;
-  return record.items.every((item) => {
-    if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
-    const summary = item as Record<string, unknown>;
-    return (
-      Object.keys(summary).length === 5 &&
-      typeof summary.draftQuestionId === "string" &&
-      parseDraftQuestionId(summary.draftQuestionId) !== null &&
-      isDraftQuestionEditNumber(summary.draftQuestionEditNumber) &&
-      typeof summary.questionTitle === "string" &&
-      typeof summary.questionDescription === "string" &&
-      isParentRevisionTuple(summary.parentPublishedQuestionRevisionTuple)
-    );
-  });
-}
-
 /** Lists only the signed-in Instructor's private Draft Questions. */
 export function QuestionDraftsPage(): JSX.Element {
   const navigate = useNavigate();
-  const [drafts, { refetch }] = createResource(listDrafts);
-  const draftCreationClient = createQuestionDraftCreationClient();
+  const draftClient = createQuestionDraftClient();
+  const [drafts, { refetch }] = createResource(() => draftClient.listDrafts());
   const [creating, setCreating] = createSignal(false);
   const [importing, setImporting] = createSignal(false);
   const [creationFormat, setCreationFormat] =
     createSignal<QuestionDraftCreationFormat>("pleQuestionJson");
   const [webworkPgPath, setWebworkPgPath] = createSignal("");
   const [deleting, setDeleting] = createSignal(false);
-  const [pendingDelete, setPendingDelete] = createSignal<DraftSummary>();
+  const [pendingDelete, setPendingDelete] = createSignal<DraftQuestionSummary>();
   const [deleteMessage, setDeleteMessage] = createSignal<string>();
   const [message, setMessage] = createSignal<PageMessage>();
   const draftSearch = createLocalCompleteSearch(
@@ -161,7 +102,7 @@ export function QuestionDraftsPage(): JSX.Element {
     setCreating(true);
     setMessage(undefined);
     try {
-      const created = await draftCreationClient.createDraft({
+      const created = await draftClient.createDraft({
         format: creationFormat(),
         ...(creationFormat() === "pleQuestionJson" ? {} : { webworkPgPath: webworkPgPath() }),
       });
@@ -182,7 +123,7 @@ export function QuestionDraftsPage(): JSX.Element {
     setPendingDelete(undefined);
   }
 
-  function requestDelete(draft: DraftSummary): void {
+  function requestDelete(draft: DraftQuestionSummary): void {
     if (deleting()) return;
     setDeleteMessage(undefined);
     setPendingDelete(draft);
@@ -201,24 +142,11 @@ export function QuestionDraftsPage(): JSX.Element {
     setDeleting(true);
     setDeleteMessage(undefined);
     try {
-      // ASVS 2.2.2: the server, not this UI, validates identity, ownership, and this precondition.
-      const response = await fetch(
-        `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestionId)}`,
-        {
-          method: "DELETE",
-          headers: {
-            accept: "application/json",
-            "if-match": `"${draft.draftQuestionEditNumber}"`,
-          },
-          credentials: "same-origin",
-          cache: "no-store",
-        },
-      );
-      if (response.status === 412) {
+      const result = await draftClient.deleteDraft(draft);
+      if (result === "preconditionFailed") {
         setDeleteMessage("This Draft Question changed. Refresh the list before deleting it.");
         return;
       }
-      if (!response.ok) throw new Error("This private Draft Question could not be deleted.");
       await refetch();
       setPendingDelete(undefined);
       setMessage({ kind: "success", text: "Private Draft Question deleted." });
@@ -318,8 +246,7 @@ export function QuestionDraftsPage(): JSX.Element {
           state={draftSearch.state}
           collection={{
             ariaLabel: "Private Draft Questions",
-            fields: questionDraftSearchFields,
-            query: draftSearch.query,
+            ...draftSearch.collection,
             get emptyState() {
               return {
                 title:

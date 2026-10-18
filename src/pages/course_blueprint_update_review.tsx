@@ -6,7 +6,7 @@ import type {
 } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import type { RecordContent } from "../components/data_sheet/record_content";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
@@ -171,8 +171,7 @@ export function CourseBlueprintUpdateReviewList(props: {
             state={updateSearch.state}
             collection={{
               ariaLabel: "Blueprint Assessment updates",
-              fields: updateFields,
-              query: updateSearch.query,
+              ...updateSearch.collection,
               get emptyState() {
                 return {
                   title:

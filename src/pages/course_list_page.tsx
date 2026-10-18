@@ -32,11 +32,11 @@ import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
 import {
   blueprintCourseSearchDefinition,
   emptyBlueprintSearch,
-} from "./blueprint_course_search_definition";
+} from "../features/blueprint_course/blueprint_course_search_definition";
 import {
   blueprintCourseSearchFields,
   blueprintCourseSearchRecordQuery,
-} from "./blueprint_course_search_fields";
+} from "../features/blueprint_course/blueprint_course_search_fields";
 import { courseCollectionFields } from "./course_collection_fields";
 import "./course_list_page.css";
 
@@ -48,7 +48,7 @@ type AdoptableBlueprintCourse = Pick<
 function isAdoptableBlueprintCourse(
   blueprint: AdoptableBlueprintCourse,
 ): blueprint is AdoptableBlueprintCourse {
-  return blueprint.availability === "public";
+  return blueprint.availability === "active";
 }
 
 function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
@@ -64,7 +64,7 @@ function BlueprintSourcePicker(props: {
   readonly onChoose: (blueprint: BlueprintCourseSummaryView) => void;
 }): JSX.Element {
   const formatTimestamp = useSelectedDisplayDateTimeFormatter();
-  const definition = blueprintCourseSearchDefinition(props.client, formatTimestamp, "public");
+  const definition = blueprintCourseSearchDefinition(props.client, formatTimestamp, "active");
   const state = createSearchState(
     {
       ...definition,
@@ -90,19 +90,19 @@ function BlueprintSourcePicker(props: {
     <SearchBlock
       layout="above"
       state={state}
-      controls={<SearchControls state={state} textLabel="Search public Blueprint sources" />}
+      controls={<SearchControls state={state} textLabel="Search active Blueprint sources" />}
       collection={{
-        ariaLabel: "Public Blueprint sources",
-        fields: blueprintCourseSearchFields(props.client, "public", formatTimestamp),
+        ariaLabel: "Active Blueprint sources",
+        fields: blueprintCourseSearchFields(props.client, "active", formatTimestamp),
         query: blueprintCourseSearchRecordQuery({
           query: state.query,
           apply: state.apply,
           sort: state.sort,
           client: props.client,
-          scope: "public",
+          scope: "active",
         }),
         emptyState: {
-          title: "No public Blueprint sources match.",
+          title: "No active Blueprint sources match.",
           message: "Try another name or clear the search.",
         },
       }}
@@ -357,8 +357,8 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
             </Show>
             <Show when={linkedBlueprint.error !== undefined}>
               <p class="route-error" role="alert">
-                The linked Blueprint Course could not be loaded. Choose a Public Blueprint Course or
-                try again.
+                The linked Blueprint Course could not be loaded. Choose an Active Blueprint Course
+                or try again.
                 <button type="button" onClick={() => void refetchLinkedBlueprint()}>
                   Try again
                 </button>
@@ -372,7 +372,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
               }
             >
               <p class="route-error" role="alert">
-                Only Public Blueprint Courses can be adopted. Choose a Public Blueprint Course.
+                Only Active Blueprint Courses can be adopted. Choose an Active Blueprint Course.
               </p>
             </Show>
             <BlueprintSourcePicker
@@ -480,8 +480,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
           state={courseSearch.state}
           collection={{
             ariaLabel: isActiveMode() ? "Active Course Instances" : "Inactive Course Instances",
-            fields: courseCollectionFields,
-            query: courseSearch.query,
+            ...courseSearch.collection,
             get emptyState() {
               return {
                 title:

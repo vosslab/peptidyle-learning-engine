@@ -32,9 +32,9 @@ async function instructorPools(runtime: ScenarioRuntime): Promise<void> {
       name: "Choose published Questions for this Pool",
       exact: true,
     });
-    await picker.getByLabel("Search Questions", { exact: true }).fill("Genetic disorders");
-    await picker.getByRole("button", { name: "Search", exact: true }).click();
     const results = picker.getByRole("region", { name: "Question results", exact: true });
+    await results.getByLabel("Search Questions", { exact: true }).fill("Genetic disorders");
+    await results.getByRole("button", { name: "Search", exact: true }).click();
     // The first visible selection establishes the Pool's eligibility, so this unbound picker
     // deliberately offers one radio choice before it can offer interchangeable checkboxes.
     await results.getByRole("radio").first().waitFor();

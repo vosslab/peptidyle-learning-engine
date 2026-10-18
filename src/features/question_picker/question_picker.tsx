@@ -7,8 +7,8 @@ import type { PublishedQuestionRevisionTuple } from "../../../generated/api/Publ
 import type { QuestionImageAssetId } from "../../../generated/api/QuestionImageAssetId";
 import type { QuestionImageUrlResolver } from "../../components/question_renderer";
 import type { DataSheetSelection } from "../../components/data_sheet/data_sheet_state";
-import type { RecordField, RecordListQuery } from "../../components/data_sheet/record_fields";
-import type { RecordSort } from "../../components/data_sheet/record_fields";
+import type { RecordField, DataSheetQuery } from "../../components/data_sheet/data_sheet_fields";
+import type { RecordSort } from "../../components/data_sheet/data_sheet_fields";
 import {
   reorderedRecordListRows,
   type RecordReorderBinding,
@@ -16,8 +16,8 @@ import {
 import type {
   QuestionLibraryBrowseQuery,
   QuestionLibraryBrowseRow,
-} from "../../pages/library_page_model";
-import type { LibraryRecordSortKey } from "../../pages/library_search_fields";
+} from "../../api/question_library_projection";
+import type { LibraryRecordSortKey } from "../question_library/library_search_fields";
 import { questionNativePreview } from "../../components/question_native_preview";
 import type { RecordContent } from "../../components/data_sheet/record_content";
 import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
@@ -167,8 +167,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
   const search = createSearchState(
     questionPickerSearchDefinition(props.repository, initialSource, inspectRow, props.eligibility),
   );
-  const questionPickerRecordQuery: RecordListQuery<LibraryRecordSortKey, never> = {
-    kind: "paged",
+  const questionPickerRecordQuery: DataSheetQuery<LibraryRecordSortKey, never> = {
     sort: {
       get value() {
         return (
@@ -766,8 +765,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
               }
               collection={{
                 ariaLabel: "Selected Questions in order",
-                fields: trayFields,
-                query: traySearch.query,
+                ...traySearch.collection,
                 disabled: confirmPending,
                 reorder: trayReorder,
                 get emptyState() {

@@ -34,7 +34,7 @@ BEGIN
     SELECT source.blueprint_course_id INTO v_source_blueprint_course_id
       FROM ple_data.blueprint_course AS source
      WHERE source.blueprint_course_id = p_source_blueprint_course_id
-       AND source.availability IN ('public', 'archived');
+       AND source.availability IN ('active', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Blueprint Course is unavailable';
@@ -46,7 +46,7 @@ BEGIN
            ple_private.instructor_display_name(child.owner_account_id)
       FROM ple_data.blueprint_course AS child
      WHERE child.parent_blueprint_course_id = v_source_blueprint_course_id
-       AND child.availability IN ('public', 'archived')
+       AND child.availability IN ('active', 'archived')
      ORDER BY child.blueprint_course_id COLLATE "C";
 END
 $$;
@@ -105,8 +105,8 @@ BEGIN
      WHERE course.blueprint_course_id = p_left_blueprint_course_id;
     IF NOT FOUND THEN RETURN; END IF;
     IF NOT ple_api.current_session_account_is_instructor()
-       OR v_fork.availability NOT IN ('public', 'archived')
-       OR v_source.availability NOT IN ('public', 'archived') THEN
+       OR v_fork.availability NOT IN ('active', 'archived')
+       OR v_source.availability NOT IN ('active', 'archived') THEN
         RETURN;
     END IF;
     -- Only selected records are projected; ancestors establish their relation.
@@ -195,7 +195,7 @@ BEGIN
       WHERE course.blueprint_course_id = v_origin.blueprint_course_id;
     IF NOT ple_api.current_session_account_is_instructor()
        OR v_fork.owner_account_id <> v_actor
-       OR v_source.availability NOT IN ('public', 'archived') THEN
+       OR v_source.availability NOT IN ('active', 'archived') THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is unavailable';
     END IF;
     IF v_fork.availability = 'archived' THEN
@@ -264,10 +264,10 @@ BEGIN
     SELECT course.blueprint_course_id INTO v_source_blueprint_course_id
       FROM ple_data.blueprint_course AS course
      WHERE course.blueprint_course_id = p_source_blueprint_course_id
-       AND course.availability IN ('public', 'archived') FOR SHARE;
+       AND course.availability IN ('active', 'archived') FOR SHARE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Blueprint Course fork requires a Public or Archived source';
+            MESSAGE = 'Blueprint Course fork requires an Active or Archived source';
     END IF;
     RETURN QUERY SELECT revision.content, revision.content_checksum
       FROM ple_data.blueprint_course_revision AS revision
@@ -355,11 +355,11 @@ BEGIN
     SELECT * INTO v_source
       FROM ple_data.blueprint_course AS source_course
      WHERE source_course.blueprint_course_id = v_source_blueprint_course_id
-       AND source_course.availability IN ('public', 'archived')
+       AND source_course.availability IN ('active', 'archived')
      FOR SHARE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Blueprint Course fork requires a Public or Archived source';
+            MESSAGE = 'Blueprint Course fork requires an Active or Archived source';
     END IF;
     SELECT * INTO v_source_revision
       FROM ple_data.blueprint_course_revision AS source_revision
@@ -421,7 +421,7 @@ BEGIN
         blueprint_edit_number, current_blueprint_revision_number, created_at,
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
-        COALESCE(p_blueprint_course_id, 'BP0000000C'), v_actor, v_source.short_name, v_source.long_name, 'public',
+        COALESCE(p_blueprint_course_id, 'BP0000000C'), v_actor, v_source.short_name, v_source.long_name, 'active',
         v_source_blueprint_course_id, p_source_blueprint_revision_number,
         v_blueprint_edit_number, 1, v_now,
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
@@ -458,7 +458,7 @@ BEGIN
         content_discipline_id, content_subject_id, content_topic_id, content_subtopic_id, tags, theme_id
     ) VALUES (
         v_child_blueprint_course_id, v_actor, v_source.short_name, v_source.long_name,
-        'public', v_blueprint_edit_number, v_now,
+        'active', v_blueprint_edit_number, v_now,
         v_source.content_discipline_id, v_source.content_subject_id, v_source.content_topic_id,
         v_source.content_subtopic_id, v_source.tags, v_source.theme_id
     );

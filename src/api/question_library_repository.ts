@@ -1,7 +1,7 @@
 // question_library_repository.ts - maps mixed Library Object search results into browser rows.
 
 import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
-import type { SearchPageRequest } from "../components/search_block/search_session";
+import type { SearchPageRequest } from "../components/search_block/search_definition";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { Capability } from "../../generated/api/Capability";
@@ -13,8 +13,8 @@ import {
 } from "./decoders/bloom_classification";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
-import type { RecordFilterChoices } from "../components/data_sheet/record_fields";
-import { RECORD_PAGE_SIZES } from "../components/data_sheet/record_page_sizes";
+import type { RecordFilterChoices } from "../components/data_sheet/data_sheet_fields";
+import { RECORD_PAGE_SIZES } from "../components/data_sheet/data_sheet_page_sizes";
 import { normalizeHumanEnteredQuestionId, validateCanonicalQuestionIdSyntax } from "../question_id";
 import { libraryClassificationFilter } from "./library_classification_filter";
 import { isProductionQuestionBackend, PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
@@ -25,7 +25,8 @@ import {
   type LibrarySearchPage,
   type QuestionLibraryPageSize,
   type QuestionLibrarySearchEligibility,
-} from "../pages/library_page_model";
+  type LibraryObjectQuestionRow,
+} from "./question_library_projection";
 
 function questionLibraryPageSize(
   pageSize: QuestionLibraryPageSize | undefined,
@@ -226,7 +227,7 @@ export function questionLibraryRowFromResult(
     Awaited<ReturnType<ApiClient["searchLibraryObjects"]>>["items"][number],
     { kind: "question" }
   >,
-): import("../pages/library_page_model").LibraryObjectQuestionRow {
+): LibraryObjectQuestionRow {
   const question = item.question;
   return {
     kind: "question" as const,
@@ -270,7 +271,7 @@ export function createQuestionLibraryRepository(
       query: QuestionLibraryBrowseQuery,
       pageRequest: SearchPageRequest,
       eligibility: QuestionLibrarySearchEligibility = {},
-    ): Promise<unknown> {
+    ): Promise<LibrarySearchPage> {
       const search = libraryObjectSearchRequest(
         query,
         pageRequest,

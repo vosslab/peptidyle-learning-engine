@@ -166,7 +166,7 @@ CREATE TABLE ple_data.blueprint_course_instance_source (
 );
 
 
-COMMENT ON TABLE ple_data.blueprint_course_instance_source IS 'role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.';
+COMMENT ON TABLE ple_data.blueprint_course_instance_source IS 'role: current state, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.';
 
 COMMENT ON TABLE ple_data.course_instance IS 'role: current state, deleted by FERPA purge of the Course Instance. HUMAN_GUIDANCE.md Course Instances.';
 

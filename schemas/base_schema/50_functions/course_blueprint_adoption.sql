@@ -13,7 +13,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         ON revision.blueprint_course_id = blueprint.blueprint_course_id
        AND revision.blueprint_revision_number = p_blueprint_revision_number
      WHERE blueprint.blueprint_course_id = p_blueprint_course_id
-       AND blueprint.availability = 'public'
+       AND blueprint.availability = 'active'
        AND (ple_api.current_session_account_is_instructor()
             OR ple_api.current_session_account_is_sysadmin())
 $$;
@@ -34,7 +34,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         ON revision.blueprint_course_id = blueprint.blueprint_course_id
        AND revision.blueprint_revision_number = p_blueprint_revision_number
      WHERE blueprint.blueprint_course_id = p_blueprint_course_id
-       AND ((blueprint.availability IN ('public', 'archived')
+       AND ((blueprint.availability IN ('active', 'archived')
              AND (ple_api.current_session_account_is_instructor()
                   OR ple_api.current_session_account_is_sysadmin()))
             OR (blueprint.owner_account_id = ple_api.current_session_account_id()

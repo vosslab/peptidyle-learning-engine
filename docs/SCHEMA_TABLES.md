@@ -1579,7 +1579,7 @@ Indexes:
 ### ple_data.blueprint_revision_question_pin
 
 - Role: revision
-- Comment: role: revision, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: revision, deleted by none for saved Blueprint Revisions. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1611,7 +1611,7 @@ Indexes:
 ### ple_data.blueprint_revision_module
 
 - Role: revision
-- Comment: role: revision, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: revision, deleted by none for saved Blueprint Revisions. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1672,7 +1672,7 @@ Indexes:
 ### ple_data.blueprint_revision_event
 
 - Role: event
-- Comment: role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: event, deleted by none for saved Blueprint Revisions. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1707,7 +1707,7 @@ Indexes:
 ### ple_data.blueprint_metadata_event
 
 - Role: event
-- Comment: role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1751,7 +1751,7 @@ Indexes:
 ### ple_data.blueprint_course_create_receipt
 
 - Role: event
-- Comment: role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1783,7 +1783,7 @@ Indexes:
 ### ple_data.blueprint_course_save_receipt
 
 - Role: event
-- Comment: role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1815,7 +1815,7 @@ Indexes:
 ### ple_data.blueprint_change_proposal
 
 - Role: current state
-- Comment: role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: current state, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1858,7 +1858,7 @@ Indexes:
 ### ple_data.blueprint_change_proposal_acceptance
 
 - Role: event
-- Comment: role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1895,7 +1895,7 @@ Indexes:
 ### ple_data.blueprint_course_star
 
 - Role: current state
-- Comment: role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: current state, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1923,7 +1923,7 @@ Indexes:
 ### ple_data.blueprint_course_watch
 
 - Role: current state
-- Comment: role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: current state, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -1951,7 +1951,7 @@ Indexes:
 ### ple_private.blueprint_course_watch_notification
 
 - Role: event
-- Comment: role: event, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: event, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 
@@ -2435,7 +2435,7 @@ Indexes:
 ### ple_data.blueprint_course_instance_source
 
 - Role: current state
-- Comment: role: current state, deleted by none for published Blueprints. HUMAN_GUIDANCE.md Blueprint Courses.
+- Comment: role: current state, deleted by none for Blueprint Courses. HUMAN_GUIDANCE.md Blueprint Courses.
 
 Columns:
 

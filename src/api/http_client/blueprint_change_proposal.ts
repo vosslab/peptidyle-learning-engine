@@ -6,7 +6,7 @@ import type {
   BlueprintProposalListQuery,
 } from "../blueprint_change_proposal";
 import type { BlueprintChangeProposalDetailView } from "../../../generated/api/BlueprintChangeProposalDetailView";
-import type { RecordFilterChoices } from "../../components/data_sheet/record_fields";
+import type { RecordFilterChoices } from "../../components/data_sheet/data_sheet_fields";
 import { decodeNonnegativeInteger, decodeRecord } from "../decoder";
 import { field, requireOnlyFields } from "../decoders/shared";
 import { decodeBlueprintCourseId } from "../decoders/blueprint_course";

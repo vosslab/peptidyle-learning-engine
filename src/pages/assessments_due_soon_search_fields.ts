@@ -1,5 +1,5 @@
 import type { DueSoonAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 
 export type DueSoonSortKey = "title" | "course" | "dueAt" | "assessmentType" | "status";

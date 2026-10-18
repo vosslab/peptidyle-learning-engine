@@ -18,11 +18,11 @@ import { createSearchState } from "../../components/search_block/search_state";
 import {
   blueprintCourseSearchDefinition,
   emptyBlueprintSearch,
-} from "../../pages/blueprint_course_search_definition";
+} from "../blueprint_course/blueprint_course_search_definition";
 import {
   blueprintCourseSearchFields,
   blueprintCourseSearchRecordQuery,
-} from "../../pages/blueprint_course_search_fields";
+} from "../blueprint_course/blueprint_course_search_fields";
 
 type Client = BlueprintCourseClient & BlueprintChangeProposalClient;
 function recordPath(id: string): string {

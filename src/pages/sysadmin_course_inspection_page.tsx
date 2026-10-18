@@ -16,9 +16,9 @@ import { PageFrame } from "../components/page_frame/page_frame";
 import type { RecordContent } from "../components/data_sheet/record_content";
 import type {
   RecordField,
-  RecordListQuery,
+  DataSheetQuery,
   RecordSort,
-} from "../components/data_sheet/record_fields";
+} from "../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
 import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
@@ -312,8 +312,7 @@ export function SysadminCourseInspectionListPage(): JSX.Element {
     },
     { runOnMount: true },
   );
-  const recordQuery: RecordListQuery<SortKey, FilterKey> = {
-    kind: "paged",
+  const recordQuery: DataSheetQuery<SortKey, FilterKey> = {
     sort: {
       get value(): RecordSort<SortKey> {
         return {
@@ -447,8 +446,7 @@ export function SysadminCourseInspectionPage(): JSX.Element {
           }
           collection={{
             ariaLabel: "Course inspection",
-            fields: courseFields,
-            query: inspectionSearch.query,
+            ...inspectionSearch.collection,
             emptyState: {
               title: "No Course inspection matches the current search or filters.",
             },

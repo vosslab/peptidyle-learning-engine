@@ -591,7 +591,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             session,
             blueprint_course_id,
             expected_edit_number,
-            "public",
+            "active",
             None,
         )
         .await

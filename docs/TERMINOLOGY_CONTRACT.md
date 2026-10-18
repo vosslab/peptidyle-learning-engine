@@ -468,31 +468,31 @@ Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#course-specifications).
 **Blueprint Course** is reusable Course content. It has Blueprint Assessments
 and no Students, Student Work, dates, time zones, or relative schedules.
 
-The Blueprint lifecycle is:
+All Blueprint Courses are Public and visible to Instructors, including their content,
+Revision history, and recorded changes. The Blueprint lifecycle is:
 
-- **Public**: visible to Instructors and adoptable; or
+- **Active**: adoptable; or
 - **Archived**: read-only, excluded from ordinary discovery and new adoption,
   available through explicit archived inclusion, and forkable.
 
 The **Blueprint Course Owner** is the owning Instructor with ordinary editing
-and lifecycle authority. Visibility grants reading, not editing. A Public
-Blueprint remains Public unless Archived. Archived restores to Public.
+and lifecycle authority. Visibility grants reading, not editing. An Archived Blueprint restores to Active.
 
 **Blueprint Revision** keeps saved reusable content fixed. Permitted metadata changes keep the
 Revision Number. Creation
-produces a Public Blueprint at Revision 1. A meaningful explicit Save creates
+produces an Active Blueprint at Revision 1. A meaningful explicit Save creates
 the next Revision; a no-op creates none. Blueprint metadata changes, including
 names, do not create Revisions. Lifecycle changes are separate from content saves.
 
-**Blueprint fork** creates a new Public lineage with ancestry.
-An Instructor may fork a visible Public or Archived Blueprint and owns the
+**Blueprint fork** creates a new Active lineage with ancestry.
+An Instructor may fork any Active or Archived Blueprint and owns the
 fork. The fork records the source Blueprint Course Revision Tuple, creates new
 Blueprint Assessments, retains Question Revision Tuples,
 and retains existing Pool references. Explicit Pool forks provide independent customization.
 Source changes are not automatically applied to forks.
 
 **Adoption** connects a Blueprint Course and a Course Instance. Creating a new
-Course Instance from a Public Blueprint Course establishes Adoption and copies
+Course Instance from an Active Blueprint Course establishes Adoption and copies
 every Assessment, its Questions, existing Pool references, and reusable settings from the
 selected exact Blueprint Revision. The daughter records its parent Blueprint Course Revision Tuple; copied Assessments are independent current Course state,
 Unreleased, with dates unset. A Blueprint Course tracks its Adoption count.
@@ -516,12 +516,12 @@ Blueprint Revision's selected changes into a daughter Course Instance. Also
 called **Blueprint incorporation**, it is distinct from the
 automatic addition of a newly added Blueprint Assessment.
 
-**Blueprint fork comparison** compares visible related Blueprints in the same
+**Blueprint fork comparison** compares related Blueprints in the same
 fork lineage, normally their newest Revisions, on Instructor request through
 canonical JSON. Shared Published Question IDs supply durable relationships;
 comparison does not require Blueprint Assessment identity or history across
 forks. It shows shared, added, removed, and changed Assessments, Questions, and
-Pools despite name, order, or structure changes. Visibility governs comparison;
+Pools despite name, order, or structure changes. All Instructors may compare related Blueprints;
 fork ownership governs incorporating selected source changes into that fork.
 Recorded origin is provenance, rather than the required normal comparison pair.
 
@@ -549,14 +549,14 @@ Instructors can see the count and who Starred it. **Watched Blueprint Course**
 is a private Instructor subscription to Revision and important-change
 notifications. Both belong to the Blueprint lineage across Revisions, and
 neither is created automatically by adoption or forking.
-Instructors may Star or Watch Public and Archived Blueprints.
+Instructors may Star or Watch Active and Archived Blueprints.
 
 **Promoted** is a searchable boolean Blueprint Course flag controlled
 exclusively by Sysadmins. It is distinct from Stars, Watches, and lifecycle.
 
 **Course Instance** is delivered teaching with current Course settings,
 Students, equal co-Instructors, Course Instance Assessments, Attempts, and
-FERPA-protected records. It may adopt a Public Blueprint or start empty, must
+FERPA-protected records. It may adopt an Active Blueprint or start empty, must
 always have at least one assigned Instructor, and may supply the reusable
 structure for a new Blueprint Course. The originating Course Instance remains
 the same teaching instance. It represents one teaching period and remains

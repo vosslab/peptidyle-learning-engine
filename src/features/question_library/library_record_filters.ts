@@ -1,16 +1,16 @@
-import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
-import type { LibraryObjectSearchSort } from "../../generated/api/LibraryObjectSearchSort";
-import type { ContentClassificationClient } from "../api/content_classification";
+import type { LibraryFacetField } from "../../../generated/api/LibraryFacetField";
+import type { LibraryObjectSearchSort } from "../../../generated/api/LibraryObjectSearchSort";
+import type { ContentClassificationClient } from "../../api/content_classification";
 import type {
   RecordFilterChoices,
-  RecordListQuery,
+  DataSheetQuery,
   RecordSort,
-} from "../components/data_sheet/record_fields";
+} from "../../components/data_sheet/data_sheet_fields";
 import type { LibraryRecordSortKey } from "./library_search_fields";
 import type {
   QuestionLibraryBrowseQuery,
   QuestionLibraryBrowseRepository,
-} from "./library_page_model";
+} from "../../api/question_library_projection";
 
 const libraryOrders: ReadonlyArray<{
   readonly order: LibraryObjectSearchSort;
@@ -120,7 +120,7 @@ export function libraryRecordQuery(props: {
   readonly repository: QuestionLibraryBrowseRepository;
   readonly classificationClient: ContentClassificationClient;
   readonly onError?: (message: string | null) => void;
-}): RecordListQuery<LibraryRecordSortKey, LibraryFacetField> {
+}): DataSheetQuery<LibraryRecordSortKey, LibraryFacetField> {
   const hierarchyFields = [
     "disciplineUuids",
     "subjectUuids",
@@ -296,7 +296,6 @@ export function libraryRecordQuery(props: {
   }
 
   return {
-    kind: "paged",
     sort: {
       get value(): RecordSort<LibraryRecordSortKey> | null {
         return libraryOrders.find((entry) => entry.order === props.query().sort)?.sort ?? null;

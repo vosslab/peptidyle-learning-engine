@@ -124,7 +124,7 @@ pub(super) async fn list_history(
                 page_size: result.page.page_size.get(),
                 total_count: result.page.total_count,
                 availability_facets: BlueprintHistoryAvailabilityFacets {
-                    public_count: result.public_count,
+                    active_count: result.active_count,
                     archived_count: result.archived_count,
                 },
             })
@@ -156,7 +156,7 @@ fn clean_query(query: &HistoryQuery) -> Option<BlueprintHistoryQuery> {
     if availability.len() > 2
         || availability
             .iter()
-            .any(|value| value != "public" && value != "archived")
+            .any(|value| value != "active" && value != "archived")
     {
         return None;
     }

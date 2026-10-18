@@ -5,7 +5,7 @@ Engine. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) is the product authority and
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines the terms used here.
 The linked base-schema and source paths are implementation evidence, not product
 authority. Generic teaching objects are Assessments. Assignment appears only in
-the three Assessment Type names. Blueprint lifecycle states are Public and Archived.
+the three Assessment Type names. All Blueprints are Public; their lifecycle states are Active and Archived.
 
 The October 4 HG interview corrections below describe required behavior. Their
 linked implementation paths have not been revalidated against those corrections;
@@ -24,8 +24,11 @@ arguments.
 
 The shared collection composes SearchBlock, DataSheetControls,
 DataSheetBlock, DataSheetTable, HeaderRow, and RecordItem. Every collection
-exposes Compact, List, Cards, and Visual Boxes. DataSheetBlock owns all four
-modes and shared sorting, filtering, selection, and record actions.
+exposes Compact, List, Cards, and Visual Boxes. `createSearchState` is the
+sole reactive search controller; `search_definition.ts` contains shared definitions and types.
+SearchBlock adapts controller state, while DataSheetBlock owns all four modes,
+mounts DataSheetControls before its record region, and owns shared sorting,
+filtering, selection, and record actions.
 DataSheetTable owns the reusable Compact/List tabular presentation and column
 configuration: resizing, showing/hiding, rearrangement, responsive hiding, and
 independent temporary widths, visibility, and order for each table mode.
@@ -33,11 +36,10 @@ HeaderRow is the heading interface within DataSheetTable and forwards sorting
 and filtering input to DataSheetBlock; DataSheetTable handles column mechanics.
 HeaderRow is not an independent controller. RecordItem supplies record content
 and direct actions in every mode. SearchBlock composes page-supplied criteria
-and controls with DataSheetControls and the required DataSheetBlock.
-DataSheetControls exposes surrounding mode, pagination, count, bulk, and
-appropriate sort/filter interfaces through shared state and callbacks,
-delegating collection interactions to DataSheetBlock and column mechanics to
-DataSheetTable. It does not own a parallel query or presentation controller.
+and controls with one required DataSheetBlock. DataSheetBlock mounts
+DataSheetControls for surrounding mode, pagination, count, bulk, and appropriate
+sort/filter interfaces using its shared presentation and table state. It does
+not expose a table-state render callback or create a second controller.
 Page/domain owners retain authorized scope, query execution,
 creation, and domain commands; editors retain membership and saved order. The
 UI requests sorting and filtering through DataSheetBlock; the data/query layer
@@ -229,11 +231,12 @@ credential and does not bypass MFA.
 | Combined Library search | Questions and Pools share one server-filtered, sorted, and paged result set. Questions in no Pool means no Pool membership; Those Questions plus Pools are a tentative default candidate; HG says "probably". Filters can include member Questions. A Pool matches its own text and metadata only. The Library uses this combined path; the obsolete standalone Pool-list endpoint is removed. | [QUESTION_LIBRARY_FILTER_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_FILTER_SPEC.md) |
 | Pool requirements and release | Show which Pool requirement is not met and block affected Assessment release until resolved. If a problem develops after release, that Assessment continues as-is. Save incomplete unreleased work. An Assessment requesting more Questions than the Pool can provide blocks release rather than the Pool save. Enforcement remains pending validation. | [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-pool-metadata) |
 | BiologyProblems.org algorithmic catalog | Each BiologyProblems.org WeBWorK family records one canonical algorithmic author source (official PG/PGML or generator), produces exactly one canonical algorithmic PG/PGML file and ordinary Published Question lineage, and replaces its generated static variants. Algorithmic Questions ordinarily stand alone, but an Instructor may deliberately Pool distinct similar algorithms when selection is useful; Pool selection and backend-native variation remain independent. Only after per-family source acceptance, representative deterministic render/grade proof, and expected-current Blueprint Revision CAS may current placements change. A later Pool membership edit removes redundant generated variants while intentional distinct-algorithm Pools remain. Replaced static Question lineages, redundant Pool lineages, and generated source copies retire only through this forward path. Exact immutable Question Revisions, Blueprint pins, Pool IDs, Pool Edit Numbers, and Student Work remain resolvable; no history is deleted, repurposed, or raw-SQL-rewritten. The shipped 119 static banks remain unmigrated; the manifest's 13 algorithmic-source definitions, including HLA, are migration inputs, not runtime proof. | C824-C841 in the active [Human Guidance implementation compliance plan](archive/human_guidance_implementation_compliance_plan.md); future bundled content manifest, Question publication, Pool, and Blueprint publication boundaries |
-| Blueprint lineage and revision | A Blueprint Course is a stable reusable lineage created Public with Revision 1. A Blueprint Course Revision Tuple (`BlueprintCourseRevisionTuple` in code) names one exact Revision; a changed explicit Save based on its current Revision creates the next one, while a canonical no-op returns the current Revision with `changed: false`. Blueprint Assessment provenance retains that exact Revision and the stable Blueprint Assessment ID when Course state derives from reusable content. | [contracts.rs](../crates/question_model/src/blueprint_operations/contracts.rs), [blueprints.sql](../schemas/base_schema/50_functions/blueprints.sql)                                                                                 |
+| Blueprint lineage and revision | A Blueprint Course is a stable reusable lineage created Active with Revision 1. A Blueprint Course Revision Tuple (`BlueprintCourseRevisionTuple` in code) names one exact Revision; a changed explicit Save based on its current Revision creates the next one, while a canonical no-op returns the current Revision with `changed: false`. Blueprint Assessment provenance retains that exact Revision and the stable Blueprint Assessment ID when Course state derives from reusable content. | [contracts.rs](../crates/question_model/src/blueprint_operations/contracts.rs), [blueprints.sql](../schemas/base_schema/50_functions/blueprints.sql)                                                                                 |
 
-Blueprint Courses use Public and Archived lifecycle states. Public is shared and adoptable. Archived remains visible to
-Instructors through explicit historical discovery, can be forked, and
-cannot be adopted. The owner can restore it to Public. Short name, long name,
+All Blueprint Courses are Public and visible to Instructors, including content and Revision
+history. Their lifecycle states are Active and Archived. Active is adoptable. Archived is
+read-only, excluded from ordinary discovery and adoption, and forkable. The owner can
+restore it to Active. Short name, long name,
 and lifecycle state are current lineage metadata and never create a Revision.
 
 Adoption creates independent Course Instance Assessment copies. The retained
@@ -265,13 +268,13 @@ through the normal update workflow.
 
 | Boundary                       | Current contract                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Owner and evidence                                                                                                                                                                                                                    |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Course Instance                | A Course Instance starts empty or adopts an exact Public Blueprint Revision, atomically creating every Assessment with its Questions, pools, and reusable settings, fresh identities, Unreleased state, and unset dates. It owns deliberately entered names, Course Term dates, equal co-Instructor memberships, roster, and delivery state; it always has at least one assigned Instructor. Course Term is current Course state, not a Revision. | [course_term.rs](../crates/question_model/src/course_term.rs), [course_core.sql](../schemas/base_schema/50_functions/course_core.sql), [course_operations.sql](../schemas/base_schema/50_functions/course_operations.sql) |
+| Course Instance                | A Course Instance starts empty or adopts an exact Active Blueprint Revision, atomically creating every Assessment with its Questions, pools, and reusable settings, fresh identities, Unreleased state, and unset dates. It owns deliberately entered names, Course Term dates, equal co-Instructor memberships, roster, and delivery state; it always has at least one assigned Instructor. Course Term is current Course state, not a Revision. | [course_term.rs](../crates/question_model/src/course_term.rs), [course_core.sql](../schemas/base_schema/50_functions/course_core.sql), [course_operations.sql](../schemas/base_schema/50_functions/course_operations.sql) |
 | Assessment                     | An Assessment is one stable current aggregate under a Course Instance. Its positive Assessment Edit Number is the strong HTTP `If-Match` encoding for save, Assessment Properties save, release, and Unrelease. It owns current title, instructions, dates, settings, ordered Questions, and Question Pools. Fixed Question entries pin exact Question Revisions; Pool entries reference a current Pool by ID and store their own selection count. Existing Attempts keep their selected Question Revisions. | [edit_number.rs](../crates/question_model/src/assessment/edit_number.rs), [assessment.rs](../crates/question_model/src/assessment.rs), [assessments.sql](../schemas/base_schema/50_functions/assessments.sql) |
 | Assessment release and editing | Saves use the current Assessment Edit Number and preserve incomplete unreleased editing state with specific problems shown. Release performs release validation. After issue, content edits follow HG: point changes, reordering, removal of Pool members never issued to any Student in that Assessment, and whole-Pool removal. Removing a Pool excludes its earned and possible points from every Attempt; point changes recalculate existing scores. Standalone Question removal remains tentative. Retained responses and issued Question evidence survive these edits. Unrelease deletes Student Work and permits normal editing before a new validated release. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [assessment_release.rs](../crates/learning-data-access/src/assessment_release.rs), [assessment_operations.sql](../schemas/base_schema/50_functions/assessment_operations.sql) |
 | Course Blueprint update review | An authorized Course Instructor may lazily derive one current-parent Course summary for adopted Assessments only. It classifies changed, matching, removed-source, Type-mismatch, and automatically-added correspondences; direct local Assessments are excluded. Each changed adopted Assessment uses the existing explicit detail Apply with parent Blueprint Course Revision Tuple and Assessment Edit Number CAS. Applying changes must respect the same post-issue Assessment content limits as direct edits. It preserves local dates, status, origin, and existing Student Work; matching Entry IDs are preserved to keep grades attached; equivalent content is a no-op and Pool references retain their existing IDs; independent Pool customization uses explicit ordinary Pool forking. It has no persisted offers, receipts, baselines, or stored update state, and does not close a whole-Course lifecycle. | [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs), [assessment_blueprint_updates.sql](../schemas/base_schema/50_functions/assessment_blueprint_updates.sql), [assessment_release.rs](../crates/server/src/assessment_release.rs), [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx) |
 | Assessment Unrelease           | An authorized Teaching Team member supplies the exact Assessment Edit Number and title confirmation. The database locks the Assessment, confirms Released status, changes it to Unreleased, and permanently deletes its Student Work. Shared Questions, current Assessment state, and Course membership survive. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [unrelease.sql](../schemas/base_schema/50_functions/unrelease.sql) |
 
-**Create Blueprint from Course Instance** creates a distinct actor-owned Public
+**Create Blueprint from Course Instance** creates a distinct actor-owned Active
 Blueprint Course at Revision 1 from an existing Course Instance's reusable
 structure. It records immutable source provenance and that unchanged source
 Course Instance as the new Blueprint's first Adoption. The new Blueprint does

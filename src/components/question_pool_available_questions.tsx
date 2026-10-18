@@ -6,20 +6,19 @@ import type { ContentClassificationClient } from "../api/content_classification"
 import type { QuestionPickerEligibility } from "../features/question_picker";
 import { SearchBlock } from "./search_block/search_block";
 import { SearchControls } from "./search_block/search_controls";
-import { createSearchState } from "./search_block/search_state";
 import {
-  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   type LibraryObjectQuestionRow,
   type LibrarySearchRow,
   type QuestionLibraryBrowseRepository,
-} from "../pages/library_page_model";
-import { libraryRecordQuery } from "../pages/library_record_filters";
-import { fixedKindLibrarySearchFields } from "../pages/library_search_fields";
+} from "../api/question_library_projection";
+import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../features/question_library/library_query";
+import { fixedKindLibrarySearchFields } from "../features/question_library/library_search_fields";
 import {
+  createQuestionLibraryCollection,
   questionLibraryContent,
   questionLibrarySearchDefinition,
-} from "../pages/question_library_search_definition";
-import type { RecordTransferBinding } from "./data_sheet/record_interactions";
+} from "../features/question_library/question_library_search_definition";
+import type { RecordTransferBinding } from "./data_sheet/data_sheet_interactions";
 import {
   questionPoolAvailableQuery,
   questionPoolAvailableRepository,
@@ -47,64 +46,62 @@ export function QuestionPoolAvailableQuestions(
     true,
     "questions",
   );
-  const search = createSearchState({
-    ...base,
-    cleanup: (query) => questionPoolAvailableQuery(base.cleanup(query), props.eligibility),
-    appliedFilters: (query) =>
-      (base.appliedFilters?.(query) ?? []).filter(
-        (filter) =>
-          !["kind", "discipline", "classification-subject", "backends", "questionTypes"].includes(
-            filter.id,
-          ) &&
-          !(
-            filter.id === "questionLicenses" &&
-            base.initialQuery.questionLicenses.every((license) =>
-              query.questionLicenses.includes(license),
-            )
-          ),
-      ),
-    content: (row) => {
-      if (row.kind !== "question") throw new Error("Pool Library results must be Questions.");
-      const content = questionLibraryContent(row);
-      const command = props.transfer?.command(row) ?? {
-        label: props.includedIds.has(row.displayId) ? "Included" : "Add",
-        disabled: props.includedIds.has(row.displayId) || props.disabled,
-        run: (): void => {
-          if (!props.includedIds.has(row.displayId) && !props.disabled) void props.onAdd(row);
-        },
-      };
-      return {
-        ...content,
-        actions: [
-          ...content.actions,
-          {
-            id: "add",
-            kind: "command" as const,
-            label: command.label,
-            primary: true,
-            disabled: command.disabled,
-            onClick: (): void => {
-              void command.run();
-            },
-          },
-        ],
-      };
-    },
-  });
-  const query = libraryRecordQuery({
-    query: search.query,
-    apply: search.apply,
-    sort: search.sort,
-    replacementRevision: search.replacementRevision,
-    repository,
-    classificationClient: props.classificationClient,
-    onError: setError,
-  });
   const fields = fixedKindLibrarySearchFields.map((field) =>
     ["discipline", "subject", "type", "backend"].includes(field.id)
       ? { ...field, filterKey: undefined }
       : field,
   );
+  const library = createQuestionLibraryCollection({
+    definition: {
+      ...base,
+      cleanup: (query) => questionPoolAvailableQuery(base.cleanup(query), props.eligibility),
+      appliedFilters: (query) =>
+        (base.appliedFilters?.(query) ?? []).filter(
+          (filter) =>
+            !["kind", "discipline", "classification-subject", "backends", "questionTypes"].includes(
+              filter.id,
+            ) &&
+            !(
+              filter.id === "questionLicenses" &&
+              base.initialQuery.questionLicenses.every((license) =>
+                query.questionLicenses.includes(license),
+              )
+            ),
+        ),
+      content: (row) => {
+        if (row.kind !== "question") throw new Error("Pool Library results must be Questions.");
+        const content = questionLibraryContent(row);
+        const command = props.transfer?.command(row) ?? {
+          label: props.includedIds.has(row.displayId) ? "Included" : "Add",
+          disabled: props.includedIds.has(row.displayId) || props.disabled,
+          run: (): void => {
+            if (!props.includedIds.has(row.displayId) && !props.disabled) void props.onAdd(row);
+          },
+        };
+        return {
+          ...content,
+          actions: [
+            ...content.actions,
+            {
+              id: "add",
+              kind: "command" as const,
+              label: command.label,
+              primary: true,
+              disabled: command.disabled,
+              onClick: (): void => {
+                void command.run();
+              },
+            },
+          ],
+        };
+      },
+    },
+    repository,
+    classificationClient: props.classificationClient,
+    fields,
+    onError: setError,
+  });
+  const search = library.state;
   onMount(() => void search.open(search.query()));
   return (
     <>
@@ -115,8 +112,7 @@ export function QuestionPoolAvailableQuestions(
         controls={<SearchControls state={search} textLabel="Search available Library Questions" />}
         collection={{
           ariaLabel: "Available Library Questions",
-          fields,
-          query,
+          ...library.collection,
           transfer: props.transfer,
           emptyState: { title: "No eligible Library Questions match this search." },
         }}

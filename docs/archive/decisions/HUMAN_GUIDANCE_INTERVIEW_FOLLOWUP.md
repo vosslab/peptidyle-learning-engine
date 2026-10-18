@@ -436,10 +436,10 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
 
 - Shared components remain in
   `src/components/record_list/record_table.tsx` and
-  [record_list.tsx](../../../src/components/record_list/record_list.tsx).
+  `src/components/record_list/record_list.tsx` (retired).
 - `src/pages/library_browse_rows.tsx` (historical path; retired) renders
   Question Library results with `RecordList`.
-- [library_page.tsx](../../../src/pages/library_page.tsx) owns the search form,
+- [library_workspace.tsx](../../../src/features/question_library/library_workspace.tsx) owns the search form,
   filters, and sorting. `RecordTable` provides columns and row headers but has
   no built-in column-filter or sort-state contract.
 - The checked migration commit, `8fe0eadd`, also has a basic `RecordTable` and a

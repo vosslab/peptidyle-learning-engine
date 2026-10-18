@@ -377,7 +377,8 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
         id: "view_assessments",
         kind: "command",
         label: "View Assessments",
-        onClick: (): void => assessmentSearch.query.filters?.onChange("module", [row.context]),
+        onClick: (): void =>
+          assessmentSearch.collection.query.filters?.onChange("module", [row.context]),
       },
       {
         id: "move_earlier",
@@ -545,8 +546,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
               collection={{
                 ariaLabel: "Complete destination Modules",
                 initialMode: "compact",
-                fields: destinationModuleFields,
-                query: moduleSearch.query,
+                ...moduleSearch.collection,
                 disabled,
                 reorder: moduleReorder,
                 emptyState: {
@@ -570,8 +570,7 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
               collection={{
                 ariaLabel: "All placed destination Assessments",
                 initialMode: "compact",
-                fields: destinationAssessmentFields,
-                query: assessmentSearch.query,
+                ...assessmentSearch.collection,
                 disabled,
                 reorder: assessmentReorder,
                 emptyState: {

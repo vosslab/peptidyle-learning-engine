@@ -4,16 +4,14 @@ import {
   appendLibraryClassificationParameters,
   LIBRARY_CLASSIFICATION_UUID_FIELDS,
   parseLibraryClassificationParameters,
-} from "../api/library_classification_filter";
-import {
-  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-  type QuestionLibraryBrowseQuery,
-} from "./library_page_model";
+} from "../../api/library_classification_filter";
+import { type QuestionLibraryBrowseQuery } from "../../api/question_library_projection";
+import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "./library_query";
 import {
   isBloomCognitiveProcess,
   isBloomKnowledgeDimension,
-} from "../api/decoders/bloom_classification";
-import { validateCanonicalPublicId } from "../question_id";
+} from "../../api/decoders/bloom_classification";
+import { validateCanonicalPublicId } from "../../question_id";
 
 /** Removes only rejected strict URL state while retaining valid Library options. */
 export function recoverLibrarySearch(search: string): string {

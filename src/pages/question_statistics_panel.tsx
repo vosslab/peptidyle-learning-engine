@@ -8,7 +8,7 @@ import type { QuestionUseDetails } from "../../generated/api/QuestionUseDetails"
 import type { QuestionRevisionUsageStatistics } from "../../generated/api/QuestionRevisionUsageStatistics";
 import { courseInstanceRouteId } from "../navigation/public_route";
 import type { RecordContent } from "../components/data_sheet/record_content";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
 import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
@@ -166,8 +166,7 @@ function RevisionStatisticsList(props: {
       collection={{
         ariaLabel: "Question statistics by revision",
         emptyState: { title: "No revision statistics match your search." },
-        fields: revisionFields,
-        query: search.query,
+        ...search.collection,
       }}
     />
   );
@@ -195,8 +194,7 @@ function OwnCourseUseList(props: {
       collection={{
         ariaLabel: "Your courses using this question",
         emptyState: { title: "No courses match your search." },
-        fields: courseUseFields,
-        query: search.query,
+        ...search.collection,
       }}
     />
   );

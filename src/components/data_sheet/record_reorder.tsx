@@ -63,13 +63,6 @@ export function reorderedRecordListRows<Row>(
   return reorderedRows;
 }
 
-export type ControlledRecordReorder = {
-  /** Resolve only after the caller-owned record IDs reflect an accepted move. */
-  readonly onMove: (sourceIndex: number, destinationIndex: number) => void | Promise<void>;
-  readonly recordLabel: (recordId: string) => string;
-  readonly isDisabled?: (recordId: string) => boolean;
-};
-
 /** Full authored sibling order; filtered/paged display order is never used for movement. */
 export type RecordReorderBinding = {
   readonly orderForRecord: (recordId: string) => ReadonlyArray<string>;
@@ -83,7 +76,6 @@ type ControlledDraggedRecord = {
 };
 
 type ControlledRecordReorderContext = {
-  readonly recordIds: () => ReadonlyArray<string>;
   readonly orderForRecord: (recordId: string) => ReadonlyArray<string>;
   readonly recordLabel: (recordId: string) => string;
   readonly isDisabled: (recordId: string) => boolean;
@@ -105,18 +97,8 @@ export type ControlledRecordReorderProviderProps = {
   readonly onBeforeMove?: () => void;
   readonly ariaLabel?: string;
   readonly children: JSX.Element;
-} & (
-  | {
-      readonly binding?: RecordReorderBinding;
-      readonly recordIds?: never;
-      readonly reorder?: never;
-    }
-  | {
-      readonly recordIds: () => ReadonlyArray<string>;
-      readonly reorder: ControlledRecordReorder;
-      readonly binding?: never;
-    }
-);
+  readonly binding?: RecordReorderBinding;
+};
 
 export type RecordMoveControlsProps = {
   readonly recordLabel: string;
@@ -212,16 +194,16 @@ export function ControlledRecordReorderProvider(
   const [draggedRecord, setDraggedRecord] = createSignal<ControlledDraggedRecord>();
 
   const orderForRecord = (recordId: string): ReadonlyArray<string> =>
-    props.binding?.orderForRecord(recordId) ?? props.recordIds?.() ?? [];
+    props.binding?.orderForRecord(recordId) ?? [];
   const recordLabel = (recordId: string): string =>
-    props.binding?.recordLabel(recordId) ?? props.reorder?.recordLabel(recordId) ?? "Record";
+    props.binding?.recordLabel(recordId) ?? "Record";
 
   function recordIndex(recordId: string): number {
     return orderForRecord(recordId).indexOf(recordId);
   }
 
   function recordIsDisabled(recordId: string): boolean {
-    return (props.binding ?? props.reorder)?.isDisabled?.(recordId) === true;
+    return props.binding?.isDisabled?.(recordId) === true;
   }
 
   function focusMovedRecord(
@@ -263,8 +245,7 @@ export function ControlledRecordReorderProvider(
     setDraggedRecord(undefined);
     props.onBeforeMove?.();
     try {
-      if (props.binding) await props.binding.onMove(recordId, targetId);
-      else await props.reorder?.onMove(sourceIndex, destinationIndex);
+      await props.binding?.onMove(recordId, targetId);
     } catch {
       return;
     }
@@ -322,7 +303,6 @@ export function ControlledRecordReorderProvider(
   }
 
   const context: ControlledRecordReorderContext = {
-    recordIds: () => props.recordIds?.() ?? [],
     orderForRecord,
     recordLabel,
     isDisabled: recordIsDisabled,

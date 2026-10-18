@@ -12,7 +12,7 @@ import type {
   QuestionLibraryBrowseRepository,
   LibraryObjectQuestionRow,
   LibrarySearchRow,
-} from "../pages/library_page_model";
+} from "../api/question_library_projection";
 import {
   type QuestionPickerEligibility,
   type QuestionPickerSelection,
@@ -33,7 +33,7 @@ import {
   RecordTransferProvider,
   type RecordTransferBinding,
   type RecordTransferCommand,
-} from "./data_sheet/record_interactions";
+} from "./data_sheet/data_sheet_interactions";
 import {
   comparePoolMemberFields,
   poolMemberRowId,
@@ -360,8 +360,7 @@ export function QuestionPoolMembersEditor(props: QuestionPoolMembersEditorProps)
               state={memberSearch.state}
               collection={{
                 ariaLabel: "Questions being edited",
-                fields: memberFields,
-                query: memberSearch.query,
+                ...memberSearch.collection,
                 transfer: memberTransfer,
                 emptyState: { title: "No Pool Questions match this search." },
               }}

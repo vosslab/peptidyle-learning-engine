@@ -61,7 +61,7 @@ function formatAssessmentDueDate(value: CourseAssessmentSummary["dueAt"]): strin
   return formatLocalWallClockDateTime(value);
 }
 
-/** Creates a distinct public Blueprint while retaining the source Course Instance unchanged. */
+/** Creates a distinct Active Blueprint while retaining the source Course Instance unchanged. */
 function CreateBlueprintFromCourseInstance(props: {
   readonly course: CourseInstanceSummary;
 }): JSX.Element {
@@ -699,8 +699,7 @@ function CourseInstanceContent(props: { readonly courseInstanceId: string }): JS
                 state={assessmentSearch.state}
                 collection={{
                   ariaLabel: "Assessments",
-                  fields: assessmentCollectionFields,
-                  query: assessmentSearch.query,
+                  ...assessmentSearch.collection,
                   renderBody: (row) => {
                     assessmentRows();
                     const model = assessmentRowModels.get(row().id)!;

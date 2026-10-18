@@ -102,8 +102,7 @@ function CrossCourseScores(props: {
         state={scoreSearch.state}
         collection={{
           ariaLabel: "Scores across Courses",
-          fields: studentCrossCourseScoreFields,
-          query: scoreSearch.query,
+          ...scoreSearch.collection,
           get emptyState() {
             return {
               title: partial()

@@ -118,8 +118,7 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
               }
               collection={{
                 ariaLabel: "Current reusable Pool members",
-                fields: memberFields,
-                query: memberSearch.query,
+                ...memberSearch.collection,
                 emptyState: { title: "No current Pool members match this search." },
               }}
             />

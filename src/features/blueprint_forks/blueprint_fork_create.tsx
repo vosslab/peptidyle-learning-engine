@@ -11,7 +11,7 @@ export interface BlueprintForkCreateProps {
   readonly source: BlueprintCourseView;
 }
 
-/** Creates a separately owned Public fork, without changing the source. */
+/** Creates a separately owned Active fork, without changing the source. */
 export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Element {
   const navigate = useNavigate();
   const [pending, setPending] = createSignal(false);
@@ -28,13 +28,8 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
     disposed = true;
   });
 
-  function canFork(): boolean {
-    // ASVS 8.3.1: visibility is only a UI affordance; the server authorizes the command.
-    return props.source.availability === "public" || props.source.availability === "archived";
-  }
-
   async function createFork(): Promise<void> {
-    if (pending() || !canFork()) return;
+    if (pending()) return;
     const blueprintCourseId = props.source.id;
     const revisionNumber = props.source.current_revision_tuple.revisionNumber;
     setPending(true);
@@ -67,23 +62,17 @@ export function BlueprintForkCreate(props: BlueprintForkCreateProps): JSX.Elemen
   }
 
   return (
-    <Show when={canFork()}>
-      <div class="blueprint-course-save-actions" aria-busy={pending()}>
-        <p>
-          Fork Revision {props.source.current_revision_tuple.revisionNumber} into your own
-          independent Public Blueprint Course. Later source changes are not applied automatically.
-        </p>
-        <button type="button" disabled={pending()} onClick={() => void createFork()}>
-          {pending()
-            ? "Creating fork..."
-            : error()
-              ? "Retry fork creation"
-              : "Fork Blueprint Course"}
-        </button>
-        <Show when={error()}>
-          <p role="alert">{error()}</p>
-        </Show>
-      </div>
-    </Show>
+    <div class="blueprint-course-save-actions" aria-busy={pending()}>
+      <p>
+        Fork Revision {props.source.current_revision_tuple.revisionNumber} into your own independent
+        Active Blueprint Course. Later source changes are not applied automatically.
+      </p>
+      <button type="button" disabled={pending()} onClick={() => void createFork()}>
+        {pending() ? "Creating fork..." : error() ? "Retry fork creation" : "Fork Blueprint Course"}
+      </button>
+      <Show when={error()}>
+        <p role="alert">{error()}</p>
+      </Show>
+    </div>
   );
 }

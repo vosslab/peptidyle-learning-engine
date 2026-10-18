@@ -102,10 +102,10 @@ BEGIN
         JOIN ple_data.blueprint_course AS source USING (blueprint_course_id)
         WHERE course.course_instance_id = installed_course
           AND course.source_kind = 'adopted'
-          AND source.availability = 'public'
+          AND source.availability = 'active'
           AND source.long_name = 'Biochemistry'
     ) THEN
-        RAISE EXCEPTION 'Live Demo is not adopted from ordinary public Biochemistry content';
+        RAISE EXCEPTION 'Live Demo is not adopted from ordinary active Biochemistry content';
     END IF;
     IF (SELECT count(*) FROM ple_data.course_membership
          WHERE course_instance_id = installed_course AND role = 'student') <> 3 THEN

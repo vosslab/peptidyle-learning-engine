@@ -10,14 +10,14 @@ import { DataSheetColumnControls } from "./data_sheet_table";
 import type { DataSheetTableState } from "./data_sheet_table_state";
 import type { RecordAction } from "./record_content";
 import { RecordActionControl } from "./record_action_control";
-import type { RecordField, RecordListQuery, RecordSortBinding } from "./record_fields";
+import type { RecordField, DataSheetQuery, RecordSortBinding } from "./data_sheet_fields";
 import {
   RecordPageControls,
   RecordPageSizeControl,
   type RecordPageControlsProps,
-} from "./record_page_controls";
-import { RecordFilterControls } from "./record_filter_controls";
-import { RecordSortMenu, recordSortOptions } from "./record_sort_controls";
+} from "./data_sheet_page_controls";
+import { DataSheetFilterControls } from "./data_sheet_filter_controls";
+import { DataSheetSortMenu, recordSortOptions } from "./data_sheet_sort_controls";
 
 const modes: ReadonlyArray<{ readonly id: DataSheetMode; readonly label: string }> = [
   { id: "compact", label: "Compact" },
@@ -102,7 +102,7 @@ export function DataSheetControls<Row, SortKey extends string, FilterKey extends
   readonly presentation: DataSheetPresentation<FilterKey>;
   readonly table: DataSheetTableState<Row, SortKey, FilterKey>;
   readonly fields: ReadonlyArray<RecordField<Row, SortKey, FilterKey>>;
-  readonly query?: RecordListQuery<SortKey, FilterKey>;
+  readonly query: DataSheetQuery<SortKey, FilterKey>;
   readonly selection?: DataSheetSelection<Row>;
   readonly loadedCount: number;
   readonly pagination?: RecordPageControlsProps;
@@ -115,7 +115,7 @@ export function DataSheetControls<Row, SortKey extends string, FilterKey extends
   const tabular = (): boolean =>
     props.presentation.mode() === "compact" || props.presentation.mode() === "list";
   const filterCount = (): number =>
-    [...(props.query?.filters?.values.values() ?? [])].reduce(
+    [...(props.query.filters?.values.values() ?? [])].reduce(
       (count, values) => count + values.length,
       0,
     );
@@ -131,7 +131,7 @@ export function DataSheetControls<Row, SortKey extends string, FilterKey extends
       (field) => field.sortKey !== undefined && !headingSortKeys().has(field.sortKey),
     );
   const otherSortBinding = (): RecordSortBinding<SortKey> | undefined => {
-    const binding = props.query?.sort;
+    const binding = props.query.sort;
     if (binding === undefined) return undefined;
     return {
       ...binding,
@@ -167,24 +167,24 @@ export function DataSheetControls<Row, SortKey extends string, FilterKey extends
             <Show when={tabular()}>
               <DataSheetColumnControls table={props.table} />
             </Show>
-            <Show when={props.query?.sort}>
+            <Show when={props.query.sort}>
               {(binding) => (
                 <Show
                   when={tabular()}
-                  fallback={<RecordSortMenu fields={props.fields} binding={binding()} />}
+                  fallback={<DataSheetSortMenu fields={props.fields} binding={binding()} />}
                 >
                   <Show when={recordSortOptions(otherSortFields(), otherSortBinding()!).length > 0}>
                     <details class="record-sort__disclosure">
                       <summary>{otherSortSummary()}</summary>
-                      <RecordSortMenu fields={otherSortFields()} binding={otherSortBinding()!} />
+                      <DataSheetSortMenu fields={otherSortFields()} binding={otherSortBinding()!} />
                     </details>
                   </Show>
                 </Show>
               )}
             </Show>
-            <Show when={props.query?.filters}>
+            <Show when={props.query.filters}>
               {(binding) => (
-                <RecordFilterControls
+                <DataSheetFilterControls
                   fields={props.fields}
                   binding={binding()}
                   compact

@@ -1431,7 +1431,7 @@ not an implementation requirement. Glossary and usage guidance remain authoritat
 ##### Blueprint Course interface
 
 - [ ] **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCoursesWorkspace` presents reusable Blueprint Course content and adoption information.
+  - Evidence (source): `src/features/blueprint_course/blueprint_courses_workspace.tsx` `BlueprintCoursesWorkspace` presents reusable Blueprint Course content and adoption information.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] **Search Public Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
@@ -1491,8 +1491,8 @@ not an implementation requirement. Glossary and usage guidance remain authoritat
   - Verification pending: Fresh Live Demo search navigation acceptance remains pending.
 
 - [ ] A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
-  - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` is exercised by accepted C47 compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-browser.json`, which follows the existing detail action and preselects the matched Blueprint beyond the first 50 search rows. It does not submit or create a Course Instance.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
+  - Evidence (runtime): `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `BlueprintCourseDetailWorkspace` is exercised by accepted C47 compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-browser.json`, which follows the existing detail action and preselects the matched Blueprint beyond the first 50 search rows. It does not submit or create a Course Instance.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 
@@ -1504,7 +1504,7 @@ not an implementation requirement. Glossary and usage guidance remain authoritat
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] The Course Editor should show the Blueprint Course structure without editing every Question on one page.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` lists modules and Assessments before selecting an editor.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `BlueprintCourseDetailWorkspace` lists modules and Assessments before selecting an editor.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment.
@@ -1527,7 +1527,7 @@ not an implementation requirement. Glossary and usage guidance remain authoritat
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 - [ ] Blueprint Courses should not contain Assessment dates or relative Assessment schedules.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` describes reusable structure without Students, deadlines, or course delivery settings; the reusable Blueprint content model has no delivery-date fields.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `BlueprintCourseDetailWorkspace` describes reusable structure without Students, deadlines, or course delivery settings; the reusable Blueprint content model has no delivery-date fields.
   - Generated evidence stale: Evidence retained from the pre-interview audit; it has not been revalidated against current HG in this pass.
   - Verification pending: Current implementation audit; see docs/archive/reports/HG_IMPLEMENTATION_COMPLIANCE_2026_10_04.md for fresh findings and scope.
 

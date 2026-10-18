@@ -206,9 +206,9 @@ otherwise it is removed at plan closeout. C824-C841 own this work.
 ### Create Blueprint from Course Instance preserves both identities
 
 **Decision.** A Course Instance has deliberately entered short and long names,
-not names derived from a parent Blueprint. It starts empty or from a Public
+not names derived from a parent Blueprint. It starts empty or from an Active
 Blueprint and always has at least one assigned Instructor. **Create Blueprint
-from Course Instance** creates a separate actor-owned Public Blueprint Course
+from Course Instance** creates a separate actor-owned Active Blueprint Course
 at Revision 1 from that Course Instance's reusable structure.
 
 **Why.** A teaching Course needs its own identity and delivery context, while a
@@ -821,19 +821,19 @@ forks, Change Proposals, Stars, and Watches provide familiar concepts; HG define
 their PLE behavior and the differences for adoption into teaching Course Instances.
 The analogy does not authorize every GitHub feature.
 
-### Blueprints use Public and Archived lifecycle states
+### Blueprints use Active and Archived lifecycle states
 
-**Decision.** Creation and forks start Public. Public is visible to Instructors and adoptable.
-Archived is read-only, excluded from ordinary discovery and new adoption,
-visible only through explicit archived inclusion, and forkable.
+**Decision.** All Blueprints are Public and visible to Instructors, including content and
+Revision history. Creation and forks start Active. Active is adoptable. Archived is read-only,
+excluded from ordinary discovery and new adoption, and forkable.
 
 **Why.** Reuse and retirement need clear states without a separate publication gate.
 
-**Consequence.** Only the owner archives or restores a Blueprint. Archived restores to Public.
+**Consequence.** Only the owner archives or restores a Blueprint. Archived restores to Active.
 
 ### Blueprint Saves create content Revisions only when content changes
 
-**Decision.** A Blueprint is created Public with Revision 1. Explicit Save
+**Decision.** A Blueprint is created Active with Revision 1. Explicit Save
 creates the next Revision only after a meaningful reusable-content
 change. A no-op save creates nothing. Name and lifecycle metadata changes do
 not create Revisions.
@@ -846,9 +846,9 @@ local settings.
 
 ### Adoption, updates, forks, and Change Proposals preserve provenance
 
-**Decision.** A Course Instance may adopt a Public Blueprint or start empty.
+**Decision.** A Course Instance may adopt an Active Blueprint or start empty.
 Adoption records the exact Blueprint Revision. New Revisions are offered to
-daughter Courses for review and approval. A fork starts a new Public Blueprint
+daughter Courses for review and approval. A fork starts a new Active Blueprint
 lineage with ancestry and may selectively bring in later source changes.
 Instructors may propose changes to another Blueprint through a Blueprint Course
 Change Proposal; accepted changes create a new receiving Blueprint Revision.
@@ -865,7 +865,7 @@ through the normal Blueprint update workflow.
 
 **Decision.** A fork's existing immutable origin records its source Blueprint Course Revision Tuple
 as provenance, not a required comparison baseline. Human Guidance now
-requires any visible related Blueprint Courses in the same fork lineage to be comparable, normally
+requires any related Blueprint Courses in the same fork lineage to be comparable, normally
 using the newest source and fork Revisions. Shared Question IDs provide durable content
 relationships; Blueprint Assessments are matched by the shared Question IDs they contain, not
 internal Assessment identities. Comparison shows shared, added and removed Assessments and Question
@@ -879,9 +879,8 @@ the complete reusable content tree: module labels, module and Assessment structu
 each Blueprint Assessment's settings, Questions, and Pools. Current short and long names participate
 as metadata. No separate per-unit JSON baseline or public comparison-state vocabulary is persisted.
 
-Viewing and comparison follow ordinary Blueprint visibility for both fork and source: every
-Instructor may view Public and Archived Blueprints; explicit Archived inclusion governs discovery,
-not permission to edit a known Course. Blueprint ownership remains separate from shared visibility.
+Every Instructor may view and compare Active and Archived Blueprints, including their
+content and history. Explicit Archived inclusion governs discovery, while ownership governs editing. Blueprint ownership remains separate from shared visibility.
 controls the fork's apply mutation. The Instructor explicitly selects which displayed changes to
 bring forward; no source change is applied automatically. One request may select several related
 changes. The server constructs and validates one coherent complete fork tree, then uses the ordinary
@@ -891,7 +890,7 @@ Edit Number in the same authorized operation (HTTP `If-Match` encodes it).
 
 **User correction (2026-09-16).** This clarifies the existing Human Guidance visibility boundary;
 it is not a new product decision. It removes the incorrect owner-only comparison restriction while
-leaving ordinary Public and Archived states unchanged.
+leaving ordinary Blueprint visibility and Archived behavior unchanged.
 
 **Why.** A fork must remain independently controlled while newer source work is easy to discover,
 review, and selectively bring forward without a hidden overwrite or source-information leak.
@@ -924,7 +923,7 @@ Revisions through this canonical representation.
 
 ### Blueprint Stars and Watches belong to the lineage
 
-**Decision.** Instructors may Star or Watch Public and Archived
+**Decision.** Instructors may Star or Watch Active and Archived
 Blueprint Courses. Stars follow the GitHub model for saving useful content,
 showing a count, and seeing who Starred content the viewer can access. Watches follow the GitHub repository model and drive notifications about
 Revisions and other important changes. Search can compare aggregate Watch counts. Forking or
@@ -1562,8 +1561,8 @@ boundary; noncollection forms keep their own presentation.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s Instructor list-density
 guidance and the Question Library scan-row regions in
-[question_library_search_definition.ts](../src/pages/question_library_search_definition.ts) and
-[library_page.css](../src/pages/library_page.css).
+[question_library_search_definition.ts](../src/features/question_library/question_library_search_definition.ts) and
+[library_workspace.css](../src/features/question_library/library_workspace.css).
 
 ### Reorder controls share mechanics, not workflow policy
 
@@ -2079,7 +2078,7 @@ Result kinds and Pool membership remain Library rules. The Question picker keeps
 outside shared search state: search Clear resets discovery, while its separate Clear selection
 action resets the tray. The Assessment content picker owns its Question-or-one-Pool selection rule.
 
-**Owner.** [search_session.ts](../src/components/search_block/search_session.ts)
+**Owner.** [search_definition.ts](../src/components/search_block/search_definition.ts)
 
 ### Pool credit identifies its owner and source Pool
 

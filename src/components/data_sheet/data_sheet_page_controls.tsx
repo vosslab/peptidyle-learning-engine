@@ -1,9 +1,9 @@
 import { For, Show, type JSX } from "solid-js";
-import { RECORD_PAGE_SIZES, type RecordPageSize } from "./record_page_sizes";
+import { RECORD_PAGE_SIZES, type RecordPageSize } from "./data_sheet_page_sizes";
 
 import "./record_family.css";
 
-export { RECORD_PAGE_SIZES, type RecordPageSize } from "./record_page_sizes";
+export { RECORD_PAGE_SIZES, type RecordPageSize } from "./data_sheet_page_sizes";
 
 type RecordPageSizeControlProps = {
   /** Caller-owned selected page size. */

@@ -14,7 +14,7 @@ import { assessmentPointValueDraft } from "../../assessment_point_value";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { createHttpApiClient } from "../../api/http_client";
 import { createQuestionLibraryRepository } from "../../api/question_library_repository";
-import type { LibrarySearchRow } from "../../pages/library_page_model";
+import type { LibrarySearchRow } from "../../api/question_library_projection";
 import { type QuestionPickerSource, type QuestionPickerSourceRepository } from "../question_picker";
 import {
   appendPickedPool,

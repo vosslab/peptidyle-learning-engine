@@ -48,7 +48,7 @@ type RecordTransferContext = {
 const RecordTransferContext = createContext<RecordTransferContext>();
 const RecordInteractionStateContext = createContext<Accessor<object>>();
 
-/** Private SearchResults seam: identity is the existing SearchSession state object. */
+/** Private SearchBlock seam: identity is the current search-state snapshot. */
 export function RecordInteractionStateProvider(props: {
   readonly state: object;
   readonly children: JSX.Element;

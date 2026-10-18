@@ -88,7 +88,7 @@ CREATE TYPE ple_data.retention_lifecycle_state AS ENUM (
     'active', 'archived', 'deleted'
 );
 CREATE TYPE ple_data.blueprint_availability AS ENUM (
-    'public', 'archived'
+    'active', 'archived'
 );
 CREATE TYPE ple_data.question_availability AS ENUM (
     'available', 'archived'

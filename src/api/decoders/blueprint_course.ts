@@ -449,7 +449,7 @@ function contentView(value: unknown, path: string): void {
 }
 
 function availability(value: unknown, path: string): BlueprintAvailability {
-  return decodeStringEnum(value, path, ["public", "archived"]);
+  return decodeStringEnum(value, path, ["active", "archived"]);
 }
 
 export function blueprintEditNumber(value: unknown, path: string): BlueprintEditNumber {

@@ -159,7 +159,7 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Search Public Blueprint Courses](screenshots/instructor/courses-search-filtered_results.webp)](screenshots/instructor/courses-search-filtered_results.webp)<br>Search Public Blueprint Courses<br>filtered results - laptop |  |  |
+| [![Screenshot preview of Search Blueprint Courses](screenshots/instructor/courses-search-filtered_results.webp)](screenshots/instructor/courses-search-filtered_results.webp)<br>Search Blueprint Courses<br>filtered results - laptop |  |  |
 
 #### Blueprint Course Creation
 

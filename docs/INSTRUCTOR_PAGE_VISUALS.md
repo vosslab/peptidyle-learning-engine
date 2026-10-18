@@ -11,17 +11,17 @@ below.
 
 Do not use the historical routes, captions, or screenshots below as product
 requirements. Current intent is in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md):
-Blueprints are Public or Archived; their owner controls editing; Course
-Instances can adopt a Public Blueprint or start empty; generic teaching objects
+Blueprints are Public with Active or Archived lifecycle; their owner controls editing; Course
+Instances can adopt an Active Blueprint or start empty; generic teaching objects
 are Assessments; current co-Instructors are equal; and PLE uses direct Question
 points without separate weights, Grade Categories, weighted Course Grade
 Schemes, Course percentage calculations, or Instructor grading operations.
 The current Questions tasks include **My Questions**, **My Pools**, and **My Drafts**;
 the Courses tasks include **Search Blueprint Courses** and **My Change Proposals**.
 
-In the historical product reference, Blueprint Courses show reusable course-level content and
-structure. Its old publication/draft labels are superseded by the current
-Public/Archived lifecycle. Course Instances may now adopt a Public Blueprint or start empty
+Historical screenshots show Blueprint Courses with reusable course-level content and
+structure and old publication/draft labels. Current Blueprint Courses are all Public and use the
+Active/Archived lifecycle. Course Instances may now adopt an Active Blueprint or start empty
 and are private to their current equal co-Instructors and enrolled Students. Course
 Instance pages own deadlines, releases, accommodations, grades, and delivery settings. No Blueprint
 page shows Student records or live delivery state.

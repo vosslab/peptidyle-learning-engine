@@ -9,7 +9,7 @@ import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import type { QuestionBulkMetadataClient } from "../api/question_bulk_metadata";
 import type { ContentClassificationClient } from "../api/content_classification";
 import { decodeQuestionPoolText } from "../api/decoders/question_pool_summary";
-import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
+import type { QuestionLibraryBrowseRepository } from "../api/question_library_projection";
 import {
   QuestionPicker,
   questionLibraryPickerRepository,
@@ -37,7 +37,7 @@ import {
   questionPoolMemberFields,
 } from "./question_pool_member_fields";
 import type { QuestionPoolMemberDraft } from "./question_pool_members_model";
-import type { LibraryObjectQuestionRow } from "../pages/library_page_model";
+import type { LibraryObjectQuestionRow } from "../api/question_library_projection";
 import {
   UnsavedChangesGuard,
   confirmUnsavedChanges,
@@ -472,8 +472,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                   }
                   collection={{
                     ariaLabel: "Selected Pool Questions",
-                    fields: memberFields,
-                    query: memberSearch.query,
+                    ...memberSearch.collection,
                     emptyState: { title: "No selected Questions match this search." },
                   }}
                 />

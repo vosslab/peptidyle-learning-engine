@@ -43,14 +43,14 @@ BEGIN
     IF NOT p_mine AND NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course AS target
          WHERE target.blueprint_course_id = p_target_blueprint_course_id
-           AND target.availability IN ('public', 'archived')
+           AND target.availability IN ('active', 'archived')
            AND (target.owner_account_id = v_actor OR EXISTS (
                SELECT 1 FROM ple_data.blueprint_change_proposal AS proposal
                 JOIN ple_data.blueprint_course AS source
                   ON source.blueprint_course_id = proposal.source_blueprint_course_id
                 WHERE proposal.target_blueprint_course_id = target.blueprint_course_id
                   AND proposal.proposer_account_id = v_actor
-                  AND source.availability IN ('public', 'archived')
+                  AND source.availability IN ('active', 'archived')
            ))
     ) THEN
         RAISE EXCEPTION 'Blueprint Proposal list is unavailable' USING ERRCODE = '42501';
@@ -80,8 +80,8 @@ BEGIN
      WHERE (p_mine AND proposal.proposer_account_id = v_actor
             OR NOT p_mine AND target.blueprint_course_id = p_target_blueprint_course_id)
        AND (proposal.proposer_account_id = v_actor OR target.owner_account_id = v_actor)
-       AND source.availability IN ('public', 'archived')
-       AND target.availability IN ('public', 'archived')
+       AND source.availability IN ('active', 'archived')
+       AND target.availability IN ('active', 'archived')
        AND (p_text = '' OR source_event.long_name ILIKE '%' || p_text || '%'
             OR source_event.short_name ILIKE '%' || p_text || '%'
             OR target_event.long_name ILIKE '%' || p_text || '%'
@@ -125,8 +125,8 @@ BEGIN
     SELECT course.* INTO v_target FROM ple_data.blueprint_course AS course
      WHERE course.blueprint_course_id = p_target_blueprint_course_id;
     IF v_source.blueprint_course_id IS NULL OR v_target.blueprint_course_id IS NULL
-       OR v_source.availability NOT IN ('public', 'archived')
-       OR v_target.availability NOT IN ('public', 'archived')
+       OR v_source.availability NOT IN ('active', 'archived')
+       OR v_target.availability NOT IN ('active', 'archived')
        OR v_target.owner_account_id = v_actor THEN
         RAISE EXCEPTION 'Blueprint Proposal is unavailable' USING ERRCODE = '42501';
     END IF;
@@ -202,8 +202,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
        AND ple_api.current_session_account_is_instructor()
        AND (proposal.proposer_account_id = ple_api.current_session_account_id()
             OR target.owner_account_id = ple_api.current_session_account_id())
-       AND source.availability IN ('public', 'archived')
-       AND target.availability IN ('public', 'archived')
+       AND source.availability IN ('active', 'archived')
+       AND target.availability IN ('active', 'archived')
      ORDER BY basis.position;
 $$;
 
@@ -237,21 +237,21 @@ BEGIN
            OR NOT ple_private.is_canonical_prefixed_public_id(p_target_blueprint_course_id, 'BP'))) THEN
         RAISE EXCEPTION 'Blueprint Proposal list request is invalid' USING ERRCODE = '22023';
     END IF;
-    -- ASVS 8.2.1/2, 8.3.1/2: a Public target grants no ambient Proposal discovery.
+    -- ASVS 8.2.1/2, 8.3.1/2: an Active target grants no ambient Proposal discovery.
     IF v_actor IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION 'Blueprint Proposal list is unavailable' USING ERRCODE = '42501';
     END IF;
     IF NOT p_mine AND NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course AS target
          WHERE target.blueprint_course_id = p_target_blueprint_course_id
-           AND target.availability IN ('public', 'archived')
+           AND target.availability IN ('active', 'archived')
            AND (target.owner_account_id = v_actor OR EXISTS (
                SELECT 1 FROM ple_data.blueprint_change_proposal AS proposal
                 JOIN ple_data.blueprint_course AS source
                   ON source.blueprint_course_id = proposal.source_blueprint_course_id
                 WHERE proposal.target_blueprint_course_id = target.blueprint_course_id
                   AND proposal.proposer_account_id = v_actor
-                  AND source.availability IN ('public', 'archived')
+                  AND source.availability IN ('active', 'archived')
            ))
     ) THEN
         RAISE EXCEPTION 'Blueprint Proposal list is unavailable' USING ERRCODE = '42501';
@@ -295,8 +295,8 @@ BEGIN
          WHERE (p_mine AND proposal.proposer_account_id = v_actor
                 OR NOT p_mine AND target.blueprint_course_id = p_target_blueprint_course_id)
            AND (proposal.proposer_account_id = v_actor OR target.owner_account_id = v_actor)
-           AND source.availability IN ('public', 'archived')
-           AND target.availability IN ('public', 'archived')
+           AND source.availability IN ('active', 'archived')
+           AND target.availability IN ('active', 'archived')
            AND (p_text = '' OR source_event.long_name ILIKE '%' || p_text || '%'
                 OR source_event.short_name ILIKE '%' || p_text || '%'
                 OR target_event.long_name ILIKE '%' || p_text || '%'

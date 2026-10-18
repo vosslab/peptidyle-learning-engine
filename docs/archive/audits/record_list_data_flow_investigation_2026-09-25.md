@@ -58,7 +58,7 @@ with current query/return state; no account preference, arbitrary numeric input 
   service sorting with excessive upstream work, unlike My Blueprint's partial-result sort.
   [facets.rs](../../../crates/server/src/question_library/facets.rs) counts the full intersection
   and caps free-text facet lists. Preserve that meaning when moving aggregation into SQL.
-- [Library session](../../../src/pages/library_page_model.ts):622-759 appends pages and retains a
+- [Library session](../../../src/features/question_library/library_query.ts):622-759 appends pages and retains a
   return snapshot; `src/pages/library_browse_rows.tsx` (historical path; retired):292-367 measures windows
   and requests another page on scroll. the former client window helper (removed after bounded server pages)
   builds layout arrays across all retained records. It bounds ordinary mounted DOM, not transfer,

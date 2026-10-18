@@ -41,7 +41,7 @@ pub enum BlueprintHistoryEntryView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintHistoryAvailabilityFacets {
-    pub public_count: u64,
+    pub active_count: u64,
     pub archived_count: u64,
 }
 

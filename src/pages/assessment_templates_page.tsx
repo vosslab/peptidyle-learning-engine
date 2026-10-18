@@ -292,8 +292,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
             state={templateSearch.state}
             collection={{
               ariaLabel: "My Assessment Templates",
-              fields: assessmentTemplateSearchFields,
-              query: templateSearch.query,
+              ...templateSearch.collection,
               get emptyState() {
                 return {
                   title:

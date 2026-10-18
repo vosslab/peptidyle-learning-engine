@@ -1,4 +1,11 @@
-/* library_page.css - full-width Instructor Question Library search workspace. */
+/* library_workspace.css - full-width Instructor Question Library search workspace. */
+
+.library-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ple-section-gap);
+  min-inline-size: 0;
+}
 
 /* These fields share a group. A card around them is not one object. */
 .library-page .question-library-controls {

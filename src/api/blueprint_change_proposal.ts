@@ -6,7 +6,7 @@ import type { BlueprintChangeProposalAcceptedView } from "../../generated/api/Bl
 import type { BlueprintChangeProposalCreateRequest } from "../../generated/api/BlueprintChangeProposalCreateRequest";
 import type { BlueprintChangeProposalDetailView } from "../../generated/api/BlueprintChangeProposalDetailView";
 import type { BlueprintChangeProposalPageView } from "../../generated/api/BlueprintChangeProposalPageView";
-import type { RecordFilterChoices } from "../components/data_sheet/record_fields";
+import type { RecordFilterChoices } from "../components/data_sheet/data_sheet_fields";
 
 export type BlueprintProposalListQuery = {
   readonly text: string;

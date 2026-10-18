@@ -26,7 +26,7 @@ BEGIN
        OR p_query IS NULL OR length(p_query) > 120
        OR p_availability IS NULL OR cardinality(p_availability) > 2
        OR array_position(p_availability, NULL) IS NOT NULL
-       OR EXISTS (SELECT 1 FROM unnest(p_availability) AS value WHERE value NOT IN ('public', 'archived'))
+       OR EXISTS (SELECT 1 FROM unnest(p_availability) AS value WHERE value NOT IN ('active', 'archived'))
        OR (p_kind = 'revisions' AND cardinality(p_availability) > 0) THEN
         RAISE EXCEPTION 'invalid Blueprint history page' USING ERRCODE = '22023';
     END IF;
@@ -36,7 +36,7 @@ BEGIN
          WHERE ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
            AND course.blueprint_course_id = p_blueprint_course_id
            AND ple_api.current_session_account_is_instructor()
-           AND course.availability IN ('public', 'archived')
+           AND course.availability IN ('active', 'archived')
     ) THEN
         RAISE EXCEPTION 'Blueprint not found' USING ERRCODE = '42501';
     END IF;
@@ -145,7 +145,7 @@ BEGIN
          WHERE ple_private.is_canonical_prefixed_public_id(p_blueprint_course_id, 'BP')
            AND course.blueprint_course_id = p_blueprint_course_id
            AND ple_api.current_session_account_is_instructor()
-           AND course.availability IN ('public', 'archived')
+           AND course.availability IN ('active', 'archived')
     ) THEN
         RAISE EXCEPTION 'Blueprint not found' USING ERRCODE = '42501';
     END IF;

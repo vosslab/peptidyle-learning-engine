@@ -44,7 +44,7 @@ async function requestStarredQuestions(
   basePath: string,
   query: LibraryObjectSearchRequest,
   sort: StarredQuestionSort,
-  page: import("../../components/search_block/search_session").SearchPageRequest,
+  page: import("../../components/search_block/search_definition").SearchPageRequest,
 ): Promise<StarredQuestionPage> {
   const publicPath = libraryObjectSearchPath({
     ...query,

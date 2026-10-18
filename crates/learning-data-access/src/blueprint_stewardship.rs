@@ -103,7 +103,7 @@ pub trait BlueprintStewardshipStore: Send + Sync {
     ) -> Result<BlueprintCourseStarProjection, StoreError>;
 
     /// Lists only active Instructors' display names for one
-    /// Public or Archived Blueprint Course. It returns no Account, email,
+    /// Active or Archived Blueprint Course. It returns no Account, email,
     /// avatar, Course, substitute identifier, Profile, or Watch fact.
     async fn blueprint_course_starred_instructors(
         &self,

@@ -1,9 +1,20 @@
-import { createSignal, onCleanup, type Accessor } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  untrack,
+  type Accessor,
+} from "solid-js";
 
-import type { RecordPageSize } from "../data_sheet/record_page_controls";
-import { SearchSession, type SearchDefinition, type SearchState } from "./search_session";
+import { RECORD_PAGE_SIZES, type RecordPageSize } from "../data_sheet/data_sheet_page_sizes";
+import type {
+  SearchDefinition,
+  SearchPage,
+  SearchPageRequest,
+  SearchState,
+} from "./search_definition";
 
-/** Reactive UI ownership around one plain SearchSession. */
 export type SearchStateController<Query, Row, FilterCounts> = {
   readonly definition: SearchDefinition<Query, Row, FilterCounts>;
   readonly query: Accessor<Query>;
@@ -45,67 +56,199 @@ export type SearchStateController<Query, Row, FilterCounts> = {
   readonly deselectIds: (ids: ReadonlyArray<string>) => void;
 };
 
-export type SearchStateOptions<Query> = {
+export type SearchSourceLifecycle<Row> = {
+  /** Undefined means the source has not delivered rows yet. */
+  readonly rows: Accessor<ReadonlyArray<Row> | undefined>;
+  readonly loading?: Accessor<boolean>;
+  readonly error?: Accessor<unknown>;
+  readonly refetch?: () => unknown;
+};
+
+export type SearchStateOptions<Query, Row> = {
   readonly initialQuery?: Query;
   readonly runOnMount?: boolean;
   /** Ask before a query operation clears content-owned editors or selected rows. */
   readonly beforeQueryChange?: () => Promise<boolean>;
+  /** Source status remains owned by the data resource and is read by this controller. */
+  readonly source?: SearchSourceLifecycle<Row>;
 };
 
-/**
- * Connects the framework-neutral request session to one open Solid view.
- * Typing deliberately changes only local text; submit is the single search boundary.
- */
-export function createSearchState<Query, Row, FilterCounts>(
-  definition: SearchDefinition<Query, Row, FilterCounts>,
-  options: SearchStateOptions<Query> = {},
-): SearchStateController<Query, Row, FilterCounts> {
-  const [query, setQuery] = createSignal(options.initialQuery ?? definition.initialQuery);
-  const [state, setState] = createSignal<SearchState<Row, FilterCounts>>({
+type SearchRequest<Query> = {
+  readonly query: Query;
+  readonly page: SearchPageRequest;
+  /** Reuse rows while refreshing or moving between numbered pages. */
+  readonly retainPage: boolean;
+};
+
+const DEFAULT_PAGE_SIZE: RecordPageSize = 50;
+
+function pageCount(totalCount: number, pageSize: RecordPageSize): number {
+  return Math.max(1, Math.ceil(totalCount / pageSize));
+}
+
+function initialState<Row>(pageSize: RecordPageSize): SearchState<Row, never> {
+  return {
     kind: "initial",
     rows: [],
     filterCounts: undefined,
     pageNumber: 1,
-    pageSize: 50,
+    pageSize,
     totalCount: 0,
+  };
+}
+
+function isValidPageNumber(value: number): boolean {
+  return Number.isSafeInteger(value) && value >= 1;
+}
+
+function isValidTotalCount(value: number): boolean {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+/** One Solid owner for a numbered query, its requests, selection, and visible lifecycle. */
+export function createSearchState<Query, Row, FilterCounts>(
+  definition: SearchDefinition<Query, Row, FilterCounts>,
+  options: SearchStateOptions<Query, Row> = {},
+): SearchStateController<Query, Row, FilterCounts> {
+  const startingQuery = definition.cleanup(options.initialQuery ?? definition.initialQuery);
+  const [query, setQuery] = createSignal<Query>(startingQuery);
+  const [baseState, setBaseState] = createSignal<SearchState<Row, FilterCounts>>(
+    initialState<Row>(DEFAULT_PAGE_SIZE),
+  );
+  const state = createMemo<SearchState<Row, FilterCounts>>(() => {
+    const current = baseState();
+    const sourceError = options.source?.error?.();
+    if (sourceError !== undefined) return { ...current, kind: "error", error: sourceError };
+    if (options.source?.loading?.()) return { ...current, kind: "loading" };
+    return current;
   });
-  const [typedText, setTypedTextSignal] = createSignal(definition.getText(query()));
+  const [typedText, setTypedTextSignal] = createSignal(definition.getText(startingQuery));
   const [typedByUser, setTypedByUser] = createSignal(false);
   const [searchUsed, setSearchUsed] = createSignal(false);
   const hasTypedDraft = (): boolean => typedByUser() && typedText().length > 0;
-  const [pageSize, setPageSizeSignal] = createSignal<RecordPageSize>(50);
-  const [pageNumber, setPageNumber] = createSignal(1);
-  const [totalCount, setTotalCount] = createSignal(0);
+  const pageSize = (): RecordPageSize => baseState().pageSize;
+  const pageNumber = (): number => baseState().pageNumber;
+  const totalCount = (): number => baseState().totalCount;
+  const totalPages = (): number => pageCount(totalCount(), pageSize());
   const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(new Set());
-  const [hasPrevious, setHasPrevious] = createSignal(false);
+  const hasPrevious = (): boolean => pageNumber() > 1;
   let disposed = false;
+  let requestNumber = 0;
+  let failedRequest: SearchRequest<Query> | undefined;
   let pendingUpdaterRevision = 0;
-  const session = new SearchSession(definition, (next) => {
-    setState(next);
-    setQuery(() => session.query);
-    setPageSizeSignal(session.pageSize);
-    setPageNumber(session.pageNumber);
-    setTotalCount(session.totalCount);
-    setSelectedIds(new Set(session.selectedIds));
-    setHasPrevious(session.hasPrevious);
-  });
+  let sourceDelivered = false;
+
+  function validatePage(page: SearchPage<Row, FilterCounts>, requested: SearchPageRequest): void {
+    if (!isValidPageNumber(page.pageNumber)) throw new Error("Invalid resolved page number.");
+    if (!isValidTotalCount(page.totalCount)) throw new Error("Invalid total result count.");
+    if (page.pageSize !== requested.pageSize) throw new Error("Unexpected resolved page size.");
+    if (page.totalCount === 0 && page.pageNumber !== 1)
+      throw new Error("An empty result set must resolve to page one.");
+    if (page.totalCount > 0 && page.items.length === 0)
+      throw new Error("A resolved page for matching results must contain a row.");
+    if (page.pageNumber > pageCount(page.totalCount, page.pageSize))
+      throw new Error("Resolved page number exceeds the result count.");
+    const remainingCount = page.totalCount - (page.pageNumber - 1) * page.pageSize;
+    if (page.items.length > Math.min(page.pageSize, remainingCount))
+      throw new Error("Page contains more rows than remain in the result set.");
+  }
+
+  async function load(request: SearchRequest<Query>): Promise<void> {
+    const currentRequest = ++requestNumber;
+    failedRequest = undefined;
+    const previous = baseState();
+    const retainedRows = request.retainPage ? previous.rows : [];
+    const retainedFilterCounts = request.retainPage ? previous.filterCounts : undefined;
+    const retainedTotalCount = request.retainPage ? previous.totalCount : 0;
+    const retainedPageNumber = request.retainPage ? previous.pageNumber : request.page.pageNumber;
+    setBaseState({
+      kind: "loading",
+      rows: retainedRows,
+      filterCounts: retainedFilterCounts,
+      pageNumber: retainedPageNumber,
+      pageSize: request.page.pageSize,
+      totalCount: retainedTotalCount,
+    });
+    let page: SearchPage<Row, FilterCounts>;
+    try {
+      page = await definition.fetchPage(request.query, request.page);
+      validatePage(page, request.page);
+    } catch (error: unknown) {
+      if (disposed || currentRequest !== requestNumber) return;
+      failedRequest = request;
+      setBaseState({
+        kind: "error",
+        rows: retainedRows,
+        filterCounts: retainedFilterCounts,
+        pageNumber: retainedPageNumber,
+        pageSize: request.page.pageSize,
+        totalCount: retainedTotalCount,
+        error,
+      });
+      return;
+    }
+    if (disposed || currentRequest !== requestNumber) return;
+    setQuery(() => request.query);
+    setBaseState(
+      page.items.length === 0
+        ? {
+            kind: "empty",
+            rows: [],
+            filterCounts: page.filterCounts,
+            pageNumber: page.pageNumber,
+            pageSize: page.pageSize,
+            totalCount: page.totalCount,
+          }
+        : {
+            kind: "ready",
+            rows: page.items,
+            filterCounts: page.filterCounts,
+            pageNumber: page.pageNumber,
+            pageSize: page.pageSize,
+            totalCount: page.totalCount,
+          },
+    );
+  }
+
+  function clearSelection(): void {
+    setSelectedIds(new Set<string>());
+  }
+
+  async function startAtFirstPage(nextQuery: Query, clearSelected: boolean): Promise<void> {
+    if (disposed) return;
+    const cleanedQuery = definition.cleanup(nextQuery);
+    setQuery(() => cleanedQuery);
+    if (clearSelected) clearSelection();
+    if (!definition.isEligible(cleanedQuery)) {
+      requestNumber++;
+      failedRequest = undefined;
+      setBaseState(initialState<Row>(pageSize()));
+      return;
+    }
+    await load({
+      query: cleanedQuery,
+      page: { pageNumber: 1, pageSize: pageSize() },
+      retainPage: false,
+    });
+  }
 
   async function open(nextQuery: Query): Promise<void> {
+    const replacementRevision = pendingUpdaterRevision;
     if (options.beforeQueryChange !== undefined && !(await options.beforeQueryChange())) return;
-    if (disposed) return;
+    if (disposed || replacementRevision !== pendingUpdaterRevision) return;
     pendingUpdaterRevision++;
     setTypedTextSignal(definition.getText(nextQuery));
     setTypedByUser(false);
     setSearchUsed(false);
-    await session.apply(nextQuery);
+    await startAtFirstPage(nextQuery, true);
   }
 
   async function apply(nextQuery: Query | ((current: Query) => Query | undefined)): Promise<void> {
     const updaterRevision = pendingUpdaterRevision;
     if (options.beforeQueryChange !== undefined && !(await options.beforeQueryChange())) return;
     if (disposed) return;
-    if (typeof nextQuery === "function" && updaterRevision !== pendingUpdaterRevision) return;
-    const current = session.query;
+    if (updaterRevision !== pendingUpdaterRevision) return;
+    const current = query();
     const resolvedQuery =
       typeof nextQuery === "function"
         ? (nextQuery as (current: Query) => Query | undefined)(current)
@@ -119,12 +262,12 @@ export function createSearchState<Query, Row, FilterCounts>(
       setTypedByUser(false);
     }
     setSearchUsed(true);
-    await session.apply(cleanedQuery);
+    await startAtFirstPage(cleanedQuery, true);
   }
 
   async function sort(nextQuery: Query | ((current: Query) => Query | undefined)): Promise<void> {
     if (disposed) return;
-    const current = session.query;
+    const current = query();
     const resolvedQuery =
       typeof nextQuery === "function"
         ? (nextQuery as (current: Query) => Query | undefined)(current)
@@ -138,7 +281,7 @@ export function createSearchState<Query, Row, FilterCounts>(
       setTypedByUser(false);
     }
     setSearchUsed(true);
-    await session.sort(cleanedQuery);
+    await startAtFirstPage(cleanedQuery, false);
   }
 
   async function submit(): Promise<void> {
@@ -151,37 +294,141 @@ export function createSearchState<Query, Row, FilterCounts>(
     setTypedByUser(true);
   }
 
-  async function clearNow(): Promise<void> {
-    pendingUpdaterRevision++;
-    const startingQuery = definition.cleanup(definition.initialQuery);
-    setTypedTextSignal(definition.getText(startingQuery));
-    setTypedByUser(false);
-    setSearchUsed(false);
-    session.reset();
-    setQuery(() => session.query);
-    setPageSizeSignal(session.pageSize);
-    setPageNumber(session.pageNumber);
-    setTotalCount(session.totalCount);
-    setSelectedIds(new Set<string>());
-    setHasPrevious(false);
-    if (definition.isEligible(startingQuery)) await session.apply(startingQuery);
-  }
-
-  function clear(): Promise<boolean> {
-    if (options.beforeQueryChange === undefined) {
-      if (disposed) return Promise.resolve(false);
-      return clearNow().then(() => true);
+  async function setPageSize(size: RecordPageSize): Promise<void> {
+    setSearchUsed(true);
+    if (
+      disposed ||
+      !RECORD_PAGE_SIZES.includes(size) ||
+      size > (definition.maximumPageSize ?? RECORD_PAGE_SIZES[RECORD_PAGE_SIZES.length - 1]!) ||
+      size === pageSize()
+    )
+      return;
+    const firstRecordOffset = (pageNumber() - 1) * pageSize();
+    const requestedPageNumber = Math.floor(firstRecordOffset / size) + 1;
+    if (baseState().kind === "initial") {
+      setBaseState(initialState<Row>(size));
+      return;
     }
-    return options.beforeQueryChange().then((accepted) => {
-      if (!accepted || disposed) return false;
-      return clearNow().then(() => true);
+    await load({
+      query: query(),
+      page: { pageNumber: requestedPageNumber, pageSize: size },
+      retainPage: true,
     });
   }
+
+  async function goToPage(page: number): Promise<void> {
+    setSearchUsed(true);
+    if (disposed || baseState().kind === "initial" || !isValidPageNumber(page)) return;
+    await load({
+      query: query(),
+      page: { pageNumber: page, pageSize: pageSize() },
+      retainPage: true,
+    });
+  }
+
+  async function next(): Promise<void> {
+    setSearchUsed(true);
+    if (disposed || baseState().kind !== "ready" || pageNumber() >= totalPages()) return;
+    await goToPage(pageNumber() + 1);
+  }
+
+  async function previous(): Promise<void> {
+    setSearchUsed(true);
+    if (disposed || baseState().kind === "loading" || !hasPrevious()) return;
+    await goToPage(pageNumber() - 1);
+  }
+
+  async function refresh(): Promise<void> {
+    if (disposed) return;
+    if (options.source?.refetch !== undefined) {
+      await options.source.refetch();
+      return;
+    }
+    await reloadCurrentPage();
+  }
+
+  async function reloadCurrentPage(): Promise<void> {
+    if (baseState().kind === "initial") return;
+    await load({
+      query: query(),
+      page: { pageNumber: pageNumber(), pageSize: pageSize() },
+      retainPage: true,
+    });
+  }
+
+  async function retry(): Promise<void> {
+    setSearchUsed(true);
+    if (disposed) return;
+    if (options.source?.error?.() !== undefined && options.source.refetch !== undefined) {
+      await options.source.refetch();
+      return;
+    }
+    if (failedRequest !== undefined) await load(failedRequest);
+  }
+
+  async function clearNow(): Promise<void> {
+    pendingUpdaterRevision++;
+    const resetQuery = definition.cleanup(definition.initialQuery);
+    setTypedTextSignal(definition.getText(resetQuery));
+    setTypedByUser(false);
+    setSearchUsed(false);
+    requestNumber++;
+    failedRequest = undefined;
+    setQuery(() => resetQuery);
+    clearSelection();
+    setBaseState(initialState<Row>(pageSize()));
+    if (definition.isEligible(resetQuery)) await startAtFirstPage(resetQuery, true);
+  }
+
+  async function clear(): Promise<boolean> {
+    const replacementRevision = pendingUpdaterRevision;
+    if (options.beforeQueryChange !== undefined && !(await options.beforeQueryChange()))
+      return false;
+    if (disposed || replacementRevision !== pendingUpdaterRevision) return false;
+    await clearNow();
+    return !disposed && pendingUpdaterRevision === replacementRevision + 1;
+  }
+
+  function selectId(id: string, selected: boolean): void {
+    if (disposed) return;
+    const nextIds = new Set(selectedIds());
+    if (!selected) nextIds.delete(id);
+    else if (nextIds.has(id) || nextIds.size < (definition.selection?.maximum ?? 0))
+      nextIds.add(id);
+    setSelectedIds(nextIds);
+  }
+
+  function deselectIds(ids: ReadonlyArray<string>): void {
+    if (disposed) return;
+    const nextIds = new Set(selectedIds());
+    for (const id of ids) nextIds.delete(id);
+    setSelectedIds(nextIds);
+  }
+
+  createEffect(() => {
+    if (options.source?.error?.() !== undefined) return;
+    const rows = options.source?.rows();
+    if (rows === undefined) return;
+    untrack(() => {
+      const availableIds = new Set(rows.map(definition.rowId));
+      deselectIds([...selectedIds()].filter((id) => !availableIds.has(id)));
+      if (!sourceDelivered && baseState().kind === "initial") {
+        sourceDelivered = true;
+        const draft = hasTypedDraft() ? typedText() : undefined;
+        void open(query());
+        if (draft !== undefined) setTypedText(draft);
+      } else {
+        sourceDelivered = true;
+        void reloadCurrentPage();
+      }
+    });
+  });
 
   if (options.runOnMount === true) void open(query());
   onCleanup(() => {
     disposed = true;
-    session.dispose();
+    requestNumber++;
+    failedRequest = undefined;
   });
 
   return {
@@ -196,50 +443,26 @@ export function createSearchState<Query, Row, FilterCounts>(
     pageSize,
     pageNumber,
     totalCount,
-    totalPages: (): number => Math.max(1, Math.ceil(totalCount() / pageSize())),
+    totalPages,
     selectedIds,
     hasPrevious,
     submit,
     apply,
     sort,
     open,
-    setPageSize: async (size): Promise<void> => {
-      setSearchUsed(true);
-      await session.setPageSize(size);
-    },
-    goToPage: async (page): Promise<void> => {
-      setSearchUsed(true);
-      await session.goToPage(page);
-    },
-    next: async (): Promise<void> => {
-      setSearchUsed(true);
-      await session.next();
-    },
-    previous: async (): Promise<void> => {
-      setSearchUsed(true);
-      await session.previous();
-    },
-    retry: async (): Promise<void> => {
-      setSearchUsed(true);
-      await session.retry();
-    },
-    refresh: (): Promise<void> => session.refresh(),
+    setPageSize,
+    goToPage,
+    next,
+    previous,
+    retry,
+    refresh,
     clear,
-    select: (row, selected): void => {
-      session.select(definition.rowId(row), selected);
-      setSelectedIds(new Set(session.selectedIds));
-    },
+    select: (row, selected): void => selectId(definition.rowId(row), selected),
     selectLoaded: (): void => {
-      session.selectLoaded();
-      setSelectedIds(new Set(session.selectedIds));
+      if (disposed) return;
+      for (const row of baseState().rows) selectId(definition.rowId(row), true);
     },
-    clearSelection: (): void => {
-      session.clearSelection();
-      setSelectedIds(new Set<string>());
-    },
-    deselectIds: (ids): void => {
-      session.deselectIds(ids);
-      setSelectedIds(new Set(session.selectedIds));
-    },
+    clearSelection,
+    deselectIds,
   };
 }

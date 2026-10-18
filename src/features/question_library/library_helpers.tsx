@@ -1,8 +1,11 @@
-// library_page_helpers.tsx - small, presentation-neutral helpers for the Question Library page.
+// library_helpers.tsx - small, presentation-neutral helpers for the Question Library page.
 
 import { Show, type JSX } from "solid-js";
 
-import type { QuestionLibraryBrowseQuery, QuestionLibraryBrowseRow } from "./library_page_model";
+import type {
+  QuestionLibraryBrowseQuery,
+  QuestionLibraryBrowseRow,
+} from "../../api/question_library_projection";
 
 export function questionLink(row: QuestionLibraryBrowseRow): string {
   return `/library/${encodeURIComponent(row.displayId)}`;

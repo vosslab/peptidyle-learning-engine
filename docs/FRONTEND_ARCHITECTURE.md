@@ -88,12 +88,12 @@ not define product copy.
 
 ## Blueprint editor
 
-A new or forked Blueprint is Public and starts with Revision 1. The owner-only
+A new or forked Blueprint is Active and starts with Revision 1. The owner-only
 editor holds unsaved work locally until explicit Save. A meaningful Save creates
 the next immutable Blueprint Revision; a no-op creates none. Rename and
-Public/Archived lifecycle changes do not create content Revisions.
+Active/Archived lifecycle changes do not create content Revisions.
 
-Public Blueprints are adoptable. Only their owner may edit them. Archived
+Active Blueprints are adoptable. All Blueprints and their history are Public to Instructors. Only their owner may edit them. Archived
 Blueprints are read-only, hidden from ordinary discovery, available only by
 explicit archived inclusion, and forkable. Blueprints have no dates, Students,
 time zones, or relative schedules.
@@ -105,7 +105,7 @@ Assessments. Forks expose later source changes for selective review. Blueprint
 Course Change Proposals show proposed differences to the receiving owner and do
 not directly change daughter Courses.
 
-Public and Archived Blueprint detail supports visible Stars and private
+Active and Archived Blueprint detail supports visible Stars and private
 Watches. Star counts and the active Instructors who Starred are visible to
 active Instructors; Watch membership is visible only to the watcher. Adoption
 and forking do not create either relationship.

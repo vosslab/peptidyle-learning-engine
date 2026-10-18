@@ -1,7 +1,7 @@
 import { For, Show, type JSX } from "solid-js";
 
 import type { SearchStateController } from "./search_state";
-import type { SearchAppliedFilter } from "./search_session";
+import type { SearchAppliedFilter } from "./search_definition";
 import "./search.css";
 
 export type SearchControlsProps<Query, Row, FilterCounts> = {

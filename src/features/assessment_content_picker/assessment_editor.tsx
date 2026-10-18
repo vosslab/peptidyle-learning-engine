@@ -6,22 +6,21 @@ import type { RecordContent } from "../../components/data_sheet/record_content";
 import {
   RecordTransferProvider,
   type RecordTransferCommand,
-} from "../../components/data_sheet/record_interactions";
-import type { RecordField } from "../../components/data_sheet/record_fields";
+} from "../../components/data_sheet/data_sheet_interactions";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
 import type {
   LibrarySearchRow,
   QuestionLibraryBrowseRepository,
-} from "../../pages/library_page_model";
-import { librarySearchFields } from "../../pages/library_search_fields";
-import { libraryRecordQuery } from "../../pages/library_record_filters";
+} from "../../api/question_library_projection";
+import { librarySearchFields } from "../question_library/library_search_fields";
 import {
+  createQuestionLibraryCollection,
   librarySearchContent,
   questionLibrarySearchDefinition,
-} from "../../pages/question_library_search_definition";
+} from "../question_library/question_library_search_definition";
 import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
 import { SearchBlock } from "../../components/search_block/search_block";
 import { SearchControls } from "../../components/search_block/search_controls";
-import { createSearchState } from "../../components/search_block/search_state";
 import {
   assessmentContentPickerSelection,
   type AssessmentContentPickerSelection,
@@ -130,7 +129,7 @@ export function AssessmentEditor<Entry>(props: AssessmentEditorProps<Entry>): JS
     },
   );
   // Saved-order contents deliberately expose no display-sort binding.
-  const contentsQuery = { kind: contents.query.kind, filters: contents.query.filters };
+  const contentsQuery = { filters: contents.collection.query.filters };
   function addCommand(row: LibrarySearchRow): RecordTransferCommand {
     return {
       label: props.included(row) ? (props.duplicateAllowed(row) ? "Add again" : "Included") : "Add",
@@ -143,39 +142,37 @@ export function AssessmentEditor<Entry>(props: AssessmentEditorProps<Entry>): JS
     };
   }
   const definition = questionLibrarySearchDefinition(props.repository);
-  const library = createSearchState({
-    ...definition,
-    content: (row: LibrarySearchRow): RecordContent => {
-      const base = librarySearchContent(row);
-      const command = addCommand(row);
-      return {
-        ...base,
-        details: props.included(row)
-          ? [...base.details, { kind: "text", label: "Membership", value: "Included" }]
-          : base.details,
-        actions: [
-          ...base.actions,
-          {
-            id: "add",
-            kind: "command",
-            label: command.label,
-            title: props.included(row) ? "Included in this Assessment" : "Add to this Assessment",
-            disabled: command.disabled,
-            onClick: () => void command.run(),
-          },
-        ],
-      };
+  const libraryCollection = createQuestionLibraryCollection({
+    definition: {
+      ...definition,
+      content: (row: LibrarySearchRow): RecordContent => {
+        const base = librarySearchContent(row);
+        const command = addCommand(row);
+        return {
+          ...base,
+          details: props.included(row)
+            ? [...base.details, { kind: "text", label: "Membership", value: "Included" }]
+            : base.details,
+          actions: [
+            ...base.actions,
+            {
+              id: "add",
+              kind: "command",
+              label: command.label,
+              title: props.included(row) ? "Included in this Assessment" : "Add to this Assessment",
+              disabled: command.disabled,
+              onClick: () => void command.run(),
+            },
+          ],
+        };
+      },
     },
-  });
-  const libraryQuery = libraryRecordQuery({
-    query: library.query,
-    apply: library.apply,
-    sort: library.sort,
-    replacementRevision: library.replacementRevision,
     repository: props.repository,
     classificationClient: props.classificationClient,
+    fields: librarySearchFields,
     onError: setFilterError,
   });
+  const library = libraryCollection.state;
 
   return (
     <RecordTransferProvider>
@@ -193,7 +190,7 @@ export function AssessmentEditor<Entry>(props: AssessmentEditorProps<Entry>): JS
             }
             collection={{
               ariaLabel: "Ordered Assessment Entries",
-              fields,
+              ...contents.collection,
               query: contentsQuery,
               disabled: () => props.disabled,
               reorder: {
@@ -269,8 +266,7 @@ export function AssessmentEditor<Entry>(props: AssessmentEditorProps<Entry>): JS
             }
             collection={{
               ariaLabel: "Published Assessment content",
-              fields: librarySearchFields,
-              query: libraryQuery,
+              ...libraryCollection.collection,
               disabled: () => props.disabled,
               transfer: {
                 panelKey: "library",

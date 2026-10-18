@@ -1,42 +1,108 @@
 // Question Library content and API rules supplied to the shared search session.
-import { questionNativePreview } from "../components/question_native_preview";
-import type { RecordContent, RecordFact } from "../components/data_sheet/record_content";
+import { questionNativePreview } from "../../components/question_native_preview";
+import type { RecordContent, RecordFact } from "../../components/data_sheet/record_content";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
+import {
+  createSearchState,
+  type SearchStateController,
+  type SearchStateOptions,
+} from "../../components/search_block/search_state";
+import type { ContentClassificationClient } from "../../api/content_classification";
 import type {
   SearchAppliedFilter,
   SearchDefinition,
   SearchPage,
-} from "../components/search_block/search_session";
-import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
+} from "../../components/search_block/search_definition";
+import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import {
   backendLabel,
   questionLink,
   questionTypeLabel,
   webworkFormatLabel,
-} from "./library_page_helpers";
+} from "./library_helpers";
+import { libraryRecordQuery } from "./library_record_filters";
+import type { LibraryRecordSortKey } from "./library_search_fields";
+import type { LibraryFacetField } from "../../../generated/api/LibraryFacetField";
 import {
-  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-  decodeLibrarySearchPage,
-  normalizeQuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseQuery,
   type LibraryObjectQuestionRow,
   type QuestionLibraryPoolRow,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryFilterCounts,
   type LibrarySearchRow,
-} from "./library_page_model";
+} from "../../api/question_library_projection";
+import {
+  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  normalizeQuestionLibraryBrowseQuery,
+} from "./library_query";
+
+type LibrarySearchFields = ReadonlyArray<
+  RecordField<LibrarySearchRow, LibraryRecordSortKey, LibraryFacetField>
+>;
+
+/** Assemble one Library search controller and its field/query collection binding. */
+export function createQuestionLibraryCollection(props: {
+  readonly definition: SearchDefinition<
+    QuestionLibraryBrowseQuery,
+    LibrarySearchRow,
+    QuestionLibraryFilterCounts
+  >;
+  readonly repository: QuestionLibraryBrowseRepository;
+  readonly classificationClient: ContentClassificationClient;
+  readonly fields: LibrarySearchFields;
+  readonly options?: SearchStateOptions<QuestionLibraryBrowseQuery, LibrarySearchRow>;
+  readonly onError?: (message: string | null) => void;
+}): {
+  readonly state: SearchStateController<
+    QuestionLibraryBrowseQuery,
+    LibrarySearchRow,
+    QuestionLibraryFilterCounts
+  >;
+  readonly collection: {
+    readonly fields: LibrarySearchFields;
+    readonly query: ReturnType<typeof libraryRecordQuery>;
+  };
+} {
+  const state = createSearchState(props.definition, props.options);
+  const query = libraryRecordQuery({
+    query: state.query,
+    apply: state.apply,
+    sort: state.sort,
+    replacementRevision: state.replacementRevision,
+    repository: props.repository,
+    classificationClient: props.classificationClient,
+    onError: props.onError,
+  });
+  return { state, collection: { fields: props.fields, query } };
+}
 
 function questionDetails(row: LibraryObjectQuestionRow): ReadonlyArray<RecordFact> {
   const details: RecordFact[] = [
-    { kind: "text", label: "Library object", value: "Published Question" },
+    { kind: "text", label: "Library object", value: "Published Question", fieldId: "kind" },
     { kind: "text", label: "Owner", value: row.ownerAccountId },
-    { kind: "text", label: "Question Type", value: questionTypeLabel(row.questionType) },
+    {
+      kind: "text",
+      label: "Question Type",
+      value: questionTypeLabel(row.questionType),
+      fieldId: "type",
+    },
     { kind: "text", label: "Backend", value: backendLabel(row.backend) },
-    { kind: "text", label: "Question License", value: row.license ?? "Not specified" },
-    { kind: "text", label: "Tags", value: row.tags.length === 0 ? "None" : row.tags.join(", ") },
+    {
+      kind: "text",
+      label: "Question License",
+      value: row.license ?? "Not specified",
+      fieldId: row.license === null ? undefined : "license",
+    },
+    {
+      kind: "text",
+      label: "Tags",
+      value: row.tags.length === 0 ? "None" : row.tags.join(", "),
+      fieldId: row.tags.length === 0 ? undefined : "tags",
+    },
     row.authors.length > 0
       ? { kind: "questionAuthors", label: "Authors", authors: row.authors }
       : { kind: "text", label: "Authors", value: "None" },
-    { kind: "text", label: "Discipline", value: row.disciplineName },
+    { kind: "text", label: "Discipline", value: row.disciplineName, fieldId: "discipline" },
   ];
   if (row.disciplineIsRetired) {
     details.push({ kind: "text", label: "Discipline status", value: "Retired discipline" });
@@ -86,14 +152,24 @@ export function questionLibraryContent(row: LibraryObjectQuestionRow): RecordCon
 
 function poolContent(row: QuestionLibraryPoolRow): RecordContent {
   const details: RecordFact[] = [
-    { kind: "text", label: "Library object", value: "Question Pool" },
+    { kind: "text", label: "Library object", value: "Question Pool", fieldId: "kind" },
     { kind: "text", label: "Owner", value: row.ownerAccountId },
     { kind: "text", label: "Members", value: String(row.memberCount) },
-    { kind: "text", label: "Question Type", value: questionTypeLabel(row.questionType) },
+    {
+      kind: "text",
+      label: "Question Type",
+      value: questionTypeLabel(row.questionType),
+      fieldId: "type",
+    },
     { kind: "text", label: "Backend", value: backendLabel(row.backend) },
-    { kind: "text", label: "Calculated Pool License", value: row.license },
-    { kind: "text", label: "Discipline", value: row.disciplineName },
-    { kind: "text", label: "Tags", value: row.tags.length === 0 ? "None" : row.tags.join(", ") },
+    { kind: "text", label: "Calculated Pool License", value: row.license, fieldId: "license" },
+    { kind: "text", label: "Discipline", value: row.disciplineName, fieldId: "discipline" },
+    {
+      kind: "text",
+      label: "Tags",
+      value: row.tags.length === 0 ? "None" : row.tags.join(", "),
+      fieldId: row.tags.length === 0 ? undefined : "tags",
+    },
   ];
   if (row.disciplineIsRetired)
     details.push({ kind: "text", label: "Discipline status", value: "Retired discipline" });
@@ -290,8 +366,7 @@ export function questionLibrarySearchDefinition(
       query,
       request,
     ): Promise<SearchPage<LibrarySearchRow, QuestionLibraryFilterCounts>> => {
-      // ASVS 2.2.1: validate transport data before supplying rows to the shared UI.
-      const page = decodeLibrarySearchPage(await repository.search(query, request));
+      const page = await repository.search(query, request);
       return {
         items: page.items,
         pageNumber: page.pageNumber,

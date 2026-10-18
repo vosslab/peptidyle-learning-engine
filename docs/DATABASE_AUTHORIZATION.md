@@ -46,9 +46,9 @@ compatibility workflow merely because job infrastructure exists.
   exact Course Instance. The creator or first Instructor has no extra power.
 - Private Draft Question operations require the current authoring-workspace
   relationship.
-- A Blueprint Course's owner alone saves its content and changes its Public
+- A Blueprint Course's owner alone saves its content and changes its Active
   or Archived lifecycle state.
-- Active Instructors may discover Public Blueprints and may explicitly include
+- Active Instructors may discover Active Blueprints and may explicitly include
   Archived Blueprints in read-only discovery.
 - Current co-Instructors of a daughter Course decide whether to apply offered
   changes to its existing Assessments. Automatic creation of a newly added
@@ -71,7 +71,7 @@ Published Question Revisions and Blueprint Revisions are immutable. Draft
 Questions, Course Instances, Assessments, Attempts, and Student Work do not gain
 revision histories from database Edit Numbers or event rows.
 
-A Blueprint is created Public with Revision 1. A content Save creates a new
+A Blueprint is created Active with Revision 1. A content Save creates a new
 Revision only when canonical content changes. Names and lifecycle state remain
 current lineage metadata.
 

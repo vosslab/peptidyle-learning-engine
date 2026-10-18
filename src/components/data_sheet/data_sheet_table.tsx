@@ -4,10 +4,10 @@ import {
   defaultRecordActionsWidth,
   recordColumnWidth,
   visibleTableWidth,
-} from "./record_column_visibility";
-import type { RecordField, RecordListQuery } from "./record_fields";
-import { RecordFilterButton } from "./record_filter_controls";
-import { RecordSortHeading } from "./record_sort_controls";
+} from "./data_sheet_column_visibility";
+import type { RecordField, DataSheetQuery } from "./data_sheet_fields";
+import { DataSheetFilterButton } from "./data_sheet_filter_controls";
+import { DataSheetSortHeading } from "./data_sheet_sort_controls";
 import type { DataSheetPresentation, DataSheetSelection } from "./data_sheet_state";
 import type { DataSheetTableState } from "./data_sheet_table_state";
 import { CompactRecordActions, fieldText, RecordItem } from "./record_item";
@@ -17,8 +17,8 @@ import {
   RecordCollectionStateView,
   type RecordCollectionEmptyState,
   type RecordCollectionState,
-} from "./record_collection_state";
-import { useRecordInteractions } from "./record_interactions";
+} from "./data_sheet_collection_state";
+import { useRecordInteractions } from "./data_sheet_interactions";
 import { HeaderRow } from "./header_row";
 
 export type DataSheetTableColumn<Row> = {
@@ -244,7 +244,7 @@ export type DataSheetTableProps<Row, SortKey extends string, FilterKey extends s
   readonly selectionName: string;
   readonly identityField?: RecordField<Row, SortKey, FilterKey>;
   readonly hasRecordActions: boolean;
-  readonly query?: RecordListQuery<SortKey, FilterKey>;
+  readonly query?: DataSheetQuery<SortKey, FilterKey>;
   readonly presentation: DataSheetPresentation<FilterKey>;
   readonly table: DataSheetTableState<Row, SortKey, FilterKey>;
   readonly state: RecordCollectionState;
@@ -388,14 +388,14 @@ export function DataSheetTable<Row, SortKey extends string, FilterKey extends st
               when={field.sortKey !== undefined && props.query?.sort !== undefined}
               fallback={field.label}
             >
-              <RecordSortHeading
+              <DataSheetSortHeading
                 label={field.label}
                 sortKey={field.sortKey!}
                 binding={props.query!.sort!}
               />
             </Show>
             <Show when={field.filterKey !== undefined && props.query?.filters}>
-              <RecordFilterButton
+              <DataSheetFilterButton
                 label={field.label}
                 count={props.query?.filters?.values.get(field.filterKey!)?.length ?? 0}
                 onOpen={(trigger) => props.presentation.openFilter(field.filterKey!, trigger)}
@@ -455,14 +455,14 @@ export function DataSheetTable<Row, SortKey extends string, FilterKey extends st
           when={identityField()?.sortKey !== undefined && props.query?.sort !== undefined}
           fallback={identityField()?.label ?? "Record"}
         >
-          <RecordSortHeading
+          <DataSheetSortHeading
             label={identityField()?.label ?? "Record"}
             sortKey={identityField()!.sortKey!}
             binding={props.query!.sort!}
           />
         </Show>
         <Show when={identityField()?.filterKey !== undefined && props.query?.filters}>
-          <RecordFilterButton
+          <DataSheetFilterButton
             label={identityField()?.label ?? "Record"}
             count={props.query?.filters?.values.get(identityField()!.filterKey!)?.length ?? 0}
             onOpen={(trigger) =>

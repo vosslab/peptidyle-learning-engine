@@ -1,6 +1,6 @@
 import type { CourseGradebookStudentWork } from "../api/live_gradebook";
 import type { CourseRosterEntry } from "../api/course_roster";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import { formatPointScore } from "../score_format";
 
 export function rosterStateLabel(state: CourseRosterEntry["state"]): string {

@@ -13,11 +13,11 @@ export type BlueprintHistoryQuery = {
   readonly q: string;
   readonly sort: "sequence" | "recordedAt" | "name";
   readonly direction: "ascending" | "descending";
-  readonly availability: ReadonlyArray<"public" | "archived">;
+  readonly availability: ReadonlyArray<"active" | "archived">;
 };
 
 export type BlueprintHistoryPage = BlueprintHistoryPageView & {
-  readonly availabilityFacets: { readonly publicCount: number; readonly archivedCount: number };
+  readonly availabilityFacets: { readonly activeCount: number; readonly archivedCount: number };
 };
 import type { BlueprintComparisonView } from "../../generated/api/BlueprintComparisonView";
 import type { BlueprintKnownForkView } from "../../generated/api/BlueprintKnownForkView";
@@ -72,7 +72,7 @@ export type BlueprintCourseFacetFilters = Readonly<
 
 export interface BlueprintCourseFacetRequest {
   readonly includeArchived: boolean;
-  readonly publicOnly: boolean;
+  readonly activeOnly: boolean;
   readonly promotedOnly: boolean;
   readonly query: string;
   readonly classification: BlueprintCourseClassificationSearch;
@@ -109,7 +109,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   readonly exportBlueprintCourse: (
     blueprintCourseId: BlueprintCourseId,
   ) => Promise<CanonicalBlueprintCourse>;
-  /** Creates an independent public Blueprint Course from validated reusable structure. */
+  /** Creates an independent Active Blueprint Course from validated reusable structure. */
   readonly importBlueprintCourse: (
     exchange: CanonicalBlueprintCourse,
     idempotencyKey: BlueprintIdempotencyKey,
@@ -162,7 +162,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     pageSize: number,
     includeArchived?: boolean,
     query?: string,
-    publicOnly?: boolean,
+    activeOnly?: boolean,
     promotedOnly?: boolean,
     classification?: BlueprintCourseClassificationSearch,
     sort?: BlueprintCourseListSort,

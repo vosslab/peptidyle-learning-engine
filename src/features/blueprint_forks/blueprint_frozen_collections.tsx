@@ -7,7 +7,7 @@ import type { CanonicalBlueprintAssessmentEntry } from "../../../generated/api/C
 import { emptyRecognitionTitles, type RecognitionTitleMaps } from "../../api/recognition_titles";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import type { RecordContent } from "../../components/data_sheet/record_content";
-import type { RecordField } from "../../components/data_sheet/record_fields";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
 import {
   labeledQuestionRecognition,
   recognitionTitle,
@@ -267,8 +267,8 @@ export function FrozenAssessmentEntries(props: {
       state={search.state}
       collection={{
         ariaLabel: "Questions and Pools in authored order",
-        fields: frozenEntryFields,
-        query: { kind: search.query.kind, filters: search.query.filters },
+        ...search.collection,
+        query: { filters: search.collection.query.filters },
         emptyState: { title: "No Questions or Pools match." },
       }}
     />

@@ -13,9 +13,9 @@ import { useApplicationApi } from "../api/application_api";
 import type {
   RecordField,
   RecordFilterChoices,
-  RecordListQuery,
+  DataSheetQuery,
   RecordSort,
-} from "../components/data_sheet/record_fields";
+} from "../components/data_sheet/data_sheet_fields";
 import type { RecordContent } from "../components/data_sheet/record_content";
 import { PageFrame } from "../components/page_frame/page_frame";
 import { SearchBlock } from "../components/search_block/search_block";
@@ -24,7 +24,7 @@ import { createSearchState } from "../components/search_block/search_state";
 import type {
   SearchDefinition,
   SearchPageRequest,
-} from "../components/search_block/search_session";
+} from "../components/search_block/search_definition";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { studentCrossCourseLabel } from "./student_collection_fields";
 import {
@@ -229,8 +229,7 @@ export function StudentAttemptHistoryPage(): JSX.Element {
     };
   const state = createSearchState(definition, { runOnMount: true });
 
-  const recordQuery: RecordListQuery<AttemptSortField, StudentAttemptHistoryFacetField> = {
-    kind: "paged",
+  const recordQuery: DataSheetQuery<AttemptSortField, StudentAttemptHistoryFacetField> = {
     sort: {
       get value() {
         return ORDERS.find(({ value }) => value === state.query().sort)?.sort ?? null;

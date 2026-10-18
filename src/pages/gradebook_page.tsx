@@ -130,8 +130,7 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
           state={gradebookSearch.state}
           collection={{
             ariaLabel: "Student progress and scores",
-            fields: gradebookFields,
-            query: gradebookSearch.query,
+            ...gradebookSearch.collection,
             get emptyState() {
               return gradebookSearch.state.query().text ||
                 gradebookSearch.state.query().filters.size

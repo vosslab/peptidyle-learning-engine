@@ -33,7 +33,7 @@ impl PostgresBlueprintCourseStore {
         let rows = sqlx::query("SELECT * FROM ple_api.blueprint_course_facet_choices($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)")
             .bind(request.field.as_sql())
             .bind(search.include_archived)
-            .bind(search.public_only)
+            .bind(search.active_only)
             .bind(search.promoted_only)
             .bind(&search.query)
             .bind(search.discipline_uuid)
@@ -103,7 +103,7 @@ impl PostgresBlueprintCourseStore {
                 .tags
                 .iter()
                 .any(|tag| tag.is_empty() || !acceptable_blueprint_tag(tag))
-            || (request.public_only && request.include_archived)
+            || (request.active_only && request.include_archived)
         {
             return Err(invalid("Blueprint discovery page"));
         }
@@ -113,7 +113,7 @@ impl PostgresBlueprintCourseStore {
         // The SQL function counts and slices the same complete authorized result.
         let rows = sqlx::query("SELECT * FROM ple_api.list_blueprint_courses($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)")
             .bind(request.include_archived)
-            .bind(request.public_only)
+            .bind(request.active_only)
             .bind(request.promoted_only)
             .bind(&request.query)
             .bind(request.sort.as_sql())

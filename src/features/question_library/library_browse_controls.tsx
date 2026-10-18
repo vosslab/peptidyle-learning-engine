@@ -13,14 +13,14 @@ import {
   type JSX,
 } from "solid-js";
 
-import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
-import { checkboxChange } from "../components/controlled_form_change";
+import type { LibraryFacetField } from "../../../generated/api/LibraryFacetField";
+import { checkboxChange } from "../../components/controlled_form_change";
 import type {
   RecordFilterBinding,
   RecordFilterChoice,
   RecordFilterChoices,
-} from "../components/data_sheet/record_fields";
-import type { QuestionLibraryBrowseQuery } from "./library_page_model";
+} from "../../components/data_sheet/data_sheet_fields";
+import type { QuestionLibraryBrowseQuery } from "../../api/question_library_projection";
 
 type ClassificationField = "disciplineUuids" | "subjectUuids" | "topicUuids" | "subtopicUuids";
 

@@ -1,4 +1,4 @@
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 
 export type DraftSearchSortKey = "title" | "editNumber";
 export type DraftSearchFilterKey = "origin";

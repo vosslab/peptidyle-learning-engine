@@ -122,27 +122,27 @@ Student Work.
 Question Revisions and Blueprint Revisions are immutable. Question Pools are
 current membership with an Edit Number.
 A Published Question may be discoverable or archived.
-A Blueprint Course is Public or Archived. Public is shared and adoptable. Archived remains visible to
-Instructors through explicit historical discovery, can be forked, and
-cannot be adopted. Exact historical Revision Tuples remain resolvable.
+All Blueprint Courses are Public and visible to Instructors, including their history.
+Active Blueprints are adoptable. Archived Blueprints are read-only, excluded from ordinary
+discovery and adoption, and forkable. Exact historical Revision Tuples remain resolvable.
 
 New Assessments and Blueprint Revision pins select exact available Question
 Revisions. A later Question publication, availability transition, correction,
 or worker action never advances an Assessment or retained Student Work pin.
 
 An active Instructor may own Blueprint Courses and control their content Save and
-lifecycle operations. Complete valid creation atomically produces a Public
+lifecycle operations. Complete valid creation atomically produces an Active
 Blueprint Course with Revision 1.
 Save requires the exact current Revision and creates its immutable successor
 only for changed canonical content; an unchanged Save returns the current
 Revision with `changed: false`. Unsaved browser state is not a server domain object, and this reset
 does not define a Blueprint collaborator relationship.
 
-Only the owner changes Blueprint lifecycle state. The owner may archive a
-Public Blueprint and restore their Archived
-Blueprint to Public. Every Instructor may read Public and Archived
-content, but only Public content may be adopted. Every Instructor may
-fork Public or Archived content into a new Public Blueprint they own.
+Only the owner changes Blueprint lifecycle state. The owner may archive an
+Active Blueprint and restore their Archived
+Blueprint to Active. Every Instructor may read Active and Archived
+content, but only Active content may be adopted. Every Instructor may
+fork Active or Archived content into a new Active Blueprint they own.
 
 Adding a new Blueprint Assessment also triggers the Human-Guidance-required
 copy into daughter Course Instances as an Unreleased Assessment. That bounded
@@ -155,7 +155,7 @@ receiving Blueprint owner chooses accepted changes and creates the resulting
 Blueprint Revision. Proposal authority never grants Course access or directly
 changes daughter Course Instances.
 
-Instructors may Star or Watch Public and Archived Blueprints. Star
+Instructors may Star or Watch Active and Archived Blueprints. Star
 counts and the identities of Instructors who Starred are visible to
 Instructors. Watch state and subscription membership are private to the
 watcher.

@@ -5,7 +5,7 @@ import type { BlueprintComparisonView } from "../../../generated/api/BlueprintCo
 import type { BlueprintForkApplySelection } from "../../../generated/api/BlueprintForkApplySelection";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import type { RecordAction, RecordContent } from "../../components/data_sheet/record_content";
-import type { RecordField } from "../../components/data_sheet/record_fields";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
 import { reorderedRecordListRows } from "../../components/data_sheet/record_reorder";
 import { destinationKey, type Layout } from "./blueprint_fork_apply_model";
 

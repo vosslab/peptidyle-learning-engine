@@ -21,16 +21,16 @@ Blueprint results have the same new-tab rule ([HG:537-538](../../HUMAN_GUIDANCE.
 as do Question list items ([HG:600-603](../../HUMAN_GUIDANCE.md#L600-L603)).
 
 - **Static:** The shared `RecordActionControl` emits ordinary anchors without `target="_blank"`
-  ([`record_list.tsx:185-197`](../../../src/components/record_list/record_list.tsx#L185-L197)).
+  (`src/components/record_list/record_list.tsx` (retired; archived source lines 185-197)).
 - **Static:** Question results save a return token before ordinary same-tab navigation
   (`src/pages/library_browse_rows.tsx` (historical path; retired)). Their
   return state retains query, loaded rows, aggregate facets, cursors, and scroll position
-  ([`library_page_model.ts:189-301`](../../../src/pages/library_page_model.ts#L189-L301)).
+  ([`library_page_model.ts:189-301`](../../../src/features/question_library/library_query.ts#L189-L301)).
 - **Static:** Blueprint results do the same
-  ([`blueprint_course_search_result.ts:35-45`](../../../src/pages/blueprint_course_search_result.ts#L35-L45),
+  ([`blueprint_course_search_result.ts:35-45`](../../../src/features/blueprint_course/blueprint_course_search_result.ts#L35-L45),
   [`blueprint_course_search_page.tsx:273-310`](../../../src/pages/blueprint_course_search_page.tsx#L273-L310)),
   and persist a snapshot in `history.state` for reload/Back
-  ([`blueprint_course_search_return_state.ts:56-118`](../../../src/pages/blueprint_course_search_return_state.ts#L56-L118)).
+  ([`blueprint_course_search_return_state.ts:56-118`](../../../src/features/blueprint_course/blueprint_course_search_return_state.ts#L56-L118)).
 - **Test:** Current tests protect that restoration:
   `test_blueprint_search_return.mjs`,
   `test_library_classification_search.mjs`,
@@ -66,7 +66,7 @@ modes and OER Commons' simple search/image-focused boxes as references
 
 - **Static:** Question Library starts from a separate simple-search entry, then displays
   `RecordList` rows after input
-  ([`library_page.tsx:425-717`](../../../src/pages/library_page.tsx#L425-L717),
+  ([`library_page.tsx:425-717`](../../../src/features/question_library/library_workspace.tsx#L425-L717),
   `src/pages/library_browse_rows.tsx` (historical path; retired)).
 - **Static:** The currently assembled workflow has no compact/list/movie-poster mode selection.
   `RecordListImageBrowser` offers only Gallery and List, and is not wired to Question search
@@ -74,7 +74,7 @@ modes and OER Commons' simple search/image-focused boxes as references
 
 The simple input feeds the same page-level query state and exposes filters after search, so
 ordinary-word search and later refinement are partly present
-([`library_page.tsx:108-161`](../../../src/pages/library_page.tsx#L108-L161)). This finding is
+([`library_page.tsx:108-161`](../../../src/features/question_library/library_workspace.tsx#L108-L161)). This finding is
 about the missing assembled user workflow and display modes; HG does not require a particular
 component or backend shape.
 
@@ -99,7 +99,7 @@ signals directly in the result list ([HG:529-531](../../HUMAN_GUIDANCE.md#L529-L
 summary has no institution, Stars, or Watches
 ([`blueprint_course.rs:155-180`](../../../crates/question_model/src/blueprint_course.rs#L155-L180)).
 The implementation explicitly keeps Institution out
-([`blueprint_course_search_result.ts:10-45`](../../../src/pages/blueprint_course_search_result.ts#L10-L45)),
+([`blueprint_course_search_result.ts:10-45`](../../../src/features/blueprint_course/blueprint_course_search_result.ts#L10-L45)),
 and its client test requires no Institution row
 (`test_blueprint_course_client.mjs`).
 
@@ -125,7 +125,7 @@ model requirement.
   filters. Its submitted search/filter/sort summary remains visible
   ([`blueprint_course_search_page.tsx:343-422`](../../../src/pages/blueprint_course_search_page.tsx#L343-L422)).
 - **Static:** Question Library uses one query state for ordinary-word search, filters, sorting,
-  and bulk work ([`library_page.tsx:108-161`](../../../src/pages/library_page.tsx#L108-L161)).
+  and bulk work ([`library_page.tsx:108-161`](../../../src/features/question_library/library_workspace.tsx#L108-L161)).
 - **Static:** No search-scoped hover-preview implementation was found. The Question Open action
   has a short native title; keyboard-focus tooltip behavior was not verified
   (`src/pages/library_browse_rows.tsx` (historical path; retired)).

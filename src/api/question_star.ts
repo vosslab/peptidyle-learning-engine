@@ -8,7 +8,7 @@ import type { QuestionSearchFacets } from "../../generated/api/QuestionSearchFac
 import type { AccountId } from "../../generated/api/AccountId";
 import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
 import type { LibraryFacetChoicePage } from "../../generated/api/LibraryFacetChoicePage";
-import type { SearchPageRequest } from "../components/search_block/search_session";
+import type { SearchPageRequest } from "../components/search_block/search_definition";
 
 /** One active Instructor shown in an Instructor-only Star list. */
 export interface QuestionStarredInstructor {

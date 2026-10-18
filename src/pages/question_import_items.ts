@@ -1,7 +1,7 @@
 // Each converted item saves its original source, then binds its own supplied media to its Draft.
 
 import type { NamedBytes } from "../../assets/qpm_wasm/src/index.js";
-import type { QuestionDraftCreationClient } from "../api/question_draft_creation";
+import type { QuestionDraftClient } from "../api/question_draft_client";
 import { ApiRequestError } from "../api/http_client/error";
 import {
   PleQuestionJsonRequestError,
@@ -81,7 +81,7 @@ function imageMediaType(name: string): string {
 export async function saveQuestionImportItem(
   item: NamedBytes,
   files: ReadonlyArray<NamedBytes>,
-  drafts: QuestionDraftCreationClient,
+  drafts: QuestionDraftClient,
   images: Pick<PleQuestionJsonClient, "uploadQuestionImage">,
 ): Promise<QuestionImportResult> {
   let href: string | undefined;

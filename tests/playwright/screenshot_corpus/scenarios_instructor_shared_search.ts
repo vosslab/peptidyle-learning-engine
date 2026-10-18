@@ -59,12 +59,10 @@ function titledRow(page: Page, title: string): Locator {
 }
 
 async function filterLibraryObjects(page: Page, kind: "questions" | "pools"): Promise<void> {
-  const filters = page.getByRole("group", { name: "Record filters", exact: true });
-  const collapsedDisclosure = filters.locator("details.record-filters__disclosure:not([open])");
-  if ((await collapsedDisclosure.count()) > 0) {
-    await collapsedDisclosure.locator("summary").click();
-  }
-  await filters.getByRole("button", { name: /^Filter Library object/u }).click();
+  const libraryObjectHeader = page.getByRole("columnheader", { name: /Library object/ });
+  await libraryObjectHeader
+    .getByRole("button", { name: /^Filter Library object(?:, \d+ selected)?$/ })
+    .click();
   const dialog = page.getByRole("dialog", { name: "Filter Library object", exact: true });
   if (kind === "questions") {
     await dialog.getByRole("checkbox", { name: "Published Question" }).check();
@@ -73,7 +71,6 @@ async function filterLibraryObjects(page: Page, kind: "questions" | "pools"): Pr
     await dialog.getByRole("checkbox", { name: "Question Pool" }).check();
   }
   await dialog.getByRole("button", { name: "Close filter", exact: true }).click();
-  await filters.locator("details.record-filters__disclosure[open] summary").click();
 }
 
 async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
@@ -84,8 +81,11 @@ async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
     const displays = page.getByRole("group", { name: "Record display", exact: true });
     const { poolTitle, sourceQuestionTitle } = await createSearchPool(page);
     await refreshLibrarySearch(page);
+    await page.getByRole("button", { name: "Sort by Title, ascending", exact: true }).click();
     const poolRow = titledRow(page, poolTitle);
-    const questionRow = titledRow(page, sourceQuestionTitle);
+    const questionRow = titledRow(page, sourceQuestionTitle)
+      .filter({ has: page.getByRole("link", { name: "Open", exact: true }) })
+      .first();
     await poolRow.getByRole("link", { name: "Open Question Pool", exact: true }).waitFor();
     await questionRow.getByRole("link", { name: "Open", exact: true }).waitFor();
     await runtime.captureCheckpoint(session, "library_mixed_results");
@@ -100,6 +100,12 @@ async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
       throw new Error("Pools-only Library results include a Question.");
     }
     await runtime.captureCheckpoint(session, "library_pools_only");
+    const cardsButton = displays.getByRole("button", { name: "Cards", exact: true });
+    await cardsButton.click();
+    if ((await cardsButton.getAttribute("aria-pressed")) !== "true") {
+      throw new Error("Cards is not the active Library record display.");
+    }
+    await poolRow.getByRole("link", { name: "Open Question Pool", exact: true }).waitFor();
     for (const [mode, checkpoint] of [
       ["Compact", "library_compact"],
       ["List", "library_list"],

@@ -1,4 +1,4 @@
-import type { RecordField } from "./record_fields";
+import type { RecordField } from "./data_sheet_fields";
 
 export type ColumnChoice = "show" | "hide";
 export const RECORD_ACTIONS_COLUMN_WIDTH = "14rem";

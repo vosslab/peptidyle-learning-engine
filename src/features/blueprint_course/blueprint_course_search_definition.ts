@@ -1,5 +1,5 @@
-// Public Blueprint Course rules supplied to the shared search interface.
-import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
+// Blueprint Course search rules supplied to the shared search interface.
+import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { Accessor } from "solid-js";
 import type {
   BlueprintCourseClassificationSearch,
@@ -7,12 +7,12 @@ import type {
   BlueprintCourseListSort,
   BlueprintCourseFacetFilters,
   BlueprintCourseFacetField,
-} from "../api/blueprint_course";
-import type { SearchDefinition, SearchPage } from "../components/search_block/search_session";
+} from "../../api/blueprint_course";
+import type { SearchDefinition, SearchPage } from "../../components/search_block/search_definition";
 import { blueprintCourseContent } from "./blueprint_course_search_result";
 import { emptyBlueprintClassificationSearch } from "./blueprint_course_search_classification";
 
-/** One committed Public Blueprint Course search, owned beside its server definition. */
+/** One committed Blueprint Course search, owned beside its server definition. */
 export type BlueprintCourseSearchQuery = {
   readonly query: string;
   readonly promotedOnly: boolean;
@@ -42,7 +42,7 @@ export function emptyBlueprintSearch(includeArchived = false): BlueprintCourseSe
 export function blueprintCourseSearchDefinition(
   client: Pick<BlueprintCourseClient, "listBlueprintCourses">,
   formatTimestamp: Accessor<(timestamp: number | Date) => string>,
-  scope: "public" | "all" = "public",
+  scope: "active" | "all" = "active",
 ): SearchDefinition<BlueprintCourseSearchQuery, BlueprintCourseSummaryView, undefined> {
   return {
     initialQuery: emptyBlueprintSearch(scope === "all"),
@@ -66,7 +66,7 @@ export function blueprintCourseSearchDefinition(
         request.pageSize,
         scope === "all" && query.includeArchived,
         query.query,
-        scope === "public",
+        scope === "active",
         query.promotedOnly,
         query.classification,
         query.sort,

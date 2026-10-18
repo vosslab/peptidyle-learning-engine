@@ -12,7 +12,7 @@ import { createLocalCompleteSearch } from "./search_block/local_complete_search_
 import { SearchBlock } from "./search_block/search_block";
 import { SearchControls } from "./search_block/search_controls";
 import { InstructorProfileLink } from "./instructor_profile_link";
-import type { RecordField } from "./data_sheet/record_fields";
+import type { RecordField } from "./data_sheet/data_sheet_fields";
 import "./question_pool_star_control.css";
 
 const instructorFields: ReadonlyArray<RecordField<QuestionPoolStarredInstructor, "name", "name">> =
@@ -79,8 +79,7 @@ export function QuestionPoolStarredInstructorList(
         state={search.state}
         collection={{
           ariaLabel: "Instructors who starred this Question Pool",
-          fields: instructorFields,
-          query: search.query,
+          ...search.collection,
           emptyState: { title: "No matching Instructor Stars." },
         }}
       />

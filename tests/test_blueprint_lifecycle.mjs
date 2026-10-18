@@ -3,9 +3,9 @@ import test from "node:test";
 
 import { blueprintLifecyclePresentation } from "../src/features/blueprint_course/blueprint_course_model.ts";
 
-test("Public Blueprint reuse is shared while editing and archive stay with the owner", () => {
-  const reader = blueprintLifecyclePresentation("public", "active_instructor");
-  const owner = blueprintLifecyclePresentation("public", "blueprint_course_owner");
+test("Active Blueprint reuse is shared while editing and archive stay with the owner", () => {
+  const reader = blueprintLifecyclePresentation("active", "active_instructor");
+  const owner = blueprintLifecyclePresentation("active", "blueprint_course_owner");
 
   assert.equal(reader.canAdopt, true);
   assert.equal(reader.canEdit, false);

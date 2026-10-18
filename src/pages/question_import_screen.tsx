@@ -5,7 +5,7 @@ import { For, Show, createResource, createSignal, type JSX } from "solid-js";
 import type { FormatInfo, Warning } from "../../assets/qpm_wasm/src/index.js";
 import { createPleQuestionJsonClient } from "../features/ple_question_json_authoring/question_json_client";
 import { saveQuestionImportItem, type QuestionImportResult } from "./question_import_items";
-import { createQuestionDraftCreationClient } from "../api/question_draft_creation";
+import { createQuestionDraftClient } from "../api/question_draft_client";
 
 declare const __QPM_WASM_ASSET_VERSION__: string;
 type Qpm = typeof import("../../assets/qpm_wasm/src/index.js");
@@ -29,7 +29,7 @@ export function QuestionImportScreen(props: { readonly onClose: () => void }): J
   const [message, setMessage] = createSignal("");
   const [warnings, setWarnings] = createSignal<ReadonlyArray<Warning>>([]);
   const [results, setResults] = createSignal<ReadonlyArray<QuestionImportResult>>([]);
-  const client = createQuestionDraftCreationClient();
+  const client = createQuestionDraftClient();
   const imageClient = createPleQuestionJsonClient();
   const readableFormats = (): ReadonlyArray<FormatInfo> =>
     qpm.state === "ready"

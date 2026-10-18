@@ -1,6 +1,6 @@
 import type { CourseInstanceSummary } from "../api/course_instance";
 import type { CourseAssessmentSummary } from "../api/assessment_release";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { formatLocalWallClockDateTime } from "../format_datetime";
 import { assessmentStatusLabel } from "./assessments_due_soon_search_fields";

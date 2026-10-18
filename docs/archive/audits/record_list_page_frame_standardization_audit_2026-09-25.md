@@ -43,7 +43,7 @@ standardization requirement.
 
 `region_spec.ts`, lines 15-40, requires pages
 to choose arbitrary CSS widths, alignment, responsive priority, and arbitrary JSX for every region.
-[record_list.tsx](../../../src/components/record_list/record_list.tsx), lines 23-45 and 83-104,
+`src/components/record_list/record_list.tsx` (retired), lines 23-45 and 83-104,
 turns those choices into tracks and wrappers. Region order and count are caller-defined; the type
 does not require exactly one identity region.
 
@@ -183,10 +183,10 @@ only where the workflow requires it. Inspect direct children before applying a g
 
 ## Smaller contract issues
 
-- [record_sequence.tsx](../../../src/components/record_list/record_sequence.tsx), lines 10-16
+- `src/components/record_list/record_sequence.tsx` (retired), lines 10-16
   and 31-41, requires `RecordRegion` but ignores width, alignment, priority, and header. Remove these
   meaningless required inputs. Share content types only where they have the same meaning.
-- [record_list.tsx](../../../src/components/record_list/record_list.tsx), lines 98-101, maps
+- `src/components/record_list/record_list.tsx` (retired), lines 98-101, maps
   the documented horizontal `align` setting onto both axes. An end-aligned action is also bottom
   aligned. Shared row policy should choose these axes independently.
 - [blueprint_courses_workspace.tsx](../../../src/features/blueprint_course/blueprint_courses_workspace.tsx),

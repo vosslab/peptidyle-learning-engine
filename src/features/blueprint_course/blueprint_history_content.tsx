@@ -12,7 +12,7 @@ import {
 } from "../../assessment_duration";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import type { RecordContent } from "../../components/data_sheet/record_content";
-import type { RecordField } from "../../components/data_sheet/record_fields";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
 import { labeledQuestionRecognition, recognitionTitle } from "../recognition_label";
 import { recognitionTitlesResource } from "../recognition_titles_load";
 import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
@@ -244,7 +244,8 @@ export function BlueprintHistoryContent(props: {
           id: "view_assessments",
           kind: "command",
           label: "View Assessments",
-          onClick: () => assessmentSearch.query.filters?.onChange("module", [row.context]),
+          onClick: () =>
+            assessmentSearch.collection.query.filters?.onChange("module", [row.context]),
         }),
     },
   );
@@ -270,8 +271,7 @@ export function BlueprintHistoryContent(props: {
             collection={{
               ariaLabel: "Historical Blueprint Modules",
               initialMode: "compact",
-              fields: blueprintStructureModuleFields,
-              query: moduleSearch.query,
+              ...moduleSearch.collection,
               emptyState: {
                 title: "No matching Modules",
                 message: "This saved Revision has no Modules matching your search.",
@@ -297,8 +297,7 @@ export function BlueprintHistoryContent(props: {
             collection={{
               ariaLabel: "Historical Blueprint Assessments",
               initialMode: "compact",
-              fields: blueprintStructureAssessmentFields,
-              query: assessmentSearch.query,
+              ...assessmentSearch.collection,
               emptyState: {
                 title: "No matching Assessments",
                 message: "Try another search or Module filter.",
@@ -396,8 +395,8 @@ function HistoricalAssessment(props: {
           collection={{
             ariaLabel: "Historical Question and Pool entries",
             initialMode: "compact",
-            fields: historicalEntryFields,
-            query: { kind: search.query.kind, filters: search.query.filters },
+            ...search.collection,
+            query: { filters: search.collection.query.filters },
             emptyState: {
               title: "No matching Question entries",
               message: "This saved Assessment has no entries matching your search or filter.",

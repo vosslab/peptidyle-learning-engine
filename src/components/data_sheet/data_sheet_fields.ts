@@ -107,9 +107,7 @@ export type RecordFilterChoices = {
 };
 
 /** Query owners apply sorting and filtering to the complete collection before paging. */
-export type RecordListQuery<SortKey extends string, FilterKey extends string> = {
-  /** `local-complete` rows are the whole displayed collection; `paged` rows are one result page. */
-  readonly kind: "local-complete" | "paged";
+export type DataSheetQuery<SortKey extends string, FilterKey extends string> = {
   readonly sort?: RecordSortBinding<SortKey>;
   readonly filters?: RecordFilterBinding<FilterKey>;
 };

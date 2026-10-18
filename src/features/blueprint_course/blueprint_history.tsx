@@ -13,12 +13,12 @@ import type { RecordContent } from "../../components/data_sheet/record_content";
 import type {
   RecordField,
   RecordFilterChoices,
-  RecordListQuery,
-} from "../../components/data_sheet/record_fields";
+  DataSheetQuery,
+} from "../../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../../components/search_block/search_block";
 import { SearchControls } from "../../components/search_block/search_controls";
 import { createSearchState } from "../../components/search_block/search_state";
-import type { SearchDefinition } from "../../components/search_block/search_session";
+import type { SearchDefinition } from "../../components/search_block/search_definition";
 import { BlueprintHistoryContent } from "./blueprint_history_content";
 
 interface HistoryProps {
@@ -330,8 +330,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
       })),
   };
   const state = createSearchState(definition, { runOnMount: true });
-  const recordQuery: RecordListQuery<HistorySortKey, HistoryFilterKey> = {
-    kind: "paged",
+  const recordQuery: DataSheetQuery<HistorySortKey, HistoryFilterKey> = {
     sort: {
       get value() {
         return { key: state.query().sort, direction: state.query().direction };
@@ -351,8 +350,8 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
               void state.apply((current) => ({
                 ...current,
                 availability: values.filter(
-                  (value): value is "public" | "archived" =>
-                    value === "public" || value === "archived",
+                  (value): value is "active" | "archived" =>
+                    value === "active" || value === "archived",
                 ),
               })),
             onClear: () => void state.apply((current) => ({ ...current, availability: [] })),
@@ -368,12 +367,12 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
                 1,
                 1,
               );
-              const choices = (["public", "archived"] as const).map((key) => ({
+              const choices = (["active", "archived"] as const).map((key) => ({
                 key,
-                label: key === "public" ? "Public" : "Archived",
+                label: key === "active" ? "Active" : "Archived",
                 count:
-                  key === "public"
-                    ? page.availabilityFacets.publicCount
+                  key === "active"
+                    ? page.availabilityFacets.activeCount
                     : page.availabilityFacets.archivedCount,
               }));
               const term = search.trim().toLowerCase();

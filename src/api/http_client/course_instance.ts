@@ -124,14 +124,14 @@ export function createCourseInstanceClient(
         "Blueprint Revision Number",
       );
       if (
-        blueprintCourse.availability !== "public" ||
+        blueprintCourse.availability !== "active" ||
         blueprintCourse.read_access !== "blueprint_course_owner" ||
         blueprintCourse.fork_source_tuple !== null ||
         blueprintCourse.current_revision_tuple.blueprintCourseId !== blueprintCourse.id ||
         blueprintCourse.current_revision_tuple.revisionNumber !== "1"
       ) {
         throw new ApiProtocolError(
-          "Course-derived Blueprint must be an actor-owned public root at Revision 1",
+          "Course-derived Blueprint must be an actor-owned active root at Revision 1",
         );
       }
       return { blueprintCourse };

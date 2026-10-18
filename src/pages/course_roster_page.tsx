@@ -190,8 +190,7 @@ function CourseRosterCoursePage(props: {
           state={rosterSearch.state}
           collection={{
             ariaLabel: "Current Course roster",
-            fields: rosterFields,
-            query: rosterSearch.query,
+            ...rosterSearch.collection,
             get emptyState() {
               return {
                 title:

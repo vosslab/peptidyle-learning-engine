@@ -1,8 +1,8 @@
 import { For, type JSX } from "solid-js";
 
 import { selectChange } from "../controlled_form_change";
-import type { RecordField, RecordSort, RecordSortBinding } from "./record_fields";
-import "./record_sort_controls.css";
+import type { RecordField, RecordSort, RecordSortBinding } from "./data_sheet_fields";
+import "./data_sheet_sort_controls.css";
 
 function sameSort<SortKey extends string>(
   left: RecordSort<SortKey> | null,
@@ -11,7 +11,7 @@ function sameSort<SortKey extends string>(
   return left?.key === right.key && left.direction === right.direction;
 }
 
-export function RecordSortHeading<SortKey extends string>(props: {
+export function DataSheetSortHeading<SortKey extends string>(props: {
   readonly label: string;
   readonly sortKey: SortKey;
   readonly binding: RecordSortBinding<SortKey>;
@@ -67,7 +67,7 @@ export function recordSortOptions<Row, SortKey extends string, FilterKey extends
 }
 
 /** The menu exposes the same query orders when column headings are not present. */
-export function RecordSortMenu<Row, SortKey extends string, FilterKey extends string>(props: {
+export function DataSheetSortMenu<Row, SortKey extends string, FilterKey extends string>(props: {
   readonly fields: ReadonlyArray<RecordField<Row, SortKey, FilterKey>>;
   readonly binding: RecordSortBinding<SortKey>;
 }): JSX.Element {

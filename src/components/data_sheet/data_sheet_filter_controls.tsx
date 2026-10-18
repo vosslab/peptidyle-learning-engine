@@ -1,8 +1,8 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 
 import { checkboxChange } from "../controlled_form_change";
-import type { RecordField, RecordFilterBinding, RecordFilterChoice } from "./record_fields";
-import "./record_filter_controls.css";
+import type { RecordField, RecordFilterBinding, RecordFilterChoice } from "./data_sheet_fields";
+import "./data_sheet_filter_controls.css";
 
 type FilterField = { readonly id: string; readonly label: string; readonly filterKey: string };
 type ChoiceState<FilterKey extends string> = {
@@ -13,7 +13,7 @@ type ChoiceState<FilterKey extends string> = {
   readonly unavailableReason?: string;
 };
 
-export function RecordFilterButton(props: {
+export function DataSheetFilterButton(props: {
   readonly label: string;
   readonly count: number;
   readonly onOpen: (trigger: HTMLButtonElement) => void;
@@ -33,7 +33,11 @@ export function RecordFilterButton(props: {
 }
 
 /** One picker and one common entry point across every RecordList presentation. */
-export function RecordFilterControls<Row, SortKey extends string, FilterKey extends string>(props: {
+export function DataSheetFilterControls<
+  Row,
+  SortKey extends string,
+  FilterKey extends string,
+>(props: {
   readonly fields: ReadonlyArray<RecordField<Row, SortKey, FilterKey>>;
   readonly binding: RecordFilterBinding<FilterKey>;
   readonly compact: boolean;

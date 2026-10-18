@@ -12,7 +12,7 @@ import { recognitionTitlesResource } from "../features/recognition_titles_load";
 import { ApiRequestError } from "../api/http_client/error";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import type { RecordContent, RecordFact } from "./data_sheet/record_content";
-import type { RecordField, RecordListQuery, RecordSort } from "./data_sheet/record_fields";
+import type { RecordField, DataSheetQuery, RecordSort } from "./data_sheet/data_sheet_fields";
 import { SearchBlock } from "./search_block/search_block";
 import { SearchControls } from "./search_block/search_controls";
 import { createLocalCompleteSearch } from "./search_block/local_complete_search_state";
@@ -24,7 +24,7 @@ import {
   type RecoveredQuestionRecord,
 } from "./recovered_question_record_fields";
 import { createSearchState } from "./search_block/search_state";
-import type { SearchPageRequest } from "./search_block/search_session";
+import type { SearchPageRequest } from "./search_block/search_definition";
 import { formatAssessmentActivity } from "./student_assessment_presentation";
 
 function formatRecoveryInstant(
@@ -115,8 +115,7 @@ function RecoveredQuestions(props: {
       collection={{
         ariaLabel: "Recovered Question evidence",
         initialMode: "cards",
-        fields: recoveredQuestionRecordFields,
-        query: questionSearch.query,
+        ...questionSearch.collection,
         emptyState: { title: "No recovered Question evidence matches your search." },
         renderBody: (question) => (
           <div>
@@ -302,8 +301,7 @@ export function CourseStudentWorkRecovery(props: {
   );
   const assessmentChoices = (): RecoverySelection["assessmentChoices"] =>
     searchState.state().filterCounts ?? [];
-  const recordQuery: RecordListQuery<RecoverySortKey, RecoveryFilterKey> = {
-    kind: "paged",
+  const recordQuery: DataSheetQuery<RecoverySortKey, RecoveryFilterKey> = {
     sort: {
       get value(): RecordSort<RecoverySortKey> {
         return {

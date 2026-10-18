@@ -47,7 +47,7 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
       theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, THEME_VALUES),
       longName: text(field(record, "longName", path), `${path}.longName`),
       availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
-        "public",
+        "active",
         "archived",
       ]),
       recordedAt: decodeTimestamp(field(record, "recordedAt", path), `${path}.recordedAt`),
@@ -83,16 +83,16 @@ export function decodeBlueprintHistoryPageView(
     field(page, "availabilityFacets", path),
     `${path}.availabilityFacets`,
   );
-  requireOnlyFields(facets, `${path}.availabilityFacets`, ["publicCount", "archivedCount"]);
-  const publicCount = decodeSafeInteger(
-    field(facets, "publicCount", path),
-    `${path}.availabilityFacets.publicCount`,
+  requireOnlyFields(facets, `${path}.availabilityFacets`, ["activeCount", "archivedCount"]);
+  const activeCount = decodeSafeInteger(
+    field(facets, "activeCount", path),
+    `${path}.availabilityFacets.activeCount`,
   );
   const archivedCount = decodeSafeInteger(
     field(facets, "archivedCount", path),
     `${path}.availabilityFacets.archivedCount`,
   );
-  if (publicCount < 0 || archivedCount < 0)
+  if (activeCount < 0 || archivedCount < 0)
     throw new DecodeError(`${path}.availabilityFacets`, "nonnegative counts");
   const items = decodeBoundedArray(field(page, "items", path), `${path}.items`, pageSize, entry);
   if (items.length > totalCount)
@@ -102,6 +102,6 @@ export function decodeBlueprintHistoryPageView(
     pageNumber,
     pageSize,
     totalCount,
-    availabilityFacets: { publicCount, archivedCount },
+    availabilityFacets: { activeCount, archivedCount },
   };
 }

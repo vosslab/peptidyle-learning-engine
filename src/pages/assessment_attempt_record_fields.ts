@@ -1,5 +1,5 @@
 import type { StudentAssessmentAttemptHistoryQuestion } from "../api/assessment_attempt_history";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import type { RecordAction, RecordContent } from "../components/data_sheet/record_content";
 import { formatPointScore } from "../score_format";
 

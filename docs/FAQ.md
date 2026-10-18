@@ -6,13 +6,13 @@ screens with older names are implementation gaps, not a different product.
 ## What is a Blueprint Course?
 
 A Blueprint Course is reusable Course content with no Students, dates, time
-zones, or relative schedules. It is created Public with Revision 1. Its owner
+zones, or relative schedules. It is created Active with Revision 1. Its owner
 edits reusable content and uses explicit Save; changed content creates the next
 immutable Revision, while a no-op creates none. Permitted metadata edits preserve
 the Revision Number. Only the owner archives or restores the Blueprint.
 
-The lifecycle states are Public and Archived. Public is visible to active
-Instructors and adoptable. Archived is read-only, omitted from ordinary
+All Blueprints and their history are Public and visible to active Instructors.
+The lifecycle states are Active and Archived. Active is adoptable. Archived is read-only, omitted from ordinary
 discovery and new adoption, available only through explicit archived inclusion,
 and forkable.
 
@@ -20,7 +20,7 @@ and forkable.
 
 A Course Instance is delivered teaching with Students, equal co-Instructors,
 Course dates, Assessments, Attempts, and FERPA-protected records. It may adopt
-one exact Public Blueprint Revision or start empty. Adoption copies Blueprint
+one exact Active Blueprint Revision or start empty. Adoption copies Blueprint
 Assessments into editable Course Instance Assessments.
 
 ## Do Blueprint changes update daughter Courses?
@@ -38,7 +38,7 @@ Blueprint. A proposal never directly changes daughter Course Instances.
 
 ## Can I fork a Blueprint?
 
-Yes. A fork starts a new Public Blueprint lineage with ancestry. Its owner
+Yes. A fork starts a new Active Blueprint lineage with ancestry. Its owner
 controls editing; every active Instructor can browse and adopt it.
 
 ## What is an Assessment?

@@ -50,12 +50,12 @@ impl RequestChecksum {
     }
 }
 
-/// Current stable-lineage lifecycle state. Blueprint Courses are shared among
-/// Instructors unless archived. Exact Revisions remain resolvable after archive.
+/// Current lifecycle state; visibility to all Instructors is independent of
+/// whether a Blueprint Course is Active or Archived.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlueprintAvailability {
-    Public,
+    Active,
     Archived,
 }
 

@@ -80,7 +80,7 @@ function pagePath(
   pageSize: number | undefined,
   includeArchived: boolean,
   searchQuery?: string,
-  publicOnly = false,
+  activeOnly = false,
   promotedOnly = false,
   classification?: BlueprintCourseClassificationSearch,
   sort: BlueprintCourseListSort = "name",
@@ -108,8 +108,8 @@ function pagePath(
       "Blueprint Course search must be at most 256 characters without control characters",
     );
   }
-  if (publicOnly && includeArchived) {
-    throw new ApiProtocolError("Public Blueprint Course search cannot include Archived courses");
+  if (activeOnly && includeArchived) {
+    throw new ApiProtocolError("Active Blueprint Course search cannot include Archived courses");
   }
   if (
     !(
@@ -144,7 +144,7 @@ function pagePath(
   if (includeArchived) query.set("includeArchived", "true");
   // ASVS 1.2.2: encode literal search text as a query value, never URL syntax.
   if (searchQuery !== undefined) query.set("query", searchQuery);
-  if (publicOnly) query.set("publicOnly", "true");
+  if (activeOnly) query.set("activeOnly", "true");
   if (promotedOnly) query.set("promotedOnly", "true");
   if (sort !== "name") query.set("sort", sort);
   if (tag !== "") query.set("tag", tag);
@@ -349,13 +349,13 @@ export function createBlueprintCourseClient(
         },
       );
       if (
-        result.body.availability !== "public" ||
+        result.body.availability !== "active" ||
         result.body.read_access !== "blueprint_course_owner" ||
         result.body.fork_source_tuple !== null ||
         result.body.current_revision_tuple.revisionNumber !== "1"
       )
         throw new ApiProtocolError(
-          "Imported Blueprint Course must be an actor-owned public root at Revision 1",
+          "Imported Blueprint Course must be an actor-owned active root at Revision 1",
         );
       return loadedBlueprintCourse(result.body, result.response, path);
     },
@@ -378,7 +378,7 @@ export function createBlueprintCourseClient(
         !["sequence", "recordedAt", "name"].includes(query.sort) ||
         (kind === "revisions" && query.sort === "name") ||
         !["ascending", "descending"].includes(query.direction) ||
-        query.availability.some((value) => value !== "public" && value !== "archived") ||
+        query.availability.some((value) => value !== "active" && value !== "archived") ||
         (kind === "revisions" && query.availability.length > 0)
       )
         throw new ApiProtocolError("Blueprint history query is invalid");
@@ -422,9 +422,9 @@ export function createBlueprintCourseClient(
         decodeBlueprintCourseView,
         { method: "POST", idempotencyKey: requestKey, expectedStatus: 201 },
       );
-      if (result.body.id === blueprintCourseId || result.body.availability !== "public") {
+      if (result.body.id === blueprintCourseId || result.body.availability !== "active") {
         throw new ApiProtocolError(
-          "Blueprint fork response must identify an independent public Blueprint Course",
+          "Blueprint fork response must identify an independent active Blueprint Course",
         );
       }
       return loadedBlueprintCourse(result.body, result.response, path);
@@ -529,7 +529,7 @@ export function createBlueprintCourseClient(
       pageSize,
       includeArchived = false,
       query,
-      publicOnly = false,
+      activeOnly = false,
       promotedOnly = false,
       classification,
       sort,
@@ -542,7 +542,7 @@ export function createBlueprintCourseClient(
         pageSize,
         includeArchived,
         query,
-        publicOnly,
+        activeOnly,
         promotedOnly,
         classification,
         sort,
@@ -568,7 +568,7 @@ export function createBlueprintCourseClient(
         undefined,
         request.includeArchived,
         request.query,
-        request.publicOnly,
+        request.activeOnly,
         request.promotedOnly,
         request.classification,
         request.sort,

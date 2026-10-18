@@ -6,7 +6,7 @@ SET LOCAL ROLE ple_data_owner;
 
 -- ASVS 8.2.1 and 8.3.1: this definer boundary derives the actor from the
 -- attested session and allows only an active Instructor to set their own
--- relationship with a Public or Archived Blueprint Course.
+-- relationship with an Active or Archived Blueprint Course.
 CREATE FUNCTION ple_data.set_current_blueprint_course_star(
     p_blueprint_course_id_number text,
     p_starred boolean
@@ -25,10 +25,10 @@ BEGIN
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
      WHERE blueprint_course_id = p_blueprint_course_id_number
-       AND availability IN ('public', 'archived');
+       AND availability IN ('active', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Blueprint Course Star requires a Public or Archived Blueprint Course';
+            MESSAGE = 'Blueprint Course Star requires an Active or Archived Blueprint Course';
     END IF;
     IF p_starred THEN
         INSERT INTO ple_data.blueprint_course_star (
@@ -65,10 +65,10 @@ BEGIN
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
      WHERE blueprint_course_id = p_blueprint_course_id_number
-       AND availability IN ('public', 'archived');
+       AND availability IN ('active', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Blueprint Course Watch requires a Public or Archived Blueprint Course';
+            MESSAGE = 'Blueprint Course Watch requires an Active or Archived Blueprint Course';
     END IF;
     IF p_watching THEN
         INSERT INTO ple_data.blueprint_course_watch (
@@ -153,8 +153,8 @@ BEGIN
        AND blueprint_edit_number < NEW.blueprint_edit_number
      ORDER BY blueprint_edit_number DESC LIMIT 1;
     event_kind := CASE
-        WHEN previous_availability = 'public' AND NEW.availability = 'archived' THEN 'archived'
-        WHEN previous_availability = 'archived' AND NEW.availability = 'public' THEN 'restored'
+        WHEN previous_availability = 'active' AND NEW.availability = 'archived' THEN 'archived'
+        WHEN previous_availability = 'archived' AND NEW.availability = 'active' THEN 'restored'
         ELSE NULL
     END;
     IF event_kind IS NOT NULL THEN
@@ -193,10 +193,10 @@ BEGIN
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
      WHERE blueprint_course_id = p_blueprint_course_id_number
-       AND availability IN ('public', 'archived');
+       AND availability IN ('active', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Blueprint Course Star requires a Public or Archived Blueprint Course';
+            MESSAGE = 'Blueprint Course Star requires an Active or Archived Blueprint Course';
     END IF;
     RETURN QUERY
     WITH active_endorsers AS (
@@ -253,10 +253,10 @@ BEGIN
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
      WHERE blueprint_course_id = p_blueprint_course_id_number
-       AND availability IN ('public', 'archived');
+       AND availability IN ('active', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Blueprint Course Star identities require a Public or Archived Blueprint Course';
+            MESSAGE = 'Blueprint Course Star identities require an Active or Archived Blueprint Course';
     END IF;
 
     RETURN QUERY
@@ -295,10 +295,10 @@ BEGIN
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
      WHERE blueprint_course_id = p_blueprint_course_id_number
-       AND availability IN ('public', 'archived');
+       AND availability IN ('active', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Blueprint Course Watch requires a Public or Archived Blueprint Course';
+            MESSAGE = 'Blueprint Course Watch requires an Active or Archived Blueprint Course';
     END IF;
     RETURN QUERY SELECT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course_watch
@@ -338,10 +338,10 @@ BEGIN
     END IF;
     PERFORM 1 FROM ple_data.blueprint_course
      WHERE blueprint_course_id = p_blueprint_course_id_number
-       AND availability IN ('public', 'archived');
+       AND availability IN ('active', 'archived');
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Blueprint Course Watch events require a Public or Archived Blueprint Course';
+            MESSAGE = 'Blueprint Course Watch events require an Active or Archived Blueprint Course';
     END IF;
     p_search := lower(btrim(p_search));
     -- ASVS 1.2.4/8.2.2: scope precedes literal label filtering. These recipient

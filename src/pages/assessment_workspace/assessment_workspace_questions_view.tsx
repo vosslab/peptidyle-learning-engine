@@ -9,11 +9,11 @@ import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type { AssessmentBlueprintUpdateReview } from "../../api/assessment_release";
-import type { QuestionLibraryBrowseRepository } from "../library_page_model";
+import type { QuestionLibraryBrowseRepository } from "../../api/question_library_projection";
 import { PageFrame } from "../../components/page_frame/page_frame";
 import { AssessmentEditor } from "../../features/assessment_content_picker/assessment_editor";
 import type { ContentClassificationClient } from "../../api/content_classification";
-import type { LibrarySearchRow } from "../library_page_model";
+import type { LibrarySearchRow } from "../../api/question_library_projection";
 import { AssessmentPoolEntryEditor } from "./assessment_pool_entry_editor";
 import { selectedAssessmentEntryContent } from "./assessment_workspace_selected_entry";
 import {

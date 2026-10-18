@@ -11,7 +11,7 @@ import { useSessionBootstrap } from "../auth/session_context";
 import { createDisciplineFromRequest } from "../components/discipline_request";
 import { PageFrame } from "../components/page_frame/page_frame";
 import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import type { RecordContent } from "../components/data_sheet/record_content";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
@@ -332,8 +332,7 @@ export function ContentDisciplinesPage(): JSX.Element {
         collection={{
           ariaLabel: "Discipline requests",
           emptyState: { title: "No Discipline requests match your search." },
-          fields: requestFields,
-          query: requestSearch.query,
+          ...requestSearch.collection,
         }}
       />
       <Show when={error()}>
@@ -350,8 +349,7 @@ export function ContentDisciplinesPage(): JSX.Element {
         collection={{
           ariaLabel: "Disciplines",
           emptyState: { title: "No Disciplines match your search." },
-          fields: disciplineFields,
-          query: disciplineSearch.query,
+          ...disciplineSearch.collection,
           renderBody: (item) => (
             <label>
               Discipline name

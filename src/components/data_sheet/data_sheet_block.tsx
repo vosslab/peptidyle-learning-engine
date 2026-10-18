@@ -4,20 +4,18 @@ import {
   RecordCollectionStateView,
   type RecordCollectionEmptyState,
   type RecordCollectionState,
-} from "./record_collection_state";
-import { recordIdentityField, type RecordField, type RecordListQuery } from "./record_fields";
+} from "./data_sheet_collection_state";
+import { recordIdentityField, type RecordField, type DataSheetQuery } from "./data_sheet_fields";
+import { DataSheetControls } from "./data_sheet_controls";
 import { DataSheetTable } from "./data_sheet_table";
-import { createDataSheetTableState, type DataSheetTableState } from "./data_sheet_table_state";
-import {
-  createDataSheetPresentation,
-  type DataSheetPresentation,
-  type DataSheetSelection,
-} from "./data_sheet_state";
+import { createDataSheetTableState } from "./data_sheet_table_state";
+import { createDataSheetPresentation, type DataSheetSelection } from "./data_sheet_state";
 import { RecordItem } from "./record_item";
-import { DataSheetInteractions, type RecordTransferBinding } from "./record_interactions";
+import { DataSheetInteractions, type RecordTransferBinding } from "./data_sheet_interactions";
 import type { RecordReorderBinding } from "./record_reorder";
 import type { RecordContent } from "./record_content";
 import type { DataSheetMode } from "./data_sheet_state";
+import type { RecordPageControlsProps } from "./data_sheet_page_controls";
 import "./data_sheet.css";
 
 export type DataSheetBlockProps<
@@ -37,18 +35,11 @@ export type DataSheetBlockProps<
   readonly ariaLabel: string;
   readonly emptyState: RecordCollectionEmptyState;
   readonly initialMode?: DataSheetMode;
-  /** Rendered beside, rather than inside, the DataSheet record/table region. */
-  readonly controls?: (
-    presentation: DataSheetPresentation<FilterKey>,
-    table: DataSheetTableState<Row, SortKey, FilterKey>,
-  ) => JSX.Element;
-} & (
-  | { readonly fields?: never; readonly query?: never }
-  | {
-      readonly fields: ReadonlyArray<RecordField<Row, SortKey, FilterKey>>;
-      readonly query: RecordListQuery<SortKey, FilterKey>;
-    }
-);
+  readonly fields: ReadonlyArray<RecordField<Row, SortKey, FilterKey>>;
+  readonly query: DataSheetQuery<SortKey, FilterKey>;
+  /** Query-owned numbered navigation; absent before an initial search. */
+  readonly pagination?: RecordPageControlsProps;
+};
 
 /** The shared record table and presentation owner. Query-wide work remains in the query layer. */
 export function DataSheetBlock<
@@ -56,7 +47,7 @@ export function DataSheetBlock<
   SortKey extends string = string,
   FilterKey extends string = string,
 >(props: DataSheetBlockProps<Row, SortKey, FilterKey>): JSX.Element {
-  const fields = (): ReadonlyArray<RecordField<Row, SortKey, FilterKey>> => props.fields ?? [];
+  const fields = (): ReadonlyArray<RecordField<Row, SortKey, FilterKey>> => props.fields;
   const identityField = createMemo(() => recordIdentityField(fields()));
   const rowsById = createMemo(() => new Map(props.rows.map((row) => [props.recordId(row), row])));
   const recordIds = createMemo(() => props.rows.map((row) => props.recordId(row)));
@@ -88,7 +79,15 @@ export function DataSheetBlock<
     presentation.mode() === "cards" ? "cards" : "visual_boxes";
   return (
     <>
-      <Show when={props.controls}>{(controls) => controls()(presentation, table)}</Show>
+      <DataSheetControls
+        presentation={presentation}
+        table={table}
+        fields={props.fields}
+        query={props.query}
+        selection={props.selection}
+        loadedCount={props.rows.length}
+        pagination={props.pagination}
+      />
       <DataSheetInteractions
         reorder={props.reorder}
         transfer={props.transfer}

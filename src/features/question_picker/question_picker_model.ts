@@ -9,20 +9,22 @@ import type {
   SearchDefinition,
   SearchPage,
   SearchPageRequest,
-} from "../../components/search_block/search_session";
+} from "../../components/search_block/search_definition";
 import type { QuestionDetailsPromptView } from "../../../generated/api/QuestionDetailsPromptView";
 import type { QuestionResponsePreview } from "../../../generated/api/QuestionResponsePreview";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import { validateCanonicalQuestionIdSyntax } from "../../question_id";
 import {
-  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-  decodeLibrarySearchPage,
-  normalizeQuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryBrowsePage,
   type QuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseRow,
-} from "../../pages/library_page_model";
+  type LibrarySearchPage,
+} from "../../api/question_library_projection";
+import {
+  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  normalizeQuestionLibraryBrowseQuery,
+} from "../question_library/library_query";
 
 /** The largest selection any current D2 consumer can request. */
 export const MAX_QUESTION_PICKER_SELECTION_CAP = 1024;
@@ -115,10 +117,10 @@ export interface QuestionPickerSearchRequest {
 
 /**
  * Source adapters remain parent-owned because D2 server routes arrive after the
- * picker shell. Each adapter returns the same hostile transport shape as D1.
+ * picker shell. Each adapter returns the typed browser projection from its route.
  */
 export interface QuestionPickerSourceRepository {
-  readonly search: (request: QuestionPickerSearchRequest) => Promise<unknown>;
+  readonly search: (request: QuestionPickerSearchRequest) => Promise<LibrarySearchPage>;
 }
 
 /** One picker request keeps its content source beside the common Library query. */
@@ -223,7 +225,7 @@ export function questionLibraryPickerRepository(
   myQuestions: QuestionLibraryBrowseRepository,
 ): QuestionPickerSourceRepository {
   return {
-    async search(request: QuestionPickerSearchRequest): Promise<unknown> {
+    async search(request: QuestionPickerSearchRequest): Promise<LibrarySearchPage> {
       if (request.source.kind === "library" || request.source.kind === "sharedLibrary") {
         return await library.search(
           { ...request.query, kind: "questions", questions: "all" },
@@ -366,13 +368,12 @@ export function questionPickerSearchDefinition(
       query,
       page,
     ): Promise<SearchPage<QuestionLibraryBrowseRow, QuestionLibraryBrowsePage["aggregates"]>> => {
-      const raw = await repository.search({
+      const result = await repository.search({
         source: query.source,
         query: constrainedPickerLibraryQuery(query.libraryQuery, eligibility),
         page,
         eligibility,
       });
-      const result = decodeLibrarySearchPage(raw);
       const items = result.items.map((row) => {
         if (row.kind !== "question") throw new Error("Question picker result contained a Pool");
         return row;

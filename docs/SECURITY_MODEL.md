@@ -145,12 +145,12 @@ Failure leaves both state and Student Work unchanged.
 
 ## Blueprint boundary
 
-Public Blueprints are
-visible to Instructors and adoptable. Archived Blueprints are read-only,
+All Blueprints and their history are visible to Instructors. Active Blueprints are
+adoptable. Archived Blueprints are read-only,
 excluded from ordinary discovery and new adoption, available only through
 explicit archived inclusion, and forkable.
 
-Only the owner saves or changes lifecycle state. Archived restores to Public. Blueprint content has no
+Only the owner saves or changes lifecycle state. Archived restores to Active. Blueprint content has no
 Students, dates, time zones, or relative schedules.
 
 Newer Blueprint Revisions are offered to daughter Course Instructors for

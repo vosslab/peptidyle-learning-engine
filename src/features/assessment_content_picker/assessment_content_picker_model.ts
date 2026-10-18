@@ -2,7 +2,7 @@ import type { QuestionNativePreview } from "../../components/question_native_pre
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
 import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
-import type { LibrarySearchRow } from "../../pages/library_page_model";
+import type { LibrarySearchRow } from "../../api/question_library_projection";
 
 export type AssessmentContentPickerSelection =
   | {

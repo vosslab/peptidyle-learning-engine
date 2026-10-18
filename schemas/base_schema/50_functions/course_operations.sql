@@ -128,7 +128,7 @@ BEGIN
           FROM ple_data.blueprint_course AS source_blueprint
          WHERE source_blueprint.blueprint_course_id = p_blueprint_course_id
          FOR UPDATE OF source_blueprint;
-        IF NOT FOUND OR blueprint.availability <> 'public' THEN
+        IF NOT FOUND OR blueprint.availability <> 'active' THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Instance source is unavailable';
         END IF;
         IF blueprint.current_blueprint_revision_number <> p_blueprint_revision_number THEN

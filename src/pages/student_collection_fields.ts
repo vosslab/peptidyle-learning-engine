@@ -5,7 +5,7 @@ import type {
   StudentCourseProgressAssessment,
 } from "../api/live_student_course_landing";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { formatPointScore } from "../score_format";
 import { studentAssessmentScoreStateLabel } from "../student_course_progress_presentation";

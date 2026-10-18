@@ -39,7 +39,7 @@ contract. Question ownership sits outside its summary; Pool ownership sits insid
 [question_library_repository.ts](../../../src/api/question_library_repository.ts) discards the
 Question result's owner when building the browser row. It also omits Question Type, Backend,
 and Tags from that row while retaining those fields for Pools. These facts were available earlier
-in the result path. [library_page_model.ts](../../../src/pages/library_page_model.ts) then uses
+in the result path. [library_query.ts](../../../src/features/question_library/library_query.ts) then uses
 `questionTitle`/`summary` for Questions and `title`/`description` for Pools. Shared rendering and
 actions must repeatedly recover or branch around ordinary common fields.
 
@@ -50,14 +50,14 @@ deleting or renaming `QuestionPoolLibrarySummary` alone would not fix it.
 
 ### Combined discovery stops at selection
 
-[assessment_content_picker.tsx](../../../src/features/assessment_content_picker/assessment_content_picker.tsx)
+`src/features/assessment_content_picker/assessment_content_picker.tsx` (retired)
 shows both kinds, but selecting a Pool clears selected Questions, selecting a Question clears a
 selected Pool, and selecting loaded results selects only Questions. Its return type permits many
 Questions or one Pool. This is an implementation restriction to review against the intended
 Assessment workflow, not a restriction established by having two object kinds. A combined search
 does not by itself settle whether mixed batch import is required.
 
-[library_bulk_actions.tsx](../../../src/pages/library_bulk_actions.tsx) likewise presents separate
+[library_bulk_actions.tsx](../../../src/features/question_library/library_bulk_actions.tsx) likewise presents separate
 Question and Pool editing actions. HG calls for bulk edits of shared Library metadata. Determine
 which operations can share one user action while preserving each kind's ownership checks,
 concurrency checks, and membership constraints. Do not make shared fields imply identical writes.

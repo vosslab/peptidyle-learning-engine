@@ -13,7 +13,7 @@ import {
 } from "../../assessment_duration";
 import { RecordDetails } from "../../components/data_sheet/record_content";
 import type { RecordContent } from "../../components/data_sheet/record_content";
-import type { RecordField } from "../../components/data_sheet/record_fields";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
 import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
 import { SearchBlock } from "../../components/search_block/search_block";
 import { SearchControls } from "../../components/search_block/search_controls";
@@ -320,9 +320,9 @@ export function AssessmentBlueprintContentSummary(props: {
         state={entrySearch.state}
         collection={{
           ariaLabel: `${props.heading} ordered Questions and Question Pools`,
-          fields,
+          ...entrySearch.collection,
           // Saved Assessment order is fixed; filtering preserves original positions.
-          query: { kind: "paged", filters: entrySearch.query.filters },
+          query: { filters: entrySearch.collection.query.filters },
           get emptyState() {
             return {
               title:

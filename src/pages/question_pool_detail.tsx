@@ -14,7 +14,7 @@ import {
 
 import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 import type { QuestionPoolMemberView } from "../../generated/api/QuestionPoolMemberView";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import type {
   PoolMemberFilterKey,
   PoolMemberSortKey,
@@ -47,7 +47,7 @@ import {
   usePublishRouteScopeLabels,
   useRouteScopePublication,
 } from "../ribbon/route_scope_context";
-import { backendLabel, questionTypeLabel } from "./library_page_helpers";
+import { backendLabel, questionTypeLabel } from "../features/question_library/library_helpers";
 import { QuestionStatisticsPanel } from "./question_statistics_panel";
 
 type PoolMemberSearchRow = {
@@ -218,8 +218,7 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
           state={memberSearch.state}
           collection={{
             ariaLabel: "Questions in this Pool",
-            fields: memberFields,
-            query: memberSearch.query,
+            ...memberSearch.collection,
             emptyState: { title: "No Question Revisions match this search." },
           }}
         />

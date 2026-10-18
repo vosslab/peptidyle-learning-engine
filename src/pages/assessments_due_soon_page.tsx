@@ -98,8 +98,7 @@ export function AssessmentsDueSoonPage(): JSX.Element {
         state={dueSoonSearch.state}
         collection={{
           ariaLabel: "Assessments due in the next 7 days",
-          fields,
-          query: dueSoonSearch.query,
+          ...dueSoonSearch.collection,
           get emptyState() {
             return {
               title:

@@ -14,7 +14,7 @@ import { assessmentPointValueDraft } from "../../assessment_point_value";
 import { UnsavedChangesGuard, trackEditorSave } from "../../components/unsaved_changes_guard";
 import { RecordDetails } from "../../components/data_sheet/record_content";
 import type { RecordContent } from "../../components/data_sheet/record_content";
-import type { RecordField } from "../../components/data_sheet/record_fields";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
 import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
 import { SearchBlock } from "../../components/search_block/search_block";
 import { SearchControls } from "../../components/search_block/search_controls";
@@ -233,7 +233,7 @@ export function AssessmentFixedQuestionPointsEditor(
     },
   );
   // Saved Assessment order is fixed; search and filters retain the original positions.
-  const pointQuery = { kind: pointSearch.query.kind, filters: pointSearch.query.filters };
+  const pointQuery = { filters: pointSearch.collection.query.filters };
 
   function closeEntryDetails(): void {
     setSelectedEntryId(null);
@@ -338,7 +338,7 @@ export function AssessmentFixedQuestionPointsEditor(
               collection={{
                 ariaLabel: "Fixed Question point values",
                 initialMode: "list",
-                fields,
+                ...pointSearch.collection,
                 query: pointQuery,
                 renderBody: renderInlinePointValue,
                 disabled: () => saving() || reloading(),

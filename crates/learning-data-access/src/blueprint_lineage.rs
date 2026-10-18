@@ -75,8 +75,8 @@ pub trait BlueprintLineageStore: Send + Sync {
         right: BlueprintCourseId,
     ) -> Result<BlueprintComparisonSources, StoreError>;
 
-    /// Forks one exact Public or Archived source Revision into a distinct,
-    /// actor-owned public Blueprint with Revision 1. A checksum retry returns
+    /// Forks one exact Active or Archived source Revision into a distinct,
+    /// actor-owned Active Blueprint with Revision 1. A checksum retry returns
     /// the original child, and this operation never creates Stars or Watches.
     async fn fork_blueprint_course(
         &self,

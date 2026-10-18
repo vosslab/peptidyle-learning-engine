@@ -1,34 +1,34 @@
 import { Show, createEffect, createSignal, onCleanup, type Accessor, type JSX } from "solid-js";
 
-import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
-import type { PublishedQuestionSharedMetadata } from "../../generated/api/PublishedQuestionSharedMetadata";
-import type { QuestionBackend } from "../../generated/api/QuestionBackend";
-import { decodeQuestionType } from "../api/decoders/question_response_format";
-import { QUESTION_BACKENDS } from "../api/decoders/shared";
-import type { ContentClassificationClient } from "../api/content_classification";
+import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
+import type { PublishedQuestionSharedMetadata } from "../../../generated/api/PublishedQuestionSharedMetadata";
+import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
+import { decodeQuestionType } from "../../api/decoders/question_response_format";
+import { QUESTION_BACKENDS } from "../../api/decoders/shared";
+import type { ContentClassificationClient } from "../../api/content_classification";
 import type {
   QuestionBulkMetadataClient,
   QuestionBulkMetadataUpdateResult,
-} from "../api/question_bulk_metadata";
+} from "../../api/question_bulk_metadata";
 import type {
   QuestionPoolSearchMetadataClient,
   QuestionPoolSearchMetadataUpdateResult,
-} from "../api/question_pool_search_metadata";
-import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
-import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
-import type { QuestionPoolStartingQuestion } from "../components/question_pool_create_model";
-import type { RecordAction } from "../components/data_sheet/record_content";
-import { confirmUnsavedChanges } from "../components/unsaved_changes_guard";
+} from "../../api/question_pool_search_metadata";
+import { questionLibraryBulkSelectionRequest } from "../../api/question_library_repository";
+import { QuestionBulkMetadataEditor } from "../../components/question_bulk_metadata_editor";
+import type { QuestionPoolStartingQuestion } from "../../components/question_pool_create_model";
+import type { RecordAction } from "../../components/data_sheet/record_content";
+import { confirmUnsavedChanges } from "../../components/unsaved_changes_guard";
 import {
   QuestionPoolSearchMetadataEditor,
   type QuestionPoolSearchMetadataTarget,
-} from "../components/question_pool_search_metadata_editor";
-import type { SearchStateController } from "../components/search_block/search_state";
+} from "../../components/question_pool_search_metadata_editor";
+import type { SearchStateController } from "../../components/search_block/search_state";
 import type {
   LibrarySearchRow,
   QuestionLibraryBrowseQuery,
   QuestionLibraryFilterCounts,
-} from "./library_page_model";
+} from "../../api/question_library_projection";
 
 type SelectedLibraryRow =
   | {

@@ -276,7 +276,7 @@ PageFrame
 - PLE sends a setup email to that address so the Instructor can set up their Account.
 - Course membership determines which private Course records an Instructor may use.
 - **Instructors** can search and browse the global **Question Library**.
-- **Instructors** can browse the content of Public and Archived **Blueprint Courses**.
+- **Instructors** can browse the content of all **Blueprint Courses**, including Archived ones.
 - **Instructors** log in only with a passkey or email code; no passwords.
 - **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
 
@@ -695,7 +695,7 @@ PageFrame
 ##### Blueprint Course interface
 
 - **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
-- All Blueprint Courses are Public
+- All Blueprint Courses are Public, including Archived ones.
 - **Search Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
 - Blueprint Course search should combine ordinary text search with shared classification
   filters beginning with Discipline and following Discipline -> Subject -> Topic -> Subtopic.
@@ -1712,7 +1712,7 @@ PageFrame
 - Blueprint Courses are a similar concept as LibreTexts' ADAPT alpha courses.
 - Blueprint Courses have no **Students**, deadlines, or other teaching-specific delivery settings.
 - Blueprint Courses do not contain dates or relative schedules.
-- Public Blueprint Courses are visible and reusable by every **Instructor**.
+- All **Instructors** can see every Blueprint Course and its history.
 - Blueprint Courses contain only **Library Objects**.
 - An **Instructor** can create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
 - Creating a Blueprint Course from a Course Instance copies its Assessments as Blueprint
@@ -1720,9 +1720,9 @@ PageFrame
 
 #### Blueprint Course lifecycle specifications
 
-- Blueprint Courses have two lifecycle states: **Public** and **Archived**.
-- New Blueprint Courses and forks are Public.
-- Public Blueprint Courses and their Revision history are visible to all **Instructors** and can be adopted to create daughter Course Instances.
+- Blueprint Courses have two lifecycle states: **Active** and **Archived**.
+- New Blueprint Courses and forks are Active.
+- Active Blueprint Courses can be adopted to create daughter Course Instances.
 - Blueprint Courses have no separate Draft state.
 
 #### Archived Blueprint Course specifications
@@ -1732,8 +1732,8 @@ PageFrame
 - Archived Blueprint Courses do not appear in normal discovery unless explicitly included.
 - Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
 - Archived Blueprint Courses can be forked.
-- Forking an Archived Blueprint Course creates a new Public Blueprint Course.
-- The owning **Instructor** can return an Archived Blueprint Course to Public.
+- Forking an Archived Blueprint Course creates a new Active Blueprint Course.
+- The owning **Instructor** can return an Archived Blueprint Course to Active.
 - Blueprint Course visibility includes its content, Revision history, and recorded changes.
 - Visibility does not grant editing authority.
 
@@ -1752,7 +1752,7 @@ PageFrame
 
 - Blueprint Courses have a searchable boolean Promoted flag.
 - Sysadmins exclusively control the Promoted flag.
-- **Instructors** can Star or Watch Public and Archived Blueprint Courses.
+- **Instructors** can Star or Watch Active and Archived Blueprint Courses.
 - A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
 - **Instructors** can see who Starred a Blueprint Course and its Star count.
 - Blueprint Course Watches follow the GitHub repository model.
@@ -1773,7 +1773,7 @@ PageFrame
 
 #### Blueprint Course fork specifications
 
-- An **Instructor** can fork a Public or Archived **Blueprint Course** to create a new Public Blueprint Course.
+- An **Instructor** can fork any **Blueprint Course** to create a new Active Blueprint Course.
 - A fork is owned by the **Instructor** who created it.
 - A fork records the source Blueprint Course Revision Tuple from which it was created.
 - Forking a Blueprint Course creates new Blueprint Assessments.
@@ -1818,7 +1818,7 @@ PageFrame
 
 #### Blueprint Course comparison specifications
 
-- Any **Instructor** can compare related Blueprint Courses in the same fork lineage when both are visible to that Instructor.
+- Any **Instructor** can compare related Blueprint Courses in the same fork lineage.
 - Fork comparison normally compares the newest Revision of the source Blueprint Course with the newest Revision of the fork.
 - Older Revisions remain available through Blueprint history but are not the normal comparison workflow.
 - Blueprint Course differences are calculated from canonical JSON when the Instructor requests the comparison.
@@ -1826,7 +1826,6 @@ PageFrame
 - Blueprint Course comparison does not require Blueprint Assessment identity or history across forks.
 - Comparison should show shared, added, removed, and changed Assessments and Library Objects.
 - Comparison should remain useful when Assessment names, order, or structure have changed.
-- Comparison visibility follows Blueprint Course visibility rather than fork ownership.
 
 #### Blueprint Course JSON specifications
 
@@ -1846,7 +1845,7 @@ PageFrame
 
 #### Course Instance creation specifications
 
-- An **Instructor** can create a Course Instance from a Public Blueprint Course.
+- An **Instructor** can create a Course Instance from an Active Blueprint Course.
 - **Instructors** can also create a new empty Course Instance without a parent Blueprint Course.
 - Course Instances have **Students**, deadlines, releases, and other delivery-specific settings.
 - Course Instances contain only **Library Objects**.

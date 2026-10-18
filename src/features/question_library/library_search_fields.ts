@@ -1,7 +1,7 @@
-import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
-import type { RecordField } from "../components/data_sheet/record_fields";
-import type { LibrarySearchRow } from "./library_page_model";
-import { questionTypeLabel } from "./library_page_helpers";
+import type { LibraryFacetField } from "../../../generated/api/LibraryFacetField";
+import type { RecordField } from "../../components/data_sheet/data_sheet_fields";
+import type { LibrarySearchRow } from "../../api/question_library_projection";
+import { questionTypeLabel } from "./library_helpers";
 
 export type LibraryRecordSortKey = "title" | "kind" | "discipline" | "questionType" | "published";
 

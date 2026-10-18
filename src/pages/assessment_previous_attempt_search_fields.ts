@@ -1,5 +1,5 @@
 import type { LiveAssessmentPreviousAttempt } from "../api/assessment_attempt_issuance";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 
 export type PreviousAttemptSortKey = "attemptNumber" | "state" | "score";
 export type PreviousAttemptFilterKey = "state";

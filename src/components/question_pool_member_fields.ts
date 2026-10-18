@@ -1,4 +1,4 @@
-import type { RecordField } from "./data_sheet/record_fields";
+import type { RecordField } from "./data_sheet/data_sheet_fields";
 import {
   compareQuestionPoolMemberRows,
   type QuestionPoolMemberSortEntry,

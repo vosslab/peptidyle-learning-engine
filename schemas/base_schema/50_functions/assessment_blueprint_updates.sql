@@ -55,7 +55,7 @@ BEGIN
        AND assessment.origin_kind = 'adopted'
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND ple_api.current_session_account_is_instructor()
-       AND (blueprint.availability IN ('public', 'archived')
+       AND (blueprint.availability IN ('active', 'archived')
             OR blueprint.owner_account_id = ple_api.current_session_account_id())
      FOR UPDATE OF blueprint;
     IF NOT FOUND THEN RETURN; END IF;
@@ -66,7 +66,7 @@ BEGIN
     IF assessment_row.assessment_id IS NULL
        OR NOT ple_api.current_session_account_is_course_instructor(assessment_row.course_instance_id)
        OR NOT ple_api.current_session_account_is_instructor()
-       OR NOT (parent.availability IN ('public', 'archived')
+       OR NOT (parent.availability IN ('active', 'archived')
                OR parent.owner_account_id = ple_api.current_session_account_id()) THEN RETURN; END IF;
     source_blueprint_course_id := parent.blueprint_course_id;
     source_revision_number := parent.current_blueprint_revision_number;
@@ -383,7 +383,7 @@ BEGIN
      WHERE course.course_instance_id = p_course_instance_id AND course.source_kind = 'adopted'
        AND ple_api.current_session_account_is_course_instructor(course.course_instance_id)
        AND ple_api.current_session_account_is_instructor()
-       AND (blueprint.availability IN ('public', 'archived')
+       AND (blueprint.availability IN ('active', 'archived')
             OR blueprint.owner_account_id = ple_api.current_session_account_id())
      FOR UPDATE OF blueprint;
     IF NOT FOUND THEN RETURN; END IF;
@@ -392,7 +392,7 @@ BEGIN
     IF course_row.course_instance_id IS NULL
        OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_instance_id)
        OR NOT ple_api.current_session_account_is_instructor()
-       OR NOT (parent.availability IN ('public', 'archived')
+       OR NOT (parent.availability IN ('active', 'archived')
                OR parent.owner_account_id = ple_api.current_session_account_id()) THEN RETURN; END IF;
     blueprint_course_id := parent.blueprint_course_id;
     adopted_revision_number := course_row.blueprint_revision_number;

@@ -136,7 +136,7 @@ export function BlueprintCourseDetailStructure(
       id: "view_assessments",
       kind: "command",
       label: "View Assessments",
-      onClick: () => assessmentSearch.query.filters?.onChange("module", [row.context]),
+      onClick: () => assessmentSearch.collection.query.filters?.onChange("module", [row.context]),
     });
   }
   const moduleSearch = createLocalCompleteSearch(
@@ -254,8 +254,7 @@ export function BlueprintCourseDetailStructure(
                 collection={{
                   ariaLabel: "Blueprint Modules",
                   initialMode: "compact",
-                  fields: blueprintStructureModuleFields,
-                  query: moduleSearch.query,
+                  ...moduleSearch.collection,
                   emptyState: { title: "No Modules match your search." },
                 }}
               />
@@ -275,8 +274,7 @@ export function BlueprintCourseDetailStructure(
                 collection={{
                   ariaLabel: "Blueprint Assessments",
                   initialMode: "compact",
-                  fields: blueprintStructureAssessmentFields,
-                  query: assessmentSearch.query,
+                  ...assessmentSearch.collection,
                   emptyState: { title: "No Assessments match your search." },
                 }}
               />

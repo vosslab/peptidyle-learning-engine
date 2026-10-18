@@ -27,7 +27,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BlueprintCourseListSort {
-    /// Public Search and ordinary discovery keep the established name order.
+    /// Blueprint Course search and ordinary discovery keep the established name order.
     #[default]
     Name,
     NameDescending,
@@ -37,13 +37,13 @@ pub enum BlueprintCourseListSort {
     /// My Blueprint Courses with the most enrolled Students first.
     Students,
     StudentsAscending,
-    /// Public Blueprint Courses with the most visible Instructor Stars first.
+    /// Blueprint Courses with the most visible Instructor Stars first.
     Stars,
     StarsAscending,
-    /// Public Blueprint Courses with the most private Watch subscriptions first.
+    /// Blueprint Courses with the most private Watch subscriptions first.
     Watches,
     WatchesAscending,
-    /// Public Blueprint Courses most recently edited first.
+    /// Blueprint Courses most recently edited first.
     RecentEdits,
     RecentEditsAscending,
 }
@@ -74,7 +74,7 @@ pub struct BlueprintCourseListRequest {
     pub sort: BlueprintCourseListSort,
     pub query: String,
     pub include_archived: bool,
-    pub public_only: bool,
+    pub active_only: bool,
     pub promoted_only: bool,
     pub discipline_uuid: Option<uuid::Uuid>,
     pub subject_uuid: Option<uuid::Uuid>,
@@ -654,7 +654,7 @@ pub trait BlueprintCourseStore: Send + Sync {
         session: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
     ) -> Result<CanonicalBlueprintCourse, StoreError>;
-    /// Creates a distinct actor-owned public Blueprint through the ordinary
+    /// Creates a distinct actor-owned Active Blueprint through the ordinary
     /// Revision 1 transaction, preserving direct references to existing Pools.
     async fn import_blueprint_course(
         &self,

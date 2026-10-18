@@ -41,7 +41,7 @@ pub struct BlueprintHistoryQuery {
 #[derive(Debug, Clone)]
 pub struct BlueprintHistoryResult {
     pub page: NumberedPage<BlueprintHistoryEntryView, PageSize>,
-    pub public_count: u64,
+    pub active_count: u64,
     pub archived_count: u64,
 }
 

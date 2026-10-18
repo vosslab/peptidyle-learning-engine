@@ -54,7 +54,7 @@ export function BlueprintCourseLifecycleControls(
         <aside class="blueprint-course-inspection">
           <Show when={lifecycle().canRestore}>
             <h2>Restore Blueprint Course</h2>
-            <p>Restore makes this Blueprint Course Public for new Instructor adoption.</p>
+            <p>Restore makes this Blueprint Course Active for new Instructor adoption.</p>
             <button type="button" disabled={props.metadataSaving} onClick={props.onRestore}>
               {props.metadataSaving ? "Restoring..." : "Restore Blueprint Course"}
             </button>

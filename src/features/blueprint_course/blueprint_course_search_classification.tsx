@@ -1,11 +1,11 @@
 // Read-only optional hierarchy filters using the shared vocabulary and selectors.
 import { Show, type JSX } from "solid-js";
-import type { BlueprintCourseClassificationSearch } from "../api/blueprint_course";
+import type { BlueprintCourseClassificationSearch } from "../../api/blueprint_course";
 import type {
   ContentClassificationClient,
   ContentClassificationItem,
-} from "../api/content_classification";
-import { ContentClassificationSelect } from "../components/content_classification_select";
+} from "../../api/content_classification";
+import { ContentClassificationSelect } from "../../components/content_classification_select";
 
 export function blueprintClassificationDescription(
   value: BlueprintCourseClassificationSearch,

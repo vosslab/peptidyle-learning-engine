@@ -65,6 +65,13 @@
   justify-content: space-between;
 }
 
+.blueprint-course-detail-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-2);
+  align-items: center;
+}
+
 .blueprint-course-section-heading {
   align-items: start;
 }

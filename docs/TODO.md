@@ -345,7 +345,7 @@ finding-by-finding reconciliation is in the
       redundant generated-variant Pool members when present while retaining intentionally pooled
       distinct algorithmic Questions; preserve historical pins while retiring replaced
       static Questions, redundant Pools, and source copies.
-- [ ] Build public Blueprint Course search as one bounded projection, Store,
+- [ ] Build Blueprint Course search as one bounded projection, Store,
       Server, authorization, and browser workflow capability.
 - My Questions and Starred have Instructor routes, pages, and server-backed read paths;
   Watched opens the private watch-notification inbox. Track any remaining runtime or capture

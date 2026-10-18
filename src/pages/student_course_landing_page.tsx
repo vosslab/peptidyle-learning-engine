@@ -146,8 +146,7 @@ export function AssessmentList(props: {
       state={assessmentSearch.state}
       collection={{
         ariaLabel: courseworkHeading(props.view),
-        fields: studentAssessmentFields,
-        query: assessmentSearch.query,
+        ...assessmentSearch.collection,
         get emptyState() {
           return {
             title:
@@ -276,8 +275,7 @@ function StudentCrossCourseworkCollection(props: {
         state={search.state}
         collection={{
           ariaLabel: courseworkHeading(props.view),
-          fields: studentCrossCourseAssessmentFields,
-          query: search.query,
+          ...search.collection,
           get emptyState() {
             return {
               title: partial()

@@ -133,8 +133,7 @@ function StudentCourseProgressCollection(props: {
         state={progressSearch.state}
         collection={{
           ariaLabel: "Coursework progress",
-          fields: studentProgressFields,
-          query: progressSearch.query,
+          ...progressSearch.collection,
           get emptyState() {
             return {
               title:

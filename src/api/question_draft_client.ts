@@ -1,6 +1,8 @@
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
+import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import { ApiProtocolError, ApiRequestError } from "./http_client/error";
+import { decodePublishedQuestionRevisionTuple } from "./decoders/shared";
 import { createDefaultPleQuestionJsonDraft } from "../features/ple_question_json_authoring/question_json_defaults";
 import { serializePleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_codec";
 import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
@@ -55,17 +57,29 @@ export type CreatedQuestionDraft = {
   readonly draftQuestionEditNumber: string;
 };
 
-export type QuestionDraftCreationFetch = (
+export type DraftQuestionSummary = {
+  readonly draftQuestionId: DraftQuestionRouteId;
+  readonly draftQuestionEditNumber: string;
+  readonly questionTitle: string;
+  readonly questionDescription: string;
+  readonly parentPublishedQuestionRevisionTuple: PublishedQuestionRevisionTuple | null;
+};
+
+export type DraftQuestionDeleteResult = "deleted" | "preconditionFailed";
+
+export type QuestionDraftFetch = (
   input: RequestInfo | URL,
   init?: RequestInit,
 ) => Promise<Response>;
 
-export type QuestionDraftCreationClientConfig = {
-  readonly fetch?: QuestionDraftCreationFetch;
+export type QuestionDraftClientConfig = {
+  readonly fetch?: QuestionDraftFetch;
 };
 
-export interface QuestionDraftCreationClient {
+export interface QuestionDraftClient {
   createDraft(input: QuestionDraftCreationInput): Promise<CreatedQuestionDraft>;
+  listDrafts(): Promise<ReadonlyArray<DraftQuestionSummary>>;
+  deleteDraft(draft: DraftQuestionSummary): Promise<DraftQuestionDeleteResult>;
 }
 
 /** Matches the registered relative WebWork path bound to a Draft at creation. */
@@ -116,6 +130,43 @@ function isPositiveEditNumber(value: unknown): value is string {
   return BigInt(value) <= 9_223_372_036_854_775_807n;
 }
 
+function isParentRevisionTuple(value: unknown): value is PublishedQuestionRevisionTuple | null {
+  if (value === null) return true;
+  try {
+    decodePublishedQuestionRevisionTuple(value, "draft.parentPublishedQuestionRevisionTuple", true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function decodeDraftQuestionList(value: unknown): ReadonlyArray<DraftQuestionSummary> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("My Drafts returned an invalid response.");
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).length !== 1 || !Array.isArray(record.items)) {
+    throw new Error("My Drafts returned an invalid response.");
+  }
+  const isDraftSummary = (item: unknown): item is DraftQuestionSummary => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
+    const summary = item as Record<string, unknown>;
+    return (
+      Object.keys(summary).length === 5 &&
+      typeof summary.draftQuestionId === "string" &&
+      parseDraftQuestionId(summary.draftQuestionId) !== null &&
+      isPositiveEditNumber(summary.draftQuestionEditNumber) &&
+      typeof summary.questionTitle === "string" &&
+      typeof summary.questionDescription === "string" &&
+      isParentRevisionTuple(summary.parentPublishedQuestionRevisionTuple)
+    );
+  };
+  if (!record.items.every(isDraftSummary)) {
+    throw new Error("My Drafts returned an invalid response.");
+  }
+  return record.items;
+}
+
 function decodeCreatedQuestionDraft(value: unknown): CreatedQuestionDraft {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new ApiProtocolError("Draft creation returned an invalid response");
@@ -135,9 +186,9 @@ function decodeCreatedQuestionDraft(value: unknown): CreatedQuestionDraft {
   return { draftQuestionId, draftQuestionEditNumber: record.draftQuestionEditNumber };
 }
 
-export function createQuestionDraftCreationClient(
-  config: QuestionDraftCreationClientConfig = {},
-): QuestionDraftCreationClient {
+export function createQuestionDraftClient(
+  config: QuestionDraftClientConfig = {},
+): QuestionDraftClient {
   const fetchImplementation = config.fetch ?? globalThis.fetch;
 
   async function createDraft(input: QuestionDraftCreationInput): Promise<CreatedQuestionDraft> {
@@ -172,5 +223,31 @@ export function createQuestionDraftCreationClient(
     return decodeCreatedQuestionDraft((await response.json()) as unknown);
   }
 
-  return { createDraft };
+  async function listDrafts(): Promise<ReadonlyArray<DraftQuestionSummary>> {
+    const response = await fetchImplementation(DRAFTS_PATH, {
+      headers: { accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("My Drafts is unavailable.");
+    return decodeDraftQuestionList((await response.json()) as unknown);
+  }
+
+  async function deleteDraft(draft: DraftQuestionSummary): Promise<DraftQuestionDeleteResult> {
+    const path = `${DRAFTS_PATH}/${encodeURIComponent(draft.draftQuestionId)}`;
+    const response = await fetchImplementation(path, {
+      method: "DELETE",
+      headers: {
+        accept: "application/json",
+        "if-match": `"${draft.draftQuestionEditNumber}"`,
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (response.status === 412) return "preconditionFailed";
+    if (!response.ok) throw new Error("This private Draft Question could not be deleted.");
+    return "deleted";
+  }
+
+  return { createDraft, listDrafts, deleteDraft };
 }

@@ -11,8 +11,8 @@ import {
   recordColumnWidth,
   visibleRecordFields,
   type ColumnChoice,
-} from "./record_column_visibility";
-import type { RecordField } from "./record_fields";
+} from "./data_sheet_column_visibility";
+import type { RecordField } from "./data_sheet_fields";
 import type { DataSheetMode } from "./data_sheet_state";
 
 type DataSheetTableStateOptions<Row, SortKey extends string, FilterKey extends string> = {
@@ -62,7 +62,7 @@ export function createDataSheetTableState<Row, SortKey extends string, FilterKey
         id: "record_details",
         label: "Details",
         value: () => null,
-        defaultColumn: { priority: 0, width: "20rem" },
+        defaultColumn: { priority: 0, width: "20rem", visible: true },
       },
     ];
   });

@@ -6,16 +6,19 @@ import { useApplicationApi } from "../api/application_api";
 import { PageFrame } from "../components/page_frame/page_frame";
 import type {
   RecordField,
-  RecordListQuery,
+  DataSheetQuery,
   RecordSort,
-} from "../components/data_sheet/record_fields";
+} from "../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
 import { createSearchState } from "../components/search_block/search_state";
 import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
 import type { StarredQuestionSort } from "../api/question_star";
-import { libraryRecordQuery } from "./library_record_filters";
-import { fixedKindLibrarySearchFields, type LibraryRecordSortKey } from "./library_search_fields";
+import { libraryRecordQuery } from "../features/question_library/library_record_filters";
+import {
+  fixedKindLibrarySearchFields,
+  type LibraryRecordSortKey,
+} from "../features/question_library/library_search_fields";
 import {
   starredSearchDefinition,
   starredSearchRepository,
@@ -94,8 +97,7 @@ export function StarredQuestionsPage(): JSX.Element {
     classificationClient: runtime.client,
     onError: setActionError,
   });
-  const recordQuery: RecordListQuery<StarredSortKey, LibraryFacetField> = {
-    kind: "paged",
+  const recordQuery: DataSheetQuery<StarredSortKey, LibraryFacetField> = {
     filters: baseQuery.filters,
     sort: {
       get value() {

@@ -27,7 +27,7 @@ pub(super) struct ListQuery {
     #[serde(default)]
     include_archived: bool,
     #[serde(default)]
-    public_only: bool,
+    active_only: bool,
     #[serde(default)]
     promoted_only: bool,
     #[serde(default)]
@@ -233,7 +233,7 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
         || query.query.chars().any(char::is_control)
         || tag.chars().count() > 120
         || tag.chars().any(char::is_control)
-        || (query.public_only && query.include_archived)
+        || (query.active_only && query.include_archived)
         || (query.subject_uuid.is_some() && query.discipline_uuid.is_none())
         || (query.topic_uuid.is_some() && query.subject_uuid.is_none())
         || (query.subtopic_uuid.is_some() && query.topic_uuid.is_none())
@@ -267,7 +267,7 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
         sort: query.sort,
         query: normalized,
         include_archived: query.include_archived,
-        public_only: query.public_only,
+        active_only: query.active_only,
         promoted_only: query.promoted_only,
         discipline_uuid: query.discipline_uuid,
         subject_uuid: query.subject_uuid,

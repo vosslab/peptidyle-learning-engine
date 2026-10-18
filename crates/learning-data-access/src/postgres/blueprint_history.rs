@@ -71,7 +71,7 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
                 items.push(decode_entry(row, kind)?);
             }
         }
-        let (mut public_count, mut archived_count) = (0, 0);
+        let (mut active_count, mut archived_count) = (0, 0);
         if kind == BlueprintHistoryKind::Metadata {
             let facets =
                 sqlx::query("SELECT * FROM ple_api.blueprint_history_availability_facets($1, $2)")
@@ -88,7 +88,7 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
                     .map_err(map_sqlx_error)?
                     .as_str()
                 {
-                    "public" => public_count = count,
+                    "active" => active_count = count,
                     "archived" => archived_count = count,
                     _ => return Err(invalid()),
                 }
@@ -102,7 +102,7 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
                 page_size: page.page_size,
                 total_count,
             },
-            public_count,
+            active_count,
             archived_count,
         })
     }
@@ -128,7 +128,7 @@ fn decode_entry(
         BlueprintHistoryKind::Metadata => {
             let availability: String = row.try_get("availability").map_err(map_sqlx_error)?;
             let availability = match availability.as_str() {
-                "public" => BlueprintAvailability::Public,
+                "active" => BlueprintAvailability::Active,
                 "archived" => BlueprintAvailability::Archived,
                 _ => return Err(invalid()),
             };

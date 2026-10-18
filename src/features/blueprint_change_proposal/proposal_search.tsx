@@ -4,12 +4,12 @@ import type {
   BlueprintChangeProposalClient,
   BlueprintProposalListQuery,
 } from "../../api/blueprint_change_proposal";
-import type { RecordField, RecordListQuery } from "../../components/data_sheet/record_fields";
+import type { RecordField, DataSheetQuery } from "../../components/data_sheet/data_sheet_fields";
 import type { RecordContent } from "../../components/data_sheet/record_content";
 import { SearchBlock } from "../../components/search_block/search_block";
 import { SearchControls } from "../../components/search_block/search_controls";
 import { createSearchState } from "../../components/search_block/search_state";
-import type { SearchDefinition } from "../../components/search_block/search_session";
+import type { SearchDefinition } from "../../components/search_block/search_definition";
 
 type ProposalSortKey = "created";
 type ProposalFilterKey = "state";
@@ -141,8 +141,7 @@ export function ProposalSearch(props: {
     previousTarget = target;
     void state.open(initialQuery);
   });
-  const recordQuery: RecordListQuery<ProposalSortKey, ProposalFilterKey> = {
-    kind: "paged",
+  const recordQuery: DataSheetQuery<ProposalSortKey, ProposalFilterKey> = {
     sort: {
       get value() {
         return {

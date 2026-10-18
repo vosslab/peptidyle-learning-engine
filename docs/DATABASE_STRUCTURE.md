@@ -62,7 +62,7 @@ Published Question Pool
   +-- unordered set of Question Revision Tuples and Pool metadata
   +-- Pool Edit Number
 
-Blueprint Course (Public or Archived)
+Blueprint Course (Public; Active or Archived lifecycle)
   +-- complete Blueprint Revision records
         +-- Blueprint Assessments
   +-- adoption relationships used to copy newly added Blueprint Assessments
@@ -128,18 +128,18 @@ purge with Student Work.
 
 ## Blueprint Courses
 
-Creation atomically produces a Public Blueprint and Revision 1. A meaningful
+Creation atomically produces an Active Blueprint and Revision 1. A meaningful
 explicit content Save creates the next complete Blueprint Revision. A canonical no-op
-creates none. Short name, long name, and Public/Archived lifecycle are
+creates none. Short name, long name, and Active/Archived lifecycle are
 current lineage metadata and do not create Revisions.
 
-A Course Instance may be created empty or adopt a Public Blueprint. Adoption
+A Course Instance may be created empty or adopt an Active Blueprint. Adoption
 copies Blueprint Assessments into current Course Instance Assessments and
 retains exact Blueprint Revision provenance. Blueprints contain no Students,
 dates, time zones, or relative schedules.
 
 The reverse creation workflow does not convert or mutate its source Course
-Instance. It atomically creates a distinct actor-owned Public Blueprint at
+Instance. It atomically creates a distinct actor-owned Active Blueprint at
 Revision 1 and records one immutable Blueprint-to-source-Course relation. That
 source Course counts as the Blueprint's first Adoption and contributes its
 distinct students-ever-enrolled count, but it is not a daughter Course and is
@@ -156,7 +156,7 @@ Proposals target a receiving Blueprint owner and create a new receiving
 Revision only for accepted changes. Their exact storage and concurrency shapes
 remain implementation choices rather than additional Revision families.
 
-The fresh schema stores Public or Archived availability on the stable lineage;
+The fresh schema stores Active or Archived lifecycle on the stable lineage;
 only the owning Instructor changes it.
 
 ## Course Instances and Assessments

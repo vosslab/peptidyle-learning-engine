@@ -34,7 +34,7 @@ is only a lookup/input value; it cannot establish authority.
 | Account, session, and passkey | Global `AccountId`                                                     | Server session and PostgreSQL                                     |
 | Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionTuple` | Active-Instructor Question Library                                |
 | Draft authoring               | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                                            |
-| Reusable curriculum           | Blueprint Course ID plus exact Blueprint Revision                      | Owner for edits/lifecycle; active Instructor for Public or Archived read |
+| Reusable curriculum           | Blueprint Course ID plus exact Blueprint Revision                      | Any active Instructor Account may read Active or Archived Blueprint Courses; owner controls edits and lifecycle |
 | Course and assignment         | `CourseInstanceId` and child records                                           | Current Instructor Course Membership                              |
 | Student work and grades       | Exact course plus Student owner                                        | Student self or current course Instructor                         |
 | Jobs and objects              | Typed target from the locked lease                                     | Store/PostgreSQL capability boundary                              |

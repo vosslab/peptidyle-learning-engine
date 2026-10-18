@@ -69,7 +69,7 @@ conversion failure against the [Native JSON specification](QUESTION_SPECS/NATIVE
 
 ## Work with Blueprint Courses
 
-Open a Public Blueprint Course and choose **Create Course Instance from this
+Open an Active Blueprint Course and choose **Create Course Instance from this
 Blueprint**, or create an empty Course Instance. The adoption form selects one
 exact saved Revision; enter Course names and term dates, then choose **Create
 Course Instance**. Blueprint Assessments become independently editable
@@ -83,7 +83,7 @@ you own, choose **Open Course Editor**, then **Edit assignment** beside one assi
 The quoted old labels identify current implementation controls; the target copy
 is **Edit Assessment** and **Return to Assessment list**. Local edits stay available
 until **Save Blueprint Course** creates a Revision or you discard them. Course names
-and Public/Archived lifecycle are current metadata and do not create a
+and Active/Archived lifecycle are current metadata and do not create a
 Revision.
 
 ## Choose installation data

@@ -63,8 +63,7 @@ export function StudentCoursesPage(): JSX.Element {
         state={courseSearch.state}
         collection={{
           ariaLabel: "Your courses",
-          fields: studentCourseFields,
-          query: courseSearch.query,
+          ...courseSearch.collection,
           get emptyState() {
             return {
               title:

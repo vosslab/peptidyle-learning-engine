@@ -259,8 +259,7 @@ export function AssessmentOverviewPage(): JSX.Element {
               state={previousAttemptSearch.state}
               collection={{
                 ariaLabel: "Previous Attempts",
-                fields: previousAttemptSearchFields,
-                query: previousAttemptSearch.query,
+                ...previousAttemptSearch.collection,
                 get emptyState() {
                   return {
                     title:

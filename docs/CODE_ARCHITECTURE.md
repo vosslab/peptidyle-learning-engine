@@ -38,11 +38,11 @@ Rust declarations, while authored runtime decoders reject unexpected wire data.
 Draft Question --publish--> Published Question + complete Question Revision records
 Question Pool -------------> unordered set of Question Revision Tuples + metadata + Edit Number
 
-Blueprint Course (Public/Archived)
+Blueprint Course (Public; Active/Archived lifecycle)
   +-- complete Blueprint Revision records
   +-- Blueprint Assessments
                |
-               | adopt exact Public Blueprint Revision
+               | adopt exact Active Blueprint Revision
                v
 Course Instance
   +-- equal co-Instructor and Student relationships
@@ -69,7 +69,7 @@ a daughter Course Instance.
 
 A Course Instance keeps its own deliberately entered short and long names and
 at least one assigned Instructor. Publishing its reusable structure creates a
-new Public Blueprint lineage without copying Students, Course dates, releases,
+new Active Blueprint lineage without copying Students, Course dates, releases,
 Student Work, or other delivery state.
 
 Account, Course Instance, Assessment, Blueprint Course, Published Question, and
@@ -204,6 +204,10 @@ stack. The Ribbon and breadcrumbs identify the page. Reading width is the
 default; a route may declare `fullWidth` for dense content without coupling
 that choice to Ribbon navigation. A `contentClass` hook is only for a
 task-specific arrangement inside that stack.
+Page route compositions own PageFrame and route identity. The Library Search, Browse, My Questions,
+and My Pools pages compose LibraryWorkspace; Blueprint list and detail pages compose their feature
+workspaces and own their frames. Feature navigation stays with the domain workflow when it owns the
+reactive state.
 [src/components/data_sheet/](../src/components/data_sheet/) provides the shared DataSheet
 presentation. `DataSheetBlock` owns Compact, List, Cards, and Visual Boxes, with shared
 sorting, filtering, selection, record actions, and stable-ID drag/drop interactions.
@@ -217,15 +221,25 @@ states and table skin, including internal horizontal scrolling. Pool and Assessm
 owners provide editor-specific commands and retain membership and saved order.
 
 The [shared search modules](../src/components/search_block/) connect collection consumers.
-`SearchBlock` places supplied criteria and controls above or beside `SearchResults`,
-which mounts `DataSheetBlock` with `DataSheetControls`, including for initial empty search.
-`SearchSession` owns numbered paging and stable-ID selection; query owners apply scope,
-authorization, filters, sorting, and counts to the complete collection before paging.
-Question, Pool, and Blueprint discovery use shared page sizes of 50, 100, or 250 records.
-`createLocalCompleteSearch` adapts a complete reactive rows accessor with optional loading,
-error, and source-refetch callbacks to the same session. Consumers retain their domain
-commands and source lifecycle. See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md)
-for the implemented boundary and [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) for its decisions.
+`createSearchState` is the sole reactive controller and lifecycle owner for search query state,
+numbered paging, requests, selection, retry, and disposal. `search_definition.ts` contains shared
+search definitions and types. `SearchBlock` adapts controller state and places supplied criteria and controls
+above or beside one required `DataSheetBlock`; `DataSheetBlock` mounts `DataSheetControls` before
+the record region and owns presentation and empty states. Query owners apply scope, authorization,
+filters, sorting, and counts to the complete collection before paging. Question, Pool, and Blueprint
+discovery use shared page sizes of 50, 100, or 250 records.
+
+`createLocalCompleteSearch` adapts a complete reactive rows accessor with optional loading, error,
+and source-refetch callbacks. It returns `{ state, collection: { fields, query } }`; callers declare
+fields once and pass the collection binding to `DataSheetBlock`. `DataSheetQuery` carries optional
+sorting and filtering bindings without a paging-kind discriminator. The Library assembly in
+[question_library_search_definition.ts](../src/features/question_library/question_library_search_definition.ts) builds
+that same state and collection binding for [LibraryWorkspace](../src/features/question_library/library_workspace.tsx), the Assessment content picker, and
+QuestionPoolAvailableQuestions while each caller keeps its own scope, permissions, actions, edit
+guards, and classification. Reorder bindings identify records by stable IDs. Consumers retain
+their domain commands and source lifecycle. See
+[SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the implemented boundary and
+[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) for its decisions.
 The combined Library query uses one globally paged Question/Pool server union. `/library/{id}`
 resolves the authorized object kind before dispatching to Question or Pool detail. The Question
 picker retains its ordered domain tray; the Assessment content picker selects Questions or one Pool

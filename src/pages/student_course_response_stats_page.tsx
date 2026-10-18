@@ -12,7 +12,7 @@ import {
 } from "../navigation/assessment_attempt_route";
 import { assessmentAttemptRouteId } from "../navigation/public_route";
 import { PageFrame } from "../components/page_frame/page_frame";
-import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordField } from "../components/data_sheet/data_sheet_fields";
 import type { RecordContent } from "../components/data_sheet/record_content";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
@@ -186,8 +186,7 @@ export function StudentResponseStatsPage(): JSX.Element {
                     : "No Question outcomes match your search.",
             };
           },
-          fields: responseFields,
-          query: search.query,
+          ...search.collection,
         }}
       />
       <p>Time shown is approximate; it does not measure attention or effort or affect grades.</p>

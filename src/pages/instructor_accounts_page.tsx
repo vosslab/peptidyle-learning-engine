@@ -15,9 +15,9 @@ import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
 import type { RecordContent } from "../components/data_sheet/record_content";
 import type {
   RecordField,
-  RecordListQuery,
+  DataSheetQuery,
   RecordSort,
-} from "../components/data_sheet/record_fields";
+} from "../components/data_sheet/data_sheet_fields";
 import { SearchBlock } from "../components/search_block/search_block";
 import { SearchControls } from "../components/search_block/search_controls";
 import { createSearchState } from "../components/search_block/search_state";
@@ -153,8 +153,7 @@ export function InstructorAccountsPage(): JSX.Element {
       void searchState.open(searchState.query());
     }
   });
-  const accountQuery: RecordListQuery<AccountSortKey, AccountFilterKey> = {
-    kind: "paged",
+  const accountQuery: DataSheetQuery<AccountSortKey, AccountFilterKey> = {
     sort: {
       get value(): RecordSort<AccountSortKey> {
         return {

@@ -38,8 +38,8 @@ implementation gaps and do not change the product term.
 ### Blueprint-operation authorization
 
 **Decision.** Course creation may create an empty Course Instance or adopt a
-Public Blueprint. A Blueprint is created Public with Revision 1. Only its
-owner may Save content or change its Public or Archived lifecycle.
+Active Blueprint. A Blueprint is created Active with Revision 1. Only its
+owner may Save content or change its Active or Archived lifecycle.
 The transport resolves its authenticated Account only through `SessionRecord`;
 current operation counts and route names are implementation details rather than
 product lifecycle authority.

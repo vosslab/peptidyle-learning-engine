@@ -3,8 +3,8 @@ import type {
   RecordFieldScalar,
   RecordFilterChoices,
   RecordSort,
-} from "../data_sheet/record_fields";
-import type { SearchPage, SearchPageRequest } from "./search_session";
+} from "../data_sheet/data_sheet_fields";
+import type { SearchPage, SearchPageRequest } from "./search_definition";
 
 /** A query over one complete, already authorized source array. */
 export type LocalCompleteQuery<SortKey extends string, FilterKey extends string> = {

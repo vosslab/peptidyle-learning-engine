@@ -300,7 +300,7 @@ export async function instructorBlueprint(runtime: ScenarioRuntime): Promise<voi
       session.page
         .locator("[data-record-id]")
         .filter({ has: session.page.getByText(COURSE_TITLE, { exact: true }) })
-        .getByRole("link", { name: "Open Blueprint Course", exact: true }),
+        .getByRole("link", { name: "Open Blueprint", exact: true }),
     );
     await session.page.waitForURL(/\/blueprint-courses\/[^/]+$/u);
     await session.page.getByRole("main", { name: COURSE_TITLE, exact: true }).waitFor();
@@ -328,8 +328,9 @@ export async function instructorBlueprint(runtime: ScenarioRuntime): Promise<voi
       name: "Choose the first reusable Questions",
       exact: true,
     });
-    await picker.getByRole("button", { name: "Search", exact: true }).click();
-    await picker.getByRole("checkbox").first().waitFor({ state: "visible" });
+    const results = picker.getByRole("region", { name: "Question results", exact: true });
+    await results.getByRole("button", { name: "Search", exact: true }).click();
+    await results.getByRole("checkbox").first().waitFor({ state: "visible" });
     await captureCheckpoint(runtime, "blueprint_question_picker", session);
   } finally {
     await runtime.close(session);
@@ -353,7 +354,6 @@ export async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime):
       .waitFor();
     await session.page.getByLabel("Blueprint Course name", { exact: true }).fill("Biochemistry");
     await session.page.getByRole("button", { name: "Search", exact: true }).click();
-    await session.page.getByText(/^[0-9,]+ shown on this page$/u).waitFor();
     await session.page.getByText(COURSE_TITLE, { exact: true }).waitFor();
     await captureCheckpoint(runtime, "filtered_results", session);
   } finally {

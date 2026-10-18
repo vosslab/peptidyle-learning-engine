@@ -12,7 +12,7 @@ import {
 } from "./authoring_classification_level";
 import { ContentClassificationSelect } from "./content_classification_select";
 import type { RecordContent } from "./data_sheet/record_content";
-import type { RecordField } from "./data_sheet/record_fields";
+import type { RecordField } from "./data_sheet/data_sheet_fields";
 import { SearchBlock } from "./search_block/search_block";
 import { SearchControls } from "./search_block/search_controls";
 import { createLocalCompleteSearch } from "./search_block/local_complete_search_state";
@@ -521,8 +521,7 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
             state={metadataSearch.state}
             collection={{
               ariaLabel: "Current metadata by selected Question",
-              fields: metadataFields,
-              query: metadataSearch.query,
+              ...metadataSearch.collection,
               emptyState: { title: "No selected Questions match this metadata search." },
               disabled: busy,
             }}

@@ -33,7 +33,7 @@ Backend from authenticated context and stored relationships.
 | Draft Question | Authorized Instructor workspace; mutable and unpublished | Bounded Instructor result only | [README.md](QUESTION_SPECS/README.md) |
 | Published Question | Stable identity plus complete Question Revision records; permitted metadata edits in place | Answer-free render and permitted metadata | [README.md](QUESTION_SPECS/README.md) |
 | Question Pool | Stable identity plus current membership on an Edit Number | Published discovery data and Assessment selection evidence | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
-| Blueprint Course | Stable identity plus immutable changed-content Revisions | Visibility follows Public or Archived state | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
+| Blueprint Course | Stable identity plus immutable changed-content Revisions | Public visibility to Instructors; Active or Archived lifecycle | [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) |
 | Canonical Blueprint JSON | Complete Blueprint comparison and exchange representation; not primary persistence | Authorized import, export, comparison, and proposal review only | [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) |
 | Course Instance Assessment | Current Course configuration; no Assessment Revision family | Instructor editor or Student Coursework projection | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
 | Assessment Attempt | Course, Student, timing, saved responses, nullable cumulative Question display milliseconds, and whole-Assessment submission state | The authorized Student's current Attempt and permitted result | [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) |
