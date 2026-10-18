@@ -27,8 +27,9 @@ pub struct StudentAttemptHistoryEntry {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentAttemptHistoryPage {
     pub items: Vec<StudentAttemptHistoryEntry>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
+    pub page_number: u32,
+    pub page_size: u16,
+    pub total_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

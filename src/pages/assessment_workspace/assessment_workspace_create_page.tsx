@@ -10,7 +10,7 @@ import {
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
 import type { AssessmentTemplate } from "../../../generated/api/AssessmentTemplate";
 import { useApplicationApi } from "../../api/application_api";
-import { PageFrame } from "../../components/page_frame";
+import { PageFrame } from "../../components/page_frame/page_frame";
 import type { LiveAssessmentWorkspaceResponse } from "../../api/assessment_release";
 import { useSessionBootstrap } from "../../auth/session_context";
 import { courseRouteView } from "../../appearance/theme_context";

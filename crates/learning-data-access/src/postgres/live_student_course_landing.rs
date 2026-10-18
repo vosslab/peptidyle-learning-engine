@@ -15,8 +15,9 @@ use crate::{
     LiveStudentAttemptHistoryEntry, LiveStudentCourseActiveAttempt,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseLandingSummary, LiveStudentCourseProgressAssessment,
-    LiveStudentCourseResponseQuestionStats, LiveStudentLatestFeedback, Page, PageRequest,
-    SessionTokenHash, StoreError, StudentAttemptHistoryFacetChoice, StudentAttemptHistoryQuery,
+    LiveStudentCourseResponseQuestionStats, LiveStudentLatestFeedback, NumberedPage,
+    NumberedPageRequest, Page, PageNumber, PageRequest, SessionTokenHash, StoreError,
+    StudentAttemptHistoryFacetChoice, StudentAttemptHistoryQuery,
 };
 
 /// PostgreSQL Store for the active Student Course landing.
@@ -220,15 +221,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         &self,
         session_token_hash: SessionTokenHash,
         query: StudentAttemptHistoryQuery,
-        page: PageRequest,
-    ) -> Result<Page<LiveStudentAttemptHistoryEntry>, StoreError> {
-        let after = page
-            .after
-            .as_ref()
-            .map(|cursor| uuid::Uuid::parse_str(cursor.as_str()))
-            .transpose()
-            .map_err(|_| invalid("Attempt History cursor"))?;
-        let limit = usize::from(page.size.get());
+        page: NumberedPageRequest,
+    ) -> Result<NumberedPage<LiveStudentAttemptHistoryEntry, crate::PageSize>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let courses = query
             .course_ids
@@ -236,14 +230,14 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
             .map(CourseInstanceId::as_string)
             .collect::<Vec<_>>();
         let rows = sqlx::query(
-            "SELECT continuation_key, course_instance_id, course_short_name, course_long_name, \
+            "SELECT has_item, resolved_page_number, total_count, course_instance_id, course_short_name, course_long_name, \
              assessment_attempt_id, assessment_id, assessment_title, \
              assessment_attempt_number, started_at_millis, submitted_at_millis, \
              assessment_score_points_earned, assessment_score_points_possible \
-             FROM ple_api.list_student_attempt_history($1::uuid, $2, $3, $4, $5, $6)",
+             FROM ple_api.list_student_attempt_history($1::bigint, $2, $3, $4, $5, $6)",
         )
-        .bind(after)
-        .bind(i32::from(page.size.get()))
+        .bind(i64::from(page.page_number.get()))
+        .bind(i32::from(page.page_size.get()))
         .bind(&query.search)
         .bind(query.state.as_str())
         .bind(courses)
@@ -251,21 +245,33 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let items = rows
-            .iter()
-            .take(limit)
-            .map(decode_attempt_history_entry)
-            .collect::<Result<Vec<_>, _>>()?;
-        let next_cursor = if rows.len() > limit {
-            let key: String = rows[limit - 1]
-                .try_get("continuation_key")
-                .map_err(map_sqlx_error)?;
-            Some(crate::Cursor::parse(key).map_err(|_| invalid("Attempt History cursor"))?)
-        } else {
-            None
-        };
+        let metadata = rows
+            .first()
+            .ok_or_else(|| invalid("Attempt History page metadata"))?;
+        let resolved_page_number: i64 = metadata
+            .try_get("resolved_page_number")
+            .map_err(map_sqlx_error)?;
+        let total_count: i64 = metadata.try_get("total_count").map_err(map_sqlx_error)?;
+        let page_number = PageNumber::new(
+            u32::try_from(resolved_page_number)
+                .map_err(|_| invalid("Attempt History page number"))?,
+        )
+        .map_err(|_| invalid("Attempt History page number"))?;
+        let total_count =
+            u64::try_from(total_count).map_err(|_| invalid("Attempt History count"))?;
+        let mut items = Vec::new();
+        for row in &rows {
+            if row.try_get::<bool, _>("has_item").map_err(map_sqlx_error)? {
+                items.push(decode_attempt_history_entry(row)?);
+            }
+        }
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(Page { items, next_cursor })
+        Ok(NumberedPage {
+            items,
+            page_number,
+            page_size: page.page_size,
+            total_count,
+        })
     }
 
     async fn list_student_attempt_history_facet_choices(

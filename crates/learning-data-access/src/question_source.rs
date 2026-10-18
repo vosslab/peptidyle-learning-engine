@@ -208,8 +208,52 @@ impl PreparedQuestionImagePublication {
     }
 }
 
+/// Verified artifact facts for the same immutable source and Question Revision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedQuestionThumbnailPublication {
+    pub object_record: ObjectRecord,
+    pub source_checksum: objects::Sha256Checksum,
+    pub intrinsic_width: u32,
+    pub intrinsic_height: u32,
+}
+
+impl PreparedQuestionThumbnailPublication {
+    /// Refuses artifacts that do not belong to this exact source and revision.
+    pub fn validate(&self, source: &ObjectRecord) -> Result<(), StoreError> {
+        let record = &self.object_record;
+        let Some(revision) = &source.published_question_revision_tuple else {
+            return Err(StoreError::InvalidRecord(
+                "Publication source has no Revision".into(),
+            ));
+        };
+        let expected = ObjectAddress::QuestionThumbnail {
+            published_question_revision_tuple: revision.clone(),
+            object_id: record.id,
+        };
+        if record.address != expected
+            || record.storage_area != ObjectStorageArea::PrivateContent
+            || record.data_class != ObjectDataClass::QuestionThumbnail
+            || record.published_question_revision_tuple.as_ref() != Some(revision)
+            || record.media_type != "image/webp"
+            || record.size_bytes == 0
+            || record.size_bytes > 2_000_000
+            || self.source_checksum != source.sha256
+            || self.intrinsic_width != 256
+            || self.intrinsic_height != 256
+        {
+            return Err(StoreError::InvalidRecord(
+                "Publication thumbnail must match its exact source and Revision".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Complete immutable source, artifact, and acceptance facts for a new lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewQuestionLineagePublicationInput {
+    /// Validated WebP artifact; SQL requires it for a locked WeBWorK binding.
+    pub question_thumbnail: Option<PreparedQuestionThumbnailPublication>,
     /// Prepared rasters referenced by native source or its response surface.
     pub question_images: Vec<PreparedQuestionImagePublication>,
     /// Current private Draft Question selected for publication.
@@ -258,6 +302,9 @@ impl NewQuestionLineagePublicationInput {
     /// Refuses target object or acceptance facts that do not match this publication.
     pub fn validate(&self) -> Result<(), StoreError> {
         Self::validate_initial_shared_tags(&self.initial_shared_tags)?;
+        if let Some(thumbnail) = &self.question_thumbnail {
+            thumbnail.validate(&self.question_source_object_record)?;
+        }
         if self.self_author_position.is_some_and(|position| {
             position >= self.question_authorship.authors.len() || i32::try_from(position).is_err()
         }) {
@@ -322,10 +369,8 @@ pub trait NewQuestionLineagePublicationStore: Send + Sync {
     /// Atomically records one complete new Published Question aggregate after
     /// the exact source bytes have been copied to immutable object storage.
     ///
-    /// [`NewQuestionLineagePublicationError::IdentityCollision`] is reserved
-    /// for a conclusively allocated Question ID. Every other persistence
-    /// failure remains a [`StoreError`], so publication never retries or
-    /// compensates an ambiguous outcome.
+    /// A named identity collision may retry. `NotCommitted` proves candidates
+    /// are unregistered; generic `Store` retains bytes on uncertain outcomes.
     async fn publish_new_question_lineage(
         &self,
         session_token_hash: SessionTokenHash,
@@ -336,14 +381,15 @@ pub trait NewQuestionLineagePublicationStore: Send + Sync {
 /// Result of registering one first Question Revision after its immutable
 /// source object has been written.
 ///
-/// The separate collision variant makes the only conclusive identity race
-/// explicit at the persistence boundary. It prevents a coordinator from
-/// treating a generic database uniqueness error as safe to delete and retry.
+/// Named collision and confirmed noncommit outcomes permit exact cleanup;
+/// generic transport or commit errors retain potentially registered objects.
 #[derive(Debug, Clone, PartialEq)]
 pub enum NewQuestionLineagePublicationError {
     /// The candidate Question ID is already issued elsewhere.
     IdentityCollision,
-    /// Any non-identity persistence failure is ambiguous to object storage.
+    /// No publication transaction began, or rollback was explicitly confirmed.
+    NotCommitted(StoreError),
+    /// An uncertain persistence or commit outcome is ambiguous to object storage.
     Store(StoreError),
 }
 
@@ -356,6 +402,8 @@ pub enum NewQuestionLineagePublicationError {
 /// optimistic-concurrency conflict rather than a reserved revision number.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExistingQuestionRevisionPublicationInput {
+    /// Validated WebP artifact; SQL requires it for a locked WeBWorK binding.
+    pub question_thumbnail: Option<PreparedQuestionThumbnailPublication>,
     /// Prepared rasters referenced by native source or its response surface.
     pub question_images: Vec<PreparedQuestionImagePublication>,
     /// Current private Draft Question selected for publication.
@@ -384,7 +432,9 @@ pub struct ExistingQuestionRevisionPublicationInput {
 pub enum ExistingQuestionRevisionPublicationError {
     /// The exact Draft or parent Question Revision precondition is stale.
     Stale,
-    /// Any other persistence outcome remains ambiguous to object storage.
+    /// No publication transaction began, or rollback was explicitly confirmed.
+    NotCommitted(StoreError),
+    /// An uncertain persistence or commit outcome remains ambiguous to object storage.
     Store(StoreError),
 }
 
@@ -416,6 +466,9 @@ impl ExistingQuestionRevisionPublicationInput {
     /// Refuses a target object that is not owned by the exact successor.
     pub fn validate(&self) -> Result<(), StoreError> {
         let expected_revision_tuple = self.published_question_revision_tuple()?;
+        if let Some(thumbnail) = &self.question_thumbnail {
+            thumbnail.validate(&self.question_source_object_record)?;
+        }
         for asset in &self.question_images {
             asset.validate(&expected_revision_tuple)?;
         }

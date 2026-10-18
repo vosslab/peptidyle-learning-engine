@@ -61,13 +61,24 @@ export function decodeBlueprintHistoryPageView(
   path = "response",
 ): BlueprintHistoryPage {
   const page = decodeRecord(value, path);
-  requireOnlyFields(page, path, ["items", "nextCursor", "availabilityFacets"]);
-  const cursor = field(page, "nextCursor", path);
+  requireOnlyFields(page, path, [
+    "items",
+    "pageNumber",
+    "pageSize",
+    "totalCount",
+    "availabilityFacets",
+  ]);
+  const pageNumber = decodeSafeInteger(field(page, "pageNumber", path), `${path}.pageNumber`);
+  const pageSize = decodeSafeInteger(field(page, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeSafeInteger(field(page, "totalCount", path), `${path}.totalCount`);
   if (
-    cursor !== null &&
-    (typeof cursor !== "string" || cursor.length === 0 || cursor.length > 8192)
+    pageNumber < 1 ||
+    pageSize < 1 ||
+    pageSize > 100 ||
+    totalCount < 0 ||
+    pageNumber > Math.max(1, Math.ceil(totalCount / pageSize))
   )
-    throw new DecodeError(`${path}.nextCursor`, "a bounded history cursor or null");
+    throw new DecodeError(path, "valid numbered page metadata");
   const facets = decodeRecord(
     field(page, "availabilityFacets", path),
     `${path}.availabilityFacets`,
@@ -83,9 +94,14 @@ export function decodeBlueprintHistoryPageView(
   );
   if (publicCount < 0 || archivedCount < 0)
     throw new DecodeError(`${path}.availabilityFacets`, "nonnegative counts");
+  const items = decodeBoundedArray(field(page, "items", path), `${path}.items`, pageSize, entry);
+  if (items.length > totalCount)
+    throw new DecodeError(`${path}.items`, "no more entries than totalCount");
   return {
-    items: [...decodeBoundedArray(field(page, "items", path), `${path}.items`, 100, entry)],
-    nextCursor: cursor,
+    items: [...items],
+    pageNumber,
+    pageSize,
+    totalCount,
     availabilityFacets: { publicCount, archivedCount },
   };
 }

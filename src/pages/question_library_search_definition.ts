@@ -1,10 +1,11 @@
 // Question Library content and API rules supplied to the shared search session.
-import type { RecordContent, RecordFact } from "../components/record_list/record_list";
+import { questionNativePreview } from "../components/question_native_preview";
+import type { RecordContent, RecordFact } from "../components/data_sheet/record_content";
 import type {
   SearchAppliedFilter,
   SearchDefinition,
   SearchPage,
-} from "../features/search/search_session";
+} from "../components/search_block/search_session";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import {
   backendLabel,
@@ -61,7 +62,15 @@ export function questionLibraryContent(row: LibraryObjectQuestionRow): RecordCon
   const summary = row.description.trim();
   return {
     title: row.title,
+    preview: questionNativePreview(row),
     description: summary.length > 0 ? summary : undefined,
+    media:
+      row.questionThumbnail === null
+        ? undefined
+        : {
+            src: `/api/questions/by-id/${encodeURIComponent(row.questionThumbnail.publishedQuestionId)}/revisions/${encodeURIComponent(String(row.questionThumbnail.revisionNumber))}/thumbnail`,
+            alt: `Preview of ${row.title}`,
+          },
     details: questionDetails(row),
     actions: [
       {
@@ -279,14 +288,15 @@ export function questionLibrarySearchDefinition(
     selection: { maximum: MAX_BULK_QUESTION_METADATA_ITEMS },
     fetchPage: async (
       query,
-      cursor,
-      pageSize,
+      request,
     ): Promise<SearchPage<LibrarySearchRow, QuestionLibraryFilterCounts>> => {
       // ASVS 2.2.1: validate transport data before supplying rows to the shared UI.
-      const page = decodeLibrarySearchPage(await repository.search(query, cursor, pageSize));
+      const page = decodeLibrarySearchPage(await repository.search(query, request));
       return {
         items: page.items,
-        nextCursor: page.nextCursor,
+        pageNumber: page.pageNumber,
+        pageSize: page.pageSize,
+        totalCount: page.totalCount,
         filterCounts: { aggregates: page.aggregates, facetTruncation: page.facetTruncation },
       };
     },

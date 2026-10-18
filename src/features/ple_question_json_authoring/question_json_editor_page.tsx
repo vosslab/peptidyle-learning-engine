@@ -2,7 +2,7 @@
 
 import { Show, createEffect, onCleanup, onMount, type JSX } from "solid-js";
 
-import { PageFrame } from "../../components/page_frame";
+import { PageFrame } from "../../components/page_frame/page_frame";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { PLE_QUESTION_JSON_EDITOR_STYLES } from "./question_json_editor_styles";
 import type { QuestionResponseControlBaseProps } from "../../components/question_response_controls/common";

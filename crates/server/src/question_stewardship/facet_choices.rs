@@ -1,18 +1,20 @@
 //! Facet choices from the same private, actor-scoped Starred matcher.
 
 use super::{
-    Deserialize, Digest, HeaderMap, IntoResponse, Json, LibraryObjectSearchRequest,
-    LibrarySearchKind, Path, PublishedQuestionFilter, QuestionLibrarySearchScope, RawQuery,
-    Response, RouteState, Serialize, Sha256, StarredSort, State, StatusCode, URL_SAFE_NO_PAD,
-    instructor_session, parse_starred_query, query_digest, route_error, store_error_response,
+    Deserialize, HeaderMap, IntoResponse, Json, LibraryObjectSearchRequest, LibrarySearchKind,
+    Path, PublishedQuestionFilter, QuestionLibrarySearchScope, RawQuery, Response, RouteState,
+    Serialize, StarredSort, State, StatusCode, instructor_session, parse_starred_query,
+    route_error, store_error_response,
 };
-use base64::Engine as _;
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     QuestionLibraryBackendRestriction, QuestionLibraryFacetChoiceRequest, QuestionLibraryStore,
 };
 use question_model::{
-    Capability, LibraryFacetChoice, LibraryFacetChoicePage, LibraryFacetField, QuestionBackend,
+    Capability, LibraryFacetChoice, LibraryFacetChoicePage, LibraryFacetField,
+    LibraryObjectSearchFilter, QuestionBackend,
 };
+use sha2::{Digest, Sha256};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -29,8 +31,10 @@ fn choice_digest(
     field: LibraryFacetField,
     search: Option<&str>,
 ) -> [u8; 32] {
+    let filter = LibraryObjectSearchFilter::from_query(query.clone())
+        .expect("validated Starred facet query normalizes");
     Sha256::digest(
-        serde_json::to_vec(&(query_digest(query, sort, actor), field, search))
+        serde_json::to_vec(&(filter, sort, actor, field, search))
             .expect("Starred choice query serializes"),
     )
     .into()
@@ -103,7 +107,7 @@ pub(super) async fn list_starred_facet_choices(
         LibraryFacetField::Capabilities => effective.capabilities.clear(),
         _ => {}
     }
-    let mut request = crate::question_library::mixed_search::store_search_request(&effective, None);
+    let mut request = crate::question_library::mixed_search::store_search_request(&effective);
     request.scope = QuestionLibrarySearchScope::CurrentStarred;
     if field == LibraryFacetField::Backends {
         request.backends = if public_query.capabilities.is_empty() {

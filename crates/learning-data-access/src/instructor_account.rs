@@ -4,7 +4,10 @@ use async_trait::async_trait;
 use question_model::{AccountId, AccountTimeZone, Timestamp};
 use serde::{Deserialize, Serialize};
 
-use crate::{AuthenticationEmail, ProvidedAvatarId, SessionTokenHash, StoreError};
+use crate::{
+    AuthenticationEmail, NumberedPageRequest, PageNumber, PageSize, ProvidedAvatarId,
+    SessionTokenHash, StoreError,
+};
 
 /// The current lifecycle state of an Instructor Account.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,16 +37,21 @@ pub struct InstructorAccountSummary {
     pub provided_avatar_id: Option<ProvidedAvatarId>,
 }
 
-/// Closed Instructor Account rows with the authenticated Sysadmin's display context.
+/// One numbered page of closed Instructor Account rows with the authenticated Sysadmin's display
+/// context and the independent state-facet counts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstructorAccountList {
-    /// The intentional browser-safe target-account rows.
-    pub accounts: Vec<InstructorAccountSummary>,
+    /// The intentional browser-safe target-account rows in the resolved page.
+    pub items: Vec<InstructorAccountSummary>,
+    /// One-based requested page after clamping to the matching result set.
+    pub page_number: PageNumber,
+    /// The validated requested page size.
+    pub page_size: PageSize,
+    /// Number of matching rows before page slicing.
+    pub total_count: u64,
     /// Exact self-owned IANA zone for the authenticated Sysadmin viewer.
     pub display_time_zone: AccountTimeZone,
-    /// Account ID of the last row when another row exists past this page.
-    pub next_cursor: Option<String>,
     pub state_choices: Vec<InstructorAccountStateChoice>,
 }
 
@@ -54,18 +62,16 @@ pub struct InstructorAccountStateChoice {
     pub count: i64,
 }
 
-/// Sysadmin list constraints. A page size scans one server page; None returns the filtered list.
+/// Sysadmin list constraints for one numbered page of the complete matching collection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstructorAccountBrowse {
-    /// Name or email. Empty and missing both list without a name match.
+    /// Exact Account ID/email, or a display-name substring; empty lists all matches.
     pub query: Option<String>,
     /// One Account State, or every state when absent.
     pub state: Option<InstructorAccountState>,
     pub sort: InstructorAccountSort,
-    /// Query-bound cursor; the first page has no cursor.
-    pub cursor: Option<String>,
-    /// 50, 100, or 250. None is the complete filtered list.
-    pub page_size: Option<i32>,
+    /// One-based page request with the ordinary 100-row maximum.
+    pub page: NumberedPageRequest,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,10 +158,10 @@ impl DeactivateInstructorAccountInput {
 pub trait InstructorAccountStore: Send + Sync {
     /// Lists browser-safe rows with only the authenticated Sysadmin's display zone.
     ///
-    /// A non-empty query matches an Instructor authentication email exactly or a
-    /// Profile display name by case-insensitive substring. State keeps one Account
-    /// State. Page size 50, 100, or 250 returns at most that many rows after the
-    /// previous Account ID. The returned rows still omit the email and the name.
+    /// A non-empty query matches an Instructor Account ID or Authentication Email
+    /// exactly, or a Profile display name by case-insensitive substring. State keeps
+    /// one Account State. The result is filtered and ordered before the requested
+    /// numbered page is sliced; the returned rows still omit email and name.
     async fn list_instructor_accounts(
         &self,
         session_token_hash: SessionTokenHash,

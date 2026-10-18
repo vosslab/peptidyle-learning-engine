@@ -15,6 +15,7 @@ import { PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
 const MAX_QUESTION_SEARCH_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
+const MAX_QUESTION_SEARCH_EXCLUDED_QUESTION_IDS = 1024;
 const LIBRARY_OBJECT_SEARCH_CAPABILITIES = [
   "algorithmicGeneration",
   "clientRendering",
@@ -58,7 +59,10 @@ const LIBRARY_OBJECT_SEARCH_QUERY_FIELDS = [
   "question_licenses",
   "authorship",
   "sort",
+  "excluded_question_ids",
+  // Facet choice enumeration has its own independent continuation cursor.
   "cursor",
+  "page_number",
   "page_size",
 ] as const;
 
@@ -106,16 +110,9 @@ function boundedLibraryObjectSearchFilterValues(
   }
 }
 
-function libraryObjectSearchCursor(value: string): string {
-  if (value.length === 0) {
-    throw new Error("Question Library cursor must not be empty");
-  }
-  return value;
-}
-
 /**
  * ASVS 2.2.1: validates and serializes the only bounded, allowlisted
- * cursor-based Library Object search request shape.
+ * numbered Library Object search request shape.
  */
 function libraryObjectSearchParameters(query: LibraryObjectSearchRequest): URLSearchParams {
   for (const field of Object.keys(query)) {
@@ -308,8 +305,27 @@ function libraryObjectSearchParameters(query: LibraryObjectSearchRequest): URLSe
       "Question Library sort",
     ),
   );
-  if (query.cursor !== null) {
-    parameters.set("cursor", libraryObjectSearchCursor(query.cursor));
+  boundedLibraryObjectSearchFilterValues(
+    query.excluded_question_ids,
+    MAX_QUESTION_SEARCH_EXCLUDED_QUESTION_IDS,
+    "Question Library excluded Question IDs",
+  );
+  for (const questionId of query.excluded_question_ids) {
+    const canonicalQuestionId = validateCanonicalQuestionIdSyntax(questionId);
+    if (canonicalQuestionId === null) {
+      throw new Error("Question Library excluded Question ID must be canonical");
+    }
+    parameters.append("excluded_question_ids", canonicalQuestionId);
+  }
+  if (query.page_number !== null) {
+    if (
+      !Number.isSafeInteger(query.page_number) ||
+      query.page_number < 1 ||
+      query.page_number > 0xffffffff
+    ) {
+      throw new Error("Question Library page_number must be an integer from 1 through 4294967295");
+    }
+    parameters.set("page_number", String(query.page_number));
   }
   if (query.page_size !== null) {
     if (
@@ -327,6 +343,9 @@ function libraryObjectSearchParameters(query: LibraryObjectSearchRequest): URLSe
 }
 
 export function libraryObjectSearchPath(query: LibraryObjectSearchRequest): string {
+  if (query.cursor !== null) {
+    throw new Error("Question Library result requests use numbered pagination");
+  }
   return `/api/library-objects/search?${libraryObjectSearchParameters(query).toString()}`;
 }
 
@@ -360,6 +379,12 @@ export function libraryFacetChoicesPath(
     throw new Error("Question Library choice page_size must be at most 100");
   }
   const parameters = libraryObjectSearchParameters(query);
+  if (query.cursor !== null) {
+    if (query.cursor.length === 0 || query.cursor.length > 1024) {
+      throw new Error("Question Library facet choice cursor is invalid");
+    }
+    parameters.set("cursor", query.cursor);
+  }
   if (choiceSearch !== null) {
     if (Array.from(choiceSearch).length > 128) {
       throw new Error("Question Library choice search is too long");

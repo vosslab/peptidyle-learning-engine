@@ -1,8 +1,10 @@
 //! PostgreSQL implementation of the Instructor Question Library read boundary.
 
 mod facet_choices;
+mod image_renditions;
 mod mixed;
 mod search;
+mod thumbnail;
 
 use async_trait::async_trait;
 use question_model::{
@@ -20,8 +22,8 @@ use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::question_library::{QuestionLibrarySearchPage, QuestionLibrarySearchRequest};
 use crate::{
-    PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
-    SessionTokenHash, StoreError,
+    PublishedQuestionAvailability, PublishedQuestionLibraryEntry, PublishedQuestionThumbnail,
+    QuestionLibraryStore, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the session-authorized Instructor Question Library.
@@ -65,6 +67,15 @@ impl PostgresQuestionLibraryStore {
 
 #[async_trait]
 impl QuestionLibraryStore for PostgresQuestionLibraryStore {
+    async fn resolve_question_thumbnail(
+        &self,
+        session_token_hash: SessionTokenHash,
+        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
+    ) -> Result<PublishedQuestionThumbnail, StoreError> {
+        self.resolve_question_thumbnail(session_token_hash, published_question_revision_tuple)
+            .await
+    }
+
     async fn list_question_library_facet_choices(
         &self,
         session_token_hash: SessionTokenHash,
@@ -102,10 +113,11 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        let entries = rows
+        let mut entries = rows
             .iter()
             .map(decode_entry)
             .collect::<Result<Vec<_>, _>>()?;
+        image_renditions::load_image_bindings(&mut transaction, entries.iter_mut()).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(entries)
     }
@@ -136,7 +148,8 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .map(decode_entry)
             .transpose()?
             .ok_or(StoreError::NotFound)?;
-        load_detail_image_renditions(&mut transaction, &mut entry).await?;
+        image_renditions::load_image_bindings(&mut transaction, std::iter::once(&mut entry))
+            .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(entry)
     }
@@ -178,7 +191,8 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         if entry.published_question_revision_tuple != *published_question_revision_tuple {
             return Err(invalid("Question Library exact revision"));
         }
-        load_detail_image_renditions(&mut transaction, &mut entry).await?;
+        image_renditions::load_image_bindings(&mut transaction, std::iter::once(&mut entry))
+            .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(entry)
     }
@@ -452,29 +466,6 @@ impl PostgresQuestionLibraryStore {
     }
 }
 
-async fn load_detail_image_renditions(
-    transaction: &mut Transaction<'_, Postgres>,
-    entry: &mut PublishedQuestionLibraryEntry,
-) -> Result<(), StoreError> {
-    if entry.backend == QuestionBackend::Ple {
-        // ASVS 8.2.2: the preceding library read authorizes this exact Revision.
-        entry.question_image_renditions =
-            super::assessment_delivery::current_ready_question_image_renditions(
-                transaction,
-                entry
-                    .published_question_revision_tuple
-                    .published_question_id
-                    .as_str(),
-                entry
-                    .published_question_revision_tuple
-                    .revision_number
-                    .get(),
-            )
-            .await?;
-    }
-    Ok(())
-}
-
 fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryEntry, StoreError> {
     let question_id: String = row
         .try_get("published_question_id")
@@ -550,6 +541,9 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
             revision_number,
         },
         parent_published_question_revision_tuple: decode_parent_revision_tuple(row)?,
+        has_question_thumbnail: row
+            .try_get("has_question_thumbnail")
+            .map_err(map_sqlx_error)?,
         backend,
         question_format,
         question_type,
@@ -583,7 +577,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         source_object_id,
         source_object_checksum,
         source_media_type: row.try_get("source_media_type").map_err(map_sqlx_error)?,
-        question_image_renditions: Vec::new(),
+        question_image_bindings: Vec::new(),
         webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,
         revision_general_feedback: None,
         revision_hint: None,

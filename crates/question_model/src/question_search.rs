@@ -20,7 +20,7 @@ pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS: usize = 16;
 /// Maximum free-form tag selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_TAG_FILTERS: usize = 64;
 
-/// Maximum encoded continuation cursor length for Question Library search.
+/// Maximum encoded continuation cursor length for Question Library facet choices.
 ///
 /// The longest sort key must carry a maximum-length Question Title and public
 /// Question ID; this is intentionally distinct from the smaller generic cursor.
@@ -155,9 +155,9 @@ pub struct QuestionSearchBloomKnowledgeDimensionFacet {
 
 /// Strict, bounded Library Object Search request carried across the browser boundary.
 ///
-/// The server normalizes this value before paging and aggregation. The cursor
-/// is opaque and tied to that normalized query; positional paging is not
-/// representable.
+/// The server normalizes this value before paging and aggregation. `cursor`
+/// remains reserved for separately paged facet-choice enumeration; collection
+/// rows use `page_number`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct LibraryObjectSearchRequest {
@@ -218,8 +218,14 @@ pub struct LibraryObjectSearchRequest {
     /// Visible deterministic result order.
     #[serde(default)]
     pub sort: LibraryObjectSearchSort,
-    /// Opaque continuation cursor from this exact normalized query.
+    /// Exact Question IDs omitted from this complete collection before counting and paging.
+    /// Dedicated editors use this only for their already-fixed Questions.
+    #[serde(default)]
+    pub excluded_question_ids: Vec<PublishedQuestionId>,
+    /// Opaque continuation for a facet-choice request, never collection rows.
     pub cursor: Option<String>,
+    /// One-based requested result page. `None` selects the first page.
+    pub page_number: Option<u32>,
     /// Requested bounded page size. `None` selects the server default.
     pub page_size: Option<u16>,
 }
@@ -266,6 +272,8 @@ pub struct LibraryObjectSearchFilter {
     pub authorship: QuestionSearchAuthorship,
     #[serde(default)]
     pub sort: LibraryObjectSearchSort,
+    #[serde(default)]
+    pub excluded_question_ids: Vec<PublishedQuestionId>,
 }
 
 impl LibraryObjectSearchFilter {
@@ -274,7 +282,7 @@ impl LibraryObjectSearchFilter {
         Self::from_query(LibraryObjectSearchRequest::from(self).normalized()?)
     }
 
-    /// Drops cursor and page-size continuation state from one D1 query.
+    /// Drops facet-choice and page selection state from one D1 query.
     pub fn from_query(
         query: LibraryObjectSearchRequest,
     ) -> Result<Self, LibraryObjectSearchRequestError> {
@@ -301,6 +309,7 @@ impl LibraryObjectSearchFilter {
             question_licenses: query.question_licenses,
             authorship: query.authorship,
             sort: query.sort,
+            excluded_question_ids: query.excluded_question_ids,
         })
     }
 
@@ -334,7 +343,9 @@ impl From<LibraryObjectSearchFilter> for LibraryObjectSearchRequest {
             question_licenses: filter.question_licenses,
             authorship: filter.authorship,
             sort: filter.sort,
+            excluded_question_ids: filter.excluded_question_ids,
             cursor: None,
+            page_number: None,
             page_size: None,
         }
     }
@@ -364,7 +375,9 @@ impl Default for LibraryObjectSearchRequest {
             question_licenses: Vec::new(),
             authorship: QuestionSearchAuthorship::Any,
             sort: LibraryObjectSearchSort::TitleAscending,
+            excluded_question_ids: Vec::new(),
             cursor: None,
+            page_number: None,
             page_size: None,
         }
     }
@@ -377,8 +390,6 @@ pub enum LibraryObjectSearchRequestError {
     BlankFilter,
     /// A string field or filter values exceeded the bounded contract.
     TooLarge,
-    /// An opaque continuation token was empty.
-    EmptyCursor,
     /// A selected classification identity omitted its required parent selection.
     IncompleteClassificationChain,
     /// Cross-Discipline inclusion omitted Discipline or Subject.
@@ -392,7 +403,6 @@ impl std::fmt::Display for LibraryObjectSearchRequestError {
             Self::TooLarge => {
                 formatter.write_str("Question Search filter exceeds its bounded limit")
             }
-            Self::EmptyCursor => formatter.write_str("Question Search cursor must not be empty"),
             Self::IncompleteClassificationChain => {
                 formatter.write_str("Question Search classification requires its parent selections")
             }
@@ -451,6 +461,7 @@ impl LibraryObjectSearchRequest {
             || self.question_licenses.len() > 3
             || self.backends.len() > QuestionBackend::ALL.len()
             || self.question_types.len() > MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS
+            || self.excluded_question_ids.len() > 1024
         {
             return Err(LibraryObjectSearchRequestError::TooLarge);
         }
@@ -484,9 +495,8 @@ impl LibraryObjectSearchRequest {
         self.backends.dedup();
         self.question_types.sort();
         self.question_types.dedup();
-        if self.cursor.as_ref().is_some_and(String::is_empty) {
-            return Err(LibraryObjectSearchRequestError::EmptyCursor);
-        }
+        self.excluded_question_ids.sort();
+        self.excluded_question_ids.dedup();
         Ok(self)
     }
 }

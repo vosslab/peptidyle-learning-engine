@@ -6,7 +6,7 @@ import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 import type { SeededDemoAccount, SeededDemoAccounts } from "../api/live_demo";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import {
   isLiveDemoUnavailable,
   seededDemoAvailabilityStatus,

@@ -4,7 +4,40 @@
 //! verifies and copies its bytes to the immutable Question Revision Object
 //! Address, then asks persistence to commit the complete publication.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
+
+use tokio::{sync::oneshot, time::Instant};
+
+#[path = "question_publication_capture.rs"]
+mod capture;
+pub use capture::{
+    PreparedPublicationThumbnail, QuestionThumbnailCaptureClient, QuestionThumbnailCaptureError,
+};
+
+/// API preparation and publication work budget, followed only by bounded drain.
+pub const PUBLICATION_WORK_BOUND: Duration = Duration::from_secs(90);
+/// In-flight object put plus candidate cleanup may drain after the work deadline.
+pub const PUBLICATION_DRAIN_BOUND: Duration = Duration::from_secs(8);
+pub(crate) const REGISTRATION_BOUND: Duration = Duration::from_secs(32);
+pub(crate) type PublicationResponseSender =
+    oneshot::Sender<Result<PublishedQuestionRevisionTuple, QuestionPublicationError>>;
+
+pub(crate) fn publication_active(
+    response: &PublicationResponseSender,
+    deadline: Instant,
+    reserve: Duration,
+) -> Result<(), QuestionPublicationError> {
+    if response.is_closed()
+        || Instant::now()
+            .checked_add(reserve)
+            .is_none_or(|end| end >= deadline)
+    {
+        return Err(QuestionPublicationError::Store(StoreError::Unavailable(
+            "Question Publication request ended before registration".into(),
+        )));
+    }
+    Ok(())
+}
 
 use learning_data_access::{
     DraftQuestionEditNumber, DraftQuestionImageStore, DraftQuestionPublicationSourceStore,
@@ -14,9 +47,9 @@ use learning_data_access::{
     NewQuestionLineagePublicationStore, SessionTokenHash, StoreError,
     validate_workspace_question_source_object_record,
 };
-use objects::{ObjectAddress, ObjectStore, ObjectStoreError, PutObject};
+use objects::{ObjectStore, ObjectStoreError};
 use question_model::{
-    ObjectId, PublishedQuestionId, PublishedQuestionRevisionTuple, QUESTION_ID_ALPHABET,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, QUESTION_ID_ALPHABET,
     QUESTION_ID_IDENTIFIER_LENGTH, QuestionAuthorship, QuestionLicense, QuestionPoolId,
     QuestionRevisionNumber, QuestionRevisionReason, Tag, Timestamp, WorkspaceId,
 };
@@ -95,6 +128,8 @@ impl QuestionPoolIdIssuer for RandomQuestionIdIssuer {
 /// Complete server-held request to publish a Draft Question as a new lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewQuestionLineagePublicationCommand {
+    /// Capture from this exact source; Native Questions have none.
+    pub question_thumbnail: Option<PreparedPublicationThumbnail>,
     /// Current private Draft Question selected for publication.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Exact saved Draft Question state reviewed by the Instructor.
@@ -122,6 +157,8 @@ pub struct NewQuestionLineagePublicationCommand {
 /// the immediate successor of an existing Question lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExistingQuestionRevisionPublicationCommand {
+    /// Capture from this exact source; Native Questions have none.
+    pub question_thumbnail: Option<PreparedPublicationThumbnail>,
     /// Current private Draft Question selected for publication.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Exact saved Draft Question state reviewed by the Instructor.
@@ -190,9 +227,9 @@ pub struct NewQuestionLineagePublisher<O, S, I> {
 
 impl<O, S, I> NewQuestionLineagePublisher<O, S, I>
 where
-    O: ObjectStore,
-    S: DraftQuestionPublicationSourceStore + NewQuestionLineagePublicationStore,
-    I: QuestionIdIssuer,
+    O: ObjectStore + Send + 'static,
+    S: DraftQuestionPublicationSourceStore + NewQuestionLineagePublicationStore + 'static,
+    I: QuestionIdIssuer + 'static,
 {
     /// Creates the server-only coordinator from its exact three owners.
     pub const fn new(
@@ -211,47 +248,94 @@ where
 
     /// Publishes one exact current Draft Question as revision 1 of a new lineage.
     pub async fn publish(
+        self,
+        session_token_hash: SessionTokenHash,
+        command: NewQuestionLineagePublicationCommand,
+        stored_at: Timestamp,
+        deadline: Instant,
+    ) -> Result<PublishedQuestionRevisionTuple, QuestionPublicationError> {
+        // This request-owned task drains a bounded put when its caller leaves.
+        // Once registration begins, its typed outcome owns cleanup/retention.
+        let (response, result) = oneshot::channel();
+        tokio::spawn(async move {
+            let outcome = self
+                .publish_inner(session_token_hash, command, stored_at, &response, deadline)
+                .await;
+            let _ = response.send(outcome);
+        });
+        result.await.map_err(|_| {
+            QuestionPublicationError::Store(StoreError::Unavailable(
+                "Question Publication operation ended".into(),
+            ))
+        })?
+    }
+
+    async fn publish_inner(
         &self,
         session_token_hash: SessionTokenHash,
         command: NewQuestionLineagePublicationCommand,
         stored_at: Timestamp,
+        response: &PublicationResponseSender,
+        deadline: Instant,
     ) -> Result<PublishedQuestionRevisionTuple, QuestionPublicationError> {
+        publication_active(response, deadline, Duration::ZERO)?;
         NewQuestionLineagePublicationInput::validate_initial_shared_tags(
             &command.initial_shared_tags,
         )
         .map_err(QuestionPublicationError::Store)?;
-        let publication_source = self
-            .publication_store
-            .load_draft_question_publication_source(
-                session_token_hash,
-                command.draft_question_uuid,
-                command.expected_draft_question_edit_number,
-                command.workspace,
-            )
-            .await
-            .map_err(QuestionPublicationError::Store)?;
+        let publication_source = tokio::time::timeout_at(
+            deadline,
+            self.publication_store
+                .load_draft_question_publication_source(
+                    session_token_hash,
+                    command.draft_question_uuid,
+                    command.expected_draft_question_edit_number,
+                    command.workspace,
+                ),
+        )
+        .await
+        .map_err(|_| {
+            QuestionPublicationError::Store(StoreError::Unavailable(
+                "Publication source lookup timed out".into(),
+            ))
+        })?
+        .map_err(QuestionPublicationError::Store)?;
         let reserved_published_question_id = publication_source.reserved_published_question_id;
         let source_record = publication_source.source_record;
         validate_workspace_question_source_object_record(command.workspace, &source_record)
             .map_err(QuestionPublicationError::Store)?;
-        let source = self
-            .object_store
-            .get(&source_record.address)
-            .await
-            .map_err(QuestionPublicationError::ObjectStore)?;
+        let source = tokio::time::timeout(
+            Duration::from_secs(5),
+            self.object_store.get(&source_record.address),
+        )
+        .await
+        .map_err(|_| {
+            QuestionPublicationError::ObjectStore(ObjectStoreError::Unavailable(
+                "Publication source read timed out".into(),
+            ))
+        })?
+        .map_err(QuestionPublicationError::ObjectStore)?;
         if source.record != source_record {
             return Err(QuestionPublicationError::SourceObjectRecordMismatch);
         }
-        let question_images = crate::question_publication_images::load_question_images(
-            &self.object_store,
-            self.draft_question_image.as_ref(),
-            session_token_hash,
-            command.workspace,
-            command.draft_question_uuid,
-            &source.bytes,
-            &source_record.media_type,
+        let question_images = tokio::time::timeout_at(
+            deadline,
+            crate::question_publication_images::load_question_images(
+                &self.object_store,
+                self.draft_question_image.as_ref(),
+                session_token_hash,
+                command.workspace,
+                command.draft_question_uuid,
+                &source.bytes,
+                &source_record.media_type,
+            ),
         )
-        .await?;
+        .await
+        .map_err(|_| {
+            QuestionPublicationError::Store(StoreError::Unavailable(
+                "Publication image lookup timed out".into(),
+            ))
+        })??;
         let identity_attempts = if reserved_published_question_id.is_some() {
             1
         } else {
@@ -270,43 +354,26 @@ where
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("first Question Revision Number is positive"),
             };
-            let target_address = ObjectAddress::QuestionSource {
-                published_question_revision_tuple: published_question_revision_tuple.clone(),
-                object_id: ObjectId::generate(),
-            };
-            // ASVS 5.3.2, 8.2.2, 14.2.4, and 15.4.2: typed server-created
-            // addresses select storage; verified bytes are copied before the
-            // final database transaction rechecks authorization and source state.
-            let target_record = self
-                .object_store
-                .put(PutObject {
-                    address: target_address,
-                    bytes: source.bytes.clone(),
-                    media_type: source_record.media_type.clone(),
-                    created_at: stored_at,
-                })
-                .await
-                .map_err(QuestionPublicationError::ObjectStore)?;
-            let target_object_address = target_record.address.clone();
-            let prepared_question_images =
-                crate::question_publication_images::prepare_question_images(
-                    &self.object_store,
-                    &question_images,
-                    &published_question_revision_tuple,
-                    stored_at,
-                )
-                .await?;
-            let target_image_addresses = prepared_question_images
-                .iter()
-                .map(|asset| asset.restricted_source_record.address.clone())
-                .collect::<Vec<_>>();
+            let prepared = crate::question_publication_objects::prepare(
+                &self.object_store,
+                &source,
+                &question_images,
+                command.question_thumbnail.as_ref(),
+                &published_question_revision_tuple,
+                stored_at,
+                response,
+                deadline,
+            )
+            .await?;
+            let target_addresses = prepared.targets;
             let input = NewQuestionLineagePublicationInput {
                 draft_question_uuid: command.draft_question_uuid,
                 expected_draft_question_edit_number: command.expected_draft_question_edit_number,
                 workspace: command.workspace,
                 question_id,
-                question_source_object_record: target_record,
-                question_images: prepared_question_images,
+                question_source_object_record: prepared.source,
+                question_images: prepared.images,
+                question_thumbnail: prepared.thumbnail,
                 question_authorship: command.question_authorship.clone(),
                 self_author_position: command.self_author_position,
                 initial_shared_tags: command.initial_shared_tags.clone(),
@@ -332,19 +399,26 @@ where
                 // allocation check (with the primary key retained as a legacy
                 // backstop). That conclusive rollback leaves this request's
                 // just-written target unregistered, so delete that exact
-                // target before retrying. Any other store outcome is ambiguous
-                // and retains its object.
+                // target before retrying. Confirmed noncommit failures also
+                // clean up; uncertain Store outcomes retain their objects.
                 Err(NewQuestionLineagePublicationError::IdentityCollision) => {
                     crate::question_publication_images::cleanup_targets(
                         &self.object_store,
-                        &target_object_address,
-                        &target_image_addresses,
+                        &target_addresses,
                     )
                     .await?;
                     if reserved_published_question_id.is_some() {
                         return Err(QuestionPublicationError::IdentityCollisions);
                     }
                     continue;
+                }
+                Err(NewQuestionLineagePublicationError::NotCommitted(error)) => {
+                    crate::question_publication_images::cleanup_targets(
+                        &self.object_store,
+                        &target_addresses,
+                    )
+                    .await?;
+                    return Err(QuestionPublicationError::Store(error));
                 }
                 Err(NewQuestionLineagePublicationError::Store(error)) => {
                     return Err(QuestionPublicationError::Store(error));
@@ -367,8 +441,8 @@ pub struct ExistingQuestionRevisionPublisher<O, S> {
 
 impl<O, S> ExistingQuestionRevisionPublisher<O, S>
 where
-    O: ObjectStore,
-    S: DraftQuestionPublicationSourceStore + ExistingQuestionRevisionPublicationStore,
+    O: ObjectStore + Send + 'static,
+    S: DraftQuestionPublicationSourceStore + ExistingQuestionRevisionPublicationStore + 'static,
 {
     /// Creates the server-only coordinator from object storage and persistence.
     pub const fn new(
@@ -388,81 +462,115 @@ where
     /// without registering this random object identity, so its exact object is
     /// removed before the caller receives the ordinary precondition failure.
     pub async fn publish(
+        self,
+        session_token_hash: SessionTokenHash,
+        command: ExistingQuestionRevisionPublicationCommand,
+        stored_at: Timestamp,
+        deadline: Instant,
+    ) -> Result<PublishedQuestionRevisionTuple, QuestionPublicationError> {
+        // This request-owned task drains a bounded put when its caller leaves.
+        // Once registration begins, its typed outcome owns cleanup/retention.
+        let (response, result) = oneshot::channel();
+        tokio::spawn(async move {
+            let outcome = self
+                .publish_inner(session_token_hash, command, stored_at, &response, deadline)
+                .await;
+            let _ = response.send(outcome);
+        });
+        result.await.map_err(|_| {
+            QuestionPublicationError::Store(StoreError::Unavailable(
+                "Question Publication operation ended".into(),
+            ))
+        })?
+    }
+
+    async fn publish_inner(
         &self,
         session_token_hash: SessionTokenHash,
         command: ExistingQuestionRevisionPublicationCommand,
         stored_at: Timestamp,
+        response: &PublicationResponseSender,
+        deadline: Instant,
     ) -> Result<PublishedQuestionRevisionTuple, QuestionPublicationError> {
+        publication_active(response, deadline, Duration::ZERO)?;
         let successor_published_question_revision_tuple =
             successor_published_question_revision_tuple(
                 &command.parent_published_question_revision_tuple,
             )
             .map_err(QuestionPublicationError::Store)?;
-        let publication_source = self
-            .publication_store
-            .load_draft_question_publication_source(
-                session_token_hash,
-                command.draft_question_uuid,
-                command.expected_draft_question_edit_number,
-                command.workspace,
-            )
-            .await
-            .map_err(QuestionPublicationError::Store)?;
+        let publication_source = tokio::time::timeout_at(
+            deadline,
+            self.publication_store
+                .load_draft_question_publication_source(
+                    session_token_hash,
+                    command.draft_question_uuid,
+                    command.expected_draft_question_edit_number,
+                    command.workspace,
+                ),
+        )
+        .await
+        .map_err(|_| {
+            QuestionPublicationError::Store(StoreError::Unavailable(
+                "Publication source lookup timed out".into(),
+            ))
+        })?
+        .map_err(QuestionPublicationError::Store)?;
         let source_record = publication_source.source_record;
         validate_workspace_question_source_object_record(command.workspace, &source_record)
             .map_err(QuestionPublicationError::Store)?;
-        let source = self
-            .object_store
-            .get(&source_record.address)
-            .await
-            .map_err(QuestionPublicationError::ObjectStore)?;
+        let source = tokio::time::timeout(
+            Duration::from_secs(5),
+            self.object_store.get(&source_record.address),
+        )
+        .await
+        .map_err(|_| {
+            QuestionPublicationError::ObjectStore(ObjectStoreError::Unavailable(
+                "Publication source read timed out".into(),
+            ))
+        })?
+        .map_err(QuestionPublicationError::ObjectStore)?;
         if source.record != source_record {
             return Err(QuestionPublicationError::SourceObjectRecordMismatch);
         }
-        let question_images = crate::question_publication_images::load_question_images(
-            &self.object_store,
-            self.draft_question_image.as_ref(),
-            session_token_hash,
-            command.workspace,
-            command.draft_question_uuid,
-            &source.bytes,
-            &source_record.media_type,
+        let question_images = tokio::time::timeout_at(
+            deadline,
+            crate::question_publication_images::load_question_images(
+                &self.object_store,
+                self.draft_question_image.as_ref(),
+                session_token_hash,
+                command.workspace,
+                command.draft_question_uuid,
+                &source.bytes,
+                &source_record.media_type,
+            ),
         )
-        .await?;
-        let target_address = ObjectAddress::QuestionSource {
-            published_question_revision_tuple: successor_published_question_revision_tuple.clone(),
-            object_id: ObjectId::generate(),
-        };
-        let target_record = self
-            .object_store
-            .put(PutObject {
-                address: target_address,
-                bytes: source.bytes,
-                media_type: source_record.media_type,
-                created_at: stored_at,
-            })
-            .await
-            .map_err(QuestionPublicationError::ObjectStore)?;
-        let target_address = target_record.address.clone();
-        let prepared_question_images = crate::question_publication_images::prepare_question_images(
+        .await
+        .map_err(|_| {
+            QuestionPublicationError::Store(StoreError::Unavailable(
+                "Publication image lookup timed out".into(),
+            ))
+        })??;
+        let prepared = crate::question_publication_objects::prepare(
             &self.object_store,
+            &source,
             &question_images,
+            command.question_thumbnail.as_ref(),
             &successor_published_question_revision_tuple,
             stored_at,
+            response,
+            deadline,
         )
         .await?;
-        let target_image_addresses = prepared_question_images
-            .iter()
-            .map(|asset| asset.restricted_source_record.address.clone())
-            .collect::<Vec<_>>();
+        let target_addresses = prepared.targets;
         let input = ExistingQuestionRevisionPublicationInput {
             draft_question_uuid: command.draft_question_uuid,
             expected_draft_question_edit_number: command.expected_draft_question_edit_number,
             workspace: command.workspace,
             parent_published_question_revision_tuple: command
                 .parent_published_question_revision_tuple,
-            question_source_object_record: target_record,
-            question_images: prepared_question_images,
+            question_source_object_record: prepared.source,
+            question_images: prepared.images,
+            question_thumbnail: prepared.thumbnail,
             question_revision_reason: command.question_revision_reason,
             question_publication_event_id: Uuid::now_v7(),
         };
@@ -472,7 +580,7 @@ where
             .await
         {
             Ok(revision) => Ok(revision),
-            // A 40001 parent/Draft precondition failure proves this database
+            // A named PQR01 parent/Draft precondition failure proves this database
             // transaction did not register the unique target object address.
             // ASVS 2.3.1: clean up only that conclusive outcome; an ambiguous
             // store failure retains bytes for investigation rather than risking
@@ -480,11 +588,18 @@ where
             Err(ExistingQuestionRevisionPublicationError::Stale) => {
                 crate::question_publication_images::cleanup_targets(
                     &self.object_store,
-                    &target_address,
-                    &target_image_addresses,
+                    &target_addresses,
                 )
                 .await?;
                 Err(QuestionPublicationError::StaleQuestionRevision)
+            }
+            Err(ExistingQuestionRevisionPublicationError::NotCommitted(error)) => {
+                crate::question_publication_images::cleanup_targets(
+                    &self.object_store,
+                    &target_addresses,
+                )
+                .await?;
+                Err(QuestionPublicationError::Store(error))
             }
             Err(ExistingQuestionRevisionPublicationError::Store(error)) => {
                 Err(QuestionPublicationError::Store(error))

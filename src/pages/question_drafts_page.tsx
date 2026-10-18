@@ -3,12 +3,12 @@
 import { useNavigate } from "@solidjs/router";
 import { Show, createResource, createSignal, type JSX } from "solid-js";
 
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { QuestionImportScreen } from "./question_import_screen";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
 import { decodePublishedQuestionRevisionTuple } from "../api/decoders/shared";
@@ -140,7 +140,12 @@ export function QuestionDraftsPage(): JSX.Element {
   const [deleteMessage, setDeleteMessage] = createSignal<string>();
   const [message, setMessage] = createSignal<PageMessage>();
   const draftSearch = createLocalCompleteSearch(
-    { resource: drafts, refetchSource: refetch, rows: (value) => value },
+    {
+      rows: drafts,
+      loading: () => drafts.loading,
+      error: (): unknown => drafts.error,
+      refetchSource: refetch,
+    },
     {
       fields: questionDraftSearchFields,
       rowId: (draft) => draft.draftQuestionId,
@@ -309,17 +314,7 @@ export function QuestionDraftsPage(): JSX.Element {
       <Show when={!importing()}>
         <SearchBlock
           layout="above"
-          controls={
-            <SearchControls state={draftSearch.state} textLabel="Search My Drafts">
-              <button
-                type="button"
-                class="quiet-action"
-                onClick={() => void draftSearch.state.refresh()}
-              >
-                Refresh drafts
-              </button>
-            </SearchControls>
-          }
+          controls={<SearchControls state={draftSearch.state} textLabel="Search My Drafts" />}
           state={draftSearch.state}
           collection={{
             ariaLabel: "Private Draft Questions",

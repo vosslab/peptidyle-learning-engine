@@ -1,6 +1,6 @@
 // question_detail_page.tsx - safe current Question Details and Question Revision lineage View.
 
-import { A, createAsync, useLocation, useNavigate, useParams } from "@solidjs/router";
+import { A, useLocation, useNavigate, useParams } from "@solidjs/router";
 import {
   createEffect,
   createResource,
@@ -25,7 +25,7 @@ import type {
 import { ApiRequestError } from "../api/http_client/error";
 import { createQuestionLibraryRepository } from "../api/question_library_repository";
 import { CopyableQuestionId } from "../components/copyable_question_id";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { BloomClassificationText } from "../components/bloom_classification";
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
@@ -577,24 +577,36 @@ export function QuestionDetailPage(): JSX.Element {
     return state.kind === "authenticated" && state.session.account.userRole === "instructor";
   };
   const [metadataReload, setMetadataReload] = createSignal(0);
-  const detail = createAsync((): Promise<QuestionDetails> => {
-    metadataReload();
-    const questionId = params["questionId"];
-    if (questionId === undefined || parseQuestionRouteId(questionId) === null) {
-      throw new Error("The Question ID address is incomplete.");
-    }
-    const revisionNumber = questionRevisionNumberFromSearch(location.search);
-    if (revisionNumber !== undefined)
-      return applicationApi.client.getQuestionRevision({
-        publishedQuestionId: questionId,
+  const [detailSource, { refetch: refetchDetail }] = createResource(
+    () => {
+      metadataReload();
+      const questionId = params["questionId"];
+      if (questionId === undefined || parseQuestionRouteId(questionId) === null) {
+        throw new Error("The Question ID address is incomplete.");
+      }
+      const revisionNumber = questionRevisionNumberFromSearch(location.search);
+      return { questionId, revisionNumber };
+    },
+    async ({ questionId, revisionNumber }) => {
+      const tuple =
+        revisionNumber === undefined
+          ? (await applicationApi.client.resolveQuestion(questionId)).publishedQuestionRevisionTuple
+          : { publishedQuestionId: questionId, revisionNumber };
+      return {
+        questionId,
         revisionNumber,
-      });
-    return applicationApi.client
-      .resolveQuestion(questionId)
-      .then((summary) =>
-        applicationApi.client.getQuestionRevision(summary.publishedQuestionRevisionTuple),
-      );
-  });
+        value: await applicationApi.client.getQuestionRevision(tuple),
+      };
+    },
+  );
+  const detail = (): QuestionDetails | undefined => {
+    const loaded = detailSource.latest;
+    return loaded !== undefined &&
+      loaded.questionId === params["questionId"] &&
+      loaded.revisionNumber === questionRevisionNumberFromSearch(location.search)
+      ? loaded.value
+      : undefined;
+  };
   function publishLoadedQuestionTitle(): void {
     if (publication === undefined) return;
     const title = detail()?.summary.metadata.questionTitle;
@@ -771,8 +783,8 @@ export function QuestionDetailPage(): JSX.Element {
                   </div>
                 </Show>
               </section>
-              <QuestionStatisticsPanel evidence={record().evidence} />
-              <QuestionUsePanel usage={record().usage} />
+              <QuestionStatisticsPanel evidence={record().evidence} onRefresh={refetchDetail} />
+              <QuestionUsePanel usage={record().usage} onRefresh={refetchDetail} />
               <QuestionArchiveControl
                 client={applicationApi.client}
                 questionId={record().summary.questionId}

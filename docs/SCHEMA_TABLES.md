@@ -366,6 +366,7 @@ Foreign keys:
 
 - (assessment_id) -> ple_data.assessment (assessment_id)
 - (assessment_entry_question_id) -> ple_data.assessment_entry_question (assessment_entry_id)
+- (assessment_entry_pool_id) -> ple_data.assessment_entry_pool (assessment_entry_id)
 
 Indexes:
 
@@ -3988,11 +3989,15 @@ Foreign keys:
 
 - (draft_question_id) -> ple_private.draft_question (draft_question_id)
 - (content_subject_id, content_discipline_id) -> ple_data.content_subject_discipline (content_subject_id, content_discipline_id)
+- (content_subject_id, content_topic_id) -> ple_data.content_topic (content_subject_id, content_topic_id)
+- (content_topic_id, content_subtopic_id) -> ple_data.content_subtopic (content_topic_id, content_subtopic_id)
 
 Indexes:
 
 - ple_private.draft_question_metadata_pkey UNIQUE (draft_question_id)
 - draft_question_metadata_content_subject_id_content_discipline_id_fk_idx (content_subject_id, content_discipline_id)
+- draft_question_metadata_subject_topic_fk_idx (content_subject_id, content_topic_id)
+- draft_question_metadata_topic_subtopic_fk_idx (content_topic_id, content_subtopic_id)
 
 ### ple_private.draft_question_authorship
 
@@ -4538,6 +4543,42 @@ Indexes:
 
 - ple_data.question_pool_watch_pkey UNIQUE (question_pool_id, instructor_account_id)
 - question_pool_watch_instructor_account_id_fk_idx (instructor_account_id)
+
+## 20_tables/question_thumbnails.sql
+
+### ple_private.question_revision_thumbnail
+
+- Role: revision
+- Comment: role: revision, immutable private WebP thumbnail for one exact Published Question Revision. HUMAN_GUIDANCE.md Question thumbnails.
+
+Columns:
+
+| Name | Type | Null |
+| --- | --- | --- |
+| published_question_id | ple_data.question_family_id | NOT NULL |
+| revision_number | integer | NOT NULL |
+| object_record_id | uuid | NOT NULL |
+| intrinsic_width | integer | NOT NULL |
+| intrinsic_height | integer | NOT NULL |
+| created_at | timestamptz | NOT NULL |
+
+Constraints:
+
+- PRIMARY KEY (published_question_id, revision_number)
+- UNIQUE (object_record_id)
+- CHECK revision_number: `(revision_number > 0)`
+- CHECK intrinsic_width: `(intrinsic_width = 256)`
+- CHECK intrinsic_height: `(intrinsic_height = 256)`
+
+Foreign keys:
+
+- (published_question_id, revision_number) -> ple_data.question_revision (published_question_id, revision_number)
+- (object_record_id) -> ple_private.object_record (object_record_id)
+
+Indexes:
+
+- ple_private.question_revision_thumbnail_pkey UNIQUE (published_question_id, revision_number)
+- ple_private.question_revision_thumbnail_unique_0 UNIQUE (object_record_id)
 
 ## 20_tables/retention.sql
 

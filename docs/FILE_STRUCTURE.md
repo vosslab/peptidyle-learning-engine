@@ -147,15 +147,17 @@ src/
 +- appearance/                  Resolved Theme, display-mode, and Profile appearance UI
 +- auth/                        Browser session and sign-in support
 +- components/                  Shared answer-free UI and Question presentation
-|  `- question_response_controls/backend_owned_document.tsx
-|                               Generic iframe host and opaque form-pair capture
+|  +- data_sheet/               Shared table, record, filter, sorting, and paging UI
+|  +- page_frame/               Shared page layout
+|  +- question_response_controls/backend_owned_document.tsx
+|  |                             Generic iframe host and opaque form-pair capture
+|  `- search_block/             Shared search session, controls, results, and page layout
 +- features/
 |  +- blueprint_course/         Blueprint Revision editing and explicit Save UI
 |  +- blueprint_change_proposal/ Blueprint Course Change Proposal UI
 |  +- blueprint_forks/          Blueprint fork review and apply UI
 |  +- question_picker/          Published, non-archived Question selection UI
 |  +- assessment_content_picker/ Mixed Question-or-Pool Assessment selection UI
-|  +- search/                   Shared search session, controls, results, and page layout
 |  +- question_attempt/         Student Attempt interactions
 |  +- course_appearance/        Authorized Course appearance editing UI
 |  +- ple_question_json_authoring/ Native PLE Question JSON editor
@@ -181,7 +183,7 @@ Library and Public Blueprint search definitions live in
 [question_library_search_definition.ts](../src/pages/question_library_search_definition.ts) and
 [blueprint_course_search_definition.ts](../src/pages/blueprint_course_search_definition.ts).
 They supply content-specific queries and row descriptions to
-the [shared search session](../src/features/search/search_session.ts); the shared modules own request
+the [shared search session](../src/components/search_block/search_session.ts); the shared modules own request
 and display behavior. The Question picker keeps its Question-only source and ordered-tray policy in
 [src/features/question_picker/](../src/features/question_picker/); the Assessment content picker reuses the mixed Library definition
 from [assessment_content_picker.tsx](../src/features/assessment_content_picker/assessment_content_picker.tsx). [library_object_detail_page.tsx](../src/pages/library_object_detail_page.tsx)

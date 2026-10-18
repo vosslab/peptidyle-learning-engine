@@ -149,6 +149,29 @@ pub struct S3ObjectStore {
 
 #[cfg(feature = "s3")]
 impl S3ObjectStore {
+    /// Selects bounded SDK operations for one caller without changing the shared
+    /// client's upload policy. Streaming readers still bound body collection.
+    pub fn with_operation_timeout(&self, timeout: Duration) -> Self {
+        let config = self
+            .client
+            .config()
+            .to_builder()
+            .timeout_config(
+                aws_sdk_s3::config::timeout::TimeoutConfig::builder()
+                    .operation_timeout(timeout)
+                    .operation_attempt_timeout(timeout)
+                    .connect_timeout(timeout.min(Duration::from_secs(2)))
+                    .read_timeout(timeout)
+                    .build(),
+            )
+            .build();
+        Self {
+            client: Client::from_conf(config),
+            buckets: self.buckets.clone(),
+            kms_keys: self.kms_keys.clone(),
+        }
+    }
+
     /// Builds a store from a crate-owned SDK client and explicit bucket names.
     pub fn new(client: Client, buckets: BucketNames) -> Self {
         Self {

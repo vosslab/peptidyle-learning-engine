@@ -40,7 +40,9 @@ export interface RecoverySelection {
   readonly action: "select";
   readonly courseInstanceId: CourseInstanceId;
   readonly attempts: ReadonlyArray<RecoverySummary>;
-  readonly nextCursor: string | null;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly totalCount: number;
   readonly assessmentChoices: ReadonlyArray<{
     readonly key: AssessmentId;
     readonly label: string;
@@ -51,7 +53,7 @@ export interface RecoveryBrowse {
   readonly search: string;
   readonly assessmentIds: ReadonlyArray<AssessmentId>;
   readonly sort: "attemptAscending" | "attemptDescending";
-  readonly cursor: string | null;
+  readonly pageNumber: number;
   readonly pageSize: 50 | 100;
 }
 export interface CourseStudentWorkRecoveryClient {

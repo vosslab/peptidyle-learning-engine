@@ -11,7 +11,7 @@ use sqlx::Row;
 use super::{blueprint_course::PostgresBlueprintCourseStore, connection::map_sqlx_error};
 use crate::{
     BlueprintHistoryKind, BlueprintHistoryQuery, BlueprintHistoryResult, BlueprintHistoryStore,
-    Cursor, Page, PageRequest, SessionTokenHash, StoreError,
+    NumberedPage, NumberedPageRequest, PageNumber, SessionTokenHash, StoreError,
 };
 
 #[async_trait]
@@ -22,21 +22,14 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
         blueprint_course_id: BlueprintCourseId,
         kind: BlueprintHistoryKind,
         query: BlueprintHistoryQuery,
-        page: PageRequest,
+        page: NumberedPageRequest,
     ) -> Result<BlueprintHistoryResult, StoreError> {
-        let after = page
-            .after
-            .as_ref()
-            .map(|cursor| {
-                serde_json::from_str::<(String, i64)>(cursor.as_str()).map_err(|_| invalid())
-            })
-            .transpose()?;
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
-        // ASVS 1.2.4: the course, sequence, stable key and bounded size are bound values.
+        // ASVS 1.2.4: query, scope, and bounded numbered page are bound values.
         let rows = sqlx::query(
-            "SELECT * FROM ple_api.list_blueprint_history($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            "SELECT * FROM ple_api.list_blueprint_history($1, $2, $3, $4, $5, $6, $7, $8)",
         )
         .bind(blueprint_course_id.as_string())
         .bind(kind.as_str())
@@ -48,26 +41,36 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
             "descending"
         })
         .bind(&query.availability)
-        .bind(after.as_ref().map(|key| key.0.as_str()))
-        .bind(after.as_ref().map(|key| key.1))
-        .bind(i32::from(page.size.get()))
+        .bind(i64::from(page.page_number.get()))
+        .bind(i64::from(page.page_size.get()))
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let limit = usize::from(page.size.get());
-        let items = rows
-            .iter()
-            .take(limit)
-            .map(|row| decode_entry(row, kind))
-            .collect::<Result<Vec<_>, _>>()?;
-        let next_cursor = if rows.len() > limit {
-            let key: String = rows[limit - 1]
-                .try_get("continuation_key")
-                .map_err(map_sqlx_error)?;
-            Some(Cursor::parse(key).map_err(|_| invalid())?)
-        } else {
-            None
-        };
+        let metadata = rows.first().ok_or_else(invalid)?;
+        let total_count = u64::try_from(
+            metadata
+                .try_get::<i64, _>("total_count")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid())?;
+        let page_number = u32::try_from(
+            metadata
+                .try_get::<i64, _>("resolved_page_number")
+                .map_err(map_sqlx_error)?,
+        )
+        .ok()
+        .and_then(|number| PageNumber::new(number).ok())
+        .ok_or_else(invalid)?;
+        let mut items = Vec::with_capacity(rows.len());
+        for row in &rows {
+            if row
+                .try_get::<Option<i64>, _>("revision_number")
+                .map_err(map_sqlx_error)?
+                .is_some()
+            {
+                items.push(decode_entry(row, kind)?);
+            }
+        }
         let (mut public_count, mut archived_count) = (0, 0);
         if kind == BlueprintHistoryKind::Metadata {
             let facets =
@@ -93,7 +96,12 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(BlueprintHistoryResult {
-            page: Page { items, next_cursor },
+            page: NumberedPage {
+                items,
+                page_number,
+                page_size: page.page_size,
+                total_count,
+            },
             public_count,
             archived_count,
         })

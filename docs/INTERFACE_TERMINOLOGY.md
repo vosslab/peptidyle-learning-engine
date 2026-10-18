@@ -37,6 +37,23 @@ operate.
 **Reading Layout** uses a bounded prose measure. **Full-width Layout** uses the
 available content width for dense records and teaching workspaces.
 
+**SearchBlock** composes page-supplied criteria and controls, **DataSheetControls**,
+and a required **DataSheetBlock**. **DataSheetBlock** owns all four modes and
+shared sorting, filtering, selection, and record actions. **DataSheetTable**
+provides the reusable Compact/List table and owns column configuration and
+interactions: resize, show/hide, rearrange, responsive hiding, and independent
+temporary widths, visibility, and order for Compact and List. **HeaderRow** is
+the heading interface within DataSheetTable. It forwards sorting/filtering
+input to DataSheetBlock and column input to DataSheetTable without becoming an
+independent controller. **RecordItem** provides record content and direct
+actions in every mode. **DataSheetControls** supplies surrounding controls
+through the same state and callbacks, delegating collection behavior to
+DataSheetBlock and column mechanics to DataSheetTable. Page/domain query
+owners apply whole-result sorting and filtering before pagination.
+The target modes are **Compact**, **List**, **Cards**, and **Visual Boxes**.
+M13's verified extraction uses the existing RecordTable; the named DataSheetTable
+boundary is M15 target work, not a claim that it has shipped.
+
 **Courses**, **Questions**, and **Assessments** are the Instructor Product
 Ribbon's canonical primary destination names. **Profile** and Account controls
 remain Context Controls. **Question Library** is the canonical name for the

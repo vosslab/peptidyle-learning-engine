@@ -175,22 +175,30 @@ function facets(
 export function decodeLibraryWatchPage(value: unknown, path = "response"): LibraryWatchPage {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "notifications",
-    "nextCursor",
+    "items",
+    "pageNumber",
+    "pageSize",
+    "totalCount",
     "targetKindFacets",
     "eventKindFacets",
   ]);
+  const pageNumber = positiveInteger(field(record, "pageNumber", path), `${path}.pageNumber`);
+  const pageSize = positiveInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeSafeInteger(field(record, "totalCount", path), `${path}.totalCount`);
+  if (pageSize > 100) throw new DecodeError(`${path}.pageSize`, "a page size no greater than 100");
+  if (totalCount < 0) throw new DecodeError(`${path}.totalCount`, "a nonnegative count");
+  const items = decodeArray(field(record, "items", path), `${path}.items`, notification);
+  if (items.length > pageSize || (totalCount === 0 && pageNumber !== 1)) {
+    throw new DecodeError(path, "a consistent numbered Watch page");
+  }
+  if (totalCount > 0 && (items.length === 0 || pageNumber > Math.ceil(totalCount / pageSize))) {
+    throw new DecodeError(path, "a nonempty page within the Watch result count");
+  }
   return {
-    notifications: decodeArray(
-      field(record, "notifications", path),
-      `${path}.notifications`,
-      notification,
-    ),
-    nextCursor: decodeNullable(
-      field(record, "nextCursor", path),
-      `${path}.nextCursor`,
-      decodeString,
-    ),
+    items,
+    pageNumber,
+    pageSize,
+    totalCount,
     targetKindFacets: facets(
       field(record, "targetKindFacets", path),
       `${path}.targetKindFacets`,

@@ -128,6 +128,7 @@ pub(crate) async fn prepare_question_images<O: ObjectStore>(
     assets: &[(OwnedDraftQuestionImage, Bytes)],
     published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     stored_at: Timestamp,
+    targets: &mut Vec<ObjectAddress>,
 ) -> Result<Vec<PreparedQuestionImagePublication>, QuestionPublicationError> {
     let mut prepared = Vec::with_capacity(assets.len());
     let mut identities = BTreeSet::new();
@@ -136,8 +137,10 @@ pub(crate) async fn prepare_question_images<O: ObjectStore>(
             return Err(invalid_source());
         }
         // ASVS 5.3.2: new physical identity; stable logical image UUID and exact bytes.
-        let record = objects
-            .put(PutObject {
+        let record = crate::question_publication_objects::put_candidate(
+            objects,
+            targets,
+            PutObject {
                 address: ObjectAddress::RestrictedQuestionImage {
                     published_question_revision_tuple: published_question_revision_tuple.clone(),
                     question_image_asset_id: asset.question_image_asset_id,
@@ -146,9 +149,9 @@ pub(crate) async fn prepare_question_images<O: ObjectStore>(
                 bytes: bytes.to_vec(),
                 media_type: asset.source_record.media_type.clone(),
                 created_at: stored_at,
-            })
-            .await
-            .map_err(QuestionPublicationError::ObjectStore)?;
+            },
+        )
+        .await?;
         prepared.push(PreparedQuestionImagePublication {
             source_relative_name: asset.source_relative_name.clone(),
             question_image_asset_id: asset.question_image_asset_id,
@@ -166,16 +169,27 @@ pub(crate) async fn prepare_question_images<O: ObjectStore>(
 /// Only call for conclusive transaction rollback, never an ambiguous store outcome.
 pub(crate) async fn cleanup_targets<O: ObjectStore>(
     objects: &O,
-    source: &ObjectAddress,
-    images: &[ObjectAddress],
+    targets: &[ObjectAddress],
 ) -> Result<(), QuestionPublicationError> {
-    // Attempt every request-owned deletion even after one fails.
-    let mut result = objects.delete(source).await;
-    for image in images {
-        let deleted = objects.delete(image).await;
-        result = result.and(deleted);
-    }
-    result.map_err(QuestionPublicationError::ObjectStore)
+    // ASVS 2.3.3: cleanup is bounded and names only this request's candidates.
+    let cleanup = async {
+        let mut result = Ok(());
+        for target in targets {
+            let deleted = match objects.delete(target).await {
+                Err(objects::ObjectStoreError::NotFound) => Ok(()),
+                other => other,
+            };
+            result = result.and(deleted);
+        }
+        result.map_err(QuestionPublicationError::ObjectStore)
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(3), cleanup)
+        .await
+        .map_err(|_| {
+            QuestionPublicationError::ObjectStore(objects::ObjectStoreError::Unavailable(
+                "Publication candidate cleanup timed out".into(),
+            ))
+        })?
 }
 
 #[cfg(test)]
@@ -289,10 +303,15 @@ mod tests {
             .unwrap(),
             revision_number: QuestionRevisionNumber::new(1).unwrap(),
         };
-        let prepared =
-            prepare_question_images(&objects, &loaded, &revision, Timestamp::from_unix_millis(2))
-                .await
-                .unwrap();
+        let prepared = prepare_question_images(
+            &objects,
+            &loaded,
+            &revision,
+            Timestamp::from_unix_millis(2),
+            &mut Vec::new(),
+        )
+        .await
+        .unwrap();
         assert_eq!(prepared.len(), 1);
         assert_eq!(
             prepared[0].source_relative_name,

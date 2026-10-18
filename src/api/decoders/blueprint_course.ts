@@ -6,6 +6,7 @@ import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PA
 import { ASSESSMENT_TYPE_VALUES, type AssessmentType } from "../../../generated/api/AssessmentType";
 import { MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
+import type { BlueprintCourseListPageView } from "../../../generated/api/BlueprintCourseListPageView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import type { BlueprintAvailability } from "../../../generated/api/BlueprintAvailability";
@@ -21,12 +22,12 @@ import { THEME_VALUES, type Theme } from "../../../generated/api/Theme";
 import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
 import type { RenameBlueprintCourseInput } from "../../../generated/api/RenameBlueprintCourseInput";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
-import type { CursorPage } from "../contracts";
 import {
   DecodeError,
   decodeArray,
   decodeBoolean,
   decodeNonemptyString,
+  decodeNonnegativeInteger,
   decodeNullable,
   decodePositiveInteger,
   decodeRecord,
@@ -46,7 +47,6 @@ import {
 } from "./shared";
 import { validateCanonicalPublicId, validateCanonicalQuestionIdSyntax } from "../../question_id";
 import { decodeCourseClassification } from "./course_classification";
-import { decodeBlueprintCourseCursor } from "./blueprint_course_facets";
 
 const MAX_PAGE_SIZE = MAX_DISCOVERY_PAGE_SIZE;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
@@ -800,9 +800,22 @@ export function decodeBlueprintRevisionNumber(value: unknown, path = "revisionNu
 export function decodeBlueprintCoursePage(
   value: unknown,
   path = "response",
-): CursorPage<BlueprintCourseSummaryView> {
+): BlueprintCourseListPageView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["items", "nextCursor"]);
+  requireOnlyFields(record, path, ["items", "pageNumber", "pageSize", "totalCount"]);
+  const pageNumber = decodePositiveInteger(field(record, "pageNumber", path), `${path}.pageNumber`);
+  const pageSize = decodePositiveInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeNonnegativeInteger(
+    field(record, "totalCount", path),
+    `${path}.totalCount`,
+  );
+  if (
+    pageNumber > 0xffffffff ||
+    pageSize > MAX_PAGE_SIZE ||
+    pageNumber > Math.max(1, Math.ceil(totalCount / pageSize))
+  ) {
+    throw new DecodeError(path, "a valid resolved numbered Blueprint Course page");
+  }
   return {
     items: decodeBoundedArray(
       field(record, "items", path),
@@ -810,10 +823,8 @@ export function decodeBlueprintCoursePage(
       MAX_PAGE_SIZE,
       summary,
     ),
-    nextCursor: decodeNullable(
-      field(record, "nextCursor", path),
-      `${path}.nextCursor`,
-      decodeBlueprintCourseCursor,
-    ),
+    pageNumber,
+    pageSize,
+    totalCount,
   };
 }

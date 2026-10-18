@@ -20,6 +20,47 @@ closed shape, and does not supply authority. Database functions derive account,
 membership, and record scope from the authenticated session and their typed
 arguments.
 
+## DataSheet collection
+
+The shared collection composes SearchBlock, DataSheetControls,
+DataSheetBlock, DataSheetTable, HeaderRow, and RecordItem. Every collection
+exposes Compact, List, Cards, and Visual Boxes. DataSheetBlock owns all four
+modes and shared sorting, filtering, selection, and record actions.
+DataSheetTable owns the reusable Compact/List tabular presentation and column
+configuration: resizing, showing/hiding, rearrangement, responsive hiding, and
+independent temporary widths, visibility, and order for each table mode.
+HeaderRow is the heading interface within DataSheetTable and forwards sorting
+and filtering input to DataSheetBlock; DataSheetTable handles column mechanics.
+HeaderRow is not an independent controller. RecordItem supplies record content
+and direct actions in every mode. SearchBlock composes page-supplied criteria
+and controls with DataSheetControls and the required DataSheetBlock.
+DataSheetControls exposes surrounding mode, pagination, count, bulk, and
+appropriate sort/filter interfaces through shared state and callbacks,
+delegating collection interactions to DataSheetBlock and column mechanics to
+DataSheetTable. It does not own a parallel query or presentation controller.
+Page/domain owners retain authorized scope, query execution,
+creation, and domain commands; editors retain membership and saved order. The
+UI requests sorting and filtering through DataSheetBlock; the data/query layer
+applies them across the complete matching collection before pagination.
+Database-backed query owners use PostgreSQL `WHERE` and `ORDER BY`; complete
+local collections use equivalent shared client-side processing. Search snapshots
+update after a new query or explicit refresh. DataSheetTable is the implemented
+shared table owner; M13-M17 extraction and M23 integration are accepted. Final
+integrated gates remain separately required by the active plan.
+See [modular_ui_architecture_completion_plan.md](active_plans/active/modular_ui_architecture_completion_plan.md)
+for the complete behavior and milestone ownership.
+
+Published WeBWorK Question thumbnails are immutable artifacts tied to exact
+published Revisions. Publication uses the approved seed-zero private-renderer
+path and browsing reads the stored artifact; thumbnail rendering is not a
+preview cache. Question thumbnails are always 256 x 256 pixels. Preserve the
+existing rendered question layout, capture it at sufficient source resolution
+to fill the thumbnail without raster upscaling, and preserve the rendered
+content's proportions. Crop excess width symmetrically from both sides and
+excess height from the bottom, keeping the content horizontally centered and
+vertically top-aligned. M19-M22 in the active plan own implementation and
+acceptance.
+
 A public ID is the one universal, canonical human-facing identifier for a PLE
 object that needs one. Store and use the exact same ID in the database, Rust,
 JSON, URLs, object storage, hashes, logs, and browser UI.
@@ -227,7 +268,7 @@ through the normal update workflow.
 | Course Instance                | A Course Instance starts empty or adopts an exact Public Blueprint Revision, atomically creating every Assessment with its Questions, pools, and reusable settings, fresh identities, Unreleased state, and unset dates. It owns deliberately entered names, Course Term dates, equal co-Instructor memberships, roster, and delivery state; it always has at least one assigned Instructor. Course Term is current Course state, not a Revision. | [course_term.rs](../crates/question_model/src/course_term.rs), [course_core.sql](../schemas/base_schema/50_functions/course_core.sql), [course_operations.sql](../schemas/base_schema/50_functions/course_operations.sql) |
 | Assessment                     | An Assessment is one stable current aggregate under a Course Instance. Its positive Assessment Edit Number is the strong HTTP `If-Match` encoding for save, Assessment Properties save, release, and Unrelease. It owns current title, instructions, dates, settings, ordered Questions, and Question Pools. Fixed Question entries pin exact Question Revisions; Pool entries reference a current Pool by ID and store their own selection count. Existing Attempts keep their selected Question Revisions. | [edit_number.rs](../crates/question_model/src/assessment/edit_number.rs), [assessment.rs](../crates/question_model/src/assessment.rs), [assessments.sql](../schemas/base_schema/50_functions/assessments.sql) |
 | Assessment release and editing | Saves use the current Assessment Edit Number and preserve incomplete unreleased editing state with specific problems shown. Release performs release validation. After issue, content edits follow HG: point changes, reordering, removal of Pool members never issued to any Student in that Assessment, and whole-Pool removal. Removing a Pool excludes its earned and possible points from every Attempt; point changes recalculate existing scores. Standalone Question removal remains tentative. Retained responses and issued Question evidence survive these edits. Unrelease deletes Student Work and permits normal editing before a new validated release. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [assessment_release.rs](../crates/learning-data-access/src/assessment_release.rs), [assessment_operations.sql](../schemas/base_schema/50_functions/assessment_operations.sql) |
-| Course Blueprint update review | An authorized Course Instructor may lazily derive one current-parent Course summary for adopted Assessments only. It classifies changed, matching, removed-source, Type-mismatch, and automatically-added correspondences; direct local Assessments are excluded. Each changed adopted Assessment uses the existing explicit detail Apply with parent Blueprint Course Revision Tuple and Assessment Edit Number CAS. Applying changes must respect the same post-issue Assessment content limits as direct edits. It preserves local dates, status, origin, and existing Student Work; equivalent content is a no-op and Pool references retain their existing IDs; independent Pool customization uses explicit ordinary Pool forking. It has no persisted offers, receipts, baselines, or stored update state, and does not close a whole-Course lifecycle. | [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs), [assessment_blueprint_updates.sql](../schemas/base_schema/50_functions/assessment_blueprint_updates.sql), [assessment_release.rs](../crates/server/src/assessment_release.rs), [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx) |
+| Course Blueprint update review | An authorized Course Instructor may lazily derive one current-parent Course summary for adopted Assessments only. It classifies changed, matching, removed-source, Type-mismatch, and automatically-added correspondences; direct local Assessments are excluded. Each changed adopted Assessment uses the existing explicit detail Apply with parent Blueprint Course Revision Tuple and Assessment Edit Number CAS. Applying changes must respect the same post-issue Assessment content limits as direct edits. It preserves local dates, status, origin, and existing Student Work; matching Entry IDs are preserved to keep grades attached; equivalent content is a no-op and Pool references retain their existing IDs; independent Pool customization uses explicit ordinary Pool forking. It has no persisted offers, receipts, baselines, or stored update state, and does not close a whole-Course lifecycle. | [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs), [assessment_blueprint_updates.sql](../schemas/base_schema/50_functions/assessment_blueprint_updates.sql), [assessment_release.rs](../crates/server/src/assessment_release.rs), [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx) |
 | Assessment Unrelease           | An authorized Teaching Team member supplies the exact Assessment Edit Number and title confirmation. The database locks the Assessment, confirms Released status, changes it to Unreleased, and permanently deletes its Student Work. Shared Questions, current Assessment state, and Course membership survive. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [unrelease.sql](../schemas/base_schema/50_functions/unrelease.sql) |
 
 **Create Blueprint from Course Instance** creates a distinct actor-owned Public
@@ -491,7 +532,9 @@ not a runtime API or another contract owner.
   Tuple. Current Course and Assessment configuration uses current state
   with its qualified Edit Number where concurrent writers need one.
 - Student Work is independently interpretable from its retained evidence.
-- Lists are bounded and cursor-based. Browser transport is same-origin and
-  successful bodies are `no-store` where they contain protected current state.
+- SearchBlock presents bounded numbered result pages. Underlying data
+  interfaces may use bounded cursors, including native/provider lists and
+  facet-choice enumeration. Browser transport is same-origin and successful
+  bodies are `no-store` where they contain protected current state.
 - Database routines use fixed search paths, narrow privileges, forced RLS where
   appropriate, and transactions for cross-record lifecycle changes.

@@ -27,9 +27,9 @@ use crate::{
     BlueprintChangeProposalAcceptedDecision, BlueprintChangeProposalAcceptedSummary,
     BlueprintChangeProposalDecision, BlueprintChangeProposalListScope,
     BlueprintChangeProposalReview, BlueprintChangeProposalStore, BlueprintChangeProposalSummary,
-    CreateBlueprintChangeProposalInput, Cursor, Page, PageRequest, SessionTokenHash, StoreError,
-    StoredBlueprintChangeProposal, StoredBlueprintCourseContent, StoredBlueprintModule,
-    StoredBlueprintRevision,
+    CreateBlueprintChangeProposalInput, NumberedPage, NumberedPageRequest, PageNumber,
+    SessionTokenHash, StoreError, StoredBlueprintChangeProposal, StoredBlueprintCourseContent,
+    StoredBlueprintModule, StoredBlueprintRevision,
 };
 
 #[async_trait]
@@ -68,24 +68,14 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         scope: BlueprintChangeProposalListScope,
-        page: PageRequest,
+        page: NumberedPageRequest,
         text: &str,
         ascending: bool,
         status: &str,
-    ) -> Result<Page<BlueprintChangeProposalSummary>, StoreError> {
+    ) -> Result<NumberedPage<BlueprintChangeProposalSummary, crate::PageSize>, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
-        let (after_created_at, after_id) = match page.after.as_ref() {
-            Some(cursor) => {
-                let (timestamp, id) = cursor.as_str().split_once('|').ok_or_else(invalid)?;
-                (
-                    Some(timestamp.to_owned()),
-                    Some(uuid::Uuid::parse_str(id).map_err(|_| invalid())?),
-                )
-            }
-            None => (None, None),
-        };
         let (target, mine) = match scope {
             BlueprintChangeProposalListScope::Mine => (None, true),
             BlueprintChangeProposalListScope::Target(blueprint_assessment_id) => {
@@ -94,37 +84,51 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         };
         // ASVS 1.2.4, 8.2.2/3, 8.3.2: bounded participant SQL reauthorizes every page.
         let rows = sqlx::query(
-            "SELECT * FROM ple_api.list_blueprint_change_proposals($1,$2,$3,$4,$5,$6,$7,$8)",
+            "SELECT * FROM ple_api.list_blueprint_change_proposals($1,$2,$3,$4,$5,$6,$7)",
         )
         .bind(target)
         .bind(mine)
-        .bind(after_created_at)
-        .bind(after_id)
-        .bind(i32::from(page.size.get()) + 1)
+        .bind(i64::from(page.page_number.get()))
+        .bind(i32::from(page.page_size.get()))
         .bind(text)
         .bind(ascending)
         .bind(status)
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let more = rows.len() > usize::from(page.size.get());
-        let retained = rows.iter().take(usize::from(page.size.get()));
-        let items = retained
-            .clone()
-            .map(proposal_summary)
-            .collect::<Result<Vec<_>, _>>()?;
-        let next_cursor = if more {
-            let last = retained.last().ok_or_else(invalid)?;
-            let timestamp: String = last.try_get("created_at_key").map_err(map_sqlx_error)?;
-            let id: uuid::Uuid = last
-                .try_get("blueprint_change_proposal_id")
-                .map_err(map_sqlx_error)?;
-            Some(Cursor::parse(format!("{timestamp}|{id}")).map_err(|_| invalid())?)
-        } else {
-            None
-        };
+        let metadata = rows.first().ok_or_else(invalid)?;
+        let total_count = u64::try_from(
+            metadata
+                .try_get::<i64, _>("total_count")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid())?;
+        let page_number = PageNumber::new(
+            u32::try_from(
+                metadata
+                    .try_get::<i64, _>("resolved_page_number")
+                    .map_err(map_sqlx_error)?,
+            )
+            .map_err(|_| invalid())?,
+        )
+        .map_err(|_| invalid())?;
+        let mut items = Vec::with_capacity(rows.len());
+        for row in &rows {
+            if row
+                .try_get::<Option<uuid::Uuid>, _>("blueprint_change_proposal_id")
+                .map_err(map_sqlx_error)?
+                .is_some()
+            {
+                items.push(proposal_summary(row)?);
+            }
+        }
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(Page { items, next_cursor })
+        Ok(NumberedPage {
+            items,
+            page_number,
+            page_size: page.page_size,
+            total_count,
+        })
     }
 
     async fn read_blueprint_change_proposal_review(

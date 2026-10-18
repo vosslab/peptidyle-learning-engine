@@ -154,7 +154,46 @@
   gap: 0.65rem;
 }
 
+.library-page .question-library-browse-classification {
+  min-inline-size: 0;
+}
+
+.library-page .question-library-browse-classification > summary {
+  min-block-size: var(--ple-control-min-height);
+  align-content: center;
+  overflow-wrap: anywhere;
+}
+
+.library-page .question-library-browse-classification > summary span {
+  margin-inline-start: 0.5rem;
+}
+
+.library-page .question-library-browse-classification-body {
+  display: grid;
+  gap: 0.7rem;
+}
+
+@media (min-width: 64rem) {
+  .library-page .question-library-browse-classification > summary {
+    display: none;
+  }
+}
+
 .library-page .question-library-browse-level {
+  min-inline-size: 0;
+}
+
+.library-page .question-library-browse-level > summary {
+  min-block-size: var(--ple-control-min-height);
+  align-content: center;
+}
+
+.library-page .question-library-browse-level > summary span {
+  margin-inline-start: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.library-page .question-library-browse-level-body {
   display: grid;
   gap: 0.35rem;
   min-inline-size: 0;
@@ -380,16 +419,53 @@
   }
 }
 
-/* Library filters are a full-width vertical group inside shared controls. */
-.library-page .library-search-filters {
-  display: grid;
+/* Occasional search actions share a row; expanded criteria and help use its width. */
+.library-page .library-search-secondary-actions {
+  display: flex;
   flex: 1 1 100%;
-  grid-template-columns: minmax(0, 1fr);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  min-inline-size: 0;
+}
+
+.library-page .library-search-secondary-actions .question-library-search-tips {
+  align-self: center;
+  min-inline-size: 0;
+}
+
+.library-page .library-search-secondary-actions .question-library-search-tips > summary {
+  min-block-size: var(--ple-control-min-height);
+  align-content: center;
+}
+
+.library-page .library-search-filters[open],
+.library-page .library-search-secondary-actions .question-library-search-tips[open] {
+  flex-basis: 100%;
+}
+
+.library-page .library-search-filters {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+}
+
+.library-page .library-search-filters > summary {
+  min-block-size: var(--ple-control-min-height);
+  align-content: center;
+  font-weight: 680;
+}
+
+.library-page .library-search-filters-body {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, calc(2 * var(--ple-filter-control-min-inline))), 1fr)
+  );
   gap: 0.7rem;
   min-inline-size: 0;
 }
 
-.library-page .library-search-filters > label {
+.library-page .library-search-filters-body > label {
   display: grid;
   gap: 0.35rem;
   color: var(--ple-muted);
@@ -398,6 +474,8 @@
   min-inline-size: 0;
 }
 
-.library-page .library-search-filters select {
+.library-page .library-search-filters-body select,
+.library-page .library-search-filters-body input:not([type="checkbox"]) {
+  min-inline-size: 0;
   inline-size: 100%;
 }

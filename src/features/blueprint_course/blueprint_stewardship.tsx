@@ -1,15 +1,28 @@
 // Instructor-only lineage endorsements and self-only Watch activity.
-import { Show, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createEffect, createResource, createSignal, type JSX } from "solid-js";
 import type {
-  BlueprintStewardshipClient,
   BlueprintWatchEvent,
+  BlueprintWatchEventKind,
+  BlueprintWatchPage,
+  BlueprintWatchQuery,
+  BlueprintStewardshipClient,
 } from "../../api/blueprint_stewardship";
 import "./blueprint_stewardship.css";
-import { RecordList, type RecordContent } from "../../components/record_list/record_list";
-import type { RecordField } from "../../components/record_list/record_fields";
-import { SearchBlock } from "../search/search_block";
-import { SearchControls } from "../search/search_controls";
-import { createLocalCompleteSearch } from "../search/local_complete_search_state";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import type {
+  RecordField,
+  RecordFilterChoices,
+  RecordListQuery,
+} from "../../components/data_sheet/record_fields";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
+import { createSearchState } from "../../components/search_block/search_state";
+import type {
+  SearchPageRequest,
+  SearchDefinition,
+  SearchPage,
+} from "../../components/search_block/search_session";
 
 type StarredInstructorRow = { readonly id: string; readonly displayName: string };
 const instructorFields: ReadonlyArray<RecordField<StarredInstructorRow, "name", "name">> = [
@@ -39,6 +52,103 @@ function eventLabel(kind: BlueprintWatchEvent["kind"]): string {
     case "restored":
       return "Blueprint restored";
   }
+}
+
+const INITIAL_WATCH_QUERY: BlueprintWatchQuery = {
+  q: "",
+  eventKinds: [],
+  direction: "descending",
+};
+
+type WatchSort = "occurredAt";
+type WatchFilter = "eventKind";
+
+function watchFields(
+  formatDateTime: Props["formatDateTime"],
+): ReadonlyArray<RecordField<BlueprintWatchEvent, WatchSort, WatchFilter>> {
+  return [
+    {
+      id: "activity",
+      label: "Activity",
+      role: "identity",
+      filterKey: "eventKind",
+      value: (row) => eventLabel(row.kind),
+      defaultColumn: { priority: 0, width: "16rem" },
+    },
+    {
+      id: "occurredAt",
+      label: "Occurred",
+      sortKey: "occurredAt",
+      value: (row) => row.occurredAt,
+      render: (row) => (
+        <time dateTime={new Date(row.occurredAt).toISOString()}>
+          {formatDateTime(row.occurredAt)}
+        </time>
+      ),
+      defaultColumn: { priority: 1, width: "15rem" },
+    },
+  ];
+}
+
+function cleanWatchQuery(query: BlueprintWatchQuery): BlueprintWatchQuery {
+  return {
+    q: query.q.trim().toLowerCase().slice(0, 120),
+    eventKinds: [...new Set(query.eventKinds)].sort(),
+    direction: query.direction,
+  };
+}
+
+function watchDefinition(
+  load: (query: BlueprintWatchQuery, page: SearchPageRequest) => Promise<BlueprintWatchPage>,
+  content: (row: BlueprintWatchEvent) => RecordContent,
+): SearchDefinition<BlueprintWatchQuery, BlueprintWatchEvent, BlueprintWatchPage> {
+  return {
+    initialQuery: INITIAL_WATCH_QUERY,
+    maximumPageSize: 100,
+    cleanup: cleanWatchQuery,
+    isEligible: () => true,
+    getText: (query) => query.q,
+    setText: (query, q) => ({ ...query, q }),
+    rowId: (row) => row.eventId,
+    content,
+    fetchPage: async (
+      query,
+      requestedPage,
+    ): Promise<SearchPage<BlueprintWatchEvent, BlueprintWatchPage>> => {
+      const page = await load(query, requestedPage);
+      if (page.pageSize !== requestedPage.pageSize)
+        throw new Error("Blueprint Watch response page size differs from its request");
+      return { ...page, pageSize: requestedPage.pageSize, filterCounts: page };
+    },
+    appliedFilters: (query) =>
+      query.eventKinds.map((kind) => ({
+        id: `event-${kind}`,
+        label: `Activity: ${eventLabel(kind)}`,
+        clear: (current: BlueprintWatchQuery): BlueprintWatchQuery => ({
+          ...current,
+          eventKinds: current.eventKinds.filter((value) => value !== kind),
+        }),
+      })),
+  };
+}
+
+function watchFacetChoices(
+  page: BlueprintWatchPage | undefined,
+  selected: ReadonlyArray<BlueprintWatchEventKind>,
+  search: string,
+): RecordFilterChoices {
+  const values: ReadonlyArray<BlueprintWatchEventKind> = ["revision", "archived", "restored"];
+  const choices = values.map((value) => ({
+    key: value,
+    label: eventLabel(value),
+    count: page?.eventKindFacets.find((facet) => facet.value === value)?.count ?? 0,
+  }));
+  const term = search.trim().toLowerCase();
+  return {
+    choices: choices.filter((choice) => choice.label.toLowerCase().includes(term)),
+    selected: choices.filter((choice) => selected.includes(choice.key)),
+    nextCursor: null,
+  };
 }
 
 function watchEventContent(
@@ -78,16 +188,23 @@ export function BlueprintStewardship(props: Props): JSX.Element {
     () => props.blueprintCourseId,
     (blueprintCourseId) => props.client.getBlueprintStarredInstructors(blueprintCourseId),
   );
-  const [events, { refetch: refetchEvents }] = createResource(
-    () => props.blueprintCourseId,
-    (blueprintCourseId) => props.client.getBlueprintWatchEvents(blueprintCourseId),
-  );
+  const [activityRefreshRevision, setActivityRefreshRevision] = createSignal(0);
   const instructorSearch = createLocalCompleteSearch(
     {
-      resource: instructors,
+      rows: () => {
+        const names = instructors();
+        if (names === undefined) return undefined;
+        const occurrences = new Map<string, number>();
+        return names.map(({ displayName }) => {
+          const occurrence = occurrences.get(displayName) ?? 0;
+          occurrences.set(displayName, occurrence + 1);
+          // The restricted projection identifies names, not individual Accounts.
+          return { id: JSON.stringify([displayName, occurrence]), displayName };
+        });
+      },
+      loading: () => instructors.loading,
+      error: (): unknown => instructors.error,
       refetchSource: refetchInstructors,
-      rows: (names): ReadonlyArray<StarredInstructorRow> =>
-        names.map((name, index) => ({ id: String(index), displayName: name.displayName })),
     },
     {
       fields: instructorFields,
@@ -111,7 +228,9 @@ export function BlueprintStewardship(props: Props): JSX.Element {
         );
       else await props.client.setBlueprintWatch(props.blueprintCourseId, !current.watch.watching);
       // Refresh the preference that owns the control before confirming the action.
-      await refetch();
+      await Promise.all([refetch(), ...(kind === "star" ? [refetchInstructors()] : [])]);
+      if (kind === "star" && (state.error !== undefined || instructors.error !== undefined))
+        throw new Error("Blueprint Star stewardship could not be refreshed");
       setNotice(
         kind === "star"
           ? "Your Star preference is saved."
@@ -128,7 +247,8 @@ export function BlueprintStewardship(props: Props): JSX.Element {
   async function reload(): Promise<void> {
     setFailed(false);
     setNotice("");
-    const results = await Promise.allSettled([refetch(), refetchInstructors(), refetchEvents()]);
+    const results = await Promise.allSettled([refetch(), refetchInstructors()]);
+    setActivityRefreshRevision((revision) => revision + 1);
     if (results[0]?.status === "rejected") setFailed(true);
   }
 
@@ -193,25 +313,16 @@ export function BlueprintStewardship(props: Props): JSX.Element {
             </details>
             <details>
               <summary>Your private Watch activity</summary>
-              <p>Most recent 25 notifications for this Blueprint.</p>
-              <RecordList
-                ariaLabel="Your private Watch activity"
-                emptyState={{ title: "No Watch activity yet." }}
-                recordId={(event) => `${event.kind}-${event.occurredAt}`}
-                content={(event) => watchEventContent(props.formatDateTime, event)}
-                rows={events() ?? []}
-                state={
-                  events.error !== undefined
-                    ? {
-                        kind: "error",
-                        message: "Watch activity could not be loaded.",
-                        retry: () => void refetchEvents(),
-                      }
-                    : events.loading
-                      ? { kind: "loading" }
-                      : { kind: "ready" }
-                }
-              />
+              <Show when={props.blueprintCourseId} keyed>
+                {(blueprintCourseId) => (
+                  <WatchActivity
+                    client={props.client}
+                    blueprintCourseId={blueprintCourseId}
+                    formatDateTime={props.formatDateTime}
+                    refreshRevision={activityRefreshRevision()}
+                  />
+                )}
+              </Show>
             </details>
           </>
         )}
@@ -228,5 +339,78 @@ export function BlueprintStewardship(props: Props): JSX.Element {
         <p role={failed() ? "alert" : "status"}>{notice()}</p>
       </Show>
     </section>
+  );
+}
+
+function WatchActivity(props: Props & { readonly refreshRevision: number }): JSX.Element {
+  const load = (query: BlueprintWatchQuery, page: SearchPageRequest): Promise<BlueprintWatchPage> =>
+    props.client.getBlueprintWatchEvents(
+      props.blueprintCourseId,
+      query,
+      page.pageNumber,
+      page.pageSize,
+    );
+  const state = createSearchState(
+    watchDefinition(load, (row) => watchEventContent(props.formatDateTime, row)),
+    { runOnMount: true },
+  );
+  let previousRefreshRevision = props.refreshRevision;
+  createEffect(() => {
+    const revision = props.refreshRevision;
+    if (revision === previousRefreshRevision) return;
+    previousRefreshRevision = revision;
+    void state.refresh();
+  });
+  const recordQuery: RecordListQuery<WatchSort, WatchFilter> = {
+    kind: "paged",
+    sort: {
+      get value() {
+        return { key: "occurredAt" as const, direction: state.query().direction };
+      },
+      onChange: (sort) => void state.sort((current) => ({ ...current, direction: sort.direction })),
+    },
+    filters: {
+      get values() {
+        return new Map<WatchFilter, ReadonlyArray<string>>([
+          ["eventKind", state.query().eventKinds],
+        ]);
+      },
+      onChange: (_key, values) =>
+        void state.apply((current) => ({
+          ...current,
+          eventKinds: values.filter(
+            (value): value is BlueprintWatchEventKind =>
+              value === "revision" || value === "archived" || value === "restored",
+          ),
+        })),
+      onClear: () => void state.apply((current) => ({ ...current, eventKinds: [] })),
+      choices: async (_key, search) => {
+        const query = state.query();
+        const page = await load({ ...query, eventKinds: [] }, { pageNumber: 1, pageSize: 50 });
+        return watchFacetChoices(page, query.eventKinds, search);
+      },
+    },
+  };
+  return (
+    <SearchBlock
+      layout="above"
+      state={state}
+      controls={
+        <SearchControls
+          state={state}
+          textLabel="Search Watch activity"
+          textPlaceholder="Activity"
+        />
+      }
+      collection={{
+        ariaLabel: "Your private Watch activity",
+        emptyState: {
+          title: "No matching Watch activity",
+          message: "Try another activity or filter.",
+        },
+        fields: watchFields(props.formatDateTime),
+        query: recordQuery,
+      }}
+    />
   );
 }

@@ -49,6 +49,7 @@ generic worker work. Both remain separate from the browser-facing API.
 | `postgres`               | Stores relational platform authority: identities, courses, memberships, assignments, attempts, submissions, scores, jobs, and audit records.                           | `ple_pgdata`, a named volume mounted at PostgreSQL's data directory.                   | Publishes a loopback development port and joins the data network.                               |
 | `minio`                  | Stores typed objects too large or inappropriate for relational rows: content packages, Student-specific exports and annotated exams, and temporary processing objects. | `ple_miniodata`, a named volume mounted at `/data`.                                    | Publishes loopback development API and console ports and joins the data network.                |
 | `webwork-renderer`       | Runs the external `webwork-pg-renderer` image to execute PG/PGML render and grade requests. It is an engine, not a second assignment platform.                         | None. It has no volume and no SQL database.                                            | Joins only `renderer_private`; it has no host-published port.                                   |
+| `question-thumbnail-renderer` | Captures bounded WebWork document previews with Playwright and encodes WebP thumbnails. It has no persistence authority. | None. Browser contexts and temporary files are ephemeral. | Joins only `renderer_private`; it has no host-published port. |
 
 PostgreSQL is replaceable as a container, but the database service is not
 semantically stateless. Its data is correctly outside the writable container
@@ -59,6 +60,14 @@ The external renderer is genuinely stateless from PLE's perspective. PLE owns
 immutable Question Source, the exact attempt-bound backend document, saved
 opaque response, and recorded grade. The E1 WeBWorK path keeps no replay mapping
 or renderer session state, so a renderer restart cannot lose an educational record.
+
+The PLE-owned Question Thumbnail Renderer uses the same private network so it
+can request packaged embed assets through the API's constrained renderer-asset
+proxy during capture. The API depends on its healthy `/health` endpoint before
+starting. That endpoint starts Chromium and reports readiness without calling
+the API, so startup has no dependency cycle. The helper has no host port,
+volumes, or credentials. Its image uses the repository-root npm manifest and
+lockfile and is built separately from the Rust application image.
 
 Every long-running local service is non-root where its upstream image permits,
 has a read-only root filesystem, drops all Linux capabilities, sets

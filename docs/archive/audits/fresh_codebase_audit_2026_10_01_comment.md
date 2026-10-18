@@ -140,7 +140,7 @@ historical-reference rows have deliberately narrower review depth. Evidence is s
 | [student_course_attempt_history.ts](../../../src/api/http_client/student_course_attempt_history.ts) | good | full-source | History transport validates public Course ID, page/cursor bounds, no-store, and explicit 200 status. | src/api/http_client/student_course_attempt_history.ts: lines 15-57 |
 | [student_course_response_stats.ts](../../../src/api/http_client/student_course_response_stats.ts) | good | full-source | Self-only stats read uses canonical Course routing, no-store, a closed decoder, and explicit status. | src/api/http_client/student_course_response_stats.ts: lines 15-40 |
 | [student_question_display_duration.ts](../../../src/api/http_client/student_question_display_duration.ts) | good | full-source | Checkpoint writes validate locally monotone-shaped inputs and reject receipts that regress the cumulative duration. | src/api/http_client/student_question_display_duration.ts: lines 16-62 |
-| [teaching_operations.ts](../../../src/api/http_client/teaching_operations.ts) | refine | full-source | It duplicates the shared same-origin JSON dispatch solely to add PATCH to its method union. Extend the shared request helper for the needed method so cache, JSON, and credentials policy have one owner. | src/api/http_client/teaching_operations.ts: lines 12-105 |
+| `src/api/http_client/teaching_operations.ts` | refine | full-source | It duplicates the shared same-origin JSON dispatch solely to add PATCH to its method union. Extend the shared request helper for the needed method so cache, JSON, and credentials policy have one owner. | src/api/http_client/teaching_operations.ts: lines 12-105 |
 | [imathas_question_backend_launch.ts](../../../src/api/imathas_question_backend_launch.ts) | neutral | full-source | Current decoder/backend boundary inspected. Deferred iMathAS support is outside acceptance scope; its presence alone does not justify removal or a compatibility finding. | src/api/imathas_question_backend_launch.ts: lines 1-62 |
 | [instructor_account.ts](../../../src/api/instructor_account.ts) | good | full-source | Sysadmin Account lifecycle contract exposes a small answer-free projection and keeps vetting receipt opaque. | src/api/instructor_account.ts: lines 1-72 |
 | [invitation_export.ts](../../../src/api/invitation_export.ts) | good | full-source | The export interface deliberately returns an opaque Blob rather than recipient records. | src/api/invitation_export.ts: lines 1-11 |
@@ -216,13 +216,13 @@ historical-reference rows have deliberately narrower review depth. Evidence is s
 | [course_classification_summary.tsx](../../../src/components/course_classification_summary.tsx) | good | full-source | Read-only summary resolves names through the supplied classification client. |  |
 | [course_student_work_recovery.tsx](../../../src/components/course_student_work_recovery.tsx) | refine | full-source | Recovery display now requires a BlueprintCourseClient method only for title recognition; name a narrow recognition-title capability instead of coupling this FERPA recovery surface to an unrelated course client. |  |
 | [discipline_request.ts](../../../src/components/discipline_request.ts) | bad | full-source | Sysadmin fulfillment creates a Discipline and resolves its request in two independent browser requests; a second failure leaves a created item and open request. |  |
-| [library_bloom_discovery.tsx](../../../src/components/library_bloom_discovery.tsx) | neutral | full-source | Manual Bloom discovery surface; no automated classifier is introduced. |  |
+| `src/components/library_bloom_discovery.tsx` | neutral | full-source | Manual Bloom discovery surface; no automated classifier is introduced. |  |
 | [library_classification_search.tsx](../../../src/components/library_classification_search.tsx) | neutral | full-source | Existing controlled classification search component. |  |
 | `src/components/library_discussion_panel.css` (removed after this audit) | neutral | full-source | Discussion presentation styles. |  |
 | `src/components/library_discussion_panel.tsx` (removed after this audit) | good | full-source | Uses selected display-zone formatter rather than browser-local time for discussion timestamps. |  |
 | [opaque_webwork_preview_frame.tsx](../../../src/components/opaque_webwork_preview_frame.tsx) | good | full-source | Opaque preview boundary keeps the preview protocol limited to sizing. |  |
-| [page_frame.css](../../../src/components/page_frame.css) | neutral | full-source | Page frame styling only. |  |
-| [page_frame.tsx](../../../src/components/page_frame.tsx) | neutral | full-source | Shared semantic page shell. |  |
+| [page_frame.css](../../../src/components/page_frame/page_frame.css) | neutral | full-source | Page frame styling only. |  |
+| [page_frame.tsx](../../../src/components/page_frame/page_frame.tsx) | neutral | full-source | Shared semantic page shell. |  |
 | [question_bulk_metadata_editor.css](../../../src/components/question_bulk_metadata_editor.css) | neutral | full-source | Bulk editor presentation styles. |  |
 | [question_bulk_metadata_editor.tsx](../../../src/components/question_bulk_metadata_editor.tsx) | good | full-source | Explicit Keep/Replace/Clear intent and stale-state refresh preserve atomic server command semantics. |  |
 | [question_pool_create_dialog.css](../../../src/components/question_pool_create_dialog.css) | neutral | full-source | Question Pool creation presentation styles. |  |
@@ -253,19 +253,19 @@ historical-reference rows have deliberately narrower review depth. Evidence is s
 | [question_response_preview.tsx](../../../src/components/question_response_preview.tsx) | refine | full-source | HOTSPOT preview calls its image resolver directly while QuestionPromptRenderer validates exact same-origin revision routes; use the same resolver validation at this second rendering boundary. |  |
 | [question_star_control.tsx](../../../src/components/question_star_control.tsx) | refine | full-source | Existing counterpart of the new Pool Star control also lacks local load/mutation failure handling; consolidate the durable star-control behavior instead of copying this weakness. |  |
 | [question_watch_control.tsx](../../../src/components/question_watch_control.tsx) | refine | full-source | Existing question Watch control lacks the local retry/error handling present in the newer Pool Watch control. |  |
-| [record_collection_state.tsx](../../../src/components/record_list/record_collection_state.tsx) | neutral | full-source | Shared loading/empty/error state presentation. |  |
+| [record_collection_state.tsx](../../../src/components/data_sheet/record_collection_state.tsx) | neutral | full-source | Shared loading/empty/error state presentation. |  |
 | [record_detail_list.tsx](../../../src/components/record_list/record_detail_list.tsx) | neutral | full-source | Semantic record-detail list adapter. |  |
-| [record_family.css](../../../src/components/record_list/record_family.css) | neutral | full-source | Shared record styling. |  |
-| [record_list.css](../../../src/components/record_list/record_list.css) | neutral | full-source | Shared record-list styling. |  |
+| [record_family.css](../../../src/components/data_sheet/record_family.css) | neutral | full-source | Shared record styling. |  |
+| [record_list.css](../../../src/components/data_sheet/data_sheet.css) | neutral | full-source | Shared record-list styling. |  |
 | [record_list.tsx](../../../src/components/record_list/record_list.tsx) | neutral | full-source | Shared record-list renderer. |  |
-| [record_list_image_browser.tsx](../../../src/components/record_list/record_list_image_browser.tsx) | neutral | full-source | Existing record image browser. |  |
-| [record_list_presentation.ts](../../../src/components/record_list/record_list_presentation.ts) | neutral | full-source | Record presentation types. |  |
-| [record_list_reorder.tsx](../../../src/components/record_list/record_list_reorder.tsx) | good | full-source | Native drag destinations are now validated against current indices and disabled state before persistence is requested. |  |
+| `src/components/record_list/record_list_image_browser.tsx` | neutral | full-source | Existing record image browser. |  |
+| `src/components/record_list/record_list_presentation.ts` | neutral | full-source | Record presentation types. |  |
+| [record_list_reorder.tsx](../../../src/components/data_sheet/record_reorder.tsx) | good | full-source | Native drag destinations are now validated against current indices and disabled state before persistence is requested. |  |
 | [record_outline_list.tsx](../../../src/components/record_list/record_outline_list.tsx) | neutral | full-source | Existing outline-list adapter. |  |
-| [record_page_controls.tsx](../../../src/components/record_list/record_page_controls.tsx) | neutral | full-source | Existing page controls. |  |
+| [record_page_controls.tsx](../../../src/components/data_sheet/record_page_controls.tsx) | neutral | full-source | Existing page controls. |  |
 | [record_sequence.tsx](../../../src/components/record_list/record_sequence.tsx) | good | full-source | Reuses the validated drag-destination helper rather than duplicating drop checks. |  |
-| [record_sort_control.tsx](../../../src/components/record_list/record_sort_control.tsx) | neutral | full-source | Existing sort control. |  |
-| [record_table.tsx](../../../src/components/record_list/record_table.tsx) | neutral | full-source | Existing semantic table adapter. |  |
+| `src/components/record_list/record_sort_control.tsx` | neutral | full-source | Existing sort control. |  |
+| `src/components/record_list/record_table.tsx` | neutral | full-source | Existing semantic table adapter. |  |
 | [student_assessment_attempt_navigation.css](../../../src/components/student_assessment_attempt_navigation.css) | neutral | full-source | Navigation presentation styles. |  |
 | [student_assessment_attempt_navigation.tsx](../../../src/components/student_assessment_attempt_navigation.tsx) | neutral | full-source | Attempt-position navigation component. |  |
 | [student_assessment_attempt_navigation_model.ts](../../../src/components/student_assessment_attempt_navigation_model.ts) | neutral | full-source | Attempt navigation model. |  |

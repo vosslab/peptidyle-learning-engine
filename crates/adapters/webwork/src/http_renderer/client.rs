@@ -145,7 +145,7 @@ impl HttpWebworkRenderer {
                 *value = "debug".into();
             }
         }
-        let value = self.rpc(fields).await?;
+        let value = self.rpc(fields, request.seed).await?;
         super::diagnostics::project(&value)
     }
 
@@ -159,21 +159,25 @@ impl HttpWebworkRenderer {
         Ok(Self { client, settings })
     }
 
-    async fn rpc(&self, fields: Vec<(String, String)>) -> Result<Value, RendererFailure> {
+    async fn rpc(
+        &self,
+        fields: Vec<(String, String)>,
+        seed: u64,
+    ) -> Result<Value, RendererFailure> {
         let target = self
             .settings
             .base_uri
             .join(crate::standalone_render_api::PATH)
             .map_err(|_| bad("renderer URI is invalid"))?;
-        let response = self
+        let request = self
             .client
             .post(target)
             .header(ACCEPT, JSON_MEDIA_TYPE)
             .header(CONTENT_TYPE, crate::standalone_render_api::FORM_MEDIA_TYPE)
-            .form(&fields)
-            .send()
-            .await
-            .map_err(map_request_error)?;
+            .form(&fields);
+        // ASVS 16.2.5: record only the validated numeric seed, without source or transport data.
+        tracing::info!(event = "webwork_renderer_request", seed);
+        let response = request.send().await.map_err(map_request_error)?;
         if response.status().is_redirection() || response.headers().contains_key(LOCATION) {
             return Err(bad("renderer redirected request"));
         }
@@ -200,11 +204,14 @@ impl WebworkRenderer for HttpWebworkRenderer {
     ) -> Result<RenderedWebworkQuestion, RendererFailure> {
         validate_render_request(request)?;
         let value = self
-            .rpc(super::protocol::render_fields(
-                request,
-                &self.settings.ple_origin,
-                &self.settings.ple_asset_base,
-            ))
+            .rpc(
+                super::protocol::render_fields(
+                    request,
+                    &self.settings.ple_origin,
+                    &self.settings.ple_asset_base,
+                ),
+                request.seed,
+            )
             .await?;
         let document = validate_render_rpc(value)?;
         Ok(RenderedWebworkQuestion::from_document(
@@ -230,7 +237,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
             &self.settings.ple_asset_base,
         );
         fields.extend(decode_response_pairs(request.response_payload)?);
-        let document = validate_render_rpc(self.rpc(fields).await?)?;
+        let document = validate_render_rpc(self.rpc(fields, request.seed).await?)?;
         Ok(RenderedWebworkQuestion::from_document(
             document,
             self.settings.expected_renderer.clone(),
@@ -246,11 +253,14 @@ impl WebworkRenderer for HttpWebworkRenderer {
         }
         validate_render_request(request)?;
         let value = self
-            .rpc(super::protocol::answer_review_fields(
-                request,
-                &self.settings.ple_origin,
-                &self.settings.ple_asset_base,
-            ))
+            .rpc(
+                super::protocol::answer_review_fields(
+                    request,
+                    &self.settings.ple_origin,
+                    &self.settings.ple_asset_base,
+                ),
+                request.seed,
+            )
             .await?;
         let document = validate_answer_review_rpc(value)?;
         Ok(RenderedWebworkQuestion::from_document(
@@ -284,7 +294,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
         );
         fields.extend(decode_response_pairs(request.response_payload)?);
         fields.push(("submitAnswers".into(), "1".into()));
-        let score = validate_grade_rpc(self.rpc(fields).await?)?;
+        let score = validate_grade_rpc(self.rpc(fields, request.seed).await?)?;
         super::grade::score(score)
     }
 }

@@ -54,6 +54,7 @@ pub(crate) mod query;
 mod search_query;
 mod shared_metadata;
 pub(crate) mod summaries;
+mod thumbnail;
 mod usage_statistics;
 
 use summaries::{
@@ -110,6 +111,10 @@ pub fn question_library_router(
             get(question_revision_preview_document),
         )
         .route(
+            "/api/questions/by-id/{question_id}/revisions/{revision_number}/thumbnail",
+            get(thumbnail::get_question_thumbnail),
+        )
+        .route(
             "/api/questions/by-id/{question_id}/archive",
             post(archive_question),
         )
@@ -160,15 +165,6 @@ async fn search_library_objects_route(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let after = match paging::decode_position(&query) {
-        Ok(after) => after,
-        Err(()) => {
-            return route_error(
-                StatusCode::BAD_REQUEST,
-                "Question Library continuation is invalid",
-            );
-        }
-    };
     if let Err(response) =
         classification::validate(&state.classifications, session_hash, &query).await
     {
@@ -180,7 +176,6 @@ async fn search_library_objects_route(
         session_hash,
         is_instructor,
         query,
-        after,
     )
     .await
 }

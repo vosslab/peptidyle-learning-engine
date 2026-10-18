@@ -2,7 +2,7 @@
 import type {
   BlueprintStewardshipClient,
   BlueprintPromotion,
-  BlueprintWatchEvent,
+  BlueprintWatchPage,
 } from "../blueprint_stewardship";
 import { decodeBoolean } from "../decoder";
 import { blueprintEditNumber, decodeBlueprintCourseId } from "../decoders/blueprint_course";
@@ -112,17 +112,33 @@ export function createBlueprintStewardshipClient(
       ).body,
     getBlueprintWatchEvents: async (
       blueprintCourseId,
-      limit = 25,
-    ): Promise<readonly BlueprintWatchEvent[]> => {
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
-        throw new ApiProtocolError("Blueprint Watch event limit must be from 1 through 100");
-      const result = await request(
-        `${path(blueprintCourseId, "watch-events")}?${new URLSearchParams({ limit: String(limit) })}`,
-        decodeBlueprintWatchEvents,
-      );
-      if (result.body.length > limit)
-        throw new ApiProtocolError("Blueprint Watch events exceed requested limit");
-      return result.body;
+      query,
+      pageNumber,
+      pageSize,
+    ): Promise<BlueprintWatchPage> => {
+      if (
+        !Number.isSafeInteger(pageNumber) ||
+        pageNumber < 1 ||
+        !Number.isSafeInteger(pageSize) ||
+        pageSize < 1 ||
+        pageSize > 100
+      )
+        throw new ApiProtocolError(
+          "Blueprint Watch page must use a positive page and a page size from 1 through 100",
+        );
+      const params = new URLSearchParams({
+        direction: query.direction,
+        pageNumber: String(pageNumber),
+        pageSize: String(pageSize),
+      });
+      if (query.q.trim()) params.set("q", query.q.trim());
+      for (const eventKind of query.eventKinds) params.append("eventKind", eventKind);
+      return (
+        await request(
+          `${path(blueprintCourseId, "watch-events")}?${params}`,
+          decodeBlueprintWatchEvents,
+        )
+      ).body;
     },
     getBlueprintPromotion: (blueprintCourseId) => promotion(blueprintCourseId),
     setBlueprintPromotion: (blueprintCourseId, promoted, expectedBlueprintEditNumber) =>

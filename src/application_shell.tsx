@@ -16,7 +16,7 @@ import {
 
 import { useApplicationApi } from "./api/application_api";
 import { useSessionBootstrap } from "./auth/session_context";
-import { PageFrame } from "./components/page_frame";
+import { PageFrame } from "./components/page_frame/page_frame";
 import type { CourseThemeRouteData } from "./appearance/theme_context";
 import { AppearanceOwner } from "./appearance/appearance_owner";
 import { useAppearance } from "./appearance/appearance_context";

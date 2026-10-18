@@ -11,9 +11,9 @@ use sqlx::{Postgres, Row, Transaction, postgres::PgRow};
 use super::{Pool, connection::map_sqlx_error};
 use crate::archived_student_work_recovery::{AttemptFacts, RetainedQuestion, Submission};
 use crate::{
-    ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion,
-    RecoveryAssessmentChoice, RecoveryBrowse, RecoverySelectionPage, RecoverySummary,
-    SessionTokenHash, StoreError,
+    ArchivedStudentWorkRecoveryStore, NumberedPage, PageNumber, RecoveredAttempt,
+    RecoveredQuestion, RecoveryAssessmentChoice, RecoveryBrowse, RecoverySelectionPage,
+    RecoverySummary, SessionTokenHash, StoreError,
 };
 
 const READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL: &str = "SELECT course_instance_id, roster_id, assessment_id, \
@@ -73,21 +73,35 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
             .collect::<Vec<_>>();
         // ASVS 1.2.4/8.3.1: parameterized protected wrapper repeats exact authority.
         let rows = sqlx::query(
-            "SELECT course_instance_id, roster_id, assessment_id, assessment_title, \
-             assessment_attempt_id, assessment_attempt_number, started_at::text, \
-             submitted_at::text, student_data_archived_at::text, delete_due_at::text \
-             FROM ple_api.select_archived_assessment_attempts_for_recovery($1,$2,$3,$4,$5,$6)",
+            "SELECT has_item, resolved_page_number, total_count, course_instance_id, roster_id, \
+             assessment_id, assessment_title, assessment_attempt_id, assessment_attempt_number, \
+             started_at::text, submitted_at::text, student_data_archived_at::text, delete_due_at::text \
+             FROM ple_api.select_archived_assessment_attempts_for_recovery($1::bigint,$2,$3,$4,$5,$6)",
         )
+        .bind(i64::from(browse.page.page_number.get()))
+        .bind(i32::from(browse.page.page_size.get()))
         .bind(course_instance_id.as_string())
-        .bind(browse.after.map(|id| id.as_uuid()))
-        .bind(i32::from(browse.page_size) + 1)
         .bind(&browse.search)
         .bind(&assessment_ids)
         .bind(&browse.sort)
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let attempts = rows.iter().map(summary).collect::<Result<Vec<_>, _>>()?;
+        let metadata = rows.first().ok_or_else(invalid)?;
+        let page_number = PageNumber::new(
+            u32::try_from(get::<i64>(metadata, "resolved_page_number")?).map_err(|_| invalid())?,
+        )
+        .map_err(|_| invalid())?;
+        let total_count =
+            u64::try_from(get::<i64>(metadata, "total_count")?).map_err(|_| invalid())?;
+        let attempts = rows
+            .iter()
+            .filter_map(|row| match get::<bool>(row, "has_item") {
+                Ok(true) => Some(summary(row)),
+                Ok(false) => None,
+                Err(error) => Some(Err(error)),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         if attempts
             .iter()
             .any(|r| r.course_instance_id != course_instance_id)
@@ -113,7 +127,12 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         // ASVS 2.3.3: release retention lock before HTTP output or browser wait.
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(RecoverySelectionPage {
-            attempts,
+            attempts: NumberedPage {
+                items: attempts,
+                page_number,
+                page_size: browse.page.page_size,
+                total_count,
+            },
             assessment_choices,
         })
     }

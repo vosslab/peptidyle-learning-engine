@@ -59,7 +59,11 @@ pub(crate) struct LibraryObjectSearchQuery {
     #[serde(default)]
     sort: LibraryObjectSearchSort,
     #[serde(default)]
+    excluded_question_ids: Vec<question_model::PublishedQuestionId>,
+    #[serde(default)]
     cursor: Option<String>,
+    #[serde(default)]
+    page_number: Option<u32>,
     #[serde(default)]
     page_size: Option<u16>,
     #[serde(default)]
@@ -75,6 +79,7 @@ impl TryFrom<LibraryObjectSearchQuery> for LibraryObjectSearchRequest {
         if query
             .page_size
             .is_some_and(|size| size == 0 || size > MAX_PAGE_SIZE)
+            || query.page_number.is_some_and(|number| number == 0)
         {
             return Err((
                 StatusCode::BAD_REQUEST,
@@ -103,7 +108,9 @@ impl TryFrom<LibraryObjectSearchQuery> for LibraryObjectSearchRequest {
             question_licenses: query.question_licenses,
             authorship: query.authorship,
             sort: query.sort,
+            excluded_question_ids: query.excluded_question_ids,
             cursor: query.cursor,
+            page_number: query.page_number,
             page_size: query.page_size.or(Some(DEFAULT_PAGE_SIZE)),
         }
         .normalized()

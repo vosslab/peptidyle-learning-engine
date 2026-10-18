@@ -12,7 +12,8 @@
 		timeouts {
 			read_body 30s
 			read_header 5s
-			write 30s
+			# Publication drains bounded object I/O after its 90s work budget.
+			write 110s
 			idle 30s
 		}
 	}
@@ -78,6 +79,54 @@ https://:8080 {
 			}
 		}
 	}
+
+	# Publication alone gets the bounded work envelope; other API transports
+	# retain their 30s limits. The import client allows 120s.
+	@question_publication {
+		method POST
+		path_regexp question_publication "^/api/authoring/drafts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/publish(-revision)?$"
+	}
+	handle @question_publication {
+		reverse_proxy {
+			# A stopped API cannot produce its own readiness body. Map only the
+			# edge's upstream failure response to the bounded M2 readiness form.
+			@api_unavailable status 502 503 504
+			handle_response @api_unavailable {
+				respond `{"status":"degraded","unavailable":["api"]}` 503
+			}
+			# Dynamic A discovery asks Compose DNS for every api replica instead of
+			# resolving one container name once at gateway startup. Caddy refreshes
+			# this bounded list while requests are being served.
+			dynamic a api 3000 {
+				refresh 2s
+				versions ipv4
+			}
+			lb_policy round_robin
+			lb_try_duration 5s
+			lb_try_interval 250ms
+			fail_duration 10s
+			max_fails 1
+			# Replica readiness is determined only by the dedicated semantic health
+			# route. A bounded backend such as WebWork can intentionally return 503
+			# without evicting an otherwise healthy API replica or breaking native
+			# learning, authentication, and course navigation.
+			health_uri /health
+			health_interval 5s
+			health_timeout 2s
+			health_status 200
+			transport http {
+				network_proxy none
+				# Keep the local edge and upstream on the same unambiguous protocol.
+				# Do not add HTTP/2-to-HTTP/1 downgrade behavior here.
+				versions 1.1
+				dial_timeout 2s
+				response_header_timeout 105s
+				read_timeout 105s
+				write_timeout 30s
+			}
+		}
+	}
+
 
 	@api path /api /api/*
 	handle @api {

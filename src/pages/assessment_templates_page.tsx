@@ -11,11 +11,11 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { ApiRequestError } from "../api/http_client/error";
 import { UnsavedChangesGuard, trackEditorSave } from "../components/unsaved_changes_guard";
-import { PageFrame } from "../components/page_frame";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { ASSESSMENT_TYPE_OPTIONS, isAssessmentType } from "../assessment_type_presentation";
 import { AssessmentTemplateSettingsEditor } from "./assessment_template_settings_editor";
 import { assessmentTemplateSearchFields } from "./assessment_templates_search_fields";
@@ -93,7 +93,12 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
   });
 
   const templateSearch = createLocalCompleteSearch(
-    { resource: templates, refetchSource: refetchTemplates, rows: (value) => value },
+    {
+      rows: templates,
+      loading: () => templates.loading,
+      error: (): unknown => templates.error,
+      refetchSource: refetchTemplates,
+    },
     {
       fields: assessmentTemplateSearchFields,
       rowId: (template) => template.id,

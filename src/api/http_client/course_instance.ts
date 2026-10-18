@@ -53,13 +53,6 @@ function installationCourseQuery(value: string): string {
   return query;
 }
 
-function installationCourseCursor(value: string | null): string | null {
-  if (value !== null && (value.length === 0 || value.length > 4096)) {
-    throw new ApiProtocolError("installation Course cursor is invalid");
-  }
-  return value;
-}
-
 function installationCoursePath(courseInstanceId: CourseInstanceId): string {
   if (parseCourseInstanceId(courseInstanceId) === null) {
     throw new ApiProtocolError("Course Instance ID must be canonical");
@@ -229,8 +222,9 @@ export function createCourseInstanceClient(
       browse,
     ): ReturnType<CourseInstanceClient["listInstallationCourses"]> => {
       const bounded = installationCourseQuery(browse.query);
-      const after = installationCourseCursor(browse.cursor);
-      if (browse.pageSize !== 50 && browse.pageSize !== 100)
+      if (!Number.isSafeInteger(browse.pageNumber) || browse.pageNumber < 1)
+        throw new ApiProtocolError("installation Course page number is invalid");
+      if (browse.pageSize !== 50 && browse.pageSize !== 100 && browse.pageSize !== 250)
         throw new ApiProtocolError("installation Course page size is invalid");
       if (browse.sort !== "nameAscending" && browse.sort !== "nameDescending")
         throw new ApiProtocolError("installation Course sort is invalid");
@@ -251,7 +245,7 @@ export function createCourseInstanceClient(
           method: "POST",
           body: {
             query: bounded,
-            cursor: after,
+            pageNumber: browse.pageNumber,
             pageSize: browse.pageSize,
             sort: browse.sort,
             activity: browse.activity,

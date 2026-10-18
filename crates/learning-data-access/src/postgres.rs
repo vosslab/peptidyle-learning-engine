@@ -114,6 +114,10 @@ mod question_image_delivery;
 #[cfg(feature = "postgres")]
 mod question_image_publication;
 #[cfg(feature = "postgres")]
+mod question_thumbnail_backfill;
+#[cfg(feature = "postgres")]
+pub use question_thumbnail_backfill::PostgresQuestionThumbnailBackfillStore;
+#[cfg(feature = "postgres")]
 mod question_library;
 #[cfg(feature = "postgres")]
 mod question_metadata;

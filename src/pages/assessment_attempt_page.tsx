@@ -21,7 +21,7 @@ import type { StudentResponseFormatCheck } from "../api/decoders/student_respons
 import { useApplicationApi } from "../api/application_api";
 import { AuthorContentFrame } from "../components/author_content_frame";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { StudentAssessmentAttemptNavigation } from "../components/student_assessment_attempt_navigation";
 import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
 import type { StudentAssessmentAttemptQuestionState } from "../components/student_assessment_attempt_navigation";

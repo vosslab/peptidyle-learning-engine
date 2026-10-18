@@ -99,7 +99,15 @@ impl<S: ObjectStore> BasicQuestionBackend<S> for PleQuestionBackendAdapter {
             &issued.presentation,
             &question_image_renditions_from_ready(&retained_renditions),
         )
-        .map_err(|_| StartError::Unavailable)?;
+        .map_err(|error| {
+            // PresentationBuildError carries only closed variants and static text.
+            tracing::error!(
+                event = "student_assessment_start_failed",
+                stage = "build_ple_presentation",
+                error = %error,
+            );
+            StartError::Unavailable
+        })?;
         if presentation.reproduction != QuestionReproduction::Static {
             return Err(StartError::Invalid);
         }

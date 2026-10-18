@@ -13,9 +13,9 @@ import {
   type CourseClassificationDraft,
 } from "../components/course_classification_fields";
 import { CourseStudentWorkRecovery } from "../components/course_student_work_recovery";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
-import type { RecordContent } from "../components/record_list/record_list";
+import type { RecordContent } from "../components/data_sheet/record_content";
 import { formatLocalWallClockDateTime } from "../format_datetime";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
@@ -26,9 +26,9 @@ import {
   type AssessmentCollectionRow,
 } from "./course_collection_fields";
 import { CourseBlueprintUpdateReviewList } from "./course_blueprint_update_review";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
 import {
   canonicalLocalDateAndTime,
   dueDateDraft,
@@ -615,7 +615,12 @@ function CourseInstanceContent(props: { readonly courseInstanceId: string }): JS
     });
   });
   const assessmentSearch = createLocalCompleteSearch(
-    { resource: assessments, refetchSource: refetchAssessments, rows: (value) => value },
+    {
+      rows: assessments,
+      loading: () => assessments.loading,
+      error: (): unknown => assessments.error,
+      refetchSource: refetchAssessments,
+    },
     {
       fields: assessmentCollectionFields,
       rowId: (assessment) => assessment.id,
@@ -689,15 +694,7 @@ function CourseInstanceContent(props: { readonly courseInstanceId: string }): JS
               <SearchBlock
                 layout="above"
                 controls={
-                  <SearchControls state={assessmentSearch.state} textLabel="Search Assessments">
-                    <button
-                      type="button"
-                      class="quiet-action"
-                      onClick={() => void assessmentSearch.state.refresh()}
-                    >
-                      Refresh Assessments
-                    </button>
-                  </SearchControls>
+                  <SearchControls state={assessmentSearch.state} textLabel="Search Assessments" />
                 }
                 state={assessmentSearch.state}
                 collection={{

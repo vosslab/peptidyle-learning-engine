@@ -2,7 +2,7 @@ import { A, useParams } from "@solidjs/router";
 import { Show, createEffect, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { parseCourseInstanceId } from "../navigation/public_route";
 
 /** Student-owned acceptance of one exact course invitation. */

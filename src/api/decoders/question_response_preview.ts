@@ -33,13 +33,6 @@ function region(value: unknown, path: string): QuestionPreviewRegion {
     width: decodeNonnegativeInteger(field(record, "width", path), `${path}.width`),
     height: decodeNonnegativeInteger(field(record, "height", path), `${path}.height`),
   };
-  if (
-    decoded.width === 0 ||
-    decoded.height === 0 ||
-    decoded.x + decoded.width > 10000 ||
-    decoded.y + decoded.height > 10000
-  )
-    throw new DecodeError(path, "a nonempty region within the normalized image bounds");
   return decoded;
 }
 

@@ -1,4 +1,4 @@
-import { For, type JSX } from "solid-js";
+import { For, Show, createMemo, createSignal, createUniqueId, type JSX } from "solid-js";
 import type {
   AssessmentBlueprintUpdateContent,
   AssessmentBlueprintUpdateEntry,
@@ -11,8 +11,12 @@ import {
   assessmentDurationDefaultDescription,
   assessmentDurationDisplay,
 } from "../../assessment_duration";
-import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordContent } from "../../components/record_list/record_list";
+import { RecordDetails } from "../../components/data_sheet/record_content";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import type { RecordField } from "../../components/data_sheet/record_fields";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
 
 /** Projects only reusable teaching content; Course delivery state stays outside the update. */
 export function currentBlueprintUpdateContent(
@@ -119,6 +123,18 @@ function activitySettingCopy(value: boolean | string): string {
   return typeof value === "boolean" ? (value ? "Enabled" : "Disabled") : settingCopy(value);
 }
 
+type BlueprintEntryRow = {
+  readonly entry: AssessmentBlueprintUpdateEntry & {
+    readonly availability?: AssessmentEntryAvailability;
+  };
+  readonly index: number;
+};
+type BlueprintEntryFilter = "kind" | "scoring" | "availability";
+
+function blueprintEntryId(row: BlueprintEntryRow): string {
+  return `${row.entry.kind}:${row.index}`;
+}
+
 /** One complete labeled presentation, reused for current and proposed content without HTML interpretation. */
 export function AssessmentBlueprintContentSummary(props: {
   readonly heading: string;
@@ -130,6 +146,111 @@ export function AssessmentBlueprintContentSummary(props: {
   readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly poolRole: "assessmentOwned" | "librarySource";
 }): JSX.Element {
+  const rows = createMemo(() => props.content.entries.map((entry, index) => ({ entry, index })));
+  const [inspectedId, setInspectedId] = createSignal<string | null>(null);
+  const inspectedRow = createMemo(() =>
+    rows().find((row) => blueprintEntryId(row) === inspectedId()),
+  );
+  const detailsId = `blueprint-entry-details-${createUniqueId()}`;
+  let detailsSection: HTMLElement | undefined;
+  let inspectTrigger: HTMLButtonElement | undefined;
+  function entryContent(row: BlueprintEntryRow): RecordContent {
+    const content = assessmentEntryContent({
+      entry: row.entry,
+      questionTitle: props.questionTitle,
+      poolTitle: props.poolTitle,
+      description: props.description,
+      poolRole: props.poolRole,
+    });
+    return {
+      ...content,
+      details: [
+        { kind: "text", label: "Position", value: String(row.index + 1) },
+        ...content.details,
+      ],
+    };
+  }
+  const fields: ReadonlyArray<RecordField<BlueprintEntryRow, never, BlueprintEntryFilter>> = [
+    {
+      id: "position",
+      label: "Position",
+      value: (row) => row.index + 1,
+      defaultColumn: { priority: 1, width: "6rem" },
+    },
+    {
+      id: "title",
+      label: "Question or Question Pool",
+      role: "identity",
+      value: (row) => entryContent(row).title,
+      defaultColumn: { priority: 0, width: "20rem" },
+    },
+    {
+      id: "kind",
+      label: "Entry type",
+      filterKey: "kind",
+      value: (row) => (row.entry.kind === "fixedQuestion" ? "Question" : "Question Pool"),
+      defaultColumn: { priority: 2, width: "10rem" },
+    },
+    {
+      id: "points",
+      label: "Points",
+      value: (row) =>
+        row.entry.kind === "fixedQuestion"
+          ? `${row.entry.pointsPossible} points`
+          : `${row.entry.pointsPerItem} points per Question`,
+      defaultColumn: { priority: 3, width: "12rem" },
+    },
+    {
+      id: "selection_count",
+      label: "Selection count",
+      value: (row) => (row.entry.kind === "questionPool" ? row.entry.selectionCount : null),
+      defaultColumn: { priority: 4, width: "9rem", visible: false },
+    },
+    {
+      id: "scoring",
+      label: "Scoring",
+      filterKey: "scoring",
+      value: (row) => row.entry.scoringRule,
+      defaultColumn: { priority: 5, width: "10rem", visible: false },
+    },
+    {
+      id: "availability",
+      label: "Availability",
+      filterKey: "availability",
+      value: (row) => row.entry.availability ?? null,
+      defaultColumn: { priority: 6, width: "10rem", visible: false },
+    },
+  ];
+  const entrySearch = createLocalCompleteSearch(
+    { rows: rows },
+    {
+      fields,
+      rowId: blueprintEntryId,
+      keyword: (row) => {
+        const content = entryContent(row);
+        const details = content.details.map((fact) => (fact.kind === "text" ? fact.value : ""));
+        return `${row.index + 1} ${row.entry.kind} ${content.title} ${content.description ?? ""} ${details.join(" ")}`;
+      },
+      content: (row): RecordContent => ({
+        ...entryContent(row),
+        actions: [
+          {
+            id: "inspect",
+            kind: "command",
+            label: "Inspect",
+            title: `Inspect entry ${row.index + 1}: ${entryContent(row).title}`,
+            controls: detailsId,
+            expanded: inspectedId() === blueprintEntryId(row),
+            onClick: (event): void => {
+              inspectTrigger = event.currentTarget;
+              setInspectedId(blueprintEntryId(row));
+              queueMicrotask(() => detailsSection?.focus());
+            },
+          },
+        ],
+      }),
+    },
+  );
   const defaults = (): AssessmentBlueprintUpdateContent["defaults"] => props.content.defaults;
   const assessmentDuration = (): string => {
     const seconds = defaults().assessment_attempt_time_limit_seconds;
@@ -188,26 +309,56 @@ export function AssessmentBlueprintContentSummary(props: {
         </For>
       </dl>
       <h5>Ordered Questions and Question Pools</h5>
-      {props.content.entries.length === 0 ? (
-        <p>No Entries.</p>
-      ) : (
-        <RecordSequence
-          rows={props.content.entries.map((entry, index) => ({ entry, index }))}
-          content={(record) =>
-            assessmentEntryContent({
-              entry: record.entry,
-              questionTitle: props.questionTitle,
-              poolTitle: props.poolTitle,
-              description: props.description,
-              poolRole: props.poolRole,
-            })
-          }
-          recordId={(record) => `${record.entry.kind}:${record.index}`}
-          state={{ kind: "ready" }}
-          ariaLabel={`${props.heading} ordered Questions and Question Pools`}
-          emptyState={{ title: "No Entries." }}
-        />
-      )}
+      <SearchBlock
+        layout="above"
+        controls={
+          <SearchControls
+            state={entrySearch.state}
+            textLabel={`Search ${props.heading} Questions and Question Pools`}
+          />
+        }
+        state={entrySearch.state}
+        collection={{
+          ariaLabel: `${props.heading} ordered Questions and Question Pools`,
+          fields,
+          // Saved Assessment order is fixed; filtering preserves original positions.
+          query: { kind: "paged", filters: entrySearch.query.filters },
+          get emptyState() {
+            return {
+              title:
+                entrySearch.state.query().text || entrySearch.state.query().filters.size
+                  ? "No Entries match your search."
+                  : "No Entries.",
+            };
+          },
+        }}
+      />
+      <Show when={inspectedRow()}>
+        {(row) => (
+          <section
+            id={detailsId}
+            ref={(element) => (detailsSection = element)}
+            tabindex="-1"
+            aria-label={`${props.heading} entry ${row().index + 1} details`}
+          >
+            <h5>
+              Entry {row().index + 1}: {entryContent(row()).title}
+            </h5>
+            <p>{entryContent(row()).description}</p>
+            <RecordDetails content={() => entryContent(row())} />
+            <button
+              type="button"
+              class="quiet-action"
+              onClick={() => {
+                setInspectedId(null);
+                if (inspectTrigger?.isConnected) inspectTrigger.focus();
+              }}
+            >
+              Close entry details
+            </button>
+          </section>
+        )}
+      </Show>
     </section>
   );
 }

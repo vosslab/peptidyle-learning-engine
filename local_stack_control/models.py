@@ -33,6 +33,7 @@ BASE_LONG_RUNNING_SERVICES = (
 	"postgres",
 	"minio",
 	"webwork-renderer",
+	"question-thumbnail-renderer",
 	"api",
 	"worker",
 	"public-asset-publisher",
@@ -44,7 +45,10 @@ BASE_ONE_SHOT_SERVICES = (
 	"identity-secret-init",
 )
 CLEANUP_ONLY_SERVICES = ("postgres-major-guard",)
-RESTARTABLE_SERVICES = ("api", "gateway", "webwork-renderer", "worker", "public-asset-publisher")
+RESTARTABLE_SERVICES = (
+	"api", "gateway", "webwork-renderer", "question-thumbnail-renderer",
+	"worker", "public-asset-publisher",
+)
 STOPPABLE_SERVICES = ("webwork-renderer",)
 
 
@@ -102,9 +106,12 @@ LIVE_DEMO_PROFILE_POLICIES = (
 		),
 		child_capabilities=(
 			"browser_lifecycle", "readiness_fault", "worker_lifecycle",
-			"webwork_renderer_lifecycle",
+			"webwork_renderer_lifecycle", "question_thumbnail_renderer_lifecycle",
 		),
-		evidence_log_services=(("renderer_delivery", "api"),),
+		evidence_log_services=(
+			("renderer_delivery", "api"),
+			("thumbnail_capture", "question-thumbnail-renderer"),
+		),
 		outage_service="gateway",
 	),
 	LiveDemoProfilePolicy(

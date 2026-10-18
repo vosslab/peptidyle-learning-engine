@@ -19,7 +19,7 @@ import type {
   SaveBaseAssessmentPolicyInput,
 } from "../../api/assessment_release";
 import { useApplicationApi } from "../../api/application_api";
-import { PageFrame } from "../../components/page_frame";
+import { PageFrame } from "../../components/page_frame/page_frame";
 import { ApiRequestError } from "../../api/http_client/error";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import {

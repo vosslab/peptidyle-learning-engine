@@ -3,11 +3,14 @@
 use async_trait::async_trait;
 use question_model::{BlueprintCourseId, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
+use uuid::Uuid;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchEvent,
-    BlueprintCourseWatchEventKind, BlueprintCourseWatchProjection, BlueprintStewardshipStore,
+    BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchDirection,
+    BlueprintCourseWatchEvent, BlueprintCourseWatchEventFacet, BlueprintCourseWatchEventKind,
+    BlueprintCourseWatchEventsPage, BlueprintCourseWatchEventsQuery,
+    BlueprintCourseWatchProjection, BlueprintStewardshipStore, NumberedPage, PageNumber,
     SessionTokenHash, StoreError,
 };
 
@@ -191,24 +194,66 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
         &self,
         session_token_hash: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
-        limit: u16,
-    ) -> Result<Vec<BlueprintCourseWatchEvent>, StoreError> {
-        if limit == 0 || limit > 100 {
-            return Err(StoreError::InvalidRecord(
-                "Blueprint Course Watch event limit is invalid".to_owned(),
-            ));
-        }
+        query: BlueprintCourseWatchEventsQuery,
+    ) -> Result<BlueprintCourseWatchEventsPage, StoreError> {
         let mut tx = self.begin(session_token_hash).await?;
-        let rows =
-            sqlx::query("SELECT * FROM ple_api.read_current_blueprint_course_watch_events($1, $2)")
-                .bind(blueprint_course_id.as_string())
-                .bind(i32::from(limit))
-                .fetch_all(&mut *tx)
-                .await
-                .map_err(map_sqlx_error)?;
-        let events = rows
-            .into_iter()
-            .map(|row| {
+        let event_kinds: Vec<&str> = query
+            .event_kinds
+            .iter()
+            .map(|kind| match kind {
+                BlueprintCourseWatchEventKind::Revision => "revision",
+                BlueprintCourseWatchEventKind::Archived => "archived",
+                BlueprintCourseWatchEventKind::Restored => "restored",
+            })
+            .collect();
+        // ASVS 1.2.4/8.2.2: fixed parameters and the installed recipient scope
+        // produce the page, exact count, and cleared-kind facets in one statement.
+        let rows = sqlx::query(
+            "SELECT * FROM ple_api.read_current_blueprint_course_watch_events(\
+             $1, $2, $3, $4, $5, $6)",
+        )
+        .bind(blueprint_course_id.as_string())
+        .bind(&query.search)
+        .bind(&event_kinds)
+        .bind(query.direction == BlueprintCourseWatchDirection::Ascending)
+        .bind(i64::from(query.page.page_number.get()))
+        .bind(i64::from(query.page.page_size.get()))
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let metadata = rows.first().ok_or_else(|| {
+            StoreError::InvalidRecord("Blueprint Course Watch page metadata".to_owned())
+        })?;
+        let total_count: i64 = metadata.try_get("total_count").map_err(map_sqlx_error)?;
+        let total_count = u64::try_from(total_count).map_err(|_| {
+            StoreError::InvalidRecord("Blueprint Course Watch event count".to_owned())
+        })?;
+        let resolved_page_number: i64 = metadata
+            .try_get("resolved_page_number")
+            .map_err(map_sqlx_error)?;
+        let page_number = PageNumber::new(u32::try_from(resolved_page_number).map_err(|_| {
+            StoreError::InvalidRecord("Blueprint Course Watch page number".to_owned())
+        })?)
+        .map_err(|_| StoreError::InvalidRecord("Blueprint Course Watch page number".to_owned()))?;
+        let mut event_kind_facets = Vec::new();
+        for (value, column) in [
+            (BlueprintCourseWatchEventKind::Revision, "revision_count"),
+            (BlueprintCourseWatchEventKind::Archived, "archived_count"),
+            (BlueprintCourseWatchEventKind::Restored, "restored_count"),
+        ] {
+            let count: i64 = metadata.try_get(column).map_err(map_sqlx_error)?;
+            let count = u64::try_from(count).map_err(|_| {
+                StoreError::InvalidRecord("Blueprint Course Watch facet count".to_owned())
+            })?;
+            if count > 0 {
+                event_kind_facets.push(BlueprintCourseWatchEventFacet { value, count });
+            }
+        }
+        let mut events = Vec::with_capacity(rows.len());
+        for row in rows {
+            let notification_id: Option<Uuid> =
+                row.try_get("notification_id").map_err(map_sqlx_error)?;
+            if let Some(event_id) = notification_id {
                 let event_kind: String = row.try_get("event_kind").map_err(map_sqlx_error)?;
                 let kind = match event_kind.as_str() {
                     "revision" => BlueprintCourseWatchEventKind::Revision,
@@ -222,13 +267,22 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
                 };
                 let occurred_at_millis: i64 =
                     row.try_get("occurred_at_millis").map_err(map_sqlx_error)?;
-                Ok(BlueprintCourseWatchEvent {
+                events.push(BlueprintCourseWatchEvent {
+                    event_id,
                     kind,
                     occurred_at: Timestamp::from_unix_millis(occurred_at_millis),
-                })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
+                });
+            }
+        }
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(events)
+        Ok(BlueprintCourseWatchEventsPage {
+            page: NumberedPage {
+                items: events,
+                page_number,
+                page_size: query.page.page_size,
+                total_count,
+            },
+            event_kind_facets,
+        })
     }
 }

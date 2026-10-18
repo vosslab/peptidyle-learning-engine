@@ -1,15 +1,34 @@
-import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  type JSX,
+} from "solid-js";
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
 import type { BlueprintForkApplySelection } from "../../../generated/api/BlueprintForkApplySelection";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import type { RecordReorderBinding } from "../../components/data_sheet/record_reorder";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
 import {
-  RecordOutlineItem,
-  RecordOutlineList,
-} from "../../components/record_list/record_outline_list";
-import type { RecordContent } from "../../components/record_list/record_list";
-import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
-import { RecordSequence } from "../../components/record_list/record_sequence";
+  destinationAssessmentContent,
+  destinationAssessmentFields,
+  destinationAssessmentTitle,
+  destinationModuleContent,
+  destinationModuleFields,
+  destinationModuleLabel,
+  destinationRecords,
+  moveDestinationAssessment,
+  moveDestinationModule,
+  type DestinationAssessmentRecord,
+  type DestinationModuleRecord,
+} from "./blueprint_fork_destination_records";
 import {
   currentForkLayout,
   destinationKey,
@@ -62,59 +81,81 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
     contents().length > 0 ||
     edited() ||
     Boolean(props.proposalSelection?.hasClassificationSelection());
-  const moduleLabel = (module: Layout["module"]): string => {
-    if (module.kind === "newFromSource")
-      return (
-        props.review.left.modules.find((m) => m.blueprintModuleId === module.sourceModuleId)
-          ?.label ?? "New module"
-      );
-    const copy = labels().find((c) => c.targetModuleId === module.targetModuleId);
-    return (
-      (copy
-        ? props.review.left.modules.find((m) => m.blueprintModuleId === copy.sourceModuleId)?.label
-        : props.review.right.modules.find((m) => m.blueprintModuleId === module.targetModuleId)
-            ?.label) ?? "Module"
-    );
-  };
-  const title = (entry: Layout["assessments"][number]): string => {
-    if (entry.kind === "newFromSource")
-      return (
-        props.review.left.assessments.find(
-          (a) => a.blueprintAssessmentId === entry.sourceAssessmentId,
-        )?.content.title ?? "New Assessment"
-      );
-    const copy = contents().find((c) => c.targetAssessmentId === entry.targetAssessmentId);
-    return (
-      (copy
-        ? props.review.left.assessments.find(
-            (a) => a.blueprintAssessmentId === copy.sourceAssessmentId,
-          )?.content.title
-        : props.review.right.assessments.find(
-            (a) => a.blueprintAssessmentId === entry.targetAssessmentId,
-          )?.content.title) ?? "Assessment"
-    );
-  };
+  const disabled = (): boolean => busy() || locked() || props.proposalSelection?.disabled === true;
+  const moduleLabel = (module: Layout["module"]): string =>
+    destinationModuleLabel(props.review, labels(), module);
+  const title = (entry: Layout["assessments"][number]): string =>
+    destinationAssessmentTitle(props.review, contents(), entry);
   function edit(next: Layout[]): void {
+    if (disabled() || next === layout()) return;
     props.proposalSelection?.onChanged?.();
     setLayout(next);
     setEdited(true);
     setMessage("");
   }
-  function reorderDestinationAssessments(
-    moduleKey: string,
-    sourceIndex: number,
-    destinationIndex: number,
-  ): void {
+  function assessmentLayoutModule(id: string): Layout | undefined {
+    return layout().find((module) =>
+      module.assessments.some((entry) => destinationKey(entry) === id),
+    );
+  }
+  function reorderDestinationModule(sourceId: string, targetId: string): void {
+    if (disabled() || sourceId === targetId) return;
+    const current = layout();
+    const sourceIndex = current.findIndex((module) => destinationKey(module.module) === sourceId);
+    const targetIndex = current.findIndex((module) => destinationKey(module.module) === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    edit(moveDestinationModule(current, sourceId, targetIndex - sourceIndex));
+  }
+  function reorderDestinationAssessment(sourceId: string, targetId: string): void {
+    if (disabled() || sourceId === targetId) return;
+    const module = assessmentLayoutModule(sourceId);
+    if (module === undefined) return;
+    const sourceIndex = module.assessments.findIndex((entry) => destinationKey(entry) === sourceId);
+    const targetIndex = module.assessments.findIndex((entry) => destinationKey(entry) === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
     edit(
-      layout().map((row) =>
-        destinationKey(row.module) === moduleKey
-          ? {
-              ...row,
-              assessments: reorderedRecordListRows(row.assessments, sourceIndex, destinationIndex),
-            }
-          : row,
+      moveDestinationAssessment(
+        layout(),
+        destinationKey(module.module),
+        sourceId,
+        targetIndex - sourceIndex,
       ),
     );
+  }
+  const moduleReorder: RecordReorderBinding = {
+    orderForRecord: (id) => {
+      const currentFullAuthoredIds = layout().map((module) => destinationKey(module.module));
+      return currentFullAuthoredIds.includes(id) ? currentFullAuthoredIds : [];
+    },
+    onMove: reorderDestinationModule,
+    recordLabel: (id) => {
+      const module = layout().find((entry) => destinationKey(entry.module) === id);
+      return module === undefined ? "Module" : moduleLabel(module.module);
+    },
+    isDisabled: disabled,
+  };
+  const assessmentReorder: RecordReorderBinding = {
+    orderForRecord: (id) =>
+      assessmentLayoutModule(id)?.assessments.map((entry) => destinationKey(entry)) ?? [],
+    onMove: reorderDestinationAssessment,
+    recordLabel: (id) => {
+      const entry = assessmentLayoutModule(id)?.assessments.find(
+        (assessment) => destinationKey(assessment) === id,
+      );
+      return entry === undefined ? "Assessment" : title(entry);
+    },
+    isDisabled: disabled,
+  };
+  function moveDestinationByOffset(
+    reorder: RecordReorderBinding,
+    id: string,
+    offset: -1 | 1,
+  ): void {
+    const order = reorder.orderForRecord(id);
+    const index = order.indexOf(id);
+    if (index < 0) return;
+    const targetId = order[index + offset];
+    if (targetId !== undefined) void reorder.onMove(id, targetId);
   }
   function place(entry: Layout["assessments"][number], key: string): void {
     edit(
@@ -253,6 +294,127 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
         ),
     ),
   );
+  const records = createMemo(() =>
+    destinationRecords(props.review, layout(), labels(), contents()),
+  );
+  const [selectedDestination, setSelectedDestination] = createSignal<string>();
+  const placementDetailId = createUniqueId();
+  let destinationOverview: HTMLDivElement | undefined;
+  let destinationHeading: HTMLHeadingElement | undefined;
+  let destinationTrigger: HTMLButtonElement | undefined;
+  const selectedDestinationRow = (): DestinationAssessmentRecord | undefined =>
+    records()?.assessments.find((row) => row.id === selectedDestination());
+  function closeDestination(): void {
+    setSelectedDestination(undefined);
+    if (destinationTrigger?.isConnected) destinationTrigger.focus();
+    else destinationOverview?.focus();
+  }
+  createEffect(() => {
+    if (selectedDestination() && !selectedDestinationRow()) closeDestination();
+  });
+  function assessmentRecordContent(row: DestinationAssessmentRecord): RecordContent {
+    const siblings = layout().find(
+      (candidate) => destinationKey(candidate.module) === row.moduleId,
+    )?.assessments;
+    const index = siblings?.findIndex((entry) => destinationKey(entry) === row.id) ?? -1;
+    return destinationAssessmentContent(row, [
+      {
+        id: "place_assessment",
+        kind: "command",
+        label: "Place Assessment",
+        title: `Choose destination for ${row.title}`,
+        disabled: disabled(),
+        expanded: selectedDestination() === row.id,
+        controls: selectedDestination() === row.id ? placementDetailId : undefined,
+        onClick: (event): void => {
+          destinationTrigger = event.currentTarget;
+          setSelectedDestination(row.id);
+          queueMicrotask(() => destinationHeading?.focus());
+        },
+      },
+      {
+        id: "move_earlier",
+        kind: "command",
+        label: "Move earlier",
+        title: `Move ${row.title} earlier within its Module`,
+        disabled: disabled() || index <= 0,
+        onClick: (): void => moveDestinationByOffset(assessmentReorder, row.id, -1),
+      },
+      {
+        id: "move_later",
+        kind: "command",
+        label: "Move later",
+        title: `Move ${row.title} later within its Module`,
+        disabled: disabled() || index < 0 || index >= (siblings?.length ?? 0) - 1,
+        onClick: (): void => moveDestinationByOffset(assessmentReorder, row.id, 1),
+      },
+      {
+        id: "remove_assessment",
+        kind: "command",
+        label: "Remove Assessment",
+        title: `Remove Assessment: ${row.title}`,
+        disabled: disabled(),
+        onClick: (): void => place(row.entry, ""),
+      },
+    ]);
+  }
+  const assessmentSearch = createLocalCompleteSearch(
+    { rows: () => records().assessments },
+    {
+      fields: destinationAssessmentFields,
+      rowId: (row) => row.id,
+      keyword: (row) =>
+        `${row.title} ${row.moduleContext} ${row.assessmentIndex + 1} ${row.sourceContext}`,
+      compare: (key, left, right) =>
+        key === "module" ? left.moduleIndex - right.moduleIndex : undefined,
+      content: assessmentRecordContent,
+    },
+  );
+  function moduleRecordContent(row: DestinationModuleRecord): RecordContent {
+    const index = layout().findIndex((candidate) => destinationKey(candidate.module) === row.id);
+    return destinationModuleContent(row, [
+      {
+        id: "view_assessments",
+        kind: "command",
+        label: "View Assessments",
+        onClick: (): void => assessmentSearch.query.filters?.onChange("module", [row.context]),
+      },
+      {
+        id: "move_earlier",
+        kind: "command",
+        label: "Move earlier",
+        title: `Move Module ${row.label} earlier`,
+        disabled: disabled() || index <= 0,
+        onClick: (): void => moveDestinationByOffset(moduleReorder, row.id, -1),
+      },
+      {
+        id: "move_later",
+        kind: "command",
+        label: "Move later",
+        title: `Move Module ${row.label} later`,
+        disabled: disabled() || index < 0 || index >= layout().length - 1,
+        onClick: (): void => moveDestinationByOffset(moduleReorder, row.id, 1),
+      },
+      {
+        id: "remove_module",
+        kind: "command",
+        label: "Remove Module",
+        title: `Remove Module: ${row.label}`,
+        disabled: disabled(),
+        onClick: (): void =>
+          edit(layout().filter((candidate) => destinationKey(candidate.module) !== row.id)),
+      },
+    ]);
+  }
+  const moduleSearch = createLocalCompleteSearch(
+    { rows: () => records().modules },
+    {
+      fields: destinationModuleFields,
+      rowId: (row) => row.id,
+      keyword: (row) => `${row.label} ${row.moduleIndex + 1} ${row.sourceContext}`,
+      content: moduleRecordContent,
+    },
+  );
   return (
     <section
       class="blueprint-fork-apply"
@@ -366,104 +528,96 @@ export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
           Move related changes together. Removing a module also excludes its Assessments unless you
           move them first.
         </p>
-        <div class="blueprint-fork-destination">
-          <RecordOutlineList
-            state={{ kind: "ready" }}
-            isEmpty={layout().length === 0}
-            ariaLabel="Complete destination Module layout"
-            emptyState={{
-              title: "No destination Modules",
-              message: "Restore or create a destination Module before placing an Assessment.",
-            }}
-            reorder={{
-              recordIds: () => layout().map((row) => destinationKey(row.module)),
-              onMove: (sourceIndex, destinationIndex): void =>
-                edit(reorderedRecordListRows(layout(), sourceIndex, destinationIndex)),
-              recordLabel: (moduleKey): string => {
-                const row = layout().find(
-                  (candidate) => destinationKey(candidate.module) === moduleKey,
-                );
-                return row === undefined ? "Module" : moduleLabel(row.module);
-              },
-              isDisabled: (): boolean =>
-                busy() || locked() || props.proposalSelection?.disabled === true,
-            }}
-          >
-            <For each={layout().map((row) => destinationKey(row.module))}>
-              {(moduleKey) => {
-                const row = (): Layout =>
-                  layout().find((candidate) => destinationKey(candidate.module) === moduleKey)!;
-                return (
-                  <RecordOutlineItem recordId={moduleKey}>
-                    <h5>{moduleLabel(row().module)}</h5>
-                    <div class="blueprint-fork-layout-actions">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          edit(
-                            layout().filter(
-                              (candidate) => destinationKey(candidate.module) !== moduleKey,
-                            ),
-                          )
-                        }
-                      >
-                        Remove module: {moduleLabel(row().module)}
-                      </button>
-                    </div>
-                    <RecordSequence
-                      rows={row().assessments}
-                      content={(entry): RecordContent => ({
-                        title: title(entry),
-                        details: [],
-                        actions: [
-                          {
-                            id: "remove-assessment",
-                            kind: "command",
-                            label: `Remove Assessment: ${title(entry)}`,
-                            disabled:
-                              busy() || locked() || props.proposalSelection?.disabled === true,
-                            onClick: (): void => place(entry, ""),
-                          },
-                        ],
-                      })}
-                      renderBody={(entry) => (
-                        <label>
-                          Destination for {title(entry())}
-                          <select
-                            value={moduleKey}
-                            onChange={(event) => place(entry(), event.currentTarget.value)}
-                          >
-                            <For each={layout()}>
-                              {(candidateRow) => (
-                                <option value={destinationKey(candidateRow.module)}>
-                                  {moduleLabel(candidateRow.module)}
-                                </option>
-                              )}
-                            </For>
-                          </select>
-                        </label>
-                      )}
-                      recordId={destinationKey}
-                      reorder={{
-                        onMove: (sourceIndex, destinationIndex): void =>
-                          reorderDestinationAssessments(moduleKey, sourceIndex, destinationIndex),
-                        recordLabel: (entry): string => title(entry),
-                        isDisabled: (): boolean =>
-                          busy() || locked() || props.proposalSelection?.disabled === true,
-                      }}
-                      state={{ kind: "ready" }}
-                      ariaLabel={`${moduleLabel(row().module)} destination Assessments`}
-                      emptyState={{
-                        title: "No Assessments",
-                        message:
-                          "Place an Assessment in this Module to include it in the destination layout.",
-                      }}
-                    />
-                  </RecordOutlineItem>
-                );
+        {/* ASVS 1.2.1: authored labels remain escaped text in shared records and selectors. */}
+        <div
+          class="blueprint-fork-destination"
+          tabindex="-1"
+          ref={(element) => (destinationOverview = element)}
+        >
+          <section aria-label="Destination Module index">
+            <h5>Modules</h5>
+            <SearchBlock
+              layout="above"
+              controls={
+                <SearchControls state={moduleSearch.state} textLabel="Search destination Modules" />
+              }
+              state={moduleSearch.state}
+              collection={{
+                ariaLabel: "Complete destination Modules",
+                initialMode: "compact",
+                fields: destinationModuleFields,
+                query: moduleSearch.query,
+                disabled,
+                reorder: moduleReorder,
+                emptyState: {
+                  title: "No destination Modules match.",
+                  message: "Restore or create a destination Module before placing an Assessment.",
+                },
               }}
-            </For>
-          </RecordOutlineList>
+            />
+          </section>
+          <section aria-label="Destination Assessment overview">
+            <h5>Assessments</h5>
+            <SearchBlock
+              layout="above"
+              controls={
+                <SearchControls
+                  state={assessmentSearch.state}
+                  textLabel="Search destination Assessments"
+                />
+              }
+              state={assessmentSearch.state}
+              collection={{
+                ariaLabel: "All placed destination Assessments",
+                initialMode: "compact",
+                fields: destinationAssessmentFields,
+                query: assessmentSearch.query,
+                disabled,
+                reorder: assessmentReorder,
+                emptyState: {
+                  title: "No placed Assessments match.",
+                  message:
+                    "Use an unplaced Assessment's destination selector to place it in a Module.",
+                },
+              }}
+            />
+          </section>
+          <Show when={selectedDestinationRow()}>
+            {(row) => (
+              <section
+                class="blueprint-fork-destination-detail"
+                id={placementDetailId}
+                aria-labelledby={`${placementDetailId}-heading`}
+              >
+                <h5
+                  id={`${placementDetailId}-heading`}
+                  tabindex="-1"
+                  ref={(element) => (destinationHeading = element)}
+                >
+                  Place Assessment: {row().title}
+                </h5>
+                <button type="button" class="quiet-action" onClick={closeDestination}>
+                  Close destination selection
+                </button>
+                <p>{row().sourceContext}</p>
+                <label>
+                  Destination for {row().title}
+                  <select
+                    value={row().moduleId}
+                    onChange={(event) => place(row().entry, event.currentTarget.value)}
+                  >
+                    <For each={layout()}>
+                      {(candidateRow) => (
+                        <option value={destinationKey(candidateRow.module)}>
+                          {moduleLabel(candidateRow.module)}
+                        </option>
+                      )}
+                    </For>
+                  </select>
+                </label>
+              </section>
+            )}
+          </Show>
         </div>
         <For
           each={props.review.right.modules.filter(

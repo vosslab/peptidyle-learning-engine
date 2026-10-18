@@ -1,25 +1,28 @@
 import { A, useParams } from "@solidjs/router";
-import {
-  For,
-  Show,
-  createEffect,
-  createResource,
-  createSignal,
-  onCleanup,
-  type JSX,
-} from "solid-js";
+import { Show, createEffect, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintChangeProposalSummaryView } from "../../../generated/api/BlueprintChangeProposalSummaryView";
-import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
+import type { ContentClassificationClient } from "../../api/content_classification";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import type { BlueprintChangeProposalClient } from "../../api/blueprint_change_proposal";
 import { useApplicationApi } from "../../api/application_api";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
-import { PageFrame } from "../../components/page_frame";
-import type { RecordContent } from "../../components/record_list/record_list";
+import { PageFrame } from "../../components/page_frame/page_frame";
+import type { RecordContent } from "../../components/data_sheet/record_content";
 import { useSelectedDisplayDateTimeFormatter } from "../../selected_display_zone";
 import { ProposalReview } from "./proposal_review";
 import { ProposalSearch } from "./proposal_search";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createSearchState } from "../../components/search_block/search_state";
+import {
+  blueprintCourseSearchDefinition,
+  emptyBlueprintSearch,
+} from "../../pages/blueprint_course_search_definition";
+import {
+  blueprintCourseSearchFields,
+  blueprintCourseSearchRecordQuery,
+} from "../../pages/blueprint_course_search_fields";
 
 type Client = BlueprintCourseClient & BlueprintChangeProposalClient;
 function recordPath(id: string): string {
@@ -93,11 +96,10 @@ export function ProposalRecords(props: {
 export function ProposalTargetTools(props: {
   readonly client: Client;
   readonly target: BlueprintCourseView;
+  readonly classificationClient: ContentClassificationClient;
   readonly formatDateTime: (timestamp: number | Date) => string;
 }): JSX.Element {
   const [open, setOpen] = createSignal(false);
-  const [sources, setSources] = createSignal<readonly BlueprintCourseSummaryView[]>([]);
-  const [cursor, setCursor] = createSignal<string>();
   const [selected, setSelected] = createSignal<BlueprintCourseView>();
   const [busy, setBusy] = createSignal(false),
     [message, setMessage] = createSignal("");
@@ -118,31 +120,20 @@ export function ProposalTargetTools(props: {
     ++targetGeneration;
     ++sourceLoad;
   });
-  async function loadSources(next?: string): Promise<void> {
-    const generation = targetGeneration;
-    setBusy(true);
-    try {
-      // List the Instructor's saved Blueprint Courses as proposal sources.
-      const page = await props.client.listBlueprintCourses(next);
-      if (generation !== targetGeneration) return;
-      setSources(next ? [...sources(), ...page.items] : page.items);
-      setCursor(page.nextCursor ?? undefined);
-    } catch {
-      if (generation === targetGeneration)
-        setMessage("Saved sources could not load. Close and reopen the picker to retry.");
-    } finally {
-      if (generation === targetGeneration) setBusy(false);
-    }
-  }
   async function choose(blueprintCourseId: string): Promise<void> {
     const generation = ++sourceLoad;
     setSelected(undefined);
     setMessage("");
-    if (!blueprintCourseId) return;
+    if (!blueprintCourseId || blueprintCourseId === props.target.id) return;
     setBusy(true);
     try {
       const result = await props.client.getBlueprintCourse(blueprintCourseId);
-      if (generation === sourceLoad) setSelected(result.blueprintCourse);
+      if (generation === sourceLoad) {
+        // ASVS 8.3.1: the trusted API authorizes the exact saved source; Archived sources stay ineligible.
+        if (result.blueprintCourse.availability === "archived") {
+          setMessage("This saved source is unavailable. Choose another source.");
+        } else setSelected(result.blueprintCourse);
+      }
     } catch {
       if (generation === sourceLoad)
         setMessage("This saved source is unavailable. Choose another source.");
@@ -187,6 +178,61 @@ export function ProposalTargetTools(props: {
       if (generation === targetGeneration) setBusy(false);
     }
   }
+  function SourcePicker(): JSX.Element {
+    const formatTimestamp = (): ((timestamp: number | Date) => string) => props.formatDateTime;
+    const definition = blueprintCourseSearchDefinition(props.client, formatTimestamp, "all");
+    const state = createSearchState(
+      {
+        ...definition,
+        initialQuery: emptyBlueprintSearch(false),
+        isEligible: () => true,
+        content: (blueprint): RecordContent => ({
+          ...definition.content(blueprint),
+          actions: [
+            {
+              id: "choose-source",
+              kind: "command",
+              label: blueprint.id === props.target.id ? "Current Blueprint" : "Choose source",
+              primary: blueprint.id !== props.target.id,
+              disabled: busy() || blueprint.id === props.target.id,
+              pressed: selected()?.id === blueprint.id,
+              onClick: () => void choose(blueprint.id),
+            },
+          ],
+        }),
+      },
+      { runOnMount: true },
+    );
+    return (
+      <SearchBlock
+        layout="above"
+        state={state}
+        controls={
+          <SearchControls
+            state={state}
+            textLabel="Search saved Blueprint sources"
+            disabled={busy}
+          />
+        }
+        collection={{
+          ariaLabel: "Saved Blueprint sources",
+          fields: blueprintCourseSearchFields(props.classificationClient, "all", formatTimestamp),
+          query: blueprintCourseSearchRecordQuery({
+            query: state.query,
+            apply: state.apply,
+            sort: state.sort,
+            client: props.client,
+            scope: "all",
+          }),
+          disabled: busy,
+          emptyState: {
+            title: "No saved Blueprint sources match.",
+            message: "Try another name or clear the search.",
+          },
+        }}
+      />
+    );
+  }
   return (
     <section class="blueprint-proposal">
       <A href="/blueprint-change-proposals">My Change Proposals across targets</A>
@@ -207,7 +253,6 @@ export function ProposalTargetTools(props: {
           onClick={() => {
             setOpen(true);
             setCreated(undefined);
-            void loadSources();
           }}
         >
           Propose saved Blueprint changes
@@ -219,35 +264,7 @@ export function ProposalTargetTools(props: {
               Only exact saved source and target Revisions and metadata are proposed. Unsaved editor
               changes are excluded.
             </p>
-            <label>
-              Saved source Blueprint
-              <select
-                disabled={busy()}
-                value={selected()?.id ?? ""}
-                onChange={(e) => void choose(e.currentTarget.value)}
-              >
-                <option value="">Choose a source</option>
-                <For
-                  each={sources().filter(
-                    (source) => source.id !== props.target.id && source.availability !== "archived",
-                  )}
-                >
-                  {(source) => (
-                    <option value={source.id}>
-                      {source.long_name} ({source.short_name}; {source.availability}; Revision{" "}
-                      {source.current_revision_tuple.revisionNumber})
-                    </option>
-                  )}
-                </For>
-              </select>
-            </label>
-            <Show when={cursor()}>
-              {(next) => (
-                <button type="button" disabled={busy()} onClick={() => void loadSources(next())}>
-                  More saved sources
-                </button>
-              )}
-            </Show>
+            <SourcePicker />
             <Show when={selected()}>
               {(source) => (
                 <>

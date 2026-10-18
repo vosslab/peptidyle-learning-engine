@@ -1,5 +1,5 @@
 import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
-import type { RecordField, RecordListQuery } from "../components/record_list/record_fields";
+import type { RecordField } from "../components/data_sheet/record_fields";
 import type { LibrarySearchRow } from "./library_page_model";
 import { questionTypeLabel } from "./library_page_helpers";
 
@@ -125,8 +125,3 @@ export const fixedKindLibrarySearchFields: typeof librarySearchFields = libraryS
         }
       : field,
 );
-
-/** The server owns filtering and sorting across the whole Library result. */
-export const librarySearchRecordQuery: RecordListQuery<LibraryRecordSortKey, LibraryFacetField> = {
-  kind: "paged",
-};

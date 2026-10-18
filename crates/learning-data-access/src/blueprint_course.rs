@@ -19,7 +19,9 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{DiscoveryPageRequest, Page, SessionTokenHash, StoreError};
+use crate::{
+    DiscoveryPageSize, NumberedDiscoveryPageRequest, NumberedPage, SessionTokenHash, StoreError,
+};
 
 /// Visible deterministic order for Blueprint Course discovery.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,45 +67,10 @@ impl BlueprintCourseListSort {
     }
 }
 
-/// One query-bound continuation position for Blueprint Course discovery.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "sort", rename_all = "camelCase", deny_unknown_fields)]
-pub enum BlueprintCourseListCursorPosition {
-    Name {
-        long_name: String,
-        blueprint_course_id: BlueprintCourseId,
-    },
-    Adoptions {
-        count: u64,
-        long_name: String,
-        blueprint_course_id: BlueprintCourseId,
-    },
-    Students {
-        count: u64,
-        long_name: String,
-        blueprint_course_id: BlueprintCourseId,
-    },
-    Stars {
-        count: u64,
-        long_name: String,
-        blueprint_course_id: BlueprintCourseId,
-    },
-    Watches {
-        count: u64,
-        long_name: String,
-        blueprint_course_id: BlueprintCourseId,
-    },
-    RecentEdits {
-        edited_at_millis: i64,
-        long_name: String,
-        blueprint_course_id: BlueprintCourseId,
-    },
-}
-
 /// Bounded ordinary discovery, including optional literal name narrowing.
 #[derive(Debug, Clone)]
 pub struct BlueprintCourseListRequest {
-    pub page: DiscoveryPageRequest,
+    pub page: NumberedDiscoveryPageRequest,
     pub sort: BlueprintCourseListSort,
     pub query: String,
     pub include_archived: bool,
@@ -665,7 +632,7 @@ pub trait BlueprintCourseStore: Send + Sync {
         &self,
         session: SessionTokenHash,
         request: BlueprintCourseListRequest,
-    ) -> Result<Page<StoredBlueprintCourseSummary>, StoreError>;
+    ) -> Result<NumberedPage<StoredBlueprintCourseSummary, DiscoveryPageSize>, StoreError>;
     async fn list_blueprint_course_facet_choices(
         &self,
         session: SessionTokenHash,

@@ -1,8 +1,7 @@
 // My Blueprint Courses uses the same complete discovery query as Public Search.
-import { A } from "@solidjs/router";
 import { Show, createSignal, type JSX } from "solid-js";
 
-import { PageFrame } from "../../components/page_frame";
+import { PageFrame } from "../../components/page_frame/page_frame";
 import { BlueprintCourseCollection } from "../../pages/blueprint_course_search_page";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import { BlueprintCourseImport } from "./blueprint_exchange";
@@ -16,9 +15,6 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
 
   const actions = (
     <div class="blueprint-course-inline-actions">
-      <Show when={props.proposalClient}>
-        <A href="/blueprint-change-proposals">My Change Proposals</A>
-      </Show>
       <button
         type="button"
         onClick={(event) => {

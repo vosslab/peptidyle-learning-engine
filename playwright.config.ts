@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { defineConfig } from "@playwright/test";
+import { resolve } from "node:path";
 
 import { liveDemoInputsFromEnvironment } from "./tests/playwright/browser_suite_live_config";
 import { liveDemoChromiumArgs } from "./tests/playwright/helper_gateway_trust.mjs";
@@ -33,8 +34,21 @@ export function productionBrowserUse(
 export const configuredLiveDemoInputs = requireOwnerInput(process.env);
 const browserUse = productionBrowserUse(process.env);
 
+function exactTemporarySpecMatch(specPath: string): RegExp {
+  const absolutePath = resolve(specPath);
+  // ASVS 1.2.9: escape the trusted path before using it as a regular expression.
+  const escapedPath = absolutePath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(`^${escapedPath}$`, "u");
+}
+
 export default defineConfig({
-  testDir: "tests/playwright/e2e",
+  testDir:
+    configuredLiveDemoInputs.temporarySpecPath === undefined ? "tests/playwright/e2e" : "tests",
+  ...(configuredLiveDemoInputs.temporarySpecPath === undefined
+    ? {}
+    : {
+        testMatch: exactTemporarySpecMatch(configuredLiveDemoInputs.temporarySpecPath),
+      }),
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,

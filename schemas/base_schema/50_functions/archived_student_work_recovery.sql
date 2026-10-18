@@ -262,9 +262,10 @@ BEGIN
 END $$;
 
 CREATE FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(
-    p_course_instance_id text, p_after_assessment_attempt_id uuid, p_limit integer,
+    p_page_number bigint, p_page_size integer, p_course_instance_id text,
     p_search text, p_assessment_ids text[], p_sort text
 ) RETURNS TABLE (
+    has_item boolean, resolved_page_number bigint, total_count bigint,
     course_instance_id text, roster_id text, assessment_id text,
     assessment_title text, assessment_attempt_id uuid,
     assessment_attempt_number integer, started_at timestamptz, submitted_at timestamptz,
@@ -273,10 +274,11 @@ CREATE FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE recovery_course record;
 BEGIN
-    -- Bounded identity keyset pagination; callers can request page size + 1.
+    -- Count and order the complete authorized match set before slicing a numbered page.
     -- ASVS 14.2.6: no Student Record/Account UUID or evidence document in selection.
-    IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 101
-       OR p_sort NOT IN ('attemptAscending', 'attemptDescending')
+    IF p_page_number IS NULL OR p_page_number NOT BETWEEN 1 AND 4294967295
+       OR p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
+       OR p_sort IS NULL OR p_sort NOT IN ('attemptAscending', 'attemptDescending')
        OR p_search IS NULL OR char_length(p_search) > 200 OR p_search ~ '[[:cntrl:]]'
        OR p_assessment_ids IS NULL
        OR EXISTS (SELECT 1 FROM unnest(p_assessment_ids) AS value
@@ -289,24 +291,54 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Retained Work unavailable';
     END IF;
-    RETURN QUERY SELECT recovery_course.course_instance_id, roster.roster_id,
-        evidence.assessment_id, evidence.assessment_title,
-        evidence.assessment_attempt_id, evidence.assessment_attempt_number,
-        evidence.started_at, evidence.submitted_at,
-        recovery_course.student_data_archived_at, recovery_course.delete_due_at
-      FROM ple_private.select_archived_assessment_attempt_evidence(
-          recovery_course.course_instance_id, p_after_assessment_attempt_id, p_limit,
-          p_search, p_assessment_ids, p_sort
-      ) AS evidence
-      JOIN ple_data.student_record AS student
-        ON student.student_record_id = evidence.student_record_id
-       AND student.course_instance_id = recovery_course.course_instance_id
-      LEFT JOIN ple_private.course_roster_profile AS roster
-        ON roster.course_instance_id = student.course_instance_id
-       AND roster.student_account_id = student.student_account_id
+    RETURN QUERY
+    WITH matched AS MATERIALIZED (
+        SELECT recovery_course.course_instance_id, roster.roster_id,
+               evidence.assessment_id, evidence.assessment_title,
+               evidence.assessment_attempt_id, evidence.assessment_attempt_number,
+               evidence.started_at, evidence.submitted_at,
+               recovery_course.student_data_archived_at, recovery_course.delete_due_at
+          FROM ple_private.select_archived_assessment_attempt_evidence(
+              recovery_course.course_instance_id, NULL, NULL,
+              p_search, p_assessment_ids, p_sort
+          ) AS evidence
+          JOIN ple_data.student_record AS student
+            ON student.student_record_id = evidence.student_record_id
+           AND student.course_instance_id = recovery_course.course_instance_id
+          LEFT JOIN ple_private.course_roster_profile AS roster
+            ON roster.course_instance_id = student.course_instance_id
+           AND roster.student_account_id = student.student_account_id
+    ), counted AS MATERIALIZED (
+        SELECT count(*)::bigint AS total FROM matched AS matched_item
+    ), resolved AS MATERIALIZED (
+        SELECT CASE WHEN counted.total = 0 THEN 1::bigint ELSE
+                    least(p_page_number, ((counted.total - 1) / p_page_size) + 1) END AS page_number,
+               counted.total AS total_count
+          FROM counted AS counted
+    ), ordered AS MATERIALIZED (
+        SELECT matched_item.* FROM matched AS matched_item
+         ORDER BY
+           CASE WHEN p_sort = 'attemptAscending' THEN matched_item.assessment_attempt_id END ASC,
+           CASE WHEN p_sort = 'attemptDescending' THEN matched_item.assessment_attempt_id END DESC
+    ), page AS MATERIALIZED (
+        SELECT ordered_item.* FROM ordered AS ordered_item
+         CROSS JOIN resolved AS resolved_page
+         ORDER BY
+           CASE WHEN p_sort = 'attemptAscending' THEN ordered_item.assessment_attempt_id END ASC,
+           CASE WHEN p_sort = 'attemptDescending' THEN ordered_item.assessment_attempt_id END DESC
+         OFFSET (((SELECT resolved_page.page_number FROM resolved AS resolved_page) - 1)
+                 * p_page_size::bigint)
+         LIMIT p_page_size
+    )
+    SELECT page.assessment_attempt_id IS NOT NULL, resolved.page_number, resolved.total_count,
+           page.course_instance_id, page.roster_id, page.assessment_id,
+           page.assessment_title, page.assessment_attempt_id, page.assessment_attempt_number,
+           page.started_at, page.submitted_at, page.student_data_archived_at, page.delete_due_at
+      FROM resolved AS resolved
+      LEFT JOIN page AS page ON true
      ORDER BY
-         CASE WHEN p_sort = 'attemptAscending' THEN evidence.assessment_attempt_id END ASC,
-         CASE WHEN p_sort = 'attemptDescending' THEN evidence.assessment_attempt_id END DESC;
+       CASE WHEN p_sort = 'attemptAscending' THEN page.assessment_attempt_id END ASC,
+       CASE WHEN p_sort = 'attemptDescending' THEN page.assessment_attempt_id END DESC;
 END $$;
 
 CREATE FUNCTION ple_api.archived_attempt_assessment_choices(

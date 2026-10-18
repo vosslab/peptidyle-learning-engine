@@ -7,8 +7,9 @@
 
 use async_trait::async_trait;
 use question_model::{BlueprintCourseId, Timestamp};
+use uuid::Uuid;
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{NumberedPage, NumberedPageRequest, PageSize, SessionTokenHash, StoreError};
 
 /// Browser-safe Star facts for one Blueprint Course lineage.
 ///
@@ -35,7 +36,7 @@ pub struct BlueprintCourseWatchProjection {
     pub watching: bool,
 }
 
-/// The four immutable source changes that can notify a Blueprint watcher.
+/// The three immutable source changes that can notify a Blueprint watcher.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlueprintCourseWatchEventKind {
     Revision,
@@ -46,8 +47,39 @@ pub enum BlueprintCourseWatchEventKind {
 /// One recipient-owned, immutable Blueprint Course Watch event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BlueprintCourseWatchEvent {
+    pub event_id: Uuid,
     pub kind: BlueprintCourseWatchEventKind,
     pub occurred_at: Timestamp,
+}
+
+/// Chronological ordering for the caller's private Watch history.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlueprintCourseWatchDirection {
+    Ascending,
+    Descending,
+}
+
+/// Complete query for one recipient's activity on one Blueprint lineage.
+#[derive(Debug, Clone)]
+pub struct BlueprintCourseWatchEventsQuery {
+    pub search: String,
+    pub event_kinds: Vec<BlueprintCourseWatchEventKind>,
+    pub direction: BlueprintCourseWatchDirection,
+    pub page: NumberedPageRequest,
+}
+
+/// One activity-kind count before the query's selected-kind filter is applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlueprintCourseWatchEventFacet {
+    pub value: BlueprintCourseWatchEventKind,
+    pub count: u64,
+}
+
+/// A numbered private page and its full-query, cleared-kind facet counts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlueprintCourseWatchEventsPage {
+    pub page: NumberedPage<BlueprintCourseWatchEvent, PageSize>,
+    pub event_kind_facets: Vec<BlueprintCourseWatchEventFacet>,
 }
 
 /// Authenticated self-only Blueprint Course stewardship boundary.
@@ -94,13 +126,14 @@ pub trait BlueprintStewardshipStore: Send + Sync {
         watching: bool,
     ) -> Result<BlueprintCourseWatchProjection, StoreError>;
 
-    /// Lists at most 100 immutable Watch events for this caller and lineage.
+    /// Lists numbered immutable Watch events for this caller and lineage.
     ///
-    /// No other watcher, recipient, count, or identity is exposed.
+    /// Counts and facets cover only this caller and lineage, including history
+    /// retained after Unwatch. No other watcher, recipient, or identity is exposed.
     async fn blueprint_course_watch_events(
         &self,
         session_token_hash: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
-        limit: u16,
-    ) -> Result<Vec<BlueprintCourseWatchEvent>, StoreError>;
+        query: BlueprintCourseWatchEventsQuery,
+    ) -> Result<BlueprintCourseWatchEventsPage, StoreError>;
 }

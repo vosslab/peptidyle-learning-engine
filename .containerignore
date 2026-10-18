@@ -1,20 +1,54 @@
-# The API image consumes Rust sources plus the exact reviewed embedded RDKit pair.
-# Keep host build products, generated artifacts, credentials, documentation,
-# and unrelated toolchains outside the build context entirely.
+# Compose services share the repository root as their build context. Restore the
+# exact API and thumbnail-renderer inputs below; keep host build products,
+# generated artifacts, credentials, documentation, and unrelated toolchains out.
+# Buildah parent exceptions include descendants. Re-exclude each traversal
+# directory's children before restoring its selected inputs.
 **
 !Cargo.toml
 !Cargo.lock
 !crates
 !crates/**
 !assets
+assets/*
 !assets/author-content-dependencies
+assets/author-content-dependencies/*
 !assets/author-content-dependencies/rdkit
+assets/author-content-dependencies/rdkit/*
 !assets/author-content-dependencies/rdkit/RDKit_minimal.js
 !assets/author-content-dependencies/rdkit/RDKit_minimal.wasm
 !containers
+containers/*
 !containers/Containerfile.api
 !containers/Containerfile.gateway
+!containers/Containerfile.question_thumbnail_renderer
+!package.json
+!package-lock.json
+!question_thumbnail_renderer
+question_thumbnail_renderer/*
+!question_thumbnail_renderer/src
+!question_thumbnail_renderer/src/**
+!src
+src/*
+!src/styles
+src/styles/*
+!src/styles/ple_embed.css
+!src/public
+src/public/*
+!src/public/ple_bridge.js
+!src/assets
+src/assets/*
+!src/assets/fonts
+src/assets/fonts/*
+!src/assets/fonts/atkinson_hyperlegible_next
+src/assets/fonts/atkinson_hyperlegible_next/*
+!src/assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable.woff2
+!src/assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable_italic.woff2
+!src/assets/fonts/atkinson_hyperlegible_mono
+src/assets/fonts/atkinson_hyperlegible_mono/*
+!src/assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable.woff2
+!src/assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable_italic.woff2
 !schemas
+schemas/*
 !schemas/base_schema
 !schemas/base_schema/**
 !schemas/migrations
@@ -22,6 +56,7 @@
 !schemas/installation_data
 !schemas/installation_data/**
 !content
+content/*
 !content/genetics
 !content/genetics/**
 !content/pilot

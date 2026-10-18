@@ -1,6 +1,6 @@
 # Current planning work
 
-Updated 2026-10-16. Completed and historical material is in [archive](../../archive/).
+Updated 2026-10-17. Completed and historical material is in [archive](../../archive/).
 Archival preserves findings and deferrals; it does not certify every historical proposal as built.
 
 ## Active plans
@@ -16,6 +16,11 @@ Archival preserves findings and deferrals; it does not certify every historical 
 
 ## Completed plans
 
+- [modular_ui_architecture_completion_plan.md](modular_ui_architecture_completion_plan.md): all 37
+  milestones verified on 2026-10-17. Shared DataSheet collections, editor integration, content-first
+  layout and publication-time thumbnails passed current connected, spatial and canonical gates.
+  [The status ledger](../reports/datasheet_collection_status.md) retains acceptance evidence, bounded
+  proof limits and historical failures. One-time executables were retired; evidence receipts remain.
 - [modular_ui_completion_plan.md](../../archive/modular_ui_completion_plan.md): M1-M32 verified and manager accepted on 2026-10-16 after fresh `/root/final_plan_integration_spec` and distinct `/root/final_plan_integration_quality` PASS. Canonical fast/full, native/visual acceptance, and temporary-probe cleanup passed. The completed plan is archived; its authorized `git mv` succeeded.
 
 ## Current audit inputs

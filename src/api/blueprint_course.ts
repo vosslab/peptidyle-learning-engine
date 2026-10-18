@@ -4,7 +4,7 @@ import type { BlueprintCourseId } from "../../generated/api/BlueprintCourseId";
 import type { BlueprintAssessmentId } from "../../generated/api/BlueprintAssessmentId";
 import type { BlueprintPoolMembersView } from "../../generated/api/BlueprintPoolMembersView";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
-import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
+import type { BlueprintCourseListPageView } from "../../generated/api/BlueprintCourseListPageView";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
 import type { BlueprintRevisionView } from "../../generated/api/BlueprintRevisionView";
 import type { BlueprintHistoryPageView } from "../../generated/api/BlueprintHistoryPageView";
@@ -30,7 +30,6 @@ import type { CreateBlueprintCourseInput } from "../../generated/api/CreateBluep
 import type { RenameBlueprintCourseInput } from "../../generated/api/RenameBlueprintCourseInput";
 import type { ReplaceBlueprintCourseContentInput } from "../../generated/api/ReplaceBlueprintCourseContentInput";
 import type { BlueprintThemeUpdate } from "../../generated/api/BlueprintThemeUpdate";
-import type { CursorPage } from "./contracts";
 import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { CanonicalBlueprintCourse } from "../../generated/api/CanonicalBlueprintCourse";
 import type { BlueprintStewardshipClient } from "./blueprint_stewardship";
@@ -129,7 +128,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     blueprintCourseId: BlueprintCourseId,
     kind: "revisions" | "metadata",
     query: BlueprintHistoryQuery,
-    cursor: string | null,
+    pageNumber: number,
     pageSize: number,
   ) => Promise<BlueprintHistoryPage>;
   readonly getBlueprintPoolMembers: (
@@ -159,8 +158,8 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     rightBlueprintCourseId: BlueprintCourseId,
   ) => Promise<BlueprintComparisonView>;
   readonly listBlueprintCourses: (
-    cursor?: string,
-    pageSize?: number,
+    pageNumber: number,
+    pageSize: number,
     includeArchived?: boolean,
     query?: string,
     publicOnly?: boolean,
@@ -169,7 +168,7 @@ export interface BlueprintCourseClient extends BlueprintStewardshipClient {
     sort?: BlueprintCourseListSort,
     tag?: string,
     facets?: BlueprintCourseFacetFilters,
-  ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
+  ) => Promise<BlueprintCourseListPageView>;
   readonly listBlueprintCourseFacetChoices: (
     field: BlueprintCourseFacetField,
     request: BlueprintCourseFacetRequest,

@@ -318,7 +318,10 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         request: crate::BlueprintCourseListRequest,
-    ) -> Result<crate::Page<StoredBlueprintCourseSummary>, StoreError> {
+    ) -> Result<
+        crate::NumberedPage<StoredBlueprintCourseSummary, crate::DiscoveryPageSize>,
+        StoreError,
+    > {
         self.list_discovery_page(session, request).await
     }
 

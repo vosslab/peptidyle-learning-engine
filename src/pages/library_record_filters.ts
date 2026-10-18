@@ -5,7 +5,7 @@ import type {
   RecordFilterChoices,
   RecordListQuery,
   RecordSort,
-} from "../components/record_list/record_fields";
+} from "../components/data_sheet/record_fields";
 import type { LibraryRecordSortKey } from "./library_search_fields";
 import type {
   QuestionLibraryBrowseQuery,
@@ -106,6 +106,11 @@ async function retainChildren(
 export function libraryRecordQuery(props: {
   readonly query: () => QuestionLibraryBrowseQuery;
   readonly apply: (
+    query:
+      | QuestionLibraryBrowseQuery
+      | ((current: QuestionLibraryBrowseQuery) => QuestionLibraryBrowseQuery | undefined),
+  ) => Promise<unknown>;
+  readonly sort: (
     query:
       | QuestionLibraryBrowseQuery
       | ((current: QuestionLibraryBrowseQuery) => QuestionLibraryBrowseQuery | undefined),
@@ -303,7 +308,7 @@ export function libraryRecordQuery(props: {
         if (order === undefined || order === props.query().sort) return;
         props.onError?.(null);
         enqueue(async (isCurrent): Promise<void> => {
-          await props.apply((current) => {
+          await props.sort((current) => {
             if (!isCurrent() || order === current.sort) return undefined;
             return { ...current, sort: order };
           });

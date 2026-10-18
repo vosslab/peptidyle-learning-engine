@@ -100,6 +100,14 @@ def build_parser() -> argparse.ArgumentParser:
 	add_target_options(rebuild_application)
 	rebuild_application.set_defaults(handler=local_stack_control.commands.rebuild_application)
 
+	backfill_question_thumbnails = subparsers.add_parser(
+		"backfill-question-thumbnails",
+		help="backfill published Revision thumbnails in the existing owned Live Demo",
+	)
+	backfill_question_thumbnails.set_defaults(
+		handler=local_stack_control.commands.backfill_question_thumbnails
+	)
+
 	service = subparsers.add_parser("service", help="perform one narrowly scoped service action")
 	service_actions = service.add_subparsers(dest="service_action", required=True)
 	service_stop = service_actions.add_parser("stop", help="stop the default WebWork renderer")

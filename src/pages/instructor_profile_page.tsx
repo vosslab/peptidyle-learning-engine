@@ -5,7 +5,7 @@ import { Match, Switch, createResource, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
 import { InstructorProfileLink } from "../components/instructor_profile_link";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { validateCanonicalPublicId } from "../question_id";
 
 /** The URL identifies an Instructor; the API independently authorizes the signed-in viewer. */

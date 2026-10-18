@@ -10,10 +10,10 @@ import type {
 } from "../api/live_student_course_landing";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import {
   byStudentTitleThenId,
   byStudentCrossCourseTitleThenId,
@@ -27,7 +27,7 @@ import {
   loadStudentCrossCourseCollection,
   visibleStudentCoursework,
 } from "./student_cross_course_collection";
-import { type RecordContent, type RecordFact } from "../components/record_list/record_list";
+import type { RecordContent, RecordFact } from "../components/data_sheet/record_content";
 import { formatAssessmentDeliveryTime } from "../components/student_assessment_presentation";
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
@@ -118,14 +118,13 @@ export function AssessmentList(props: {
   readonly loading: boolean;
   readonly view: StudentCourseworkView;
   readonly completedAssessmentIds: ReadonlySet<string>;
+  readonly onRefresh: () => unknown;
 }): JSX.Element {
-  const [rows, { refetch }] = createResource(
-    () =>
-      props.loading ? undefined : { courseId: props.course.id, assessments: props.assessments },
-    ({ assessments }) => byStudentTitleThenId(assessments),
+  const rows = createMemo(() =>
+    props.loading ? undefined : byStudentTitleThenId(props.assessments),
   );
   const assessmentSearch = createLocalCompleteSearch(
-    { resource: rows, refetchSource: refetch, rows: (value) => value },
+    { rows: rows, loading: () => props.loading, refetchSource: () => props.onRefresh() },
     {
       fields: studentAssessmentFields,
       rowId: (assessment) => assessment.id,
@@ -224,9 +223,13 @@ function StudentCrossCourseworkCollection(props: {
   );
   const search = createLocalCompleteSearch(
     {
-      resource: collection,
+      rows: () => {
+        const source = collection();
+        return source === undefined ? undefined : byStudentCrossCourseTitleThenId(source.rows);
+      },
+      loading: () => collection.loading,
+      error: (): unknown => collection.error,
       refetchSource: refetch,
-      rows: (source) => byStudentCrossCourseTitleThenId(source.rows),
     },
     {
       fields: studentCrossCourseAssessmentFields,
@@ -365,11 +368,17 @@ function StudentCourseworkPage(props: { readonly view: StudentCourseworkView }):
   ): Promise<ReadonlyArray<LiveStudentAssessmentLandingSummary>> {
     return applicationApi.client.listLiveStudentAssessments(current.id);
   }
-  const [assessments] = createResource(course, loadAssessments);
-  const [progress] = createResource(
+  const [assessments, { refetch: refetchAssessments }] = createResource(course, loadAssessments);
+  const [progress, { refetch: refetchProgress }] = createResource(
     () => (props.view === "completed" ? course() : undefined),
     (current) => applicationApi.client.getStudentCourseProgress(current.id),
   );
+  async function refreshCoursework(): Promise<void> {
+    await Promise.all([
+      refetchAssessments(),
+      props.view === "completed" ? refetchProgress() : Promise.resolve(),
+    ]);
+  }
   const completedAssessmentIds = createMemo<ReadonlySet<string>>(() => {
     const submitted = (progress() ?? [])
       .filter((assessment: StudentCourseProgressAssessment) =>
@@ -453,6 +462,7 @@ function StudentCourseworkPage(props: { readonly view: StudentCourseworkView }):
                 loading={assessments.loading || (props.view === "completed" && progress.loading)}
                 view={props.view}
                 completedAssessmentIds={completedAssessmentIds()}
+                onRefresh={refreshCoursework}
               />
             </section>
           </>

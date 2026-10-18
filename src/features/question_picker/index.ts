@@ -1,9 +1,7 @@
 export { QuestionPicker, type QuestionPickerProps } from "./question_picker";
 export {
   MAX_QUESTION_PICKER_SELECTION_CAP,
-  blueprintCourseQuestionPickerRepository,
   inspectQuestionPickerRow,
-  moveQuestionPickerSelection,
   questionLibraryPickerRepository,
   questionLibraryPickerSources,
   questionPickerSearchDefinition,

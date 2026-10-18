@@ -4,27 +4,30 @@ import { Show, createEffect, createSignal, type JSX } from "solid-js";
 
 import type {
   InstructorAccountBrowse,
+  InstructorAccountList,
   InstructorAccountState,
   InstructorAccountSummary,
 } from "../api/instructor_account";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
-import { type RecordContent } from "../components/record_list/record_list";
+import type { RecordContent } from "../components/data_sheet/record_content";
 import type {
   RecordField,
   RecordListQuery,
   RecordSort,
-} from "../components/record_list/record_fields";
-import { SearchBlock } from "../features/search/search_block";
-import { createSearchState } from "../features/search/search_state";
+} from "../components/data_sheet/record_fields";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createSearchState } from "../components/search_block/search_state";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { PROVIDED_AVATAR_CATALOG } from "../features/profile_avatar/avatar_catalog_generated";
 import { formatSignInLabel } from "./instructor_account_model";
 
 type AccountSortKey = "id";
 type AccountFilterKey = "state";
+type AccountQuery = Pick<InstructorAccountBrowse, "query" | "state" | "sort">;
 
 function stateLabel(state: InstructorAccountSummary["state"]): string {
   switch (state) {
@@ -50,7 +53,6 @@ function accountAvatarMedia(account: InstructorAccountSummary): RecordContent["m
 export function InstructorAccountsPage(): JSX.Element {
   const runtime = useApplicationApi();
   const session = useSessionBootstrap();
-  const [displayTimeZone, setDisplayTimeZone] = createSignal("UTC");
   const accountFields: ReadonlyArray<
     RecordField<InstructorAccountSummary, AccountSortKey, AccountFilterKey>
   > = [
@@ -87,13 +89,10 @@ export function InstructorAccountsPage(): JSX.Element {
       defaultColumn: { priority: 3, width: "8rem", visible: false },
     },
   ];
-  const [stateChoices, setStateChoices] = createSignal<
-    ReadonlyArray<{ key: InstructorAccountState; count: number }>
-  >([]);
   const searchState = createSearchState<
-    Pick<InstructorAccountBrowse, "query" | "state" | "sort">,
+    AccountQuery,
     InstructorAccountSummary,
-    undefined
+    Pick<InstructorAccountList, "displayTimeZone" | "stateChoices">
   >(
     {
       initialQuery: { query: "", state: null, sort: "idAscending" },
@@ -104,19 +103,40 @@ export function InstructorAccountsPage(): JSX.Element {
       setText: (query, text) => ({ ...query, query: text }),
       rowId: (account) => account.id,
       content: accountContent,
-      fetchPage: async (query, cursor, pageSize) => {
+      appliedFilters: (query) =>
+        query.state === null
+          ? []
+          : [
+              {
+                id: "state",
+                label: `State: ${stateLabel(query.state)}`,
+                clear: (current): AccountQuery => ({ ...current, state: null }),
+              },
+            ],
+      fetchPage: async (query, pageRequest) => {
+        if (pageRequest.pageSize !== 50 && pageRequest.pageSize !== 100) {
+          throw new Error("Instructor Account page size is unavailable");
+        }
+        const requestPageSize: 50 | 100 = pageRequest.pageSize === 50 ? 50 : 100;
         const current = session.state();
         if (current.kind !== "authenticated" || current.session.account.userRole !== "sysadmin") {
           throw new Error("Instructor Account access unavailable");
         }
         const page = await runtime.client.findInstructorAccounts({
           ...query,
-          cursor,
-          pageSize: pageSize === 250 ? 100 : pageSize,
+          pageNumber: pageRequest.pageNumber,
+          pageSize: requestPageSize,
         });
-        setDisplayTimeZone(page.displayTimeZone);
-        setStateChoices(page.stateChoices);
-        return { items: page.accounts, nextCursor: page.nextCursor, filterCounts: undefined };
+        return {
+          items: page.items,
+          pageNumber: page.pageNumber,
+          pageSize: page.pageSize,
+          totalCount: page.totalCount,
+          filterCounts: {
+            displayTimeZone: page.displayTimeZone,
+            stateChoices: page.stateChoices,
+          },
+        };
       },
     },
     {},
@@ -143,7 +163,7 @@ export function InstructorAccountsPage(): JSX.Element {
         };
       },
       onChange: (sort) =>
-        void searchState.apply((current) => ({
+        void searchState.sort((current) => ({
           ...current,
           sort: sort.direction === "ascending" ? "idAscending" : "idDescending",
         })),
@@ -193,6 +213,9 @@ export function InstructorAccountsPage(): JSX.Element {
   function setReason(accountId: string, reason: string): void {
     setReasonByAccountId((current) => ({ ...current, [accountId]: reason }));
   }
+  const stateChoices = (): ReadonlyArray<{ key: InstructorAccountState; count: number }> =>
+    searchState.state().filterCounts?.stateChoices ?? [];
+  const displayTimeZone = (): string => searchState.state().filterCounts?.displayTimeZone ?? "UTC";
 
   function setAccountBusy(accountId: string, busy: boolean): void {
     setBusyAccountIds((current) => {
@@ -203,8 +226,7 @@ export function InstructorAccountsPage(): JSX.Element {
     });
   }
 
-  function findAccounts(event: SubmitEvent): void {
-    event.preventDefault();
+  function findAccounts(): void {
     const query = searchState.typedText().trim();
     if ([...query].length > 320 || /[\p{Cc}]/u.test(query)) {
       setError("Enter a name or email within 320 characters.");
@@ -391,25 +413,13 @@ export function InstructorAccountsPage(): JSX.Element {
         layout="above"
         state={searchState}
         controls={
-          <form class="auth-panel" novalidate onSubmit={findAccounts}>
-            <label for="instructor-account-find">
-              Name or email
-              <input
-                id="instructor-account-find"
-                name="instructorAccountFind"
-                type="search"
-                value={searchState.typedText()}
-                onInput={(event) => searchState.setTypedText(event.currentTarget.value)}
-                autocomplete="off"
-                autocapitalize="none"
-                spellcheck={false}
-                maxlength={320}
-              />
-            </label>
-            <button class="primary-action" type="submit">
-              Find Instructor Account
-            </button>
-          </form>
+          <SearchControls
+            state={searchState}
+            textLabel="Name or email"
+            maxlength={320}
+            onSubmit={findAccounts}
+            onClear={() => setError(null)}
+          />
         }
         collection={{
           ariaLabel: "Instructor Accounts",

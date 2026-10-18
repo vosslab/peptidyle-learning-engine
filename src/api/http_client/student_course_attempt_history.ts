@@ -19,15 +19,19 @@ import { boundedResponseJson, requireNoStore } from "./response";
 
 function historyPath(
   request: StudentAttemptHistoryQuery,
+  pageNumber: number,
   pageSize: number,
-  cursor?: string,
-  facet?: { readonly field: StudentAttemptHistoryFacetField; readonly search: string },
+  facet?: {
+    readonly field: StudentAttemptHistoryFacetField;
+    readonly search: string;
+    readonly cursor?: string;
+  },
 ): string {
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > (facet ? 50 : 100)) {
     throw new ApiProtocolError("Attempt History page size must be between 1 and 100");
   }
-  if (cursor !== undefined && (cursor.length === 0 || cursor.length > 512)) {
-    throw new ApiProtocolError("Attempt History cursor is invalid");
+  if (!Number.isSafeInteger(pageNumber) || pageNumber < 1) {
+    throw new ApiProtocolError("Attempt History page number is invalid");
   }
   const search = request.search.trim();
   if (
@@ -38,16 +42,16 @@ function historyPath(
     throw new ApiProtocolError("Attempt History query is invalid");
   }
   const query = new URLSearchParams({
-    pageSize: String(pageSize),
+    ...(facet === undefined ? { pageNumber: String(pageNumber), pageSize: String(pageSize) } : {}),
     search,
     state: request.state,
     sort: request.sort,
   });
   if (request.courseIds.length > 0) query.set("courses", request.courseIds.join(","));
-  if (cursor !== undefined) query.set("cursor", cursor);
   if (facet !== undefined) {
     query.set("field", facet.field);
     query.set("choiceSearch", facet.search);
+    if (facet.cursor !== undefined) query.set("cursor", facet.cursor);
   }
   const base =
     facet === undefined
@@ -63,10 +67,10 @@ export function createStudentAttemptHistoryClient(
   return {
     listStudentAttemptHistory: async (
       query,
+      pageNumber = 1,
       pageSize = 50,
-      cursor,
     ): Promise<StudentAttemptHistoryPage> => {
-      const path = historyPath(query, pageSize, cursor);
+      const path = historyPath(query, pageNumber, pageSize);
       const response = await requestSameOrigin(fetchImplementation, basePath, path);
       requireNoStore(response, path);
       if (!response.ok) throw new ApiRequestError(response.status, path);
@@ -84,7 +88,11 @@ export function createStudentAttemptHistoryClient(
       if ([...choiceSearch].length > 100) {
         throw new ApiProtocolError("Attempt History facet search is invalid");
       }
-      const path = historyPath(query, 50, cursor, { field, search: choiceSearch.trim() });
+      const path = historyPath(query, 1, 50, {
+        field,
+        search: choiceSearch.trim(),
+        ...(cursor === undefined ? {} : { cursor }),
+      });
       const response = await requestSameOrigin(fetchImplementation, basePath, path);
       requireNoStore(response, path);
       if (!response.ok) throw new ApiRequestError(response.status, path);

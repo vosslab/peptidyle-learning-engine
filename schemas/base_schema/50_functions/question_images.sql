@@ -100,7 +100,49 @@ $$;
 
 SET LOCAL ROLE ple_private_owner;
 
+-- Source compilation uses immutable names and identities before asynchronous
+-- public delivery activates. This read grants no access to object locations.
+CREATE FUNCTION ple_private.load_question_library_image_bindings(
+    p_published_question_id text, p_revision_number integer
+) RETURNS TABLE(question_image_asset_id uuid, question_image_checksum text, source_relative_name text)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+    SELECT publication.question_image_asset_id, encode(record.sha256, 'hex'), publication.source_relative_name::text
+      FROM ple_private.question_image_publication AS publication
+      JOIN ple_data.question_revision AS revision
+        ON revision.published_question_id = publication.published_question_id
+       AND revision.revision_number = publication.revision_number
+       AND revision.backend = 'ple'
+      JOIN ple_private.object_record AS record
+        ON record.object_record_id = publication.source_object_record_id
+       AND record.sha256 = publication.source_object_checksum
+       AND record.media_type = publication.verified_media_type::text
+     -- ASVS 8.2.2, 8.3.1: Library source metadata stays Instructor/Sysadmin-only.
+     WHERE (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_is_sysadmin())
+       AND publication.published_question_id = p_published_question_id
+       AND publication.revision_number = p_revision_number
+       AND publication.source_relative_name IS NOT NULL
+       AND record.object_address = pg_catalog.jsonb_build_object(
+           'kind', 'restrictedQuestionImage',
+           'publishedQuestionRevisionTuple', pg_catalog.jsonb_build_object(
+               'publishedQuestionId', p_published_question_id, 'revisionNumber', p_revision_number),
+           'questionImageAssetId', publication.question_image_asset_id, 'objectId', publication.source_object_record_id)
+       AND record.object_storage_area = 'private-content'
+       AND record.object_data_class = 'question-image'
+     ORDER BY publication.question_image_asset_id
+$$;
 
+SET LOCAL ROLE ple_api_owner;
+
+CREATE FUNCTION ple_api.load_question_library_image_bindings(
+    p_published_question_id text, p_revision_number integer
+) RETURNS TABLE(question_image_asset_id uuid, question_image_checksum text, source_relative_name text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT * FROM ple_private.load_question_library_image_bindings(p_published_question_id, p_revision_number)
+$$;
+
+SET LOCAL ROLE ple_private_owner;
 
 -- Narrow historical source read used only while forking one exact native
 -- Revision. Availability is deliberately absent: the fork mutation

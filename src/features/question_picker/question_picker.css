@@ -30,7 +30,6 @@
 }
 
 .question-picker-header h2,
-.question-picker-results h3,
 .question-picker-tray h3 {
   margin-block: 0.15rem;
 }
@@ -81,6 +80,10 @@
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-surface);
+}
+
+.question-picker-results {
+  margin-top: 0;
 }
 
 .question-picker-inspection h3 {

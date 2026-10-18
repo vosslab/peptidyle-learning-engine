@@ -17,7 +17,7 @@ impl PostgresQuestionLibraryStore {
         session: SessionTokenHash,
         request: QuestionLibraryFacetChoiceRequest,
     ) -> Result<QuestionLibraryFacetChoiceResult, StoreError> {
-        if request.search.page_size == 0 || request.search.page_size > 100 {
+        if request.search.page.page_size.get() > 100 {
             return Err(invalid("Question Library choice page size"));
         }
         let search = &request.search;
@@ -28,7 +28,7 @@ impl PostgresQuestionLibraryStore {
         let rows = sqlx::query(
             "SELECT * FROM ple_api.question_library_facet_choices(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,\
-                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)",
+                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)",
         )
         .bind(
             search
@@ -82,9 +82,16 @@ impl PostgresQuestionLibraryStore {
         .bind(request.field.as_str())
         .bind(request.choice_search.as_deref())
         .bind(request.after_key.as_deref())
-        .bind(i32::from(search.page_size) + 1)
+        .bind(i32::from(search.page.page_size.get()) + 1)
         .bind(&request.selected_keys)
         .bind(super::search::scope_name(search.scope))
+        .bind(
+            search
+                .excluded_question_ids
+                .iter()
+                .map(PublishedQuestionId::as_str)
+                .collect::<Vec<_>>(),
+        )
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -108,8 +115,8 @@ impl PostgresQuestionLibraryStore {
                 choices.push(choice);
             }
         }
-        let next_key = if choices.len() > usize::from(search.page_size) {
-            choices.truncate(usize::from(search.page_size));
+        let next_key = if choices.len() > usize::from(search.page.page_size.get()) {
+            choices.truncate(usize::from(search.page.page_size.get()));
             choices.last().map(|choice| choice.key.clone())
         } else {
             None

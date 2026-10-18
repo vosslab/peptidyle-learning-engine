@@ -2,7 +2,7 @@
 
 use super::{
     BlueprintCourseRouteState, change_proposal_view, concealed, instructor_session_hash,
-    route_error, store_error_response, unavailable,
+    route_error, store_error_response,
 };
 use axum::{
     Json,
@@ -10,18 +10,16 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use browser_api_contract::blueprint_change_proposal::{
     BlueprintChangeProposalAcceptanceRequest, BlueprintChangeProposalCreateRequest,
     BlueprintChangeProposalPageView,
 };
 use learning_data_access::{
     AcceptBlueprintChangeProposalInput, BlueprintChangeProposalListScope,
-    BlueprintChangeProposalStore, CreateBlueprintChangeProposalInput, Cursor, PageRequest,
-    PageSize, SessionTokenHash,
+    BlueprintChangeProposalStore, CreateBlueprintChangeProposalInput, NumberedPageRequest,
+    PageNumber, PageSize, SessionTokenHash,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 pub(super) async fn create(
     State(state): State<BlueprintCourseRouteState>,
@@ -135,7 +133,7 @@ pub(super) async fn accept(
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct TargetQuery {
-    cursor: Option<String>,
+    page_number: Option<u32>,
     page_size: Option<u16>,
     #[serde(default)]
     text: String,
@@ -149,7 +147,7 @@ pub(super) struct TargetQuery {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct MineQuery {
     scope: MineScope,
-    cursor: Option<String>,
+    page_number: Option<u32>,
     page_size: Option<u16>,
     #[serde(default)]
     text: String,
@@ -254,15 +252,6 @@ async fn status_choices(
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ProposalCursor {
-    version: u8,
-    query_fingerprint: String,
-    page_size: u16,
-    after: String,
-}
-
 pub(super) async fn list_target(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
@@ -301,7 +290,7 @@ pub(super) async fn list_mine(
         &headers,
         BlueprintChangeProposalListScope::Mine,
         TargetQuery {
-            cursor: query.cursor,
+            page_number: query.page_number,
             page_size: query.page_size,
             text: query.text,
             sort: query.sort,
@@ -328,12 +317,10 @@ async fn list(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let fingerprint = query_fingerprint(&scope, &query, session);
-    let page = match page_request(&query, &fingerprint) {
+    let page = match page_request(&query) {
         Some(value) => value,
         None => return invalid_request(),
     };
-    let size = page.size.get();
     match state
         .blueprints
         .list_blueprint_change_proposals(
@@ -347,13 +334,6 @@ async fn list(
         .await
     {
         Ok(page) => {
-            let next_cursor = match page.next_cursor {
-                Some(after) => match encode_cursor(&fingerprint, size, after) {
-                    Some(value) => Some(value),
-                    None => return unavailable(),
-                },
-                None => None,
-            };
             // ASVS 4.1.1, 14.2.2: typed participant facts never cache Private evidence.
             crate::auth::no_store(
                 Json(BlueprintChangeProposalPageView {
@@ -362,7 +342,9 @@ async fn list(
                         .into_iter()
                         .map(change_proposal_view::summary)
                         .collect(),
-                    next_cursor,
+                    page_number: page.page_number.get(),
+                    page_size: page.page_size.get(),
+                    total_count: page.total_count,
                 })
                 .into_response(),
             )
@@ -371,70 +353,11 @@ async fn list(
     }
 }
 
-fn scope_fields(
-    scope: &BlueprintChangeProposalListScope,
-) -> (Option<question_model::BlueprintCourseId>, bool) {
-    match scope {
-        BlueprintChangeProposalListScope::Mine => (None, true),
-        BlueprintChangeProposalListScope::Target(blueprint_course_id) => {
-            (Some(blueprint_course_id.clone()), false)
-        }
-    }
-}
-
-fn query_fingerprint(
-    scope: &BlueprintChangeProposalListScope,
-    query: &TargetQuery,
-    session: SessionTokenHash,
-) -> String {
-    let (target, mine) = scope_fields(scope);
-    let value = serde_json::to_vec(&(
-        target,
-        mine,
-        query.text.trim(),
-        query.sort,
-        &query.status,
-        session.to_string(),
-    ))
-    .expect("Blueprint Proposal query serializes");
-    URL_SAFE_NO_PAD.encode(Sha256::digest(value))
-}
-
-fn page_request(query: &TargetQuery, fingerprint: &str) -> Option<PageRequest> {
-    // ASVS 2.2.1/2/3: bind bounded continuation to the session, query, and page size.
-    let size = PageSize::new(query.page_size.unwrap_or(20)).ok()?;
-    let after = match query.cursor.as_ref() {
-        Some(token) => {
-            if token.len() > 512 {
-                return None;
-            }
-            let bytes = URL_SAFE_NO_PAD.decode(token).ok()?;
-            let cursor: ProposalCursor = serde_json::from_slice(&bytes).ok()?;
-            let (timestamp, id) = cursor.after.split_once('|')?;
-            if cursor.version != 2
-                || cursor.query_fingerprint != fingerprint
-                || cursor.page_size != size.get()
-                || !valid_timestamp_key(timestamp)
-                || parse_proposal_id(id).is_none()
-            {
-                return None;
-            }
-            Some(Cursor::parse(cursor.after).ok()?)
-        }
-        None => None,
-    };
-    Some(PageRequest { after, size })
-}
-
-fn encode_cursor(fingerprint: &str, page_size: u16, after: Cursor) -> Option<String> {
-    serde_json::to_vec(&ProposalCursor {
-        version: 2,
-        query_fingerprint: fingerprint.to_owned(),
-        page_size,
-        after: after.as_str().to_owned(),
+fn page_request(query: &TargetQuery) -> Option<NumberedPageRequest> {
+    Some(NumberedPageRequest {
+        page_number: PageNumber::new(query.page_number.unwrap_or(1)).ok()?,
+        page_size: PageSize::new(query.page_size.unwrap_or(50)).ok()?,
     })
-    .ok()
-    .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
 }
 
 fn parse_proposal_id(value: &str) -> Option<uuid::Uuid> {
@@ -454,49 +377,6 @@ fn valid_statuses(value: &str) -> bool {
             | "proposed,stale"
             | "accepted,proposed,stale"
     )
-}
-
-fn valid_timestamp_key(value: &str) -> bool {
-    // ASVS 2.2.1: reject malformed query calendars as 400 before SQL error mapping.
-    let shape = value.len() == 27
-        && value.bytes().enumerate().all(|(index, byte)| match index {
-            4 | 7 => byte == b'-',
-            10 => byte == b'T',
-            13 | 16 => byte == b':',
-            19 => byte == b'.',
-            26 => byte == b'Z',
-            _ => byte.is_ascii_digit(),
-        });
-    if !shape {
-        return false;
-    }
-    let Ok(year) = value[0..4].parse::<i32>() else {
-        return false;
-    };
-    let Ok(month) = value[5..7].parse::<u8>() else {
-        return false;
-    };
-    let Ok(month) = cookie::time::Month::try_from(month) else {
-        return false;
-    };
-    let Ok(day) = value[8..10].parse::<u8>() else {
-        return false;
-    };
-    let Ok(hour) = value[11..13].parse::<u8>() else {
-        return false;
-    };
-    let Ok(minute) = value[14..16].parse::<u8>() else {
-        return false;
-    };
-    let Ok(second) = value[17..19].parse::<u8>() else {
-        return false;
-    };
-    let Ok(microsecond) = value[20..26].parse::<u32>() else {
-        return false;
-    };
-    year > 0
-        && cookie::time::Date::from_calendar_date(year, month, day).is_ok()
-        && cookie::time::Time::from_hms_micro(hour, minute, second, microsecond).is_ok()
 }
 
 fn invalid_request() -> Response {

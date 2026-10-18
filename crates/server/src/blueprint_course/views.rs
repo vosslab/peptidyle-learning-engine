@@ -1,6 +1,6 @@
 //! Blueprint Course view construction from Store records.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use learning_data_access::{
     QuestionLibraryStore, SessionTokenHash, StoredBlueprintAssessmentContent,
@@ -69,66 +69,61 @@ pub(super) async fn content_modules(
     session: SessionTokenHash,
     content: &StoredBlueprintCourseContent,
 ) -> Result<Vec<BlueprintModuleView>, RouteLoadError> {
-    let mut entries = state
-        .question_library
-        .list_published_question_library_entries(session)
-        .await
-        .map_err(RouteLoadError::Store)?;
-    let current_published_question_revision_tuples = entries
+    let published_question_revision_tuples = content_published_question_revision_tuples(content);
+    let question_ids = published_question_revision_tuples
         .iter()
-        .map(|entry| {
-            (
-                entry
-                    .published_question_revision_tuple
-                    .published_question_id
-                    .clone(),
-                entry.published_question_revision_tuple.clone(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    // Discovery excludes archived lineages.  Retained Blueprint pins use the
-    // exact historical Store path so an archive never breaks immutable
-    // Blueprint Revision interpretation.
-    for published_question_revision_tuple in content_published_question_revision_tuples(content) {
-        if !entries.iter().any(|entry| {
-            entry.published_question_revision_tuple == published_question_revision_tuple
-        }) {
-            entries.push(
-                state
-                    .question_library
-                    .load_published_question_revision_library_entry(
-                        session,
-                        &published_question_revision_tuple,
-                    )
-                    .await
-                    .map_err(RouteLoadError::Store)?,
-            );
+        .map(|tuple| tuple.published_question_id.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let mut current_published_question_revision_tuples = BTreeMap::new();
+    for question_id in &question_ids {
+        let entry = state
+            .question_library
+            .load_published_question_library_entry(session, question_id)
+            .await
+            .map_err(RouteLoadError::Store)?;
+        // Current lineage reads include archives; only available current pins
+        // qualify for ordinary selection, as in Question Library discovery.
+        if entry.availability.is_discoverable() {
+            current_published_question_revision_tuples
+                .insert(question_id.clone(), entry.published_question_revision_tuple);
         }
     }
-    let question_ids = entries
-        .iter()
-        .map(|entry| {
-            entry
-                .published_question_revision_tuple
-                .published_question_id
-                .clone()
-        })
-        .collect::<Vec<_>>();
-    let evidence = crate::question_library::bulk_question_statistics(
-        &state.question_library,
-        session,
-        true,
-        &question_ids,
-    )
-    .await
-    .map_err(|_| RouteLoadError::Unavailable)?;
-    let questions = crate::question_library::answer_free_question_search_results(
-        &state.objects,
-        entries,
-        &evidence,
-    )
-    .await
-    .map_err(|_| RouteLoadError::Unavailable)?;
+    let mut entries = Vec::with_capacity(published_question_revision_tuples.len());
+    // Resolve only the Blueprint's exact historical pins. Unrelated Library
+    // sources and newer revisions are not needed to interpret its content.
+    for published_question_revision_tuple in &published_question_revision_tuples {
+        entries.push(
+            state
+                .question_library
+                .load_published_question_revision_library_entry(
+                    session,
+                    published_question_revision_tuple,
+                )
+                .await
+                .map_err(RouteLoadError::Store)?,
+        );
+    }
+    let questions = if entries.is_empty() {
+        BTreeMap::new()
+    } else {
+        let evidence = crate::question_library::bulk_question_statistics(
+            &state.question_library,
+            session,
+            true,
+            &question_ids,
+        )
+        .await
+        .map_err(|_| RouteLoadError::Unavailable)?;
+        crate::question_library::answer_free_question_search_results(
+            &state.objects,
+            entries,
+            &evidence,
+        )
+        .await
+        .map_err(|_| RouteLoadError::Unavailable)?
+    };
     content
         .modules
         .iter()
@@ -157,7 +152,7 @@ pub(super) async fn content_modules(
 
 fn content_published_question_revision_tuples(
     content: &StoredBlueprintCourseContent,
-) -> Vec<question_model::PublishedQuestionRevisionTuple> {
+) -> BTreeSet<question_model::PublishedQuestionRevisionTuple> {
     content
         .modules
         .iter()

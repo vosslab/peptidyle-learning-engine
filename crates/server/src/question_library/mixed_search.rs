@@ -1,12 +1,14 @@
 //! One globally ordered Library page, with source reads restricted to Question rows.
 
 use super::*;
-use learning_data_access::{LibrarySearchEntry, QuestionLibrarySearchCursorPosition};
+use learning_data_access::{
+    DiscoveryPageSize, LibrarySearchEntry, NumberedDiscoveryPageRequest, PageNumber,
+};
 use question_model::{LibrarySearchClassification, LibrarySearchResult};
 
 /// One Question Library search after the session is known.
 ///
-/// The opaque cursor is checked before any source read. Native Question source
+/// The validated numbered request is applied before any source read. Native Question source
 /// is resolved only for the store's returned page.
 pub(super) async fn search_library_objects<S, O>(
     store: &S,
@@ -14,13 +16,12 @@ pub(super) async fn search_library_objects<S, O>(
     session_hash: SessionTokenHash,
     is_instructor: bool,
     query: LibraryObjectSearchRequest,
-    after: Option<QuestionLibrarySearchCursorPosition>,
 ) -> Response
 where
     S: QuestionLibraryStore + QuestionLibraryPageStatistics,
     O: ObjectStore,
 {
-    let request = store_search_request(&query, after);
+    let request = store_search_request(&query);
     let search = match store
         .search_published_question_library_entries(session_hash, request)
         .await
@@ -28,10 +29,9 @@ where
         Ok(search) => search,
         Err(error) => return store_error_response(error),
     };
-    let next_cursor = search
-        .next_position
-        .clone()
-        .map(|position| paging::encode_position(position, &query));
+    let page_number = search.page.page_number.get();
+    let page_size = search.page.page_size.get();
+    let total_count = search.page.total_count;
     let (items, facets) =
         match materialize_search_page(store, objects, session_hash, is_instructor, search).await {
             Ok(value) => value,
@@ -40,7 +40,9 @@ where
     crate::auth::no_store(
         Json(LibraryObjectSearchPage {
             items,
-            next_cursor,
+            page_number,
+            page_size,
+            total_count,
             facets,
         })
         .into_response(),
@@ -67,6 +69,7 @@ where
 {
     let facets = facets::from_store(search.facets);
     let questions = search
+        .page
         .items
         .iter()
         .filter_map(|item| match item {
@@ -99,8 +102,8 @@ where
         }
     };
     let mut questions = summaries.into_iter();
-    let mut items = Vec::with_capacity(search.items.len());
-    for item in search.items {
+    let mut items = Vec::with_capacity(search.page.items.len());
+    for item in search.page.items {
         items.push(match item {
             LibrarySearchEntry::Question {
                 entry: source_entry,
@@ -112,7 +115,10 @@ where
                 };
                 let question = QuestionSearchResult {
                     evidence: usage_statistics::evidence_for(&entry.summary.question_id, &evidence),
+                    native_prompt: (entry.summary.backend == question_model::QuestionBackend::Ple)
+                        .then_some(entry.prompt),
                     summary: entry.summary,
+                    question_thumbnail: entry.question_thumbnail,
                     discipline_name: entry.discipline.unwrap_or_default(),
                     discipline_is_retired: entry.discipline_is_retired,
                 };
@@ -163,11 +169,13 @@ where
 
 pub(crate) fn store_search_request(
     query: &LibraryObjectSearchRequest,
-    after: Option<QuestionLibrarySearchCursorPosition>,
 ) -> QuestionLibrarySearchRequest {
     let text_query = search_query::QuestionTextQuery::parse(query.text.as_deref());
     let (exact_question_id, text_terms) = text_query.into_store_terms();
-    let page_size = query.page_size.unwrap_or(DEFAULT_PAGE_SIZE);
+    let page_size = DiscoveryPageSize::new(query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
+        .expect("validated Question Library page size");
+    let page_number = PageNumber::new(query.page_number.unwrap_or(1))
+        .expect("validated Question Library page number");
     QuestionLibrarySearchRequest {
         scope: learning_data_access::QuestionLibrarySearchScope::Public,
         kind: query.kind,
@@ -192,8 +200,11 @@ pub(crate) fn store_search_request(
         authored_by_current_account: query.authorship
             == question_model::QuestionSearchAuthorship::AuthoredByCurrentAccount,
         sort: paging::store_sort(query.sort),
-        page_size,
-        after,
+        page: NumberedDiscoveryPageRequest {
+            page_number,
+            page_size,
+        },
+        excluded_question_ids: query.excluded_question_ids.clone(),
     }
 }
 

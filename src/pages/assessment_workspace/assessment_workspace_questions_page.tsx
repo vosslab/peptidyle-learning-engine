@@ -6,10 +6,12 @@ import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { AssessmentBlueprintUpdateReview } from "../../api/assessment_release";
+import { assessmentPointValueDraft } from "../../assessment_point_value";
 import { ApiRequestError } from "../../api/http_client/error";
 import { useApplicationApi } from "../../api/application_api";
 import { createQuestionLibraryRepository } from "../../api/question_library_repository";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
+import type { LibrarySearchRow } from "../library_page_model";
 import type { AssessmentContentPickerSelection } from "../../features/assessment_content_picker";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
@@ -49,8 +51,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       }
     >
   >(new Map());
-  const [poolImport, setPoolImport] =
-    createSignal<Extract<AssessmentContentPickerSelection, { readonly kind: "pool" }>>();
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
@@ -67,11 +67,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   >(new Map());
   const [poolDetailLoadFailed, setPoolDetailLoadFailed] = createSignal(false);
   const questionLibrary = createQuestionLibraryRepository(applicationApi.client);
-  const [poolSelectionCount, setPoolSelectionCount] = createSignal("1");
-  const [poolPointsPerItem, setPoolPointsPerItem] = createSignal("1");
-  const [poolScoringRule, setPoolScoringRule] = createSignal<
-    "normal" | "fullCredit" | "extraCredit" | "excluded"
-  >("normal");
   let poolDetailLoadRequest = 0;
 
   const descriptions = createMemo(() => {
@@ -181,12 +176,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     return "Question Pool";
   }
 
-  function move(index: number, offset: -1 | 1): void {
+  function move(entryId: AssessmentEntryId, destinationEntryId: AssessmentEntryId): void {
+    if (busy()) return;
     if (needsReload()) {
       setMessage("Reload the latest Assessment before changing its entry order.");
       return;
     }
-    setEntries((current) => moveAssessmentEntry(current, index, offset));
+    setEntries((current) => moveAssessmentEntry(current, entryId, destinationEntryId));
     setMessage("Entry order changed. Save Questions when ready.");
   }
 
@@ -202,17 +198,40 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage("Entries sorted by Bloom Classification. Save Questions when ready.");
   }
 
-  function remove(index: number): void {
+  function remove(entryId: AssessmentEntryId): void {
+    if (busy()) return;
     if (needsReload()) {
       setMessage("Reload the latest Assessment before removing an entry.");
       return;
     }
-    if (entries()[index]?.availability !== "available") {
+    if (entries().find((entry) => entry.id === entryId)?.availability !== "available") {
       setMessage("Retained unavailable Entries remain read-only evidence and cannot be removed.");
       return;
     }
-    setEntries((current) => removeAssessmentEntry(current, index));
+    setEntries((current) => removeAssessmentEntry(current, entryId));
     setMessage("Entry removed. Save Questions when ready.");
+  }
+
+  function included(row: LibrarySearchRow): boolean {
+    return entries().some((entry) =>
+      row.kind === "question"
+        ? entry.kind === "fixedQuestion" &&
+          questionRevisionKey(entry.publishedQuestionRevisionTuple) ===
+            questionRevisionKey(row.publishedQuestionRevisionTuple)
+        : entry.kind === "questionPool" && entry.questionPoolId === row.displayId,
+    );
+  }
+
+  function duplicateAllowed(row: LibrarySearchRow): boolean {
+    return row.kind === "pool";
+  }
+
+  function addDisabled(row: LibrarySearchRow): boolean {
+    return (
+      remainingQuestionCapacity() === 0 ||
+      (!duplicateAllowed(row) && included(row)) ||
+      (row.kind === "pool" && row.memberCount < 1)
+    );
   }
 
   function listedIds(ids: ReadonlyArray<string>): string {
@@ -341,6 +360,18 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setBlueprintReview(undefined);
     if (needsReload()) {
       setMessage("Reload the latest assessment before saving. Your current Entries remain here.");
+      return false;
+    }
+    // ASVS 2.2.1: retain invalid typed points in the draft and validate before persistence.
+    if (
+      entries().some(
+        (entry) =>
+          entry.kind === "questionPool" &&
+          entry.availability === "available" &&
+          assessmentPointValueDraft(entry.pointsPerItem) === undefined,
+      )
+    ) {
+      setMessage("Enter a valid point value for each selected Question before saving.");
       return false;
     }
     setBusy(true);
@@ -482,34 +513,55 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  function updatePoolSelectionCount(
-    entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
-    selectionCount: number,
+  function updatePoolEntry(
+    entryId: AssessmentEntryId,
+    changes: Partial<
+      Pick<
+        Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
+        "selectionCount" | "pointsPerItem" | "scoringRule"
+      >
+    >,
   ): void {
     if (needsReload() || busy()) return;
+    const entry = entries().find((current) => current.id === entryId);
+    if (entry?.kind !== "questionPool" || entry.availability !== "available") return;
+    // ASVS 2.2.1: validate the local Pool configuration against the current draft and domain.
+    if (changes.selectionCount !== undefined) {
+      const pool = poolDetails().get(entry.id);
+      if (
+        pool === undefined ||
+        !Number.isSafeInteger(changes.selectionCount) ||
+        changes.selectionCount < 1 ||
+        changes.selectionCount > pool.members.length ||
+        changes.selectionCount - entry.selectionCount > remainingQuestionCapacity()
+      ) {
+        setMessage(
+          "Choose a selection count within the Pool's member count and this Assessment's remaining capacity.",
+        );
+        return;
+      }
+    }
+    if (
+      changes.scoringRule !== undefined &&
+      !["normal", "fullCredit", "extraCredit", "excluded"].includes(changes.scoringRule)
+    )
+      return;
     setEntries((current) =>
       current.map((currentEntry) =>
-        currentEntry.id === entry.id && currentEntry.kind === "questionPool"
-          ? { ...currentEntry, selectionCount }
-          : currentEntry,
+        currentEntry.id === entry.id ? { ...entry, ...changes } : currentEntry,
       ),
     );
-    setMessage("Selection count changed for this Assessment. Save Questions when ready.");
-  }
-
-  function choosePool(
-    selection: Extract<AssessmentContentPickerSelection, { readonly kind: "pool" }>,
-  ): void {
-    setPoolImport(selection);
-    setPoolSelectionCount("1");
     setMessage(
-      `${selection.title} (${selection.questionPoolId}, Edit ${selection.questionPoolEditNumber}) is ready to add as a shared Pool reference.`,
+      changes.pointsPerItem !== undefined &&
+        assessmentPointValueDraft(changes.pointsPerItem) === undefined
+        ? "Enter a valid point value for each selected Question before saving."
+        : "Pool configuration changed for this Assessment. Save Questions when ready.",
     );
   }
 
   function chooseAssessmentContent(selection: AssessmentContentPickerSelection): void {
     if (selection.kind === "pool") {
-      choosePool(selection);
+      addPool(selection);
       return;
     }
     if (busy()) return;
@@ -541,17 +593,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     describeAddedQuestions(added, []);
   }
 
-  function addPool(): void {
-    if (dirty() || needsReload()) return;
-    const source = poolImport();
-    const selectionCount = Number(poolSelectionCount());
-    if (
-      source === undefined ||
-      !Number.isSafeInteger(selectionCount) ||
-      selectionCount < 1 ||
-      selectionCount > source.memberCount
-    ) {
-      setMessage("Choose a Question Pool and a selection count no greater than its member count.");
+  function addPool(
+    source: Extract<AssessmentContentPickerSelection, { readonly kind: "pool" }>,
+  ): void {
+    if (busy() || needsReload()) return;
+    const selectionCount = 1;
+    if (source.memberCount < selectionCount) {
+      setMessage("Choose a Question Pool with at least one published Question.");
       return;
     }
     if (selectionCount > remainingQuestionCapacity()) {
@@ -567,14 +615,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       questionPoolId: source.questionPoolId,
       questionPoolEditNumber: source.questionPoolEditNumber,
       availability: "available",
-      scoringRule: poolScoringRule(),
+      scoringRule: "normal",
       selectionCount,
-      pointsPerItem: poolPointsPerItem(),
+      pointsPerItem: "1",
       questionAttemptLimit: { maxAttempts: null },
       questionAttemptTimeLimit: { kind: "unlimited" },
     };
     setEntries([...currentEntries, addedEntry]);
-    setPoolImport(undefined);
     setMessage("Reusable Question Pool reference added. Save Questions when ready.");
     void loadPoolDetails([...currentEntries, addedEntry]);
   }
@@ -606,17 +653,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     poolDetails,
     poolDetailLoadFailed,
     assessmentContentRepository: questionLibrary,
-    updatePoolSelectionCount,
+    classificationClient: applicationApi.client,
+    included,
+    addDisabled,
+    duplicateAllowed,
+    updatePoolEntry,
     remainingQuestionCapacity,
     chooseAssessmentContent,
     addQuestionsById,
-    poolImport,
-    poolSelectionCount,
-    setPoolSelectionCount,
-    poolPointsPerItem,
-    setPoolPointsPerItem,
-    poolScoringRule,
-    setPoolScoringRule,
-    addPool,
   });
 }

@@ -510,13 +510,19 @@ pub use crate::question_library_statistics::{
     QuestionRevisionUsageStatistics, QuestionStatistics, QuestionUsageTotals,
 };
 
-/// One context-free search item. Search results contain immutable Question Library
-/// metadata and anonymous discovery evidence only.
+/// One context-free search item with immutable Question Library metadata,
+/// answer-free Native prompt content and anonymous discovery evidence.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSearchResult {
     /// Exact immutable Question Library summary metadata.
     pub summary: QuestionSummary,
+    /// Registered thumbnail for this exact authorized Revision. Absence means no relation
+    /// exists for this Revision; delivery separately authorizes and verifies the artifact.
+    pub question_thumbnail: Option<PublishedQuestionRevisionTuple>,
+    /// Compiled prompt for this exact Native Revision. Other Question Backends use `None`.
+    /// Responses, answer keys and support content remain outside this projection.
+    pub native_prompt: Option<Vec<crate::QuestionContentBlock>>,
     /// Current readable Discipline name for this Question's existing classification reference.
     pub discipline_name: String,
     /// Whether `discipline_name` is retired. Retired classifications remain readable on existing
@@ -572,8 +578,12 @@ pub struct QuestionUseDetails {
 pub struct LibraryObjectSearchPage {
     /// At most the request's validated page size of context-free discovery rows.
     pub items: Vec<crate::LibrarySearchResult>,
-    /// Opaque continuation token, bound to the normalized query.
-    pub next_cursor: Option<String>,
+    /// One-based requested page after the server clamps it to the matching result set.
+    pub page_number: u32,
+    /// Validated discovery row count used for this page.
+    pub page_size: u16,
+    /// Number of matching rows before the result is sliced into pages.
+    pub total_count: u64,
     /// Server-side facet counts; clients must not infer them from `items`.
     pub facets: QuestionSearchFacets,
 }

@@ -9,13 +9,13 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { createDisciplineFromRequest } from "../components/discipline_request";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { UnsavedChangesGuard } from "../components/unsaved_changes_guard";
-import type { RecordField } from "../components/record_list/record_fields";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 
 const unavailableDisciplines: ReadonlyArray<ContentClassificationItem> = [];
 const unavailableRequests: ReadonlyArray<ContentDisciplineRequest> = [];
@@ -131,7 +131,12 @@ export function ContentDisciplinesPage(): JSX.Element {
   });
 
   const requestSearch = createLocalCompleteSearch(
-    { resource: requests, refetchSource: refetchRequests, rows: (value) => value },
+    {
+      rows: requests,
+      loading: () => requests.loading,
+      error: (): unknown => requests.error,
+      refetchSource: refetchRequests,
+    },
     {
       fields: requestFields,
       rowId: (item) => item.uuid,
@@ -140,7 +145,12 @@ export function ContentDisciplinesPage(): JSX.Element {
     },
   );
   const disciplineSearch = createLocalCompleteSearch(
-    { resource: disciplines, refetchSource: refetch, rows: (value) => value },
+    {
+      rows: disciplines,
+      loading: () => disciplines.loading,
+      error: (): unknown => disciplines.error,
+      refetchSource: refetch,
+    },
     {
       fields: disciplineFields,
       rowId: (item) => item.uuid,

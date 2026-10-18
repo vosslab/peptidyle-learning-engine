@@ -6,11 +6,11 @@ import type {
 } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
-import type { RecordField } from "../components/record_list/record_fields";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { assessmentRouteId } from "../navigation/public_route";
 
 function updateLabel(assessment: CourseAssessmentBlueprintUpdateSummary): string {
@@ -99,7 +99,15 @@ export function CourseBlueprintUpdateReviewList(props: {
     },
   );
   const updateSearch = createLocalCompleteSearch(
-    { resource: review, refetchSource: refetch, rows: (summary) => summary.assessments },
+    {
+      rows: () => {
+        const summary = review();
+        return summary === undefined ? undefined : summary.assessments;
+      },
+      loading: () => review.loading,
+      error: (): unknown => review.error,
+      refetchSource: refetch,
+    },
     {
       fields: updateFields,
       rowId: (assessment) => assessment.assessmentId,

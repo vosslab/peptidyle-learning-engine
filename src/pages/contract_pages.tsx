@@ -3,7 +3,7 @@
 import { A, useParams } from "@solidjs/router";
 import type { Component, JSX } from "solid-js";
 
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 
 function contractPage(surface: string, nextMilestone: string): Component {
   return function ContractPage(): JSX.Element {

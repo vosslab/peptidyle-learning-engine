@@ -23,7 +23,7 @@
 
 /* Same flat groups as Question Library browse. A card here would be a second visual system. */
 .question-pool-create-review-grid > section,
-.question-pool-create-review-grid fieldset {
+.question-pool-create-review > fieldset {
   display: grid;
   gap: 0.7rem;
   min-inline-size: 0;
@@ -35,7 +35,7 @@
   box-shadow: none;
 }
 
-.question-pool-create-review-grid fieldset .assessment-editor-field {
+.question-pool-create-review > fieldset .assessment-editor-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.35rem;
@@ -43,7 +43,7 @@
   margin: 0;
 }
 
-.question-pool-create-review-grid fieldset .assessment-editor-field :is(input, textarea) {
+.question-pool-create-review > fieldset .assessment-editor-field :is(input, textarea) {
   box-sizing: border-box;
   inline-size: 100%;
   min-inline-size: 0;
@@ -99,7 +99,7 @@
   margin: 0;
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 60rem) {
   .question-pool-create-review-grid,
   .question-pool-create-title-context {
     grid-template-columns: 1fr;

@@ -1,6 +1,7 @@
 // question_library_repository.ts - maps mixed Library Object search results into browser rows.
 
 import type { LibraryObjectSearchRequest } from "../../generated/api/LibraryObjectSearchRequest";
+import type { SearchPageRequest } from "../components/search_block/search_session";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { Capability } from "../../generated/api/Capability";
@@ -12,8 +13,8 @@ import {
 } from "./decoders/bloom_classification";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
-import type { RecordFilterChoices } from "../components/record_list/record_fields";
-import { RECORD_PAGE_SIZES } from "../components/record_list/record_page_sizes";
+import type { RecordFilterChoices } from "../components/data_sheet/record_fields";
+import { RECORD_PAGE_SIZES } from "../components/data_sheet/record_page_sizes";
 import { normalizeHumanEnteredQuestionId, validateCanonicalQuestionIdSyntax } from "../question_id";
 import { libraryClassificationFilter } from "./library_classification_filter";
 import { isProductionQuestionBackend, PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
@@ -23,6 +24,7 @@ import {
   type QuestionLibraryBrowseFacetAggregate,
   type LibrarySearchPage,
   type QuestionLibraryPageSize,
+  type QuestionLibrarySearchEligibility,
 } from "../pages/library_page_model";
 
 function questionLibraryPageSize(
@@ -168,10 +170,18 @@ export function libraryFacetAggregates(
 /** Builds the one closed Library Object search request used by Library and source-aware pickers. */
 export function libraryObjectSearchRequest(
   query: QuestionLibraryBrowseQuery,
-  cursor: string | null,
+  page: SearchPageRequest | null,
   authorship: QuestionSearchAuthorship = "any",
-  pageSize?: QuestionLibraryPageSize,
+  excludedQuestionIds: ReadonlyArray<string> = [],
 ): LibraryObjectSearchRequest {
+  const normalizedExclusions = excludedQuestionIds.map((questionId) => {
+    const canonical = validateCanonicalQuestionIdSyntax(questionId);
+    if (canonical === null) throw new Error("Excluded Question ID must be canonical");
+    return canonical;
+  });
+  if (new Set(normalizedExclusions).size !== normalizedExclusions.length) {
+    throw new Error("Excluded Question IDs must be distinct");
+  }
   return {
     kind: query.kind,
     questions: query.questions,
@@ -203,8 +213,10 @@ export function libraryObjectSearchRequest(
     ),
     authorship,
     sort: query.sort,
-    cursor,
-    page_size: questionLibraryPageSize(pageSize),
+    excluded_question_ids: normalizedExclusions,
+    cursor: null,
+    page_number: page?.pageNumber ?? null,
+    page_size: questionLibraryPageSize(page?.pageSize),
   };
 }
 
@@ -227,6 +239,8 @@ export function questionLibraryRowFromResult(
     tags: question.summary.metadata.tags,
     license: question.summary.metadata.questionLicense,
     publishedQuestionRevisionTuple: question.summary.publishedQuestionRevisionTuple,
+    questionThumbnail: question.questionThumbnail,
+    nativePrompt: question.nativePrompt,
     questionTitle: question.summary.metadata.questionTitle,
     summary: question.summary.metadata.questionDescription,
     bloom: question.summary.bloom,
@@ -248,16 +262,21 @@ export function createQuestionLibraryRepository(
 ): QuestionLibraryBrowseRepository {
   return {
     async listFacetChoices(field, query, choiceSearch, cursor): Promise<RecordFilterChoices> {
-      const request = libraryObjectSearchRequest(query, cursor, authorship, 50);
+      const request = { ...libraryObjectSearchRequest(query, null, authorship), cursor };
       const page = await client.listLibraryFacetChoices(field, request, choiceSearch);
       return page;
     },
     async search(
       query: QuestionLibraryBrowseQuery,
-      cursor: string | null,
-      pageSize?: QuestionLibraryPageSize,
+      pageRequest: SearchPageRequest,
+      eligibility: QuestionLibrarySearchEligibility = {},
     ): Promise<unknown> {
-      const search = libraryObjectSearchRequest(query, cursor, authorship, pageSize);
+      const search = libraryObjectSearchRequest(
+        query,
+        pageRequest,
+        authorship,
+        eligibility.excludedQuestionIds ?? [],
+      );
       const page = await client.searchLibraryObjects(search);
       return {
         items: page.items.map((item) => {
@@ -287,7 +306,9 @@ export function createQuestionLibraryRepository(
           }
           return questionLibraryRowFromResult(item);
         }),
-        nextCursor: page.nextCursor,
+        pageNumber: page.pageNumber,
+        pageSize: page.pageSize as QuestionLibraryPageSize,
+        totalCount: page.totalCount,
         aggregates: libraryFacetAggregates(page),
         facetTruncation: {
           authorNames: page.facets.authorNamesTruncated,

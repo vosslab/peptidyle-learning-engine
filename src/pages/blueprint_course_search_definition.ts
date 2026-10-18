@@ -8,7 +8,7 @@ import type {
   BlueprintCourseFacetFilters,
   BlueprintCourseFacetField,
 } from "../api/blueprint_course";
-import type { SearchDefinition, SearchPage } from "../features/search/search_session";
+import type { SearchDefinition, SearchPage } from "../components/search_block/search_session";
 import { blueprintCourseContent } from "./blueprint_course_search_result";
 import { emptyBlueprintClassificationSearch } from "./blueprint_course_search_classification";
 
@@ -59,12 +59,11 @@ export function blueprintCourseSearchDefinition(
     content: (course) => blueprintCourseContent(course, formatTimestamp()),
     fetchPage: async (
       query,
-      cursor,
-      pageSize,
+      request,
     ): Promise<SearchPage<BlueprintCourseSummaryView, undefined>> => {
       const page = await client.listBlueprintCourses(
-        cursor ?? undefined,
-        pageSize,
+        request.pageNumber,
+        request.pageSize,
         scope === "all" && query.includeArchived,
         query.query,
         scope === "public",
@@ -74,7 +73,9 @@ export function blueprintCourseSearchDefinition(
         "",
         query.facets,
       );
-      return { items: page.items, nextCursor: page.nextCursor, filterCounts: undefined };
+      if (page.pageSize !== request.pageSize)
+        throw new Error("Blueprint Course page response does not match its requested page size");
+      return { ...page, pageSize: request.pageSize, filterCounts: undefined };
     },
     appliedFilters: (query) => [
       ...(

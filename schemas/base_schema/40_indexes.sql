@@ -564,6 +564,14 @@ CREATE INDEX draft_question_authorship_author_account_id_fk_idx
 CREATE INDEX draft_question_metadata_content_subject_id_content_discipline_id_fk_idx
     ON ple_private.draft_question_metadata (content_subject_id, content_discipline_id);
 
+-- Rule 14 requires the full Subject/Topic foreign key to lead an index.
+CREATE INDEX draft_question_metadata_subject_topic_fk_idx
+    ON ple_private.draft_question_metadata (content_subject_id, content_topic_id);
+
+-- Rule 14 requires the full Topic/Subtopic foreign key to lead an index.
+CREATE INDEX draft_question_metadata_topic_subtopic_fk_idx
+    ON ple_private.draft_question_metadata (content_topic_id, content_subtopic_id);
+
 CREATE INDEX draft_question_source_binding_source_object_record_id_fk_idx
     ON ple_private.draft_question_source_binding (source_object_record_id);
 

@@ -5,6 +5,7 @@ import {
   Show,
   Switch,
   createEffect,
+  createMemo,
   createSignal,
   onCleanup,
   onMount,
@@ -17,7 +18,7 @@ import { useAppearance } from "../../appearance/appearance_context";
 import { ThemeChooser } from "../../appearance/theme_chooser";
 import { UnsavedChangesGuard, trackEditorSave } from "../../components/unsaved_changes_guard";
 import { CourseClassificationEditor } from "../../components/course_classification_editor";
-import { PageFrame } from "../../components/page_frame";
+import { PageFrame } from "../../components/page_frame/page_frame";
 import { useSelectedDisplayDateTimeFormatter } from "../../selected_display_zone";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { parseBlueprintCourseId } from "../../navigation/public_route";
@@ -46,6 +47,10 @@ import {
   validateReusableContent,
 } from "./blueprint_course_model";
 import type { BlueprintCourseDetailWorkspaceProps } from "./blueprint_course_workspace_types";
+import {
+  questionNativePreviewKey,
+  type QuestionNativePreview,
+} from "../../components/question_native_preview";
 import "./blueprint_course.css";
 
 type LoadState = "loading" | "ready" | "error";
@@ -104,6 +109,35 @@ export function BlueprintCourseDetailWorkspace(
   const [selectedAssessment, setSelectedAssessment] = createSignal<SelectedBlueprintAssessment>();
   const [state, setState] = createSignal<LoadState>("loading");
   const [current, setCurrent] = createSignal<LoadedBlueprintCourse>();
+  // Recognition metadata stays outside persisted editor inputs and survives closing the local editor.
+  const [pickedQuestionPreviews, setPickedQuestionPreviews] = createSignal<
+    ReadonlyMap<string, QuestionNativePreview>
+  >(new Map());
+  const questionPreviews = createMemo(() => {
+    const previews = new Map(pickedQuestionPreviews());
+    for (const module of current()?.view.modules ?? []) {
+      for (const assessment of module.assessments) {
+        for (const entry of assessment.content.entries) {
+          if (entry.kind !== "fixed") continue;
+          const tuple = entry.question.published_question_revision_tuple;
+          previews.set(questionNativePreviewKey(tuple), {
+            publishedQuestionRevisionTuple: tuple,
+            nativePrompt: entry.question.question_library.nativePrompt,
+          });
+        }
+      }
+    }
+    return previews;
+  });
+  function rememberQuestionPreviews(questions: ReadonlyArray<QuestionNativePreview>): void {
+    setPickedQuestionPreviews((previous) => {
+      const next = new Map(previous);
+      for (const question of questions) {
+        next.set(questionNativePreviewKey(question.publishedQuestionRevisionTuple), question);
+      }
+      return next;
+    });
+  }
   const [notice, setNotice] = createSignal<Notice>({
     kind: "status",
     text: "Loading Blueprint Course.",
@@ -218,7 +252,10 @@ export function BlueprintCourseDetailWorkspace(
       return;
     }
     setRefreshFailed(false);
-    if (scope === "initial") setState("loading");
+    if (scope === "initial") {
+      setState("loading");
+      setPickedQuestionPreviews(new Map());
+    }
     try {
       const result = await props.client.getBlueprintCourse(props.blueprintCourseId);
       const prior = current();
@@ -638,6 +675,8 @@ export function BlueprintCourseDetailWorkspace(
                 onSaveNames={() => void trackedNamesSave.save()}
                 onReloadMetadata={() => void reloadMetadata()}
                 modules={loaded().content.modules}
+                questionPreviews={questionPreviews()}
+                onRememberQuestionPreviews={rememberQuestionPreviews}
                 courseLongName={loaded().view.long_name}
                 ownerEditing={editing() && loaded().view.read_access === "blueprint_course_owner"}
                 selectedAssessment={selectedAssessment()}
@@ -733,6 +772,7 @@ export function BlueprintCourseDetailWorkspace(
                 {(client) => (
                   <ProposalTargetTools
                     client={client()}
+                    classificationClient={props.client}
                     target={loaded().view}
                     formatDateTime={formatDateTime}
                   />

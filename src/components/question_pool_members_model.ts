@@ -3,24 +3,15 @@
 import type { QuestionPoolEditNumber } from "../../generated/api/QuestionPoolEditNumber";
 import type { QuestionPoolView } from "../../generated/api/QuestionPoolView";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
+import type { QuestionNativePreview } from "./question_native_preview";
 import type { UserRole } from "../../generated/api/UserRole";
-import {
-  sortQuestionPoolMemberRows,
-  type QuestionPoolMemberSort,
-} from "./record_list/question_pool_member_sort";
 import type {
   SaveQuestionPoolMembersInput,
   SavedQuestionPoolMembers,
 } from "../api/question_pool_members";
 
 export interface QuestionPoolMemberDraft {
-  readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
-  readonly questionTitle: string;
-  readonly questionLicense: string | null;
-}
-
-export interface QuestionPoolMemberDraftDisplayRow {
-  readonly draftMember: QuestionPoolMemberDraft;
+  readonly nativePrompt: QuestionNativePreview["nativePrompt"];
   readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
   readonly questionTitle: string;
   readonly questionLicense: string | null;
@@ -45,20 +36,6 @@ function tupleKey(tuple: PublishedQuestionRevisionTuple): string {
   return `${tuple.publishedQuestionId}:${tuple.revisionNumber}`;
 }
 
-/** Sort a display-only representation of draft members with the shared Pool sort policy. */
-export function sortQuestionPoolMemberDraftDisplay(
-  members: ReadonlyArray<QuestionPoolMemberDraft>,
-  sort: QuestionPoolMemberSort,
-): ReadonlyArray<QuestionPoolMemberDraftDisplayRow> {
-  const displayRows: QuestionPoolMemberDraftDisplayRow[] = members.map((draftMember) => ({
-    draftMember,
-    publishedQuestionRevisionTuple: draftMember.publishedQuestionRevisionTuple,
-    questionTitle: draftMember.questionTitle,
-    questionLicense: draftMember.questionLicense,
-  }));
-  return sortQuestionPoolMemberRows(displayRows, sort);
-}
-
 function checkedMembers(
   members: ReadonlyArray<QuestionPoolMemberDraft>,
 ): QuestionPoolMemberDraft[] {
@@ -78,6 +55,7 @@ export function createQuestionPoolMembersDraft(pool: QuestionPoolView): Question
     pool.members.map((member) => ({
       publishedQuestionRevisionTuple: member.publishedQuestionRevisionTuple,
       questionTitle: member.question.question_library.summary.metadata.questionTitle,
+      nativePrompt: member.question.question_library.nativePrompt,
       questionLicense: member.question.question_library.summary.metadata.questionLicense,
     })),
   );

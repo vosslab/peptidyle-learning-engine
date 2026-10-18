@@ -13,7 +13,7 @@ import type { StudentAssessmentDecisionSummary } from "../../generated/api/Stude
 import { calculatedAssessmentDurationSeconds } from "../assessment_duration";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
-import { PageFrame } from "./page_frame";
+import { PageFrame } from "./page_frame/page_frame";
 
 export interface StudentAssessmentPresentationDelivery {
   readonly availableAt: number | null;

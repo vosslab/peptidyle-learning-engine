@@ -12,6 +12,7 @@ import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.lifecycle
+import local_stack_control.lifecycle_provision
 
 
 #============================================
@@ -32,6 +33,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	launch.add_argument("--timeout-seconds", required=True, type=int)
 	replay_installation_data = actions.add_parser("replay-installation-data")
 	replay_installation_data.add_argument("--manifest", required=True, type=pathlib.Path)
+	backfill_thumbnails = actions.add_parser("backfill-question-thumbnails")
+	backfill_thumbnails.add_argument("--manifest", required=True, type=pathlib.Path)
 	restart = actions.add_parser("restart")
 	restart.add_argument("--manifest", required=True, type=pathlib.Path)
 	restart.add_argument("--service", required=True)
@@ -46,6 +49,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	stop_webwork_renderer.add_argument("--manifest", required=True, type=pathlib.Path)
 	replace_webwork_renderer = actions.add_parser("replace-webwork-renderer")
 	replace_webwork_renderer.add_argument("--manifest", required=True, type=pathlib.Path)
+	stop_thumbnail_renderer = actions.add_parser("stop-question-thumbnail-renderer")
+	stop_thumbnail_renderer.add_argument("--manifest", required=True, type=pathlib.Path)
+	recover_thumbnail_renderer = actions.add_parser("recover-question-thumbnail-renderer")
+	recover_thumbnail_renderer.add_argument("--manifest", required=True, type=pathlib.Path)
 	stop_readiness_dependency = actions.add_parser("stop-readiness-dependency")
 	stop_readiness_dependency.add_argument("--manifest", required=True, type=pathlib.Path)
 	stop_readiness_dependency.add_argument(
@@ -59,7 +66,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	evidence_logs = actions.add_parser("read-evidence-logs")
 	evidence_logs.add_argument("--manifest", required=True, type=pathlib.Path)
 	evidence_logs.add_argument(
-		"--claim", required=True, choices=("renderer_delivery",)
+		"--claim", required=True, choices=("renderer_delivery", "thumbnail_capture")
 	)
 	diagnostics = actions.add_parser("diagnostics")
 	diagnostics.add_argument("--manifest", required=True, type=pathlib.Path)
@@ -305,13 +312,36 @@ def webwork_renderer_service(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> str:
 	"""Authorize only the browser profile's isolated renderer outage action."""
+	return renderer_service(disposable, "webwork-renderer")
+
+
+#============================================
+def question_thumbnail_renderer_service(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> str:
+	"""Authorize only the browser profile's thumbnail renderer outage action."""
+	return renderer_service(disposable, "question-thumbnail-renderer")
+
+
+#============================================
+def renderer_service(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	service: str,
+) -> str:
+	"""Resolve one of the two fixed browser renderer lifecycle capabilities."""
+	capabilities = {
+		"webwork-renderer": "webwork_renderer_lifecycle",
+		"question-thumbnail-renderer": "question_thumbnail_renderer_lifecycle",
+	}
+	if service not in capabilities:
+		raise local_stack_control.models.ControllerError("renderer lifecycle service is not fixed")
 	policy = local_stack_control.disposable_stack_adapter.live_demo_profile_policy(disposable)
 	if (
 		policy.profile is not local_stack_control.models.LiveDemoProfile.BROWSER
-		or "webwork_renderer_lifecycle" not in policy.child_capabilities
+		or capabilities[service] not in policy.child_capabilities
 	):
-		raise local_stack_control.models.ControllerError("this owner cannot control the WeBWorK renderer")
-	return "webwork-renderer"
+		raise local_stack_control.models.ControllerError("this owner cannot control the selected renderer")
+	return service
 
 
 #============================================
@@ -335,22 +365,44 @@ def change_webwork_renderer(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 	replace: bool,
 ) -> str:
-	"""Stop or recreate only the selected renderer and prove closed scope."""
-	service = webwork_renderer_service(disposable)
+	"""Stop or recover only the WeBWorK renderer and prove closed scope."""
+	return change_fixed_renderer(runner, disposable, webwork_renderer_service(disposable), replace)
+
+
+#============================================
+def change_question_thumbnail_renderer(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	recover: bool,
+) -> str:
+	"""Stop or recover only the thumbnail renderer and prove closed scope."""
+	return change_fixed_renderer(
+		runner, disposable, question_thumbnail_renderer_service(disposable), recover
+	)
+
+
+#============================================
+def change_fixed_renderer(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	service: str,
+	recover: bool,
+) -> str:
+	"""Change one authorized renderer while proving persistent and neighbor scope."""
 	before = local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
 	selected = tuple(item for item in before.containers if item.service == service)
-	if len(selected) != 1 or selected[0].running == replace:
-		raise local_stack_control.models.ControllerError("WeBWorK renderer lifecycle precondition is invalid")
+	if len(selected) != 1 or selected[0].running == recover:
+		raise local_stack_control.models.ControllerError("renderer lifecycle precondition is invalid")
 	# Starting the stopped renderer instance is the only recovery that preserves
 	# the running API, gateway, and worker instances.  Compose recreation may
 	# cascade through their dependency graph even with ``--no-deps``.
 	argv = (
 		["podman", "start", selected[0].id]
-		if replace
+		if recover
 		else local_stack_control.compose.compose_argv(disposable.target, ["stop", service])
 	)
 	if runner.stream(argv, local_stack_control.disposable_stack_adapter.compose_environment(disposable), disposable.target.repo_root) != 0:
-		raise local_stack_control.models.ControllerError("WeBWorK renderer lifecycle command failed")
+		raise local_stack_control.models.ControllerError("renderer lifecycle command failed")
 	after = local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
 	changed = tuple(item for item in after.containers if item.service == service)
 	if (
@@ -358,11 +410,10 @@ def change_webwork_renderer(
 		!= local_stack_control.disposable_stack_cleanup.persistent_scope(after)
 		or unrelated_renderer_scope(before, service) != unrelated_renderer_scope(after, service)
 		or len(changed) != 1
-		or changed[0].running != replace
-		or (replace and changed[0].id != selected[0].id)
-		or (not replace and changed[0].id != selected[0].id)
+		or changed[0].running != recover
+		or changed[0].id != selected[0].id
 	):
-		raise local_stack_control.models.ControllerError("WeBWorK renderer lifecycle violated its closed scope")
+		raise local_stack_control.models.ControllerError("renderer lifecycle violated its closed scope")
 	return service
 
 
@@ -420,6 +471,12 @@ def main() -> None:
 			)
 			print("Disposable installation data: provisioned")
 			raise SystemExit(0)
+		if args.action == "backfill-question-thumbnails":
+			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
+			local_stack_control.disposable_stack_adapter.require_browser_profile(disposable)
+			local_stack_control.lifecycle_provision.backfill_question_thumbnails(disposable, runner)
+			print("Disposable Question thumbnails: backfilled")
+			raise SystemExit(0)
 		if args.action == "restart":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
 			if args.service != local_stack_control.disposable_stack_adapter.outage_service(disposable):
@@ -454,6 +511,18 @@ def main() -> None:
 			raise SystemExit(0)
 		if args.action == "replace-webwork-renderer":
 			print(f"Disposable WeBWorK renderer replaced: {change_webwork_renderer(runner, disposable, True)}")
+			raise SystemExit(0)
+		if args.action == "stop-question-thumbnail-renderer":
+			print(
+				"Disposable Question thumbnail renderer stopped: "
+				+ change_question_thumbnail_renderer(runner, disposable, False)
+			)
+			raise SystemExit(0)
+		if args.action == "recover-question-thumbnail-renderer":
+			print(
+				"Disposable Question thumbnail renderer recovered: "
+				+ change_question_thumbnail_renderer(runner, disposable, True)
+			)
 			raise SystemExit(0)
 		if args.action == "stop-readiness-dependency":
 			completed = local_stack_control.disposable_stack_adapter.stop_readiness_dependency(

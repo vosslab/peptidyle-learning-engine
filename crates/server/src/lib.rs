@@ -96,8 +96,11 @@ mod question_pool_support;
 /// Server-only verified Question Publication coordination.
 pub mod question_publication;
 mod question_publication_images;
+mod question_publication_objects;
 /// Active-Instructor Question Star state and aggregate endorsement routes.
 mod question_stewardship;
+/// Explicit migrator-only maintenance of existing Revision thumbnail artifacts.
+pub mod question_thumbnail_backfill;
 /// Private self-only active-Instructor Question Watch routes.
 mod question_watch;
 /// Process-wide safe request lifecycle handling.
@@ -108,5 +111,6 @@ pub(crate) mod support_capability;
 pub(crate) mod webwork_asset_proxy;
 /// Student-authorized immutable WeBWorK document delivery route.
 pub(crate) mod webwork_document_route;
+mod webwork_preview_document;
 /// Least-privilege worker process lifecycle with no browser or HTTP listener.
 pub mod worker;

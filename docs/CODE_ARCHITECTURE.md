@@ -198,41 +198,34 @@ typed model. [src/route_access_boundary.tsx](../src/route_access_boundary.tsx)
 admits browser routes from the route contract; server routes and PostgreSQL
 remain the authorization boundary for each operation and resource.
 
-[src/components/page_frame.tsx](../src/components/page_frame.tsx) owns route
+[src/components/page_frame/page_frame.tsx](../src/components/page_frame/page_frame.tsx) owns route
 content width, standard vertical spacing, page-level actions, and the content
 stack. The Ribbon and breadcrumbs identify the page. Reading width is the
 default; a route may declare `fullWidth` for dense content without coupling
 that choice to Ribbon navigation. A `contentClass` hook is only for a
 task-specific arrangement inside that stack.
-[src/components/record_list/](../src/components/record_list/) provides record
-presentations whose native structure matches the task: `RecordList` for compact
-flat scans, `RecordSequence` for ordered records, `RecordTable` for labeled
-columns and row headers, `RecordOutlineList`/`RecordOutlineItem` for nested
-membership, and `RecordDetailList` for full reviews and comparisons. The
-components share loading, empty, and error states; their consumers own fetching,
-selection, editing, paging, and persistence. Search consumers delegate request and
-selection state to the shared search session described below.
-[record_family.css](../src/components/record_list/record_family.css) owns the
-shared collection states and table skin, including internal horizontal
-scrolling. Table consumers provide task-specific column proportions and minimum
-widths.
-[src/components/record_list/record_list_reorder.tsx](../src/components/record_list/record_list_reorder.tsx)
-provides caller-owned movement, keyboard focus restoration, and live move
-announcements for list and sequence presentations. Its caller owns persistence,
-disabled policy, and failure handling. Question and Blueprint discovery each
-request one server page of 50, 100, or 250 records. Pool discovery uses the
-same page sizes. RecordList renders that
-page; client windowing is not part of the record list.
+[src/components/data_sheet/](../src/components/data_sheet/) provides the shared DataSheet
+presentation. `DataSheetBlock` owns Compact, List, Cards, and Visual Boxes, with shared
+sorting, filtering, selection, record actions, and stable-ID drag/drop interactions.
+Compact and List use `DataSheetTable`, which owns column configuration and independent
+temporary widths, visibility, and order for each table mode. Its `HeaderRow` forwards
+sort/filter input to the shared owners, and `RecordItem` supplies record content in all
+four modes. `DataSheetControls` invokes the same presentation/table state for surrounding
+mode, query, paging, count, and bulk controls.
+[record_family.css](../src/components/data_sheet/record_family.css) owns shared collection
+states and table skin, including internal horizontal scrolling. Pool and Assessment
+owners provide editor-specific commands and retain membership and saved order.
 
-This describes the existing shared presentation foundation. Current HG extends it to one
-combined Question-and-Pool search, with Pool-membership filters and an organized default.
-Library Search, Library Browse, Public Blueprint search, the Question picker, and the Assessment
-content picker compose `SearchBlock`, `SearchResults`, and `RecordList` from the
-[shared search modules](../src/features/search/). Content-specific definitions own query
-cleanup, filters, API calls, and row descriptions. Text applies on submit; display changes redraw
-the loaded page without a request. `RecordList` owns modes, columns, sorting, filtering, and
-actions; the domain query owner applies operations to the whole matching result before paging.
-See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the implemented boundary.
+The [shared search modules](../src/components/search_block/) connect collection consumers.
+`SearchBlock` places supplied criteria and controls above or beside `SearchResults`,
+which mounts `DataSheetBlock` with `DataSheetControls`, including for initial empty search.
+`SearchSession` owns numbered paging and stable-ID selection; query owners apply scope,
+authorization, filters, sorting, and counts to the complete collection before paging.
+Question, Pool, and Blueprint discovery use shared page sizes of 50, 100, or 250 records.
+`createLocalCompleteSearch` adapts a complete reactive rows accessor with optional loading,
+error, and source-refetch callbacks to the same session. Consumers retain their domain
+commands and source lifecycle. See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md)
+for the implemented boundary and [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) for its decisions.
 The combined Library query uses one globally paged Question/Pool server union. `/library/{id}`
 resolves the authorized object kind before dispatching to Question or Pool detail. The Question
 picker retains its ordered domain tray; the Assessment content picker selects Questions or one Pool
@@ -241,6 +234,12 @@ through the mixed Library definition. See
 Pool editor sorting is display-only; the shared reorder component does not make Pool membership
 ordered. [question_specs_alignment_report.md](archive/reports/question_specs_alignment_report.md)
 records related implementation gaps.
+
+Published WeBWorK Question thumbnails are immutable publication artifacts tied to the exact
+published Revision. The private seed-zero renderer, publication/correction, importer/backfill, and
+zero-capture browsing paths passed bounded M19-M22 acceptance. See
+[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and the active plan for ownership and evidence;
+final integrated/runtime gates remain separate.
 
 Pages compose these pieces around their domain state. For example,
 [src/features/blueprint_course/blueprint_course_detail_workspace.tsx](../src/features/blueprint_course/blueprint_course_detail_workspace.tsx)

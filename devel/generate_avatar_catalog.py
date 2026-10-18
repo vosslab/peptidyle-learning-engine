@@ -11,7 +11,6 @@ import hashlib
 import json
 import pathlib
 import re
-import subprocess
 
 from lxml import etree
 
@@ -50,17 +49,9 @@ MAX_MANIFEST_STRING_LENGTH = 160
 
 
 def repository_root() -> pathlib.Path:
-	"""Return the Git worktree root instead of deriving it from a caller cwd."""
+	"""Return the repository root derived from this script, independent of caller cwd."""
 	script_root = pathlib.Path(__file__).resolve().parent.parent
-	result = subprocess.run(
-		["git", "rev-parse", "--show-toplevel"],
-		check=True,
-		capture_output=True,
-		cwd=script_root,
-		text=True,
-	)
-	root = pathlib.Path(result.stdout.strip()).resolve()
-	return root
+	return script_root
 
 
 #============================================

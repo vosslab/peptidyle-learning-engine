@@ -28,6 +28,7 @@ impl Cursor {
 
 /// Validated maximum number of rows returned by one list operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "u16", into = "u16")]
 pub struct PageSize(u16);
 
 impl PageSize {
@@ -53,12 +54,27 @@ impl PageSize {
     }
 }
 
+impl TryFrom<u16> for PageSize {
+    type Error = PaginationError;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<PageSize> for u16 {
+    fn from(value: PageSize) -> Self {
+        value.get()
+    }
+}
+
 /// Validated maximum number of rows returned by one broad discovery operation.
 ///
 /// Discovery is intentionally wider than ordinary cursor lists.  Keeping this
 /// type separate prevents a discovery UI choice from widening unrelated task,
 /// history, or administrative list boundaries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "u16", into = "u16")]
 pub struct DiscoveryPageSize(u16);
 
 impl DiscoveryPageSize {
@@ -77,6 +93,101 @@ impl DiscoveryPageSize {
     /// Validated discovery row limit.
     pub fn get(&self) -> u16 {
         self.0
+    }
+}
+
+impl TryFrom<u16> for DiscoveryPageSize {
+    type Error = PaginationError;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<DiscoveryPageSize> for u16 {
+    fn from(value: DiscoveryPageSize) -> Self {
+        value.get()
+    }
+}
+
+/// A validated one-based page number for an ordinary numbered list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "u32", into = "u32")]
+pub struct PageNumber(u32);
+
+impl PageNumber {
+    /// First page of a result set.
+    pub const FIRST: Self = Self(1);
+
+    /// Validates a one-based page number.
+    pub fn new(value: u32) -> Result<Self, PaginationError> {
+        if value == 0 {
+            Err(PaginationError::InvalidPageNumber { value })
+        } else {
+            Ok(Self(value))
+        }
+    }
+
+    /// One-based page number.
+    pub fn get(&self) -> u32 {
+        self.0
+    }
+}
+
+impl TryFrom<u32> for PageNumber {
+    type Error = PaginationError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<PageNumber> for u32 {
+    fn from(value: PageNumber) -> Self {
+        value.get()
+    }
+}
+
+/// Numbered request for an ordinary list with the ordinary page-size bound.
+///
+/// Domain list routes use this during the cursor-to-numbered migration. Facet choice lists retain
+/// their independent cursor requests because they do not expose collection pages.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NumberedPageRequest {
+    /// One-based page requested by the client.
+    pub page_number: PageNumber,
+    /// Validated maximum row count.
+    pub page_size: PageSize,
+}
+
+impl NumberedPageRequest {
+    /// Starts at the first numbered page.
+    pub fn first(page_size: PageSize) -> Self {
+        Self {
+            page_number: PageNumber::FIRST,
+            page_size,
+        }
+    }
+}
+
+/// Numbered request for broad discovery with the wider discovery page-size bound.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NumberedDiscoveryPageRequest {
+    /// One-based page requested by the client.
+    pub page_number: PageNumber,
+    /// Validated discovery row count.
+    pub page_size: DiscoveryPageSize,
+}
+
+impl NumberedDiscoveryPageRequest {
+    /// Starts at the first numbered discovery page.
+    pub fn first(page_size: DiscoveryPageSize) -> Self {
+        Self {
+            page_number: PageNumber::FIRST,
+            page_size,
+        }
     }
 }
 
@@ -140,6 +251,20 @@ pub struct Page<T> {
     pub next_cursor: Option<Cursor>,
 }
 
+/// A resolved numbered result page after the store applies scope, filters, and ordering.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NumberedPage<T, Size> {
+    /// Rows in stable key order for the resolved page.
+    pub items: Vec<T>,
+    /// One-based requested page after the store clamps it to the matching result set.
+    pub page_number: PageNumber,
+    /// The validated request page size.
+    pub page_size: Size,
+    /// Number of matching rows before the result is sliced into pages.
+    pub total_count: u64,
+}
+
 /// Rejected pagination input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PaginationError {
@@ -154,6 +279,11 @@ pub enum PaginationError {
     InvalidDiscoveryPageSize {
         /// Rejected requested size.
         value: u16,
+    },
+    /// Requested numbered page zero.
+    InvalidPageNumber {
+        /// Rejected page number.
+        value: u32,
     },
 }
 
@@ -172,6 +302,9 @@ impl std::fmt::Display for PaginationError {
                     formatter,
                     "discovery page size must be between 1 and 250, got {value}"
                 )
+            }
+            Self::InvalidPageNumber { value } => {
+                write!(formatter, "page number must be at least 1, got {value}")
             }
         }
     }

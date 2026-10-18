@@ -6,7 +6,6 @@ import {
   decodeBoolean,
   decodeNonemptyString,
   decodeNonnegativeInteger,
-  decodeNullable,
   decodeRecord,
 } from "../decoder";
 import { decodeAccountId, field, requireOnlyFields } from "./shared";
@@ -107,18 +106,28 @@ function decodeStarredQuestionSummary(value: unknown, path: string): StarredQues
 /** Rejects Account identity and every field outside the personal Star collection. */
 export function decodeStarredQuestionPage(value: unknown, path = "response"): StarredQuestionPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["items", "nextCursor", "facets"]);
-  const nextCursor = decodeNullable(
-    field(record, "nextCursor", path),
-    `${path}.nextCursor`,
-    (cursor, cursorPath) => decodeNonemptyString(cursor, cursorPath),
+  requireOnlyFields(record, path, ["items", "pageNumber", "pageSize", "totalCount", "facets"]);
+  const pageNumber = decodeNonnegativeInteger(
+    field(record, "pageNumber", path),
+    `${path}.pageNumber`,
   );
-  if (nextCursor !== null && nextCursor.length > 1024) {
-    throw new DecodeError(`${path}.nextCursor`, "a bounded Starred Question cursor");
+  const pageSize = decodeNonnegativeInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeNonnegativeInteger(
+    field(record, "totalCount", path),
+    `${path}.totalCount`,
+  );
+  if (
+    pageNumber < 1 ||
+    ![50, 100, 250].includes(pageSize) ||
+    pageNumber > Math.max(1, Math.ceil(totalCount / pageSize))
+  ) {
+    throw new DecodeError(path, "a valid numbered Starred Question page");
   }
   return {
     items: decodeArray(field(record, "items", path), `${path}.items`, decodeStarredQuestionSummary),
-    nextCursor,
+    pageNumber,
+    pageSize,
+    totalCount,
     facets: decodeQuestionSearchFacets(field(record, "facets", path), `${path}.facets`),
   };
 }

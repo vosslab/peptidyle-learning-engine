@@ -19,6 +19,7 @@ BASELINE_ALIASES = frozenset(
 PERSONAS = frozenset(
 	{
 		"elena_instructor",
+		"priya_instructor",
 		"mary_student",
 		"jack_student",
 		"avery_student",

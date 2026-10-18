@@ -5,6 +5,7 @@
 // src/features/ple_question_json_authoring/question_json_editor_workspace.tsx:104
 // src/features/ple_question_json_authoring/question_json_fill_in_editor.tsx:62
 // src/pages/assessment_workspace/assessment_workspace_create_page.tsx:187
+// src/features/assessment_content_picker/assessment_editor.tsx:239-266
 // src/pages/assessment_workspace/assessment_workspace_questions_view.tsx:394
 // src/pages/assessment_workspace/assessment_policy_feedback_controls.tsx:6
 // src/components/student_assessment_attempt_navigation.tsx:135
@@ -18,8 +19,11 @@
 import { expect, test, type FrameLocator, type Page, type Route } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import { decodeLibraryObjectSearchPage } from "../../../src/api/decoders/question_library";
+import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import {
   chooseSeededIdentityAtSignIn,
+  configureContextAndPage,
   courseChoice,
   observeContextOrigins,
   relativeIsoDate,
@@ -30,7 +34,7 @@ import { followCaptureLink, openStudentCourse } from "../screenshot_corpus/visib
 const COURSE = "Biochemistry";
 // A failed --running rerun retains the prior disposable database.
 const TITLE = `Student work preservation browser check ${Date.now().toString()}`;
-const WEBWORK = "Genetic Disorders from Descriptions";
+const WEBWORK_SOURCE = "/site_docs/genetics/topic01/downloads/genetic_disorders-which_one.pgml";
 const FIB = `${TITLE} native FiB`;
 
 async function publishFib(page: Page): Promise<void> {
@@ -72,19 +76,104 @@ async function instructor(page: Page): Promise<void> {
     .getByRole("combobox", { name: /^Assessment Type/u })
     .selectOption("practice_question_assignment");
   await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
-  for (const title of [WEBWORK, FIB]) {
-    await page
-      .getByRole("button", { name: "Choose published Assessment content", exact: true })
-      .click();
-    const picker = page.getByRole("dialog", {
-      name: "Choose published Assessment content",
-      exact: true,
+  const available = page.getByRole("region", {
+    name: "Available Assessment content",
+    exact: true,
+  });
+  await available.getByRole("combobox", { name: "Show", exact: true }).selectOption("questions");
+  await available
+    .getByRole("combobox", { name: "Question membership", exact: true })
+    .selectOption("all");
+  await available.getByLabel("Search published Assessment content", { exact: true }).fill("");
+  const webworkSearchLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.origin === new URL(page.url()).origin &&
+      url.pathname === "/api/library-objects/search" &&
+      !url.searchParams.has("text") &&
+      url.searchParams.get("questions") === "all"
+    );
+  });
+  await available.getByRole("button", { name: "Search", exact: true }).click();
+  const response = await webworkSearchLoaded;
+  if (!response.ok()) throw new Error(`Question search failed: HTTP ${response.status()}`);
+  let search = decodeLibraryObjectSearchPage(await response.json());
+  const firstWidePage = page.waitForResponse((nextResponse) => {
+    const url = new URL(nextResponse.url());
+    return (
+      url.origin === new URL(page.url()).origin &&
+      url.pathname === "/api/library-objects/search" &&
+      url.searchParams.get("questions") === "all" &&
+      url.searchParams.get("page_size") === "250" &&
+      url.searchParams.get("page_number") === "1"
+    );
+  });
+  const options = available.locator("details.data-sheet-controls__options");
+  const openedOptions = !(await options.evaluate(
+    (element) => (element as HTMLDetailsElement).open,
+  ));
+  if (openedOptions) await options.locator(":scope > summary").click();
+  await available.getByLabel("Records per page", { exact: true }).selectOption("250");
+  if (openedOptions) await options.locator(":scope > summary").click();
+  const matches: QuestionSummary[] = [];
+  const collectMatches = (): void => {
+    matches.push(
+      ...search.items
+        .flatMap((item) => (item.kind === "question" ? [item.question.summary] : []))
+        .filter(
+          (summary) =>
+            summary.metadata.questionCitation?.includes(WEBWORK_SOURCE) === true &&
+            summary.backend === "webwork" &&
+            summary.questionFormat === "webworkPgml" &&
+            summary.questionType === "multipleChoice" &&
+            summary.availability.availability === "available",
+        ),
+    );
+  };
+  const wideResponse = await firstWidePage;
+  if (!wideResponse.ok()) throw new Error(`Question search failed: HTTP ${wideResponse.status()}`);
+  search = decodeLibraryObjectSearchPage(await wideResponse.json());
+  collectMatches();
+  while (
+    matches.length === 0 &&
+    search.pageNumber < Math.ceil(search.totalCount / search.pageSize)
+  ) {
+    const nextPageNumber = search.pageNumber + 1;
+    const nextPage = page.waitForResponse((nextResponse) => {
+      const url = new URL(nextResponse.url());
+      return (
+        url.origin === new URL(page.url()).origin &&
+        url.pathname === "/api/library-objects/search" &&
+        url.searchParams.get("questions") === "all" &&
+        url.searchParams.get("page_size") === "250" &&
+        url.searchParams.get("page_number") === String(nextPageNumber)
+      );
     });
-    await picker.getByLabel("Search published Assessment content", { exact: true }).fill(title);
-    await picker.getByRole("button", { name: "Search", exact: true }).click();
-    await picker.getByRole("checkbox", { name: `Select ${title}`, exact: true }).check();
-    await picker.getByRole("button", { name: "Add selected content", exact: true }).click();
+    await available.getByRole("button", { name: "Next", exact: true }).click();
+    const nextResponse = await nextPage;
+    if (!nextResponse.ok())
+      throw new Error(`Question search failed: HTTP ${nextResponse.status()}`);
+    search = decodeLibraryObjectSearchPage(await nextResponse.json());
+    collectMatches();
   }
+  // Source citation identifies the fixture; its mutable display title is not a search condition.
+  expect(
+    matches.length,
+    `At least one available WeBWorK radio fixture from ${WEBWORK_SOURCE}`,
+  ).toBeGreaterThan(0);
+  const webwork = matches[0]!;
+  const webworkRow = available.locator(`[data-record-id="${webwork.questionId}"]`);
+  await webworkRow.waitFor();
+  await webworkRow.getByRole("button", { name: "Add", exact: true }).click();
+
+  await available.getByLabel("Search published Assessment content", { exact: true }).fill(FIB);
+  await available.getByRole("button", { name: "Search", exact: true }).click();
+  const fibRow = available
+    .locator("[data-record-id]")
+    .filter({ has: page.getByText(FIB, { exact: true }) })
+    .first();
+  await fibRow.waitFor();
+  await fibRow.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
   await page
     .getByText("Questions and order saved. Review Assessment Properties when you are ready.", {
@@ -119,7 +208,7 @@ async function studentAttempt(page: Page): Promise<void> {
     .filter({ has: page.getByText(TITLE, { exact: true }) });
   await followCaptureLink(
     page,
-    row.getByRole("link", { name: "Open Unit Review Assignment", exact: true }),
+    row.getByRole("link", { name: /^(Open|Resume) Unit Review Assignment$/u }),
   );
   const attempt = page.locator('[data-route-surface="assessmentAttempt"]');
   const start = page.getByRole("button", { name: /^(Start|Resume) Unit Review Assignment$/u });
@@ -234,6 +323,7 @@ test.describe("Student work on the production PLE stack", () => {
       try {
         observeContextOrigins(freshContext, pageOrigins, requestOrigins);
         const fresh = await freshContext.newPage();
+        configureContextAndPage(freshContext, fresh, 30_000);
         await studentAttempt(fresh);
         await fresh.getByRole("button", { name: /^Question 1:/u }).click();
         await frame(fresh).locator("form").first().waitFor();
@@ -261,9 +351,12 @@ test.describe("Student work on the production PLE stack", () => {
       await expect(
         page.getByRole("heading", { name: "Question and your recorded response", exact: true }),
       ).toBeVisible();
-      const firstQuestion = page.locator(".attempt-summary__question").first();
-      await expect(firstQuestion.getByText(/Marked (correct|not correct)\./u)).toBeVisible();
-      await expect(firstQuestion.getByText(/points/u)).toBeVisible();
+      const firstQuestionRecord = page
+        .getByRole("listitem")
+        .filter({ has: page.locator(".attempt-summary__question") })
+        .first();
+      await expect(firstQuestionRecord.getByText(/^Marked (correct|not correct)$/u)).toBeVisible();
+      await expect(firstQuestionRecord.getByText(/points/u)).toBeVisible();
       await expect(page.getByTitle("Correct answer", { exact: true })).toHaveCount(0);
       const review = page.frameLocator('iframe[title="Question and your recorded response"]');
       await review.locator("form").waitFor();

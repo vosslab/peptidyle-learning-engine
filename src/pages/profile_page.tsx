@@ -16,7 +16,7 @@ import {
 import { useApplicationApi } from "../api/application_api";
 import { useAppearance } from "../appearance/appearance_context";
 import { ProfileAppearance } from "../appearance/profile_appearance";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import type { ProfileAvatarView } from "../api/profile_avatar";
 import { useSessionBootstrap } from "../auth/session_context";
 import { PROVIDED_AVATAR_CATALOG } from "../features/profile_avatar/avatar_catalog_generated";

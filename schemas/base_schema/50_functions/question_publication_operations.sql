@@ -85,7 +85,7 @@ CREATE FUNCTION ple_private.publish_question_revision(
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
-    p_question_images jsonb
+    p_question_images jsonb, p_question_thumbnail jsonb
 ) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -100,6 +100,8 @@ DECLARE
     parent_metadata ple_data.question_revision_metadata%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE;
     expected_address jsonb;
+    v_thumbnail_object_id uuid;
+    v_thumbnail_address jsonb;
     v_question_image_unchanged boolean;
     published_at timestamptz := clock_timestamp();
 BEGIN
@@ -314,6 +316,45 @@ BEGIN
         CASE WHEN binding.backend = 'ple' THEN binding.question_type END, binding.question_format,
         binding.webwork_pg_path, p_target_object_id,
         encode(p_target_sha256, 'hex'), published_at);
+    -- ASVS 2.2.1/2.3.3/8.3.1: the locked source backend determines whether
+    -- this exact revision must have an artifact; all facts commit atomically.
+    IF binding.backend = 'webwork' THEN
+        IF jsonb_typeof(p_question_thumbnail) IS DISTINCT FROM 'object'
+           OR jsonb_typeof(p_question_thumbnail->'objectId') IS DISTINCT FROM 'string'
+           OR jsonb_typeof(p_question_thumbnail->'checksum') IS DISTINCT FROM 'string'
+           OR (p_question_thumbnail->>'checksum') !~ '^[0-9a-f]{64}$'
+           OR jsonb_typeof(p_question_thumbnail->'byteLength') IS DISTINCT FROM 'number'
+           OR (p_question_thumbnail->>'byteLength') !~ '^[1-9][0-9]*$'
+           OR (p_question_thumbnail->>'byteLength')::bigint > 2000000
+           OR jsonb_typeof(p_question_thumbnail->'createdAtMillis') IS DISTINCT FROM 'number'
+           OR (p_question_thumbnail->>'createdAtMillis') !~ '^-?[0-9]+$'
+           OR p_question_thumbnail->>'mediaType' IS DISTINCT FROM 'image/webp'
+           OR p_question_thumbnail->>'sourceChecksum' IS DISTINCT FROM encode(source_record.sha256, 'hex')
+           OR p_question_thumbnail->'intrinsicWidth' IS DISTINCT FROM '256'::jsonb
+           OR p_question_thumbnail->'intrinsicHeight' IS DISTINCT FROM '256'::jsonb THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'WeBWorK publication requires a verified source-bound 256 square WebP thumbnail';
+        END IF;
+        v_thumbnail_object_id := (p_question_thumbnail->>'objectId')::uuid;
+        v_thumbnail_address := jsonb_build_object(
+            'kind', 'questionThumbnail', 'publishedQuestionRevisionTuple',
+            jsonb_build_object('publishedQuestionId', p_published_question_id, 'revisionNumber', v_next_question_revision_number),
+            'objectId', v_thumbnail_object_id);
+        IF p_question_thumbnail->'objectAddress' IS DISTINCT FROM v_thumbnail_address THEN
+            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Publication thumbnail must name its exact target Revision';
+        END IF;
+        INSERT INTO ple_private.object_record(
+            object_record_id, object_address, object_storage_area, object_data_class,
+            sha256, size_bytes, media_type, created_at
+        ) VALUES (v_thumbnail_object_id, v_thumbnail_address, 'private-content', 'question-thumbnail',
+            decode(p_question_thumbnail->>'checksum', 'hex'),
+            (p_question_thumbnail->>'byteLength')::bigint, 'image/webp',
+            to_timestamp((p_question_thumbnail->>'createdAtMillis')::bigint::double precision / 1000.0));
+        INSERT INTO ple_private.question_revision_thumbnail(
+            published_question_id, revision_number, object_record_id, intrinsic_width, intrinsic_height
+        ) VALUES (p_published_question_id, v_next_question_revision_number, v_thumbnail_object_id, 256, 256);
+    ELSIF p_question_thumbnail IS NOT NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Native publication has no WeBWorK thumbnail';
+    END IF;
     INSERT INTO ple_data.question_revision_citation(
         published_question_id, revision_number, citation_text, created_at, updated_at
     ) SELECT p_published_question_id, v_next_question_revision_number,
@@ -368,7 +409,7 @@ CREATE FUNCTION ple_api.publish_question_revision(
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
     p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
-    p_question_images jsonb
+    p_question_images jsonb, p_question_thumbnail jsonb
 ) RETURNS integer LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_question_revision(
@@ -376,7 +417,7 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_expected_parent_question_revision_number, p_target_object_id, p_target_object_address,
         p_target_sha256, p_target_size_bytes,
         p_target_media_type, p_target_created_at_millis, p_reason_for_edit, p_publication_event_id,
-        p_question_images)
+        p_question_images, p_question_thumbnail)
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -456,7 +497,7 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
-    p_availability_event_id uuid, p_question_images jsonb
+    p_availability_event_id uuid, p_question_images jsonb, p_question_thumbnail jsonb
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -468,6 +509,8 @@ DECLARE
     metadata ple_private.draft_question_metadata%ROWTYPE;
     binding ple_private.draft_question_source_binding%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE; expected_address jsonb;
+    v_thumbnail_object_id uuid;
+    v_thumbnail_address jsonb;
     published_at timestamptz := clock_timestamp(); author_count integer; valid_count integer;
     final_author_position integer;
     v_initial_shared_tags text[];
@@ -638,6 +681,45 @@ BEGIN
     ) VALUES (p_published_question_id, 1, binding.backend,
         CASE WHEN binding.backend = 'ple' THEN binding.question_type END, binding.question_format, binding.webwork_pg_path,
         p_target_object_id, encode(p_target_sha256, 'hex'), published_at);
+    -- ASVS 2.2.1/2.3.3/8.3.1: the locked source backend determines whether
+    -- this exact revision must have an artifact; all facts commit atomically.
+    IF binding.backend = 'webwork' THEN
+        IF jsonb_typeof(p_question_thumbnail) IS DISTINCT FROM 'object'
+           OR jsonb_typeof(p_question_thumbnail->'objectId') IS DISTINCT FROM 'string'
+           OR jsonb_typeof(p_question_thumbnail->'checksum') IS DISTINCT FROM 'string'
+           OR (p_question_thumbnail->>'checksum') !~ '^[0-9a-f]{64}$'
+           OR jsonb_typeof(p_question_thumbnail->'byteLength') IS DISTINCT FROM 'number'
+           OR (p_question_thumbnail->>'byteLength') !~ '^[1-9][0-9]*$'
+           OR (p_question_thumbnail->>'byteLength')::bigint > 2000000
+           OR jsonb_typeof(p_question_thumbnail->'createdAtMillis') IS DISTINCT FROM 'number'
+           OR (p_question_thumbnail->>'createdAtMillis') !~ '^-?[0-9]+$'
+           OR p_question_thumbnail->>'mediaType' IS DISTINCT FROM 'image/webp'
+           OR p_question_thumbnail->>'sourceChecksum' IS DISTINCT FROM encode(source_record.sha256, 'hex')
+           OR p_question_thumbnail->'intrinsicWidth' IS DISTINCT FROM '256'::jsonb
+           OR p_question_thumbnail->'intrinsicHeight' IS DISTINCT FROM '256'::jsonb THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'WeBWorK publication requires a verified source-bound 256 square WebP thumbnail';
+        END IF;
+        v_thumbnail_object_id := (p_question_thumbnail->>'objectId')::uuid;
+        v_thumbnail_address := jsonb_build_object(
+            'kind', 'questionThumbnail', 'publishedQuestionRevisionTuple',
+            jsonb_build_object('publishedQuestionId', p_published_question_id, 'revisionNumber', 1),
+            'objectId', v_thumbnail_object_id);
+        IF p_question_thumbnail->'objectAddress' IS DISTINCT FROM v_thumbnail_address THEN
+            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Publication thumbnail must name its exact target Revision';
+        END IF;
+        INSERT INTO ple_private.object_record(
+            object_record_id, object_address, object_storage_area, object_data_class,
+            sha256, size_bytes, media_type, created_at
+        ) VALUES (v_thumbnail_object_id, v_thumbnail_address, 'private-content', 'question-thumbnail',
+            decode(p_question_thumbnail->>'checksum', 'hex'),
+            (p_question_thumbnail->>'byteLength')::bigint, 'image/webp',
+            to_timestamp((p_question_thumbnail->>'createdAtMillis')::bigint::double precision / 1000.0));
+        INSERT INTO ple_private.question_revision_thumbnail(
+            published_question_id, revision_number, object_record_id, intrinsic_width, intrinsic_height
+        ) VALUES (p_published_question_id, 1, v_thumbnail_object_id, 256, 256);
+    ELSIF p_question_thumbnail IS NOT NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Native publication has no WeBWorK thumbnail';
+    END IF;
     INSERT INTO ple_data.question_revision_acceptance(
         published_question_id, revision_number, parent_revision_number, editor_account_id,
         accepted_by_account_id, accepted_at, reason_for_edit
@@ -716,7 +798,7 @@ CREATE FUNCTION ple_api.publish_new_question_lineage(
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
-    p_availability_event_id uuid, p_question_images jsonb
+    p_availability_event_id uuid, p_question_images jsonb, p_question_thumbnail jsonb
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_new_question_lineage(p_draft_question_uuid, p_expected_draft_question_edit_number,
@@ -726,5 +808,5 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_initial_shared_tags, p_discipline_uuid, p_subject_uuid,
         p_topic_uuid, p_subtopic_uuid, p_license,
         p_reason_for_edit, p_ownership_event_id, p_publication_event_id, p_availability_event_id,
-        p_question_images)
+        p_question_images, p_question_thumbnail)
 $$;

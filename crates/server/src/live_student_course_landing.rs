@@ -27,9 +27,9 @@ use learning_data_access::{
     Cursor, LiveStudentAttemptHistoryEntry as StoreAttemptHistoryEntry,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseProgressAssessment,
-    LiveStudentCourseResponseQuestionStats as StoreResponseQuestionStats, PageRequest, PageSize,
-    SessionTokenHash, StoreError, StudentAttemptHistoryQuery, StudentAttemptHistorySort,
-    StudentAttemptHistoryState,
+    LiveStudentCourseResponseQuestionStats as StoreResponseQuestionStats, NumberedPageRequest,
+    PageNumber, PageRequest, PageSize, SessionTokenHash, StoreError, StudentAttemptHistoryQuery,
+    StudentAttemptHistorySort, StudentAttemptHistoryState,
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
@@ -156,6 +156,7 @@ struct CourseProgressResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AttemptHistoryQuery {
+    page_number: Option<u32>,
     page_size: Option<u16>,
     cursor: Option<String>,
     search: Option<String>,
@@ -415,8 +416,7 @@ async fn list_student_attempt_history(
             );
         }
     };
-    let fingerprint = attempt_history_fingerprint(&search, "page", session_hash);
-    let page = match attempt_history_page_request(&query, &fingerprint, false) {
+    let page = match attempt_history_numbered_page_request(&query) {
         Some(value) => value,
         None => {
             return route_error(
@@ -425,35 +425,20 @@ async fn list_student_attempt_history(
             );
         }
     };
-    let page_size = page.size.get();
     match state
         .landing
         .list_student_attempt_history(session_hash, search, page)
         .await
     {
-        Ok(page) => {
-            let next_cursor = match page.next_cursor {
-                Some(after) => {
-                    match encode_attempt_history_cursor(&fingerprint, page_size, after) {
-                        Some(value) => Some(value),
-                        None => {
-                            return route_error(
-                                StatusCode::SERVICE_UNAVAILABLE,
-                                "Student Attempt History unavailable",
-                            );
-                        }
-                    }
-                }
-                None => None,
-            };
-            crate::auth::no_store(
-                Json(StudentAttemptHistoryPage {
-                    items: page.items.into_iter().map(attempt_history_entry).collect(),
-                    next_cursor,
-                })
-                .into_response(),
-            )
-        }
+        Ok(page) => crate::auth::no_store(
+            Json(StudentAttemptHistoryPage {
+                items: page.items.into_iter().map(attempt_history_entry).collect(),
+                page_number: page.page_number.get(),
+                page_size: page.page_size.get(),
+                total_count: page.total_count,
+            })
+            .into_response(),
+        ),
         Err(error) => store_error_response(error),
     }
 }
@@ -655,6 +640,9 @@ fn attempt_history_page_request(
     fingerprint: &str,
     facet: bool,
 ) -> Option<PageRequest> {
+    if facet && query.page_number.is_some() {
+        return None;
+    }
     let size = PageSize::new(query.page_size.unwrap_or(50)).ok()?;
     if facet && size.get() > 50 {
         return None;
@@ -679,6 +667,18 @@ fn attempt_history_page_request(
         None => None,
     };
     Some(PageRequest { after, size })
+}
+
+fn attempt_history_numbered_page_request(
+    query: &AttemptHistoryQuery,
+) -> Option<NumberedPageRequest> {
+    if query.cursor.is_some() {
+        return None;
+    }
+    Some(NumberedPageRequest {
+        page_number: PageNumber::new(query.page_number.unwrap_or(1)).ok()?,
+        page_size: PageSize::new(query.page_size.unwrap_or(50)).ok()?,
+    })
 }
 
 fn valid_attempt_history_key(key: &str) -> bool {

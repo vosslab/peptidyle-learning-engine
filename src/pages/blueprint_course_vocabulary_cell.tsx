@@ -40,7 +40,7 @@ export function blueprintVocabularyCell(
       );
       const item = (): ContentClassificationItem | undefined =>
         items()?.find((candidate) => candidate.uuid === selected);
-      return <>{item()?.name ?? (items.loading ? "Loading…" : "Name unavailable")}</>;
+      return <>{item()?.name ?? (items.loading ? "Loading..." : "Name unavailable")}</>;
     }
     return <Cell />;
   };

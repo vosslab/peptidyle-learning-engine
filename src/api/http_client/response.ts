@@ -12,7 +12,6 @@ import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpda
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
 import type { CourseInstanceId } from "../../../generated/api/CourseInstanceId";
 import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
-import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { PublishedQuestionId } from "../../../generated/api/PublishedQuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { ApiClient } from "../client";
@@ -38,8 +37,6 @@ import {
 import {
   decodeAssessmentAttempt,
   decodeStudentAssessmentDetail,
-  decodeAttemptPage,
-  decodeQuestionPage,
   decodeQuestionDetails,
   decodeQuestionLineageView,
   decodeLibraryObjectSearchPage,
@@ -52,7 +49,6 @@ import {
   decodeImathasQuestionBackendLaunch,
   decodeStudentQuestionAttempt,
   decodeIssuedQuestionPresentation,
-  decodeAssessmentAttemptPage,
   decodeStudentAssessmentProgress,
   decodeNavigationResolution,
 } from "../decoders";
@@ -70,14 +66,7 @@ import {
 } from "../decoders/profile_avatar";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { parseCourseInstanceId } from "../../navigation/public_route";
-import {
-  encodedId,
-  cursorPath,
-  studentAttemptPath,
-  requestJson,
-  requestPath,
-  type ApiFetch,
-} from "./request";
+import { encodedId, studentAttemptPath, requestJson, requestPath, type ApiFetch } from "./request";
 
 export const MAX_RESPONSE_CHARACTERS = 4 * 1_024 * 1_024;
 
@@ -511,7 +500,6 @@ export function createResponseClient(
   | "selectProvidedProfileAvatar"
   | "replaceProfileAvatarImage"
   | "fetchProfileAvatarImage"
-  | "listQuestions"
   | "searchLibraryObjects"
   | "listLibraryFacetChoices"
   | "getLibraryObjectKind"
@@ -524,9 +512,7 @@ export function createResponseClient(
   | "removeCourseBanner"
   | "getAssessment"
   | "getAssessmentSummary"
-  | "listAssessmentAttempts"
   | "getAssessmentAttempt"
-  | "listQuestionAttempts"
   | "getAttempt"
   | "getIssuedQuestion"
   | "beginImathasQuestionBackendLaunch"
@@ -557,13 +543,6 @@ export function createResponseClient(
         basePath,
         `/api/navigation/${encodedId(id)}`,
         decodeNavigationResolution,
-      ),
-    listQuestions: (cursor) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        cursorPath("/api/questions", cursor),
-        decodeQuestionPage,
       ),
     searchLibraryObjects: (query: LibraryObjectSearchRequest): Promise<LibraryObjectSearchPage> =>
       requestJson(
@@ -621,32 +600,12 @@ export function createResponseClient(
         `/api/assessments/${encodedId(assessmentId)}/summary`,
         decodeStudentAssessmentProgress,
       ),
-    listAssessmentAttempts: (studentRecordId: StudentRecordId, cursor) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        cursorPath(
-          `/api/student-records/${encodedId(studentRecordId)}/assessment-attempts`,
-          cursor,
-        ),
-        decodeAssessmentAttemptPage,
-      ),
     getAssessmentAttempt: (assessmentAttemptId) =>
       requestJson(
         fetchImplementation,
         basePath,
         `/api/assessment-attempts/${encodedId(assessmentAttemptId)}`,
         decodeAssessmentAttempt,
-      ),
-    listQuestionAttempts: (assessmentAttemptId, cursor) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        cursorPath(
-          `/api/assessment-attempts/${encodedId(assessmentAttemptId)}/question-attempts`,
-          cursor,
-        ),
-        decodeAttemptPage,
       ),
     getAttempt: (attemptId: QuestionAttemptId) =>
       requestJson(

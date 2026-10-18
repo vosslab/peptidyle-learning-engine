@@ -66,6 +66,11 @@ pub use question_pool_stewardship::{
     QuestionPoolWatchProjection,
 };
 mod question_source;
+mod question_thumbnail_backfill;
+pub use question_thumbnail_backfill::{
+    QuestionThumbnailBackfillEvidence, QuestionThumbnailBackfillRegistrationError,
+    QuestionThumbnailBackfillRevision, QuestionThumbnailBackfillStore,
+};
 mod question_star;
 mod question_watch;
 mod random_uuid;
@@ -154,8 +159,8 @@ pub use blueprint_change_proposal::{
 pub use blueprint_course::{
     ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseFacetChoice,
     BlueprintCourseFacetChoiceRequest, BlueprintCourseFacetChoiceResult, BlueprintCourseFacetField,
-    BlueprintCourseListCursorPosition, BlueprintCourseListRequest, BlueprintCourseListSort,
-    BlueprintCourseStore, BlueprintPromotionStore, RecognitionTitles, StoredBlueprintAssessment,
+    BlueprintCourseListRequest, BlueprintCourseListSort, BlueprintCourseStore,
+    BlueprintPromotionStore, RecognitionTitles, StoredBlueprintAssessment,
     StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
     StoredBlueprintCourseContent, StoredBlueprintCourseSummary, StoredBlueprintModule,
     StoredBlueprintPoolMembers, StoredBlueprintPromotion, StoredBlueprintRevision,
@@ -169,8 +174,10 @@ pub use blueprint_lineage::{
     ForkBlueprintCourseReceipt, StoredKnownBlueprintFork,
 };
 pub use blueprint_stewardship::{
-    BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchEvent,
-    BlueprintCourseWatchEventKind, BlueprintCourseWatchProjection, BlueprintStewardshipStore,
+    BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchDirection,
+    BlueprintCourseWatchEvent, BlueprintCourseWatchEventFacet, BlueprintCourseWatchEventKind,
+    BlueprintCourseWatchEventsPage, BlueprintCourseWatchEventsQuery,
+    BlueprintCourseWatchProjection, BlueprintStewardshipStore,
 };
 pub use browser_api_contract::student_assessment_decision::{
     AssessmentStartDecision, StudentAssessmentDecisionSummary,
@@ -227,8 +234,8 @@ pub use invitation_export::{
     PendingInvitationExport, PendingInvitationRecipient,
 };
 pub use library_watch_notification::{
-    LibraryWatchActivity, LibraryWatchCursorPosition, LibraryWatchDirection, LibraryWatchEventKind,
-    LibraryWatchFacetCount, LibraryWatchInboxPage, LibraryWatchInboxQuery, LibraryWatchInboxStore,
+    LibraryWatchActivity, LibraryWatchDirection, LibraryWatchEventKind, LibraryWatchFacetCount,
+    LibraryWatchInboxPage, LibraryWatchInboxQuery, LibraryWatchInboxStore,
     LibraryWatchNotification, LibraryWatchTargetKind,
 };
 pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
@@ -245,7 +252,8 @@ pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
 };
 pub use pagination::{
-    Cursor, DiscoveryPageRequest, DiscoveryPageSize, Page, PageRequest, PageSize, PaginationError,
+    Cursor, DiscoveryPageRequest, DiscoveryPageSize, NumberedDiscoveryPageRequest, NumberedPage,
+    NumberedPageRequest, Page, PageNumber, PageRequest, PageSize, PaginationError,
 };
 pub use question_bulk_metadata::{
     BulkPublishedQuestionMetadataInput, BulkPublishedQuestionMetadataPatch,
@@ -264,8 +272,8 @@ pub use question_image_publication::{
 };
 pub use question_library::{
     LibrarySearchEntry, PublishedQuestionAvailability, PublishedQuestionLibraryEntry,
-    QuestionLibraryBackendRestriction, QuestionLibraryFacetChoiceRequest,
-    QuestionLibraryFacetChoiceResult, QuestionLibrarySearchCursorPosition,
+    PublishedQuestionThumbnail, QuestionLibraryBackendRestriction,
+    QuestionLibraryFacetChoiceRequest, QuestionLibraryFacetChoiceResult,
     QuestionLibrarySearchFacets, QuestionLibrarySearchPage, QuestionLibrarySearchRequest,
     QuestionLibrarySearchScope, QuestionLibrarySearchSort, QuestionLibraryStore,
     QuestionLibraryTextField, QuestionLibraryTextTerm,
@@ -289,7 +297,7 @@ pub use question_source::{
     ExistingQuestionRevisionPublicationError, ExistingQuestionRevisionPublicationInput,
     ExistingQuestionRevisionPublicationStore, NewQuestionLineagePublicationError,
     NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
-    PreparedQuestionImagePublication,
+    PreparedQuestionImagePublication, PreparedQuestionThumbnailPublication,
 };
 pub use question_star::{QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor};
 pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};

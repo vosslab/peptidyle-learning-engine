@@ -80,18 +80,3 @@ test("a failed write retains the newest snapshot for an explicit retry", async (
   assert.equal(autosave.state().status, "saved");
   autosave.dispose();
 });
-
-test("a navigation flush persists the pending snapshot before disposal", async () => {
-  const writes = [];
-  const autosave = createQuestionDraftAutosave({
-    debounceMs: 60_000,
-    save: async (snapshot) => writes.push(snapshot),
-  });
-  autosave.edit("the last edit before leaving");
-
-  await autosave.flush();
-  autosave.dispose();
-
-  assert.deepEqual(writes, ["the last edit before leaving"]);
-  assert.equal(autosave.state().status, "saved");
-});

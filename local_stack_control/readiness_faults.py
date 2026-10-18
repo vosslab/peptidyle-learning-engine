@@ -6,7 +6,9 @@ import local_stack_control.models
 import local_stack_control.process
 
 
-READINESS_DEPENDENCIES = ("api", "minio", "postgres", "webwork-renderer", "worker")
+READINESS_DEPENDENCIES = (
+	"api", "minio", "postgres", "question-thumbnail-renderer", "webwork-renderer", "worker",
+)
 
 
 #============================================

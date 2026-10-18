@@ -4,12 +4,12 @@ import type {
   BlueprintChangeProposalClient,
   BlueprintProposalListQuery,
 } from "../../api/blueprint_change_proposal";
-import type { RecordField, RecordListQuery } from "../../components/record_list/record_fields";
-import type { RecordContent } from "../../components/record_list/record_list";
-import { SearchBlock } from "../search/search_block";
-import { SearchControls } from "../search/search_controls";
-import { createSearchState } from "../search/search_state";
-import type { SearchDefinition } from "../search/search_session";
+import type { RecordField, RecordListQuery } from "../../components/data_sheet/record_fields";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createSearchState } from "../../components/search_block/search_state";
+import type { SearchDefinition } from "../../components/search_block/search_session";
 
 type ProposalSortKey = "created";
 type ProposalFilterKey = "state";
@@ -93,6 +93,7 @@ export function ProposalSearch(props: {
     BlueprintChangeProposalSummaryView,
     undefined
   > = {
+    maximumPageSize: 100,
     initialQuery,
     cleanup: (query) => ({
       ...query,
@@ -104,17 +105,23 @@ export function ProposalSearch(props: {
     setText: (query, text) => ({ ...query, text }),
     rowId: (row) => row.proposalId,
     content: props.content,
-    fetchPage: async (query, cursor, pageSize) => {
-      const page =
+    fetchPage: async (query, requestedPage) => {
+      const response =
         props.target === undefined
-          ? await props.client.listMyBlueprintChangeProposals(cursor ?? undefined, pageSize, query)
+          ? await props.client.listMyBlueprintChangeProposals(
+              query,
+              requestedPage.pageNumber,
+              requestedPage.pageSize,
+            )
           : await props.client.listBlueprintChangeProposalsForTarget(
               props.target,
-              cursor ?? undefined,
-              pageSize,
               query,
+              requestedPage.pageNumber,
+              requestedPage.pageSize,
             );
-      return { ...page, filterCounts: undefined };
+      if (response.pageSize !== requestedPage.pageSize)
+        throw new Error("Blueprint Change Proposal response page size differs from its request");
+      return { ...response, pageSize: requestedPage.pageSize, filterCounts: undefined };
     },
     appliedFilters: (query) =>
       query.status.map((status) => ({
@@ -147,7 +154,7 @@ export function ProposalSearch(props: {
         };
       },
       onChange: (sort) =>
-        void state.apply((query) => ({
+        void state.sort((query) => ({
           ...query,
           sort: sort.direction === "ascending" ? "createdAscending" : "createdDescending",
         })),

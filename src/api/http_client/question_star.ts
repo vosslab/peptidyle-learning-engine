@@ -12,7 +12,7 @@ import type {
   StarredQuestionPage,
   StarredQuestionSort,
 } from "../question_star";
-import { libraryObjectSearchPath } from "../library_object_search_query";
+import { libraryFacetChoicesPath, libraryObjectSearchPath } from "../library_object_search_query";
 import { decodeLibraryFacetChoicePage } from "../decoders/question_library";
 import { ApiRequestError } from "./error";
 import { encodedId, requestSameOrigin, type ApiFetch } from "./request";
@@ -39,21 +39,19 @@ async function requestStar(
 }
 
 const STARRED_QUESTIONS_PATH = "/api/questions/stewardship/stars";
-const MAX_COLLECTION_CURSOR_LENGTH = 1024;
-
 async function requestStarredQuestions(
   fetchImplementation: ApiFetch,
   basePath: string,
   query: LibraryObjectSearchRequest,
   sort: StarredQuestionSort,
+  page: import("../../components/search_block/search_session").SearchPageRequest,
 ): Promise<StarredQuestionPage> {
-  if (
-    query.cursor !== null &&
-    (query.cursor.length === 0 || query.cursor.length > MAX_COLLECTION_CURSOR_LENGTH)
-  ) {
-    throw new Error("Starred Question cursor is invalid");
-  }
-  const publicPath = libraryObjectSearchPath(query);
+  const publicPath = libraryObjectSearchPath({
+    ...query,
+    cursor: null,
+    page_number: page.pageNumber,
+    page_size: page.pageSize,
+  });
   const parameters = new URLSearchParams(publicPath.split("?", 2)[1]);
   parameters.set("starredSort", sort);
   const path = `${STARRED_QUESTIONS_PATH}?${parameters.toString()}`;
@@ -73,10 +71,9 @@ async function requestStarredFacetChoices(
   sort: StarredQuestionSort,
   search: string,
 ): Promise<LibraryFacetChoicePage> {
-  const publicPath = libraryObjectSearchPath(query);
+  const publicPath = libraryFacetChoicesPath(field, query, search.length > 0 ? search : null);
   const parameters = new URLSearchParams(publicPath.split("?", 2)[1]);
   parameters.set("starredSort", sort);
-  if (search.length > 0) parameters.set("choice_search", search);
   const path = `${STARRED_QUESTIONS_PATH}/facet-choices/${encodeURIComponent(field)}?${parameters.toString()}`;
   const response = await requestSameOrigin(fetchImplementation, basePath, path, { method: "GET" });
   requireNoStore(response, path);
@@ -93,8 +90,8 @@ export function createQuestionStarClient(
     getQuestionStar: (questionId) => requestStar(fetchImplementation, basePath, questionId),
     setQuestionStar: (questionId, starred) =>
       requestStar(fetchImplementation, basePath, questionId, starred),
-    listStarredQuestions: (query, sort) =>
-      requestStarredQuestions(fetchImplementation, basePath, query, sort),
+    listStarredQuestions: (query, sort, page) =>
+      requestStarredQuestions(fetchImplementation, basePath, query, sort, page),
     listStarredFacetChoices: (field, query, sort, search) =>
       requestStarredFacetChoices(fetchImplementation, basePath, field, query, sort, search),
   };

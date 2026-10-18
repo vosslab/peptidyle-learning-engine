@@ -14,7 +14,7 @@ import {
 
 import type { QuestionPoolId } from "../../generated/api/QuestionPoolId";
 import type { QuestionPoolMemberView } from "../../generated/api/QuestionPoolMemberView";
-import type { RecordField } from "../components/record_list/record_fields";
+import type { RecordField } from "../components/data_sheet/record_fields";
 import type {
   PoolMemberFilterKey,
   PoolMemberSortKey,
@@ -25,22 +25,23 @@ import { createQuestionLibraryRepository } from "../api/question_library_reposit
 import { useSessionBootstrap } from "../auth/session_context";
 import { BloomClassificationText } from "../components/bloom_classification";
 import { InstructorProfileLink } from "../components/instructor_profile_link";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { QuestionPoolMetadataEditor } from "../components/question_pool_metadata_editor";
 import { QuestionPoolMembersEditor } from "../components/question_pool_members_editor";
 import { mayEditQuestionPoolMembers } from "../components/question_pool_members_model";
 import { QuestionPoolStarControl } from "../components/question_pool_star_control";
 import { QuestionPoolSupportEditor } from "../components/question_pool_support_editor";
 import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
-import type { RecordContent } from "../components/record_list/record_list";
+import { questionNativePreview } from "../components/question_native_preview";
+import type { RecordContent } from "../components/data_sheet/record_content";
 import {
   comparePoolMemberFields,
   poolMemberRowId,
   questionPoolMemberFields,
 } from "../components/question_pool_member_fields";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import {
   useClearRouteScopeLabels,
   usePublishRouteScopeLabels,
@@ -98,6 +99,10 @@ function memberSearchRow(member: QuestionPoolMemberView): PoolMemberSearchRow {
 function memberContent(row: PoolMemberSearchRow): RecordContent {
   return {
     title: row.questionTitle,
+    preview: questionNativePreview({
+      publishedQuestionRevisionTuple: row.publishedQuestionRevisionTuple,
+      nativePrompt: row.member.question.question_library.nativePrompt,
+    }),
     details: [
       {
         kind: "questionId",
@@ -186,9 +191,13 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
   function ReadonlyPoolMembers(): JSX.Element {
     const memberSearch = createLocalCompleteSearch(
       {
-        resource: detail,
+        rows: () => {
+          const pool = detail();
+          return pool === undefined ? undefined : pool.members.map(memberSearchRow);
+        },
+        loading: () => detail.loading,
+        error: (): unknown => detail.error,
         refetchSource: refetch,
-        rows: (pool) => pool.members.map(memberSearchRow),
       },
       {
         fields: memberFields,
@@ -288,7 +297,7 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
                 </dd>
               </div>
             </dl>
-            <QuestionStatisticsPanel evidence={value().evidence} />
+            <QuestionStatisticsPanel evidence={value().evidence} onRefresh={refetch} />
             <QuestionPoolMetadataEditor
               questionPoolId={value().questionPoolId}
               pool={value()}
@@ -314,11 +323,8 @@ export function QuestionPoolDetail(props: { readonly poolId: QuestionPoolId }): 
                 pool={value()}
                 client={applicationApi.client}
                 questionLibrary={questionLibrary}
+                classificationClient={applicationApi.client}
                 getQuestionRevision={applicationApi.client.getQuestionRevision}
-                questionRevisionPreviewDocumentUrl={
-                  applicationApi.client.questionRevisionPreviewDocumentUrl
-                }
-                questionImageUrl={applicationApi.client.questionImageUrl}
                 getCurrentQuestionSharedMetadata={
                   applicationApi.client.getCurrentQuestionSharedMetadata
                 }

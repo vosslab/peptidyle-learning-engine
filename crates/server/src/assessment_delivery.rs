@@ -409,7 +409,14 @@ async fn issue_native_ple_presentation(
         .delivery
         .prepare_native_assessment_issuance(token, course_instance_id, assessment_id)
         .await
-        .map_err(StartError::Store)?;
+        .map_err(|error| {
+            tracing::error!(
+                event = "student_assessment_start_failed",
+                stage = "prepare_issuance",
+                error_kind = error.diagnostic_kind(),
+            );
+            StartError::Store(error)
+        })?;
     issue_native_assessment_batch(state, token, batch).await
 }
 
@@ -482,7 +489,14 @@ async fn issue_native_assessment_batch(
         .delivery
         .commit_native_assessment_issuance(token, batch.assessment_attempt_id, prepared)
         .await
-        .map_err(StartError::Store)?;
+        .map_err(|error| {
+            tracing::error!(
+                event = "student_assessment_start_failed",
+                stage = "commit_issuance",
+                error_kind = error.diagnostic_kind(),
+            );
+            StartError::Store(error)
+        })?;
     let questions = rebuild_committed_attempt_presentations(state, token, &attempt).await?;
     Ok(LiveAssessmentAttemptResponse {
         assessment_attempt_id: attempt.assessment_attempt_id,
@@ -579,7 +593,54 @@ pub(super) async fn resolve_source(
         &presentation_images::question_html_image_bindings(&source.question_image_renditions),
     )
     .await
-    .map_err(|_| StartError::Unavailable)
+    .map_err(|error| {
+        use adapter_ple::PleQuestionBackendError;
+        use adapter_ple::question_json::PleQuestionJsonError;
+        use objects::QuestionSourceResolutionError;
+
+        let error_kind = match &error {
+            PleQuestionBackendError::QuestionSourceResolution(error) => match error {
+                QuestionSourceResolutionError::ObjectStore(error) => match error {
+                    ObjectStoreError::NotFound => "object_not_found",
+                    ObjectStoreError::AlreadyExists => "object_already_exists",
+                    ObjectStoreError::ChecksumMismatch => "object_checksum_mismatch",
+                    ObjectStoreError::NotSignable => "object_not_signable",
+                    ObjectStoreError::NumericOverflow => "object_numeric_overflow",
+                    ObjectStoreError::Unavailable(_) => "object_unavailable",
+                },
+                QuestionSourceResolutionError::UntrustedObjectRecord => "untrusted_object_record",
+            },
+            PleQuestionBackendError::UnexpectedQuestionSourceMediaType { .. } => {
+                "unexpected_media_type"
+            }
+            PleQuestionBackendError::QuestionSourceDocument(error) => match error {
+                PleQuestionJsonError::TooLarge => "document_too_large",
+                PleQuestionJsonError::MalformedJson(_) => "malformed_json",
+                PleQuestionJsonError::UnsupportedFormat => "unsupported_format",
+                PleQuestionJsonError::InvalidDocument(_) => "invalid_document",
+                PleQuestionJsonError::InvalidQuestionTitle(_) => "invalid_question_title",
+                PleQuestionJsonError::PublicContentChecksumMismatch => {
+                    "public_content_checksum_mismatch"
+                }
+                PleQuestionJsonError::Grading(_) => "invalid_grading",
+                PleQuestionJsonError::Encoding(_) => "document_encoding",
+            },
+            PleQuestionBackendError::UnknownQuestionBackendVersion { .. } => {
+                "unknown_backend_version"
+            }
+            PleQuestionBackendError::UnknownQuestionGraderVersion { .. } => {
+                "unknown_grader_version"
+            }
+            PleQuestionBackendError::Serialization(_) => "serialization",
+            PleQuestionBackendError::ReproductionMismatch { .. } => "reproduction_mismatch",
+        };
+        tracing::error!(
+            event = "student_assessment_start_failed",
+            stage = "resolve_ple_source",
+            error_kind,
+        );
+        StartError::Unavailable
+    })
 }
 
 // Route handlers return this response immediately; boxing it would add an

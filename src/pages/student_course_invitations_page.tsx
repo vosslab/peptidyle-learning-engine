@@ -5,13 +5,12 @@ import { createResource, type JSX } from "solid-js";
 
 import type { LiveStudentCourseInvitationSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { byStudentCourseNameThenId, studentInvitationFields } from "./student_collection_fields";
-import { type RecordContent } from "../components/record_list/record_list";
-
+import type { RecordContent } from "../components/data_sheet/record_content";
 function invitationContent(invitation: LiveStudentCourseInvitationSummary): RecordContent {
   return {
     title: invitation.longName,
@@ -51,7 +50,12 @@ export function StudentCourseInvitationsPage(): JSX.Element {
     ),
   );
   const invitationSearch = createLocalCompleteSearch(
-    { resource: invitations, refetchSource: refetch, rows: (value) => value },
+    {
+      rows: invitations,
+      loading: () => invitations.loading,
+      error: (): unknown => invitations.error,
+      refetchSource: refetch,
+    },
     {
       fields: studentInvitationFields,
       rowId: (invitation) => invitation.id,

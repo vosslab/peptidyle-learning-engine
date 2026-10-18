@@ -80,7 +80,10 @@ fn search_result(
     evidence: QuestionStatistics,
 ) -> QuestionSearchResult {
     QuestionSearchResult {
+        native_prompt: (resolved.summary.backend == question_model::QuestionBackend::Ple)
+            .then_some(resolved.prompt),
         summary: resolved.summary,
+        question_thumbnail: resolved.question_thumbnail,
         discipline_name: resolved.discipline.unwrap_or_default(),
         discipline_is_retired: resolved.discipline_is_retired,
         evidence,

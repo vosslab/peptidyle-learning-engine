@@ -31,14 +31,7 @@ function errorFor(
   localErrors: MultipleAnswerValidation,
   path: string,
 ): string | undefined {
-  return props.fieldErrors?.[path] ?? localErrors[path];
-}
-
-function choiceTextError(
-  props: PleQuestionJsonMultipleAnswerEditorProps,
-  choice: PleQuestionJsonChoice,
-): string | undefined {
-  return props.fieldErrors?.[`choices.${choice.id}.text`];
+  return localErrors[path] ?? props.fieldErrors?.[`response.${path}`];
 }
 
 /**
@@ -94,7 +87,8 @@ export function PleQuestionJsonMultipleAnswerEditor(
               if (current === undefined) throw new Error("Choice identity is unavailable.");
               return current;
             };
-            const textError = (): string | undefined => choiceTextError(props, choice());
+            const textError = (): string | undefined =>
+              props.fieldErrors?.[`response.choices[${index()}].text`];
             const correct = (): boolean => props.response().correctChoices.includes(choiceId);
             return (
               <li class="ple-question-json-authoring__choice">

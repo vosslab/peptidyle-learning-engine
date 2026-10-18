@@ -9,22 +9,20 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    LibraryWatchActivity, LibraryWatchCursorPosition, LibraryWatchDirection, LibraryWatchEventKind,
-    LibraryWatchFacetCount, LibraryWatchInboxQuery, LibraryWatchInboxStore,
-    LibraryWatchNotification, LibraryWatchTargetKind, SessionStore, SessionTokenHash, StoreError,
+    LibraryWatchActivity, LibraryWatchDirection, LibraryWatchEventKind, LibraryWatchFacetCount,
+    LibraryWatchInboxQuery, LibraryWatchInboxStore, LibraryWatchNotification,
+    LibraryWatchTargetKind, NumberedPageRequest, PageNumber, PageSize, SessionStore,
+    SessionTokenHash, StoreError,
     postgres::{PostgresLibraryWatchNotificationStore, PostgresSessionStore},
 };
 use question_model::UserRole;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
 
-const DEFAULT_LIMIT: u16 = 25;
-const MAX_LIMIT: u16 = 250;
+const DEFAULT_PAGE_SIZE: u16 = 50;
 
 #[derive(Clone)]
 struct RouteState {
@@ -44,8 +42,10 @@ pub fn library_watch_notification_router(
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct InboxResponse {
-    notifications: Vec<NotificationResponse>,
-    next_cursor: Option<String>,
+    items: Vec<NotificationResponse>,
+    page_number: u32,
+    page_size: u16,
+    total_count: u64,
     target_kind_facets: Vec<FacetResponse>,
     event_kind_facets: Vec<FacetResponse>,
 }
@@ -159,92 +159,13 @@ impl From<LibraryWatchNotification> for NotificationResponse {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct WatchCursor {
-    version: u8,
-    query_digest: [u8; 32],
-    occurred_at: String,
-    event_id: Uuid,
-}
-
 #[derive(Debug)]
 struct ParsedQuery {
     search: String,
     target_kinds: Vec<LibraryWatchTargetKind>,
     event_kinds: Vec<LibraryWatchEventKind>,
     direction: LibraryWatchDirection,
-    cursor: Option<String>,
-    limit: u16,
-}
-
-fn query_digest(query: &ParsedQuery, session: SessionTokenHash) -> [u8; 32] {
-    let keys = (
-        &query.search,
-        query
-            .target_kinds
-            .iter()
-            .map(|kind| match kind {
-                LibraryWatchTargetKind::Question => "question",
-                LibraryWatchTargetKind::QuestionPool => "questionPool",
-            })
-            .collect::<Vec<_>>(),
-        query
-            .event_kinds
-            .iter()
-            .map(|kind| match kind {
-                LibraryWatchEventKind::Revision => "revision",
-                LibraryWatchEventKind::MembersChanged => "membersChanged",
-                LibraryWatchEventKind::Fork => "fork",
-            })
-            .collect::<Vec<_>>(),
-        query.direction == LibraryWatchDirection::Ascending,
-        query.limit,
-        session.to_string(),
-    );
-    Sha256::digest(serde_json::to_vec(&keys).expect("Watch query serializes")).into()
-}
-
-fn cursor_position(
-    query: &ParsedQuery,
-    session: SessionTokenHash,
-) -> Result<Option<LibraryWatchCursorPosition>, Box<Response>> {
-    let Some(token) = query.cursor.as_deref() else {
-        return Ok(None);
-    };
-    if token.len() > 1024 {
-        return Err(Box::new(invalid()));
-    }
-    let bytes = URL_SAFE_NO_PAD
-        .decode(token)
-        .map_err(|_| Box::new(invalid()))?;
-    if bytes.len() > 768 || URL_SAFE_NO_PAD.encode(&bytes) != token {
-        return Err(Box::new(invalid()));
-    }
-    let cursor: WatchCursor = serde_json::from_slice(&bytes).map_err(|_| Box::new(invalid()))?;
-    let valid_time = chrono::DateTime::parse_from_rfc3339(&cursor.occurred_at)
-        .is_ok_and(|at| at.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string() == cursor.occurred_at);
-    if cursor.version != 1 || cursor.query_digest != query_digest(query, session) || !valid_time {
-        return Err(Box::new(invalid()));
-    }
-    Ok(Some(LibraryWatchCursorPosition {
-        occurred_at: cursor.occurred_at,
-        event_id: cursor.event_id,
-    }))
-}
-
-fn encode_cursor(
-    query: &ParsedQuery,
-    session: SessionTokenHash,
-    position: LibraryWatchCursorPosition,
-) -> String {
-    let cursor = WatchCursor {
-        version: 1,
-        query_digest: query_digest(query, session),
-        occurred_at: position.occurred_at,
-        event_id: position.event_id,
-    };
-    URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("Watch cursor serializes"))
+    page: NumberedPageRequest,
 }
 
 async fn read_inbox(State(state): State<RouteState>, request: Request) -> Response {
@@ -257,17 +178,12 @@ async fn read_inbox(State(state): State<RouteState>, request: Request) -> Respon
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let after = match cursor_position(&query, session) {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
     let store_query = LibraryWatchInboxQuery {
         search: query.search.clone(),
         target_kinds: query.target_kinds.clone(),
         event_kinds: query.event_kinds.clone(),
         direction: query.direction,
-        after,
-        limit: query.limit,
+        page: query.page.clone(),
     };
     match state
         .inbox
@@ -276,10 +192,10 @@ async fn read_inbox(State(state): State<RouteState>, request: Request) -> Respon
     {
         Ok(page) => crate::auth::no_store(
             Json(InboxResponse {
-                notifications: page.notifications.into_iter().map(Into::into).collect(),
-                next_cursor: page
-                    .next_position
-                    .map(|position| encode_cursor(&query, session, position)),
+                items: page.page.items.into_iter().map(Into::into).collect(),
+                page_number: page.page.page_number.get(),
+                page_size: page.page.page_size.get(),
+                total_count: page.page.total_count,
                 target_kind_facets: page
                     .target_kind_facets
                     .into_iter()
@@ -299,8 +215,9 @@ fn parse_query(raw_query: Option<&str>) -> Result<ParsedQuery, Box<Response>> {
         target_kinds: Vec::new(),
         event_kinds: Vec::new(),
         direction: LibraryWatchDirection::Descending,
-        cursor: None,
-        limit: DEFAULT_LIMIT,
+        page: NumberedPageRequest::first(
+            PageSize::new(DEFAULT_PAGE_SIZE).expect("valid default page size"),
+        ),
     };
     let Some(raw) = raw_query.filter(|value| !value.is_empty()) else {
         return Ok(query);
@@ -336,15 +253,19 @@ fn parse_query(raw_query: Option<&str>) -> Result<ParsedQuery, Box<Response>> {
                     _ => return Err(Box::new(invalid())),
                 }
             }
-            "cursor" if seen.insert("cursor") && !value.is_empty() => {
-                query.cursor = Some(value.into_owned())
+            "pageNumber" if seen.insert("pageNumber") => {
+                query.page.page_number = value
+                    .parse::<u32>()
+                    .ok()
+                    .and_then(|value| PageNumber::new(value).ok())
+                    .ok_or_else(|| Box::new(invalid()))?;
             }
-            "limit" if seen.insert("limit") => {
-                query.limit = value
+            "pageSize" if seen.insert("pageSize") => {
+                query.page.page_size = value
                     .parse::<u16>()
                     .ok()
-                    .filter(|value| (1..=MAX_LIMIT).contains(value))
-                    .ok_or_else(|| Box::new(invalid()))?
+                    .and_then(|value| PageSize::new(value).ok())
+                    .ok_or_else(|| Box::new(invalid()))?;
             }
             _ => return Err(Box::new(invalid())),
         }

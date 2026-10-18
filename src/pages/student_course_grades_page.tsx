@@ -7,10 +7,10 @@ import type {
   LiveStudentCourseLandingSummary,
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import {
   byStudentCrossCourseTitleThenId,
   studentCrossCourseAssessmentId,
@@ -22,7 +22,7 @@ import {
   loadStudentCrossCourseCollection,
   visibleStudentScores,
 } from "./student_cross_course_collection";
-import { type RecordContent } from "../components/record_list/record_list";
+import type { RecordContent } from "../components/data_sheet/record_content";
 import { formatPointScore } from "../score_format";
 
 function scoreContent(assessment: LiveStudentAssessmentLandingSummary): RecordContent {
@@ -59,9 +59,13 @@ function CrossCourseScores(props: {
   );
   const scoreSearch = createLocalCompleteSearch(
     {
-      resource: scores,
+      rows: () => {
+        const source = scores();
+        return source === undefined ? undefined : byStudentCrossCourseTitleThenId(source.rows);
+      },
+      loading: () => scores.loading,
+      error: (): unknown => scores.error,
       refetchSource: refetch,
-      rows: (source) => byStudentCrossCourseTitleThenId(source.rows),
     },
     {
       fields: studentCrossCourseScoreFields,

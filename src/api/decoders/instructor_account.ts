@@ -83,7 +83,25 @@ export function decodeInstructorAccountList(
   path = "response",
 ): InstructorAccountList {
   const record = decodeRecord(value, path);
-  only(record, path, ["accounts", "displayTimeZone", "nextCursor", "stateChoices"]);
+  only(record, path, [
+    "items",
+    "pageNumber",
+    "pageSize",
+    "totalCount",
+    "displayTimeZone",
+    "stateChoices",
+  ]);
+  const pageNumber = decodeSafeInteger(field(record, "pageNumber", path), `${path}.pageNumber`);
+  const pageSize = decodeSafeInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeSafeInteger(field(record, "totalCount", path), `${path}.totalCount`);
+  if (
+    pageNumber < 1 ||
+    (pageSize !== 50 && pageSize !== 100) ||
+    totalCount < 0 ||
+    pageNumber > Math.max(1, Math.ceil(totalCount / pageSize))
+  ) {
+    throw new DecodeError(path, "valid Instructor Account numbered-page metadata");
+  }
   const stateChoices = decodeArray(
     field(record, "stateChoices", path),
     `${path}.stateChoices`,
@@ -96,14 +114,16 @@ export function decodeInstructorAccountList(
       };
     },
   );
+  const items = decodeArray(field(record, "items", path), `${path}.items`, summary);
+  if (items.length > pageSize || stateChoices.some((choice) => choice.count < 0)) {
+    throw new DecodeError(path, "bounded Instructor Account page rows and nonnegative facets");
+  }
   return {
-    accounts: decodeArray(field(record, "accounts", path), `${path}.accounts`, summary),
+    items,
+    pageNumber,
+    pageSize,
+    totalCount,
     displayTimeZone: zone(field(record, "displayTimeZone", path), `${path}.displayTimeZone`),
-    nextCursor: decodeNullable(
-      field(record, "nextCursor", path),
-      `${path}.nextCursor`,
-      decodeString,
-    ),
     stateChoices,
   };
 }

@@ -1,16 +1,19 @@
 // library_page_model.ts - bounded, transport-validated Question Library browse state.
 
-import type { SearchState } from "../features/search/search_session";
+import type { SearchPageRequest } from "../components/search_block/search_session";
 import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
-import type { RecordFilterChoices } from "../components/record_list/record_fields";
-import type { RecordPageSize } from "../components/record_list/record_page_sizes";
+import type { RecordFilterChoices } from "../components/data_sheet/record_fields";
+import type { RecordPageSize } from "../components/data_sheet/record_page_sizes";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import {
   EMPTY_LIBRARY_CLASSIFICATION_FILTER,
   libraryClassificationFilter,
   type LibraryClassificationFilter,
 } from "../api/library_classification_filter";
+import { decodeQuestionNativePrompt } from "../api/decoders/question_native_prompt";
+import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
+import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { LibraryObjectSearchSort } from "../../generated/api/LibraryObjectSearchSort";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
@@ -27,7 +30,6 @@ import {
   BLOOM_COGNITIVE_PROCESSES,
   BLOOM_KNOWLEDGE_DIMENSIONS,
 } from "../api/decoders/bloom_classification";
-import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS";
 import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FACETS";
 import { MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS } from "../api/decoders/question_type_facets";
@@ -50,6 +52,9 @@ export interface QuestionLibraryBrowseRow {
   readonly displayId: string;
   /** Exact immutable revision selected by this browse result. */
   readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
+  /** Registered thumbnail relation for this exact revision, when present. */
+  readonly questionThumbnail: PublishedQuestionRevisionTuple | null;
+  readonly nativePrompt: ReadonlyArray<QuestionContentBlock> | null;
   readonly questionTitle: string;
   readonly summary: string;
   /** Display-only Bloom projection for the exact Question Revision, when assigned. */
@@ -103,7 +108,7 @@ export interface QuestionLibraryPoolRow extends LibraryObjectCommonRow {
   readonly subtopicUuid: string | null;
 }
 
-/** The Library alone admits both kinds. Pickers continue to use QuestionLibraryBrowseRow. */
+/** Answer-free Question and Pool rows for Library and Assessment discovery. */
 export type LibrarySearchRow = LibraryObjectQuestionRow | QuestionLibraryPoolRow;
 
 /**
@@ -166,30 +171,24 @@ export const NO_QUESTION_LIBRARY_FACET_TRUNCATION: QuestionLibraryFacetTruncatio
 
 export interface QuestionLibraryBrowsePage {
   readonly items: ReadonlyArray<QuestionLibraryBrowseRow>;
-  readonly nextCursor: string | null;
   readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
   readonly facetTruncation: QuestionLibraryFacetTruncation;
 }
 
 export interface LibrarySearchPage extends Omit<QuestionLibraryBrowsePage, "items"> {
   readonly items: ReadonlyArray<LibrarySearchRow>;
+  readonly pageNumber: number;
+  readonly pageSize: QuestionLibraryPageSize;
+  readonly totalCount: number;
 }
 
 /** Shared discovery choices. The repository sends one of these sizes on each search. */
 export type QuestionLibraryPageSize = RecordPageSize;
 
-/** Cursor sequence for the current query and page size. The first page uses a null input cursor. */
-export interface QuestionLibraryBrowsePosition {
-  readonly pageSize: QuestionLibraryPageSize;
-  readonly inputCursor: string | null;
-  readonly previousCursors: ReadonlyArray<string | null>;
+/** Optional query eligibility for callers that need to exclude exact Questions before paging. */
+export interface QuestionLibrarySearchEligibility {
+  readonly excludedQuestionIds?: ReadonlyArray<PublishedQuestionId>;
 }
-
-export const FIRST_QUESTION_LIBRARY_BROWSE_POSITION: QuestionLibraryBrowsePosition = {
-  pageSize: 50,
-  inputCursor: null,
-  previousCursors: [],
-};
 
 /**
  * The production Question Library repository adapts to this narrow boundary. A hostile result is
@@ -198,8 +197,8 @@ export const FIRST_QUESTION_LIBRARY_BROWSE_POSITION: QuestionLibraryBrowsePositi
 export interface QuestionLibraryBrowseRepository {
   readonly search: (
     query: QuestionLibraryBrowseQuery,
-    cursor: string | null,
-    pageSize?: QuestionLibraryPageSize,
+    page: SearchPageRequest,
+    eligibility?: QuestionLibrarySearchEligibility,
   ) => Promise<unknown>;
   readonly listFacetChoices: (
     field: LibraryFacetField,
@@ -213,12 +212,6 @@ export interface QuestionLibraryFilterCounts {
   readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
   readonly facetTruncation: QuestionLibraryFacetTruncation;
 }
-
-export type QuestionLibraryBrowseState = SearchState<
-  QuestionLibraryBrowseRow,
-  QuestionLibraryFilterCounts
->;
-export type LibrarySearchState = SearchState<LibrarySearchRow, QuestionLibraryFilterCounts>;
 
 const MAX_TEXT_LENGTH = 512;
 const MAX_SUMMARY_LENGTH = 4_000;
@@ -282,6 +275,8 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
     "displayId",
     "questionLicense",
     "questionFormat",
+    "questionThumbnail",
+    "nativePrompt",
     "publishedQuestionRevisionTuple",
     "summary",
     "bloom",
@@ -331,10 +326,27 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       `${path}.publishedQuestionRevisionTuple.publishedQuestionId must match displayId`,
     );
   }
+  const questionThumbnail =
+    value["questionThumbnail"] === null
+      ? null
+      : decodePublishedQuestionRevisionTuple(
+          value["questionThumbnail"],
+          `${path}.questionThumbnail`,
+          true,
+        );
+  if (
+    questionThumbnail !== null &&
+    (questionThumbnail.publishedQuestionId !== publishedQuestionRevisionTuple.publishedQuestionId ||
+      questionThumbnail.revisionNumber !== publishedQuestionRevisionTuple.revisionNumber)
+  ) {
+    throw new Error(`${path}.questionThumbnail must match the exact Question revision`);
+  }
   return {
     kind: "question",
     displayId,
     publishedQuestionRevisionTuple,
+    questionThumbnail,
+    nativePrompt: decodeQuestionNativePrompt(value["nativePrompt"], `${path}.nativePrompt`),
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
     bloom:
@@ -554,57 +566,51 @@ function validateAggregateGroupCaps(
   }
 }
 
-/** Strictly decode the live/generated-client result before browser presentation. */
-export function decodeQuestionLibraryBrowsePage(value: unknown): QuestionLibraryBrowsePage {
+/** Strictly decodes the numbered mixed Library page before browser presentation. */
+export function decodeLibrarySearchPage(value: unknown): LibrarySearchPage {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, ["aggregates", "facetTruncation", "items", "nextCursor"])
-  ) {
-    throw new Error("Question Library response has an unexpected shape");
-  }
-  if (
-    !Array.isArray(value["items"]) ||
-    value["items"].length > MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS ||
-    !Array.isArray(value["aggregates"])
+    !hasExactKeys(value, [
+      "aggregates",
+      "facetTruncation",
+      "items",
+      "pageNumber",
+      "pageSize",
+      "totalCount",
+    ])
   ) {
     throw new Error("Question Library response arrays are invalid");
   }
-  const nextCursor = value["nextCursor"];
+  const itemsValue = value["items"];
+  const pageNumber = value["pageNumber"];
+  const pageSize = value["pageSize"];
+  const totalCount = value["totalCount"];
+  const aggregatesValue = value["aggregates"];
   if (
-    nextCursor !== null &&
-    (typeof nextCursor !== "string" ||
-      nextCursor.length === 0 ||
-      nextCursor.length > MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES)
+    !Array.isArray(itemsValue) ||
+    itemsValue.length > MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS ||
+    !Array.isArray(aggregatesValue) ||
+    !Number.isSafeInteger(pageNumber) ||
+    Number(pageNumber) < 1 ||
+    !Number.isSafeInteger(pageSize) ||
+    ![50, 100, 250].includes(Number(pageSize)) ||
+    !Number.isSafeInteger(totalCount) ||
+    Number(totalCount) < 0 ||
+    Number(pageNumber) > Math.max(1, Math.ceil(Number(totalCount) / Number(pageSize)))
   ) {
-    throw new Error("Question Library response cursor is invalid");
+    throw new Error("Question Library response arrays are invalid");
   }
-  const aggregates = value["aggregates"].map((item, index) =>
+  const aggregates = aggregatesValue.map((item, index) =>
     decodeAggregate(item, `aggregates[${index}]`),
   );
   validateAggregateGroupCaps(aggregates);
   return {
-    items: value["items"].map((item, index) => decodeRow(item, `items[${index}]`)),
-    nextCursor,
+    pageNumber: Number(pageNumber),
+    pageSize: Number(pageSize) as QuestionLibraryPageSize,
+    totalCount: Number(totalCount),
     aggregates,
     facetTruncation: decodeFacetTruncation(value["facetTruncation"]),
-  };
-}
-
-/** Strictly decodes the mixed Library page while retaining the Question-only picker decoder. */
-export function decodeLibrarySearchPage(value: unknown): LibrarySearchPage {
-  const page = decodeQuestionLibraryBrowsePage({
-    ...(isRecord(value) ? value : {}),
-    items: [],
-  });
-  if (!isRecord(value) || !Array.isArray(value["items"])) {
-    throw new Error("Question Library response arrays are invalid");
-  }
-  if (value["items"].length > MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS) {
-    throw new Error("Question Library response arrays are invalid");
-  }
-  return {
-    ...page,
-    items: value["items"].map((item, index) => {
+    items: itemsValue.map((item, index) => {
       if (!isRecord(item)) throw new Error(`items[${index}] has an unexpected shape`);
       if (item["kind"] === "pool") return decodePoolRow(item, `items[${index}]`);
       if (item["kind"] === "question")

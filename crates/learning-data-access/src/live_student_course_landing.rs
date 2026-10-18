@@ -266,8 +266,8 @@ pub trait LiveStudentCourseLandingStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         query: StudentAttemptHistoryQuery,
-        page: crate::PageRequest,
-    ) -> Result<crate::Page<LiveStudentAttemptHistoryEntry>, StoreError>;
+        page: crate::NumberedPageRequest,
+    ) -> Result<crate::NumberedPage<LiveStudentAttemptHistoryEntry, crate::PageSize>, StoreError>;
 
     /// Counts whole-result facet choices under the same Student authorization.
     async fn list_student_attempt_history_facet_choices(

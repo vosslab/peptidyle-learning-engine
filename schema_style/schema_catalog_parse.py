@@ -126,8 +126,8 @@ def _dispatch_statement(
 	if head[:2] == ["CREATE", "INDEX"] or head[:3] == ["CREATE", "UNIQUE", "INDEX"]:
 		_parse_create_index(file_name, start_line, statement, catalog)
 		return
-	if head[:2] == ["ALTER", "TABLE"] and "FOREIGN KEY" in statement.upper():
-		_parse_alter_foreign_key(file_name, start_line, statement, catalog)
+	if head[:2] == ["ALTER", "TABLE"]:
+		_parse_alter_foreign_keys(file_name, start_line, statement, catalog)
 		return
 	if head[:3] == ["COMMENT", "ON", "TABLE"]:
 		_parse_comment_on_table(statement, catalog)
@@ -620,14 +620,14 @@ def _parse_create_index(
 
 
 #============================================
-def _parse_alter_foreign_key(
+def _parse_alter_foreign_keys(
 		file_name: str,
 		start_line: int,
 		statement: str,
 		catalog: dict,
 		) -> None:
 	"""
-	Parse ALTER TABLE ... ADD [CONSTRAINT name] FOREIGN KEY.
+	Parse every ADD [CONSTRAINT name] FOREIGN KEY action in ALTER TABLE.
 
 	Args:
 		file_name: SQL basename.
@@ -638,15 +638,23 @@ def _parse_alter_foreign_key(
 	index = schema_catalog_scan._skip_keywords(statement, 0, ["ALTER", "TABLE"])
 	index = schema_catalog_scan._skip_keywords(statement, index, ["ONLY"])
 	table_name, index = schema_catalog_scan._read_qualified_name(statement, index)
-	fk_match = re.search(r"\bFOREIGN\s+KEY\b", statement, re.IGNORECASE)
-	if not fk_match:
-		return
-	fk = _parse_foreign_key_clause(statement[fk_match.start():], file_name, start_line)
-	if fk is None:
-		return
 	if table_name not in catalog["tables"]:
 		return
-	catalog["tables"][table_name]["foreign_keys"].append(fk)
+	for part in schema_catalog_scan._split_top_level_commas(statement[index:]):
+		action_index, _line = schema_catalog_scan._skip_trivia(part, 0, 1)
+		action = part[action_index:]
+		if _leading_keywords(action, 1) != ["ADD"]:
+			continue
+		action_index = schema_catalog_scan._skip_keywords(action, 0, ["ADD"])
+		action_index, _line = schema_catalog_scan._skip_trivia(action, action_index, 1)
+		clause = _strip_constraint_name(action[action_index:])
+		clause_index, _line = schema_catalog_scan._skip_trivia(clause, 0, 1)
+		clause = clause[clause_index:]
+		if _leading_keywords(clause, 2) != ["FOREIGN", "KEY"]:
+			continue
+		fk = _parse_foreign_key_clause(clause, file_name, start_line)
+		if fk is not None:
+			catalog["tables"][table_name]["foreign_keys"].append(fk)
 
 
 #============================================
@@ -769,6 +777,7 @@ def _strip_constraint_name(item: str) -> str:
 	if not item[index:].upper().startswith("CONSTRAINT"):
 		return item
 	index = schema_catalog_scan._skip_keywords(item, index, ["CONSTRAINT"])
+	index, _line = schema_catalog_scan._skip_trivia(item, index, 1)
 	_name, index = schema_catalog_scan._read_ident(item, index)
 	rest = item[index:].strip()
 	return rest

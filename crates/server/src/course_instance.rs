@@ -17,8 +17,8 @@ use axum::{
     routing::{get, post, put},
 };
 use learning_data_access::{
-    CourseInstanceStore, CreateCourseInstanceInput, Cursor, DiscoveryPageRequest,
-    DiscoveryPageSize, SessionTokenHash, StoreError,
+    CourseInstanceStore, CreateCourseInstanceInput, DiscoveryPageSize,
+    NumberedDiscoveryPageRequest, PageNumber, SessionTokenHash, StoreError,
     postgres::{PostgresCourseInstanceStore, PostgresSessionStore},
 };
 use question_model::{CourseInstanceId, CourseInstanceRouteSummary, UserRole};
@@ -268,7 +268,7 @@ async fn list_course_creation_instructors(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct InstallationCourseSearch {
     query: String,
-    cursor: Option<String>,
+    page_number: Option<u32>,
     #[serde(default)]
     page_size: Option<u16>,
     sort: String,
@@ -279,7 +279,7 @@ struct InstallationCourseSearch {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct InstallationCourseListQuery {
-    cursor: Option<String>,
+    page_number: Option<u32>,
     page_size: Option<u16>,
 }
 
@@ -287,7 +287,9 @@ struct InstallationCourseListQuery {
 #[serde(rename_all = "camelCase")]
 struct InstallationCourseListResponse {
     courses: Vec<learning_data_access::InstallationCourseInspection>,
-    next_cursor: Option<String>,
+    page_number: PageNumber,
+    page_size: DiscoveryPageSize,
+    total_count: u64,
     activity_choices: Vec<InstallationCourseChoice>,
     retention_choices: Vec<InstallationCourseChoice>,
 }
@@ -304,8 +306,8 @@ async fn list_installation_courses(
     headers: HeaderMap,
     query: Result<Query<InstallationCourseListQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Response {
-    let (cursor, page_size) = match query {
-        Ok(Query(query)) => (query.cursor, query.page_size.unwrap_or(50)),
+    let (page_number, page_size) = match query {
+        Ok(Query(query)) => (query.page_number, query.page_size.unwrap_or(50)),
         Err(_) => {
             return route_error(
                 StatusCode::BAD_REQUEST,
@@ -319,7 +321,7 @@ async fn list_installation_courses(
         &headers,
         InstallationCourseSearch {
             query: String::new(),
-            cursor,
+            page_number,
             page_size: Some(page_size),
             sort: "nameAscending".to_owned(),
             activity: vec![],
@@ -382,23 +384,18 @@ async fn installation_courses_response(
             );
         }
     };
-    let page = match input.cursor {
-        Some(value) if value.len() <= 4096 => match Cursor::parse(value) {
-            Ok(cursor) => DiscoveryPageRequest::after(cursor, size),
-            Err(_) => {
-                return route_error(
-                    StatusCode::BAD_REQUEST,
-                    "installation Course cursor is invalid",
-                );
-            }
-        },
-        Some(_) => {
+    let page_number = match PageNumber::new(input.page_number.unwrap_or(1)) {
+        Ok(page_number) => page_number,
+        Err(_) => {
             return route_error(
                 StatusCode::BAD_REQUEST,
-                "installation Course cursor is invalid",
+                "installation Course page number is invalid",
             );
         }
-        None => DiscoveryPageRequest::first(size),
+    };
+    let page = NumberedDiscoveryPageRequest {
+        page_number,
+        page_size: size,
     };
     match state
         .courses
@@ -434,7 +431,9 @@ async fn installation_courses_response(
             crate::auth::no_store(
                 Json(InstallationCourseListResponse {
                     courses: page.items,
-                    next_cursor: page.next_cursor.map(|cursor| cursor.as_str().to_owned()),
+                    page_number: page.page_number,
+                    page_size: page.page_size,
+                    total_count: page.total_count,
                     activity_choices: choices("activity"),
                     retention_choices: choices("retention"),
                 })

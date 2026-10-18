@@ -53,7 +53,7 @@ import { decodePositiveQuestionRevisionNumber, decodeQuestionId } from "../api/d
 import { PLE_QUESTION_JSON_EDITOR_STYLES } from "../features/ple_question_json_authoring/question_json_editor_styles";
 import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
 import { useWasmFacade } from "../wasm/context";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import {
   useClearRouteScopeLabels,
   usePublishRouteScopeLabels,

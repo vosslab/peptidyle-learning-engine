@@ -44,6 +44,16 @@ cross-Student render cache, replay map, or control-specific prefetch layer.
 Whether another backend can safely cache a presentation is owned by that
 backend's explicit contract and must preserve Student isolation.
 
+## Published Question thumbnails
+
+The approved WeBWorK Question thumbnail is an immutable artifact generated at
+publication for the exact published Revision. Library browsing reads that
+artifact through existing Library/object-delivery boundaries. It is not a
+render cache, does not cause a render on cache miss, and does not add a
+browsing-triggered job. Existing cache contracts above remain separate.
+Implementation and acceptance are owned by M19-M22 in the active
+[modular_ui_architecture_completion_plan.md](active_plans/active/modular_ui_architecture_completion_plan.md).
+
 ## Refusal behavior
 
 - A foreign Account, Course, Student record, or Attempt is refused before cache

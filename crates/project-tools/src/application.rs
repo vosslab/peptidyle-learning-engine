@@ -20,7 +20,7 @@ use wasm_bindgen_cli_support::Bindgen;
 
 use project_tools::tsgen;
 
-use crate::{database, installation_data};
+use crate::{database, installation_data, question_thumbnails};
 
 /// Rust roots that own generated browser contract declarations, relative to the repo root.
 const DEFAULT_CONTRACT_ROOTS: [&str; 2] = [
@@ -38,13 +38,16 @@ const DEFAULT_TS_OUT_DIR: &str = "generated/api";
 pub(crate) fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(command) = args.first() else {
-        bail!("usage: cargo tools <bindgen|database|installation-data|tsgen> ...");
+        bail!(
+            "usage: cargo tools <bindgen|database|installation-data|question-thumbnails|tsgen> ..."
+        );
     };
 
     match command.as_str() {
         "bindgen" => run_bindgen(&args[1..]),
         "database" => database::run(&args[1..]),
         "installation-data" => installation_data::run(&args[1..]),
+        "question-thumbnails" => question_thumbnails::run(&args[1..]),
         "tsgen" => run_tsgen(&args[1..]),
         other => bail!("unknown command: {other}"),
     }

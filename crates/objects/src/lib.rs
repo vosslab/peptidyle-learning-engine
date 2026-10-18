@@ -19,6 +19,8 @@ pub mod memory;
 pub mod minio;
 /// Trusted immutable Question Source object resolution.
 pub mod question_source;
+/// Validated lossy WebP bytes for publication Question Thumbnails.
+pub mod question_thumbnail;
 /// S3-compatible object-store backend.
 pub mod s3;
 
@@ -28,6 +30,7 @@ pub use crate::bucket::{
     published_import_archive_object_id, workspace_qti_archive_object_id,
 };
 pub use crate::question_source::{QuestionSourceResolutionError, ResolvedQuestionSource};
+pub use crate::question_thumbnail::PreparedQuestionThumbnail;
 
 /// SHA-256 bytes recorded with every object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -5,7 +5,6 @@ use question_model::{
     AccountId, BlueprintCourseRevisionTuple, BlueprintRevisionNumber, CourseDate, CourseInstanceId,
     CourseMembershipRole, CourseSummary, CourseTerm, Theme,
 };
-use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
@@ -14,9 +13,9 @@ use crate::course_instance::CourseInstanceBlueprintOrigin;
 use crate::{
     CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceLifecycleState,
     CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CourseRetentionLifecycleState,
-    CreateCourseInstanceInput, CreatedCourseInstance, Cursor, DiscoveryPageRequest,
-    InstallationCourseFacetChoice, InstallationCourseInspection, Page, SessionTokenHash,
-    StoreError,
+    CreateCourseInstanceInput, CreatedCourseInstance, InstallationCourseFacetChoice,
+    InstallationCourseInspection, NumberedDiscoveryPageRequest, NumberedPage, PageNumber,
+    SessionTokenHash, StoreError,
 };
 
 const COURSE_CREATION_IDENTITY_ATTEMPTS: usize = 8;
@@ -29,24 +28,12 @@ const LOAD_COURSE_INSTANCE_SQL: &str = "SELECT course_instance_id, short_name, l
      FROM ple_api.load_course_instance($1)";
 const LIST_INSTALLATION_COURSES_SQL: &str = "SELECT course_instance_id, short_name, long_name, \
      term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, \
-     course_lifecycle_state, retention_lifecycle_state, instructor_display_names, cursor_long_name \
-     FROM ple_api.list_installation_courses($1, $2, $3, $4, $5, $6, $7)";
+     course_lifecycle_state, retention_lifecycle_state, instructor_display_names, total_count, resolved_page_number \
+     FROM ple_api.list_installation_courses($1, $2, $3, $4, $5, $6)";
 const LOAD_INSTALLATION_COURSE_SQL: &str = "SELECT course_instance_id, short_name, long_name, \
      term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, \
      course_lifecycle_state, retention_lifecycle_state, instructor_display_names \
      FROM ple_api.load_installation_course($1)";
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct InstallationCourseCursor {
-    query: String,
-    sort: String,
-    activity: Vec<String>,
-    retention: Vec<String>,
-    page_size: u16,
-    long_name: String,
-    course_instance_id: String,
-}
-
 /// PostgreSQL Store for Course Instance creation and current Teaching Team reads.
 #[derive(Clone)]
 pub struct PostgresCourseInstanceStore {
@@ -389,87 +376,56 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         sort: &str,
         activity: &[String],
         retention: &[String],
-        page: DiscoveryPageRequest,
-    ) -> Result<Page<InstallationCourseInspection>, StoreError> {
+        page: NumberedDiscoveryPageRequest,
+    ) -> Result<NumberedPage<InstallationCourseInspection, crate::DiscoveryPageSize>, StoreError>
+    {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        let position = page
-            .after
-            .as_ref()
-            .map(|cursor| {
-                if cursor.as_str().len() > 4096 {
-                    return Err(invalid("installation Course cursor"));
-                }
-                let position = serde_json::from_str::<InstallationCourseCursor>(cursor.as_str())
-                    .map_err(|_| invalid("installation Course cursor"))?;
-                if position.query != query
-                    || position.sort != sort
-                    || position.activity != activity
-                    || position.retention != retention
-                    || position.page_size != page.size.get()
-                    || position.long_name.is_empty()
-                    || position.long_name != position.long_name.trim()
-                    || position.long_name.chars().count() > 200
-                {
-                    return Err(invalid("installation Course cursor"));
-                }
-                course_instance_id(position.course_instance_id.clone())?;
-                Ok(position)
-            })
-            .transpose()?;
         let rows = sqlx::query(LIST_INSTALLATION_COURSES_SQL)
             .bind(query)
-            .bind(
-                position
-                    .as_ref()
-                    .map(|position| position.long_name.as_str()),
-            )
-            .bind(
-                position
-                    .as_ref()
-                    .map(|position| position.course_instance_id.as_str()),
-            )
-            .bind(i32::from(page.size.get()))
+            .bind(i64::from(page.page_number.get()))
+            .bind(i32::from(page.page_size.get()))
             .bind(sort)
             .bind(activity)
             .bind(retention)
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        let page_size = usize::from(page.size.get());
-        if rows.len() > page_size + 1 {
-            return Err(invalid("installation Course page"));
+        let metadata = rows
+            .first()
+            .ok_or_else(|| invalid("installation Course page metadata"))?;
+        let total_count = u64::try_from(
+            metadata
+                .try_get::<i64, _>("total_count")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("installation Course result count"))?;
+        let page_number = PageNumber::new(
+            u32::try_from(
+                metadata
+                    .try_get::<i64, _>("resolved_page_number")
+                    .map_err(map_sqlx_error)?,
+            )
+            .map_err(|_| invalid("installation Course page number"))?,
+        )
+        .map_err(|_| invalid("installation Course page number"))?;
+        let mut courses = Vec::with_capacity(rows.len());
+        for row in &rows {
+            if row
+                .try_get::<Option<String>, _>("course_instance_id")
+                .map_err(map_sqlx_error)?
+                .is_some()
+            {
+                courses.push(decode_installation_course(row)?);
+            }
         }
-        let has_next = rows.len() > page_size;
-        let courses = rows
-            .iter()
-            .take(page_size)
-            .map(decode_installation_course)
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        let next_cursor = if has_next {
-            let last = courses
-                .last()
-                .ok_or_else(|| invalid("installation Course cursor"))?;
-            let position = InstallationCourseCursor {
-                query: query.to_owned(),
-                sort: sort.to_owned(),
-                activity: activity.to_vec(),
-                retention: retention.to_vec(),
-                page_size: page.size.get(),
-                long_name: last.long_name.clone(),
-                course_instance_id: last.id.as_str().to_owned(),
-            };
-            let encoded = serde_json::to_string(&position)
-                .map_err(|_| invalid("installation Course cursor"))?;
-            Some(Cursor::parse(encoded).map_err(|_| invalid("installation Course cursor"))?)
-        } else {
-            None
-        };
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(Page {
+        Ok(NumberedPage {
             items: courses,
-            next_cursor,
+            page_number,
+            page_size: page.page_size,
+            total_count,
         })
     }
 

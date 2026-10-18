@@ -6,7 +6,9 @@ use question_model::{
     Timestamp,
 };
 
-use crate::{Page, PageRequest, SessionTokenHash, StoreError, StoredBlueprintRevision};
+use crate::{
+    NumberedPage, NumberedPageRequest, SessionTokenHash, StoreError, StoredBlueprintRevision,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -140,11 +142,11 @@ pub trait BlueprintChangeProposalStore: Send + Sync {
         &self,
         session: SessionTokenHash,
         scope: BlueprintChangeProposalListScope,
-        page: PageRequest,
+        page: NumberedPageRequest,
         text: &str,
         ascending: bool,
         status: &str,
-    ) -> Result<Page<BlueprintChangeProposalSummary>, StoreError>;
+    ) -> Result<NumberedPage<BlueprintChangeProposalSummary, crate::PageSize>, StoreError>;
 
     /// Loads original review and any accepted evidence under one authenticated transaction.
     async fn read_blueprint_change_proposal_review(

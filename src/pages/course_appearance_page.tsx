@@ -8,7 +8,7 @@ import type { CourseBannerAlternativeText } from "../../generated/api/CourseBann
 import type { Theme } from "../../generated/api/Theme";
 import { useApplicationApi } from "../api/application_api";
 import { useAppearance } from "../appearance/appearance_context";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { courseRouteView } from "../appearance/theme_context";
 import { COURSE_APPEARANCE_STYLES } from "../features/course_appearance/course_appearance_styles";
 import { ThemeChooser } from "../appearance/theme_chooser";

@@ -1,5 +1,8 @@
 """Bundled installation-data and Live Demo persona provisioning after readiness."""
 
+import shlex
+import sys
+
 import local_stack_control.compose
 import local_stack_control.disposable_stack_cleanup
 import local_stack_control.env_file
@@ -33,6 +36,51 @@ def provision_ready_installation_data(
 	"""Run canonical bundled-content provisioning after application readiness."""
 	selected = selected_compose_target(target)
 	local_stack_control.installation_import.provision(selected, runner, include_live_demo)
+
+
+#============================================
+def backfill_question_thumbnails(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
+	"""Run the existing migrator's fixed published-Revision thumbnail backfill."""
+	run_question_thumbnail_maintenance(target, runner, "backfill")
+
+
+#============================================
+def run_question_thumbnail_maintenance(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+	action: str,
+) -> None:
+	"""Run one fixed thumbnail action and emit its complete redacted report."""
+	if action != "backfill":
+		raise local_stack_control.models.ControllerError(
+			"unsupported fixed Question thumbnail maintenance action"
+		)
+	selected = selected_compose_target(target)
+	arguments = [
+		"--profile", "migration", "run", "--rm", "--no-deps", "-T",
+		"database-migrator", "question-thumbnails", action,
+	]
+	local_stack_control.lifecycle_commands.report_step("compose " + shlex.join(arguments))
+	result = runner.run(
+		local_stack_control.compose.compose_argv(selected, arguments),
+		local_stack_control.lifecycle_commands.child_environment(selected),
+		selected.repo_root,
+	)
+	private_values = local_stack_control.disposable_stack_cleanup.private_environment_values(
+		selected.env_file
+	)
+	# Preserve every safe progress line so an early failed revision remains visible.
+	sys.stdout.write(
+		local_stack_control.disposable_stack_cleanup.redact_private_values(
+			result.stdout, private_values
+		)
+	)
+	local_stack_control.lifecycle_commands.require_command(
+		result, "Question thumbnail " + action, private_values
+	)
 
 
 #============================================

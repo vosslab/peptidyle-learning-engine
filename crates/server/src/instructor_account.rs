@@ -11,8 +11,8 @@ use axum::{
 };
 use learning_data_access::{
     CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountBrowse,
-    InstructorAccountSort, InstructorAccountState, InstructorAccountStore, SessionTokenHash,
-    StoreError,
+    InstructorAccountSort, InstructorAccountState, InstructorAccountStore, NumberedPageRequest,
+    PageNumber, PageSize, SessionTokenHash, StoreError,
     postgres::{PostgresInstructorAccountStore, PostgresSessionStore},
 };
 use question_model::{AccountId, UserRole};
@@ -80,8 +80,7 @@ async fn list_instructor_accounts(
                 query: None,
                 state: None,
                 sort: InstructorAccountSort::IdAscending,
-                cursor: None,
-                page_size: None,
+                page: default_instructor_account_page(),
             },
         )
         .await
@@ -98,9 +97,13 @@ async fn list_instructor_accounts(
 struct FindInstructorAccountsRequest {
     query: String,
     state: Option<InstructorAccountState>,
-    page_size: i32,
+    page_number: Option<PageNumber>,
+    page_size: Option<PageSize>,
     sort: InstructorAccountSort,
-    cursor: Option<String>,
+}
+
+fn default_instructor_account_page() -> NumberedPageRequest {
+    NumberedPageRequest::first(PageSize::new(50).expect("default page size is valid"))
 }
 
 async fn find_instructor_accounts(
@@ -121,8 +124,8 @@ async fn find_instructor_accounts(
         Ok(token) => token,
         Err(response) => return *response,
     };
-    // ASVS 2.2.1, 7.1.1, and 8.2.3: state, page size, and cursor stay in the
-    // body with the query. The response keeps the closed Account summary.
+    // ASVS 2.2.1, 7.1.1, and 8.2.3: state and numbered page stay in the body
+    // with the query. The response keeps the closed Account summary.
     // Neither the authentication email nor the Profile display name is written back.
     match state
         .accounts
@@ -132,8 +135,12 @@ async fn find_instructor_accounts(
                 query: Some(request.query),
                 state: request.state,
                 sort: request.sort,
-                cursor: request.cursor,
-                page_size: Some(request.page_size),
+                page: NumberedPageRequest {
+                    page_number: request.page_number.unwrap_or(PageNumber::FIRST),
+                    page_size: request
+                        .page_size
+                        .unwrap_or_else(|| default_instructor_account_page().page_size),
+                },
             },
         )
         .await

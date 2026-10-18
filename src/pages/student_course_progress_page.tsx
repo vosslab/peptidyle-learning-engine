@@ -9,12 +9,12 @@ import type {
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
-import { PageFrame } from "../components/page_frame";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { byStudentTitleThenId, studentProgressFields } from "./student_collection_fields";
-import { type RecordContent, type RecordFact } from "../components/record_list/record_list";
+import type { RecordContent, RecordFact } from "../components/data_sheet/record_content";
 import { CourseEntryBanner } from "../features/course_appearance/course_entry_banner";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { buildRoutePath } from "../ribbon/ribbon_route_path";
@@ -96,7 +96,12 @@ function StudentCourseProgressCollection(props: {
       byStudentTitleThenId(await applicationApi.client.getStudentCourseProgress(courseId)),
   );
   const progressSearch = createLocalCompleteSearch(
-    { resource: assessments, refetchSource: refetch, rows: (value) => value },
+    {
+      rows: assessments,
+      loading: () => assessments.loading,
+      error: (): unknown => assessments.error,
+      refetchSource: refetch,
+    },
     {
       fields: studentProgressFields,
       rowId: (assessment) => assessment.id,

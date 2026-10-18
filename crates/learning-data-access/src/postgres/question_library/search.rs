@@ -8,11 +8,11 @@ use sqlx::Row;
 
 use super::{PostgresQuestionLibraryStore, invalid, map_sqlx_error};
 use crate::question_library::{
-    QuestionLibraryBackendRestriction, QuestionLibrarySearchCursorPosition,
-    QuestionLibrarySearchFacets, QuestionLibrarySearchPage, QuestionLibrarySearchRequest,
-    QuestionLibrarySearchScope, QuestionLibrarySearchSort, QuestionLibraryTextField,
+    QuestionLibraryBackendRestriction, QuestionLibrarySearchFacets, QuestionLibrarySearchPage,
+    QuestionLibrarySearchRequest, QuestionLibrarySearchScope, QuestionLibrarySearchSort,
+    QuestionLibraryTextField,
 };
-use crate::{SessionTokenHash, StoreError};
+use crate::{NumberedPage, PageNumber, SessionTokenHash, StoreError};
 
 impl PostgresQuestionLibraryStore {
     pub(super) async fn search_published_question_library_entries(
@@ -24,11 +24,11 @@ impl PostgresQuestionLibraryStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
-        // ASVS 1.2.4: every predicate and cursor component stays a typed bind.
+        // ASVS 1.2.4: every predicate and numbered-page component stays a typed bind.
         let rows = sqlx::query(
             "SELECT * FROM ple_api.search_question_library_entries(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, \
-                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)",
+                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)",
         )
         .bind(
             request
@@ -80,12 +80,16 @@ impl PostgresQuestionLibraryStore {
                 .map(question_model::AccountId::as_str),
         )
         .bind(sort_name(request.sort))
-        .bind(after_text_key(request.after.as_ref()))
-        .bind(after_published_at(request.after.as_ref()))
-        .bind(after_id(request.after.as_ref()))
-        .bind(i32::from(request.page_size) + 1)
+        .bind(i64::from(request.page.page_number.get()))
+        .bind(i32::from(request.page.page_size.get()))
         .bind(scope_name(request.scope))
-        .bind(after_starred_at(request.after.as_ref()))
+        .bind(
+            request
+                .excluded_question_ids
+                .iter()
+                .map(PublishedQuestionId::as_str)
+                .collect::<Vec<_>>(),
+        )
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -98,7 +102,33 @@ impl PostgresQuestionLibraryStore {
                 serde_json::from_value::<QuestionLibrarySearchFacets>(value)
                     .map_err(|_| invalid("Question Library facets"))
             })?;
-        let limit = usize::from(request.page_size);
+        let page_row = rows
+            .first()
+            .ok_or_else(|| invalid("Question Library page"))?;
+        let total_count = page_row
+            .try_get::<i64, _>("total_count")
+            .map_err(map_sqlx_error)
+            .and_then(|value| {
+                u64::try_from(value).map_err(|_| invalid("Question Library count"))
+            })?;
+        let page_number = page_row
+            .try_get::<i64, _>("resolved_page_number")
+            .map_err(map_sqlx_error)
+            .and_then(|value| {
+                u32::try_from(value)
+                    .ok()
+                    .and_then(|value| PageNumber::new(value).ok())
+                    .ok_or_else(|| invalid("Question Library page"))
+            })?;
+        let page_size = page_row
+            .try_get::<i32, _>("resolved_page_size")
+            .map_err(map_sqlx_error)
+            .and_then(|value| {
+                u16::try_from(value)
+                    .ok()
+                    .and_then(|value| crate::DiscoveryPageSize::new(value).ok())
+                    .ok_or_else(|| invalid("Question Library page size"))
+            })?;
         let mut items = rows
             .iter()
             .map(super::mixed::decode_search_entry)
@@ -106,67 +136,38 @@ impl PostgresQuestionLibraryStore {
             .into_iter()
             .flatten()
             .collect::<Vec<_>>();
-        let next_position = if items.len() > limit {
-            items.truncate(limit);
-            let item = items
-                .last()
-                .ok_or_else(|| invalid("Question Library page"))?;
-            Some(cursor_position(item, request.sort)?)
-        } else {
-            None
-        };
+        super::image_renditions::load_image_bindings(
+            &mut transaction,
+            items.iter_mut().filter_map(|item| match item {
+                crate::LibrarySearchEntry::Question { entry, .. } => Some(entry.as_mut()),
+                crate::LibrarySearchEntry::Pool { .. } => None,
+            }),
+        )
+        .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(QuestionLibrarySearchPage {
-            items,
-            next_position,
+            page: NumberedPage {
+                items,
+                page_number,
+                page_size,
+                total_count,
+            },
             facets,
         })
     }
 }
 
 fn validate_request(request: &QuestionLibrarySearchRequest) -> Result<(), StoreError> {
-    if request.page_size == 0 || request.page_size > question_model::MAX_DISCOVERY_PAGE_SIZE as u16
-    {
-        return Err(invalid("Question Library page size"));
-    }
-    let cursor_matches_sort = match (request.sort, request.after.as_ref()) {
-        (_, None)
-        | (
-            QuestionLibrarySearchSort::PublishedNewest,
-            Some(QuestionLibrarySearchCursorPosition::PublishedNewest { .. }),
-        )
-        | (
+    if (request.scope == QuestionLibrarySearchScope::Public
+        && matches!(
+            request.sort,
             QuestionLibrarySearchSort::StarredDateAscending
-            | QuestionLibrarySearchSort::StarredDateDescending,
-            Some(QuestionLibrarySearchCursorPosition::StarredDate { .. }),
-        ) => true,
-        (
-            sort,
-            Some(QuestionLibrarySearchCursorPosition::Text {
-                sort: position_sort,
-                key,
-                ..
-            }),
-        ) => {
-            sort == *position_sort
-                && sort != QuestionLibrarySearchSort::PublishedNewest
-                && sort != QuestionLibrarySearchSort::StarredDateAscending
-                && sort != QuestionLibrarySearchSort::StarredDateDescending
-                && !key.is_empty()
-        }
-        _ => false,
-    };
-    if !cursor_matches_sort
-        || (request.scope == QuestionLibrarySearchScope::Public
-            && matches!(
-                request.sort,
-                QuestionLibrarySearchSort::StarredDateAscending
-                    | QuestionLibrarySearchSort::StarredDateDescending
-            ))
+                | QuestionLibrarySearchSort::StarredDateDescending
+        ))
         || (request.scope == QuestionLibrarySearchScope::CurrentStarred
             && request.kind != LibrarySearchKind::Questions)
     {
-        return Err(invalid("Question Library cursor"));
+        return Err(invalid("Question Library request"));
     }
     Ok(())
 }
@@ -262,117 +263,5 @@ pub(super) fn scope_name(scope: QuestionLibrarySearchScope) -> &'static str {
     match scope {
         QuestionLibrarySearchScope::Public => "public",
         QuestionLibrarySearchScope::CurrentStarred => "current_starred",
-    }
-}
-
-fn after_starred_at(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<i64> {
-    match after {
-        Some(QuestionLibrarySearchCursorPosition::StarredDate {
-            starred_at_micros, ..
-        }) => Some(*starred_at_micros),
-        _ => None,
-    }
-}
-
-fn after_text_key(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<&str> {
-    match after {
-        Some(QuestionLibrarySearchCursorPosition::Text { key, .. }) => Some(key),
-        _ => None,
-    }
-}
-
-fn after_published_at(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<i64> {
-    match after {
-        Some(QuestionLibrarySearchCursorPosition::PublishedNewest {
-            published_at_millis,
-            ..
-        }) => Some(*published_at_millis),
-        _ => None,
-    }
-}
-
-fn after_id(after: Option<&QuestionLibrarySearchCursorPosition>) -> Option<&str> {
-    match after {
-        Some(QuestionLibrarySearchCursorPosition::Text { public_id, .. })
-        | Some(QuestionLibrarySearchCursorPosition::PublishedNewest { public_id, .. })
-        | Some(QuestionLibrarySearchCursorPosition::StarredDate { public_id, .. }) => {
-            Some(public_id.as_str())
-        }
-        None => None,
-    }
-}
-
-fn cursor_position(
-    item: &crate::LibrarySearchEntry,
-    sort: QuestionLibrarySearchSort,
-) -> Result<QuestionLibrarySearchCursorPosition, StoreError> {
-    let public_id = item
-        .public_id()
-        .parse()
-        .map_err(|_| invalid("Library cursor ID"))?;
-    Ok(match sort {
-        QuestionLibrarySearchSort::PublishedNewest => {
-            QuestionLibrarySearchCursorPosition::PublishedNewest {
-                published_at_millis: item.sort_time().as_unix_millis(),
-                public_id,
-            }
-        }
-        QuestionLibrarySearchSort::StarredDateAscending
-        | QuestionLibrarySearchSort::StarredDateDescending => {
-            QuestionLibrarySearchCursorPosition::StarredDate {
-                starred_at_micros: item
-                    .starred_at_micros()
-                    .ok_or_else(|| invalid("Starred date"))?,
-                public_id,
-            }
-        }
-        sort => QuestionLibrarySearchCursorPosition::Text {
-            sort,
-            key: sort_text_key(item, sort).to_owned(),
-            public_id,
-        },
-    })
-}
-
-fn sort_text_key(item: &crate::LibrarySearchEntry, sort: QuestionLibrarySearchSort) -> &str {
-    match sort {
-        QuestionLibrarySearchSort::TitleAscending | QuestionLibrarySearchSort::TitleDescending => {
-            item.title()
-        }
-        QuestionLibrarySearchSort::KindAscending | QuestionLibrarySearchSort::KindDescending => {
-            match item {
-                crate::LibrarySearchEntry::Question { .. } => "Published Question",
-                crate::LibrarySearchEntry::Pool { .. } => "Question Pool",
-            }
-        }
-        QuestionLibrarySearchSort::DisciplineAscending
-        | QuestionLibrarySearchSort::DisciplineDescending => match item {
-            crate::LibrarySearchEntry::Question { entry, .. } => &entry.discipline_name,
-            crate::LibrarySearchEntry::Pool { summary, .. } => &summary.metadata.discipline_name,
-        },
-        QuestionLibrarySearchSort::QuestionTypeAscending
-        | QuestionLibrarySearchSort::QuestionTypeDescending => {
-            let question_type = match item {
-                crate::LibrarySearchEntry::Question { entry, .. } => entry.question_type,
-                crate::LibrarySearchEntry::Pool { summary, .. } => summary.question_type,
-            };
-            match question_type {
-                QuestionType::MultipleChoice => "Multiple choice",
-                QuestionType::MultipleAnswer => "Multiple answer",
-                QuestionType::FillInBlank => "Fill in the blank",
-                QuestionType::MultipleFillInBlank => "Multiple fill in the blank",
-                QuestionType::Numeric => "Numeric",
-                QuestionType::Matching => "Matching",
-                QuestionType::Ordering => "Ordering",
-                QuestionType::Hotspot => "Hotspot",
-            }
-        }
-        QuestionLibrarySearchSort::PublishedNewest => {
-            unreachable!("timestamp sort has no text key")
-        }
-        QuestionLibrarySearchSort::StarredDateAscending
-        | QuestionLibrarySearchSort::StarredDateDescending => {
-            unreachable!("timestamp sort has no text key")
-        }
     }
 }

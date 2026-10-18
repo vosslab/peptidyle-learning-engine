@@ -1,11 +1,19 @@
 // Current reusable Pool detail and Assessment-local selection count.
 
-import { Show, type JSX } from "solid-js";
+import { Show, createMemo, type JSX } from "solid-js";
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { QuestionPoolView } from "../../../generated/api/QuestionPoolView";
-import type { RecordContent } from "../../components/record_list/record_list";
-import { RecordSequence } from "../../components/record_list/record_sequence";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
+import {
+  questionPoolMemberFields,
+  poolMemberRowId,
+  comparePoolMemberFields,
+} from "../../components/question_pool_member_fields";
+import { questionNativePreview } from "../../components/question_native_preview";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 
 export interface AssessmentPoolEntryEditorProps {
@@ -19,6 +27,44 @@ export interface AssessmentPoolEntryEditorProps {
 
 /** Renders one shared Pool and edits only the Assessment's requested count. */
 export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps): JSX.Element {
+  const memberRows = createMemo(() =>
+    (props.pool?.members ?? []).map((member) => ({
+      publishedQuestionRevisionTuple: member.publishedQuestionRevisionTuple,
+      questionTitle: member.question.question_library.summary.metadata.questionTitle,
+      questionLicense: member.question.question_library.summary.metadata.questionLicense,
+      nativePrompt: member.question.question_library.nativePrompt,
+    })),
+  );
+  type MemberRow = ReturnType<typeof memberRows>[number];
+  const memberFields = questionPoolMemberFields<MemberRow>();
+  const memberSearch = createLocalCompleteSearch(
+    { rows: memberRows },
+    {
+      fields: memberFields,
+      rowId: poolMemberRowId,
+      compare: comparePoolMemberFields,
+      keyword: (member) =>
+        `${member.questionTitle} ${member.publishedQuestionRevisionTuple.publishedQuestionId}`,
+      content: (member): RecordContent => ({
+        title: member.questionTitle,
+        preview: questionNativePreview(member),
+        details: [
+          {
+            kind: "text",
+            label: "Question ID",
+            value: member.publishedQuestionRevisionTuple.publishedQuestionId,
+          },
+          {
+            kind: "text",
+            label: "Revision",
+            value: String(member.publishedQuestionRevisionTuple.revisionNumber),
+          },
+        ],
+        actions: [],
+      }),
+    },
+  );
+
   function submitSelectionCount(value: string): void {
     const selectionCount = Number(value);
     if (!Number.isSafeInteger(selectionCount) || selectionCount < 1 || props.pool === undefined) {
@@ -61,30 +107,21 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
               This Assessment selects {props.entry.selectionCount} Questions from this shared Pool.
               Pool edits affect future selections; existing Attempts keep their selected Questions.
             </p>
-            <RecordSequence
-              rows={pool().members.map((member, index) => ({ member, index }))}
-              content={(record): RecordContent => ({
-                title: record.member.question.question_library.summary.metadata.questionTitle,
-                details: [
-                  {
-                    kind: "text",
-                    label: "Question ID",
-                    value: record.member.publishedQuestionRevisionTuple.publishedQuestionId,
-                  },
-                  {
-                    kind: "text",
-                    label: "Revision",
-                    value: String(record.member.publishedQuestionRevisionTuple.revisionNumber),
-                  },
-                ],
-                actions: [],
-              })}
-              recordId={(record) =>
-                record.member.publishedQuestionRevisionTuple.publishedQuestionId
+            <SearchBlock
+              layout="above"
+              state={memberSearch.state}
+              controls={
+                <SearchControls
+                  state={memberSearch.state}
+                  textLabel="Search referenced Pool members"
+                />
               }
-              state={{ kind: "ready" }}
-              ariaLabel="Current reusable Pool members"
-              emptyState={{ title: "This Question Pool has no current members." }}
+              collection={{
+                ariaLabel: "Current reusable Pool members",
+                fields: memberFields,
+                query: memberSearch.query,
+                emptyState: { title: "No current Pool members match this search." },
+              }}
             />
             <fieldset disabled={!props.mutationsEnabled || props.busy}>
               <legend>Questions selected for each Attempt</legend>

@@ -223,35 +223,6 @@ export function decodeQuestionType(value: unknown, path: string): QuestionType {
   ] as const);
 }
 
-/** Checks that a response shape can collect the declared educational Question Type. */
-export function questionResponseFormatSupportsType(
-  response: QuestionResponseFormat,
-  questionType: QuestionType,
-): boolean {
-  switch (response.kind) {
-    case "numeric":
-      return questionType === "numeric";
-    case "multipleChoice":
-      return response.selection.kind === "exactlyOne"
-        ? questionType === "multipleChoice"
-        : questionType === "multipleAnswer";
-    case "shortText":
-      return questionType === "fillInBlank";
-    case "multiBlank":
-      return questionType === "multipleFillInBlank";
-    case "matching":
-      return questionType === "matching";
-    case "ordering":
-      return questionType === "ordering";
-    case "hotspot":
-      return questionType === "hotspot";
-    case "imathasQuestionBackend":
-      return true;
-    case "backendOwned":
-      return true;
-  }
-}
-
 export function decodeQuestionResponseFormat(
   value: unknown,
   path: string,

@@ -435,7 +435,7 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
 ### Evidence checked on 2026-10-04
 
 - Shared components remain in
-  [record_table.tsx](../../../src/components/record_list/record_table.tsx) and
+  `src/components/record_list/record_table.tsx` and
   [record_list.tsx](../../../src/components/record_list/record_list.tsx).
 - `src/pages/library_browse_rows.tsx` (historical path; retired) renders
   Question Library results with `RecordList`.
@@ -445,9 +445,9 @@ Sysadmin-only Pool moderation. Production reconciliation remains outstanding.
 - The checked migration commit, `8fe0eadd`, also has a basic `RecordTable` and a
   Question Library using `RecordList`. This bounded comparison does not establish
   whether an earlier spreadsheet capability existed or was removed.
-- [record_list_image_browser.tsx](../../../src/components/record_list/record_list_image_browser.tsx)
+- `src/components/record_list/record_list_image_browser.tsx`
   provides Gallery/List modes. Shared presentation-state helpers also remain in
-  [record_list_presentation.ts](../../../src/components/record_list/record_list_presentation.ts).
+  `src/components/record_list/record_list_presentation.ts`.
   The checked Question Library result component does not expose these mode controls.
 - OER Commons returned HTTP 403 to the research tool. Neil later supplied a
   screenshot showing a text box, Subject, Education Level, Standard, and Search

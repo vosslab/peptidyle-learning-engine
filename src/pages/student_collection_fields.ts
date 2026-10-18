@@ -5,7 +5,9 @@ import type {
   StudentCourseProgressAssessment,
 } from "../api/live_student_course_landing";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
-import type { RecordField } from "../components/record_list/record_fields";
+import type { RecordField } from "../components/data_sheet/record_fields";
+import { createDisplayDateTimeFormatter } from "../format_datetime";
+import { formatPointScore } from "../score_format";
 import { studentAssessmentScoreStateLabel } from "../student_course_progress_presentation";
 import { studentCourseworkDisplay } from "./student_coursework_presentation";
 
@@ -117,6 +119,10 @@ export const studentAssessmentFields: ReadonlyArray<
     label: "Due",
     sortKey: "dueAt",
     value: (row) => row.decision.dueAt,
+    render: (row) =>
+      row.decision.dueAt === null
+        ? "No due time"
+        : createDisplayDateTimeFormatter(row.decision.displayTimeZone)(row.decision.dueAt),
     defaultColumn: { priority: 3, width: "12rem" },
   },
 ];
@@ -200,6 +206,12 @@ export const studentCrossCourseAssessmentFields: ReadonlyArray<
     label: "Due",
     sortKey: "dueAt",
     value: (row) => row.assessment.decision.dueAt,
+    render: (row) =>
+      row.assessment.decision.dueAt === null
+        ? "No due time"
+        : createDisplayDateTimeFormatter(row.assessment.decision.displayTimeZone)(
+            row.assessment.decision.dueAt,
+          ),
     defaultColumn: { priority: 4, width: "12rem" },
   },
 ];
@@ -266,6 +278,10 @@ export const studentScoreFields: ReadonlyArray<
     label: "Score",
     sortKey: "score",
     value: (row) => (row.assessmentScore === undefined ? null : row.assessmentScore.pointsEarned),
+    render: (row) =>
+      row.assessmentScore === undefined
+        ? null
+        : formatPointScore(row.assessmentScore.pointsEarned, row.assessmentScore.pointsPossible),
     defaultColumn: { priority: 1, width: "5rem" },
   },
 ];
@@ -306,6 +322,13 @@ export const studentCrossCourseScoreFields: ReadonlyArray<
     label: "Score",
     sortKey: "score",
     value: (row) => row.assessment.assessmentScore?.pointsEarned ?? null,
+    render: (row) =>
+      row.assessment.assessmentScore === undefined
+        ? null
+        : formatPointScore(
+            row.assessment.assessmentScore.pointsEarned,
+            row.assessment.assessmentScore.pointsPossible,
+          ),
     defaultColumn: { priority: 1, width: "5rem" },
   },
 ];

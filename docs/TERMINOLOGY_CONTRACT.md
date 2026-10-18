@@ -56,6 +56,40 @@ Those documents must preserve the meanings established by Human Guidance.
 - Do not create product terms from job, event, receipt, snapshot, recovery, or
   compatibility mechanisms unless Human Guidance requires the concept.
 
+## Collection interfaces
+
+**PageFrame**: The shared page layout for content, spacing, and page actions. It contains page-specific content, including SearchBlock when appropriate.
+
+**SearchBlock**: The searchable collection interface. It combines page-supplied search criteria and controls with DataSheetControls and DataSheetBlock.
+
+**DataSheetControls**: The controls for display modes, pagination, counts, sorting, filtering, and bulk actions associated with DataSheetBlock.
+
+**DataSheetBlock**: The shared collection interface. It manages records, all display modes, shared collection interactions, and collection-level actions. It contains DataSheetTable in Compact and List modes and RecordItem instances in all modes.
+
+**DataSheetTable**: The shared tabular presentation for Compact and List modes. It configures and manages column interactions and contains HeaderRow and RecordItem instances.
+
+**HeaderRow**: The heading interface within DataSheetTable. It presents column headings, forwards sorting and filtering input to DataSheetBlock, and exposes DataSheetTable column interactions.
+
+**RecordItem**: The individual record interface across all four DataSheetBlock modes, providing content, selection, previews, and direct actions.
+
+Page and domain owners retain collection scope, query execution, creation, and
+domain commands. Current implementation uses these DataSheet owners across all
+four modes; the existing `record_list` source directory contains that implementation.
+
+Every collection exposes the four modes: **Compact**, **List**, **Cards**, and
+**Visual Boxes**.
+Selection is a temporary collection interaction keyed by record identity and
+remains separate from editor membership or single-choice selection.
+
+**Question Thumbnail** is an immutable visual artifact associated with an exact
+published Question Revision. It helps identify a WeBWorK Question; it is not a
+render cache or a source of revision identity. It is always 256 x 256 pixels.
+Preserve the existing rendered question layout and capture it at sufficient
+source resolution to fill the thumbnail without raster upscaling. Preserve the
+rendered content's proportions. Crop excess width symmetrically from both sides
+and excess height from the bottom, keeping the content horizontally centered
+and vertically top-aligned.
+
 ### Pre-production implementation vocabulary
 
 PLE is preparing for production launch. Until production, apply current

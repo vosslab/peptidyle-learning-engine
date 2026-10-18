@@ -175,11 +175,17 @@ export function observeContextOrigins(
     if (value !== "about:blank") target.add(new URL(value).origin);
   };
   context.on("request", (request) => record(request.url(), requestOrigins));
-  context.on("page", (page) =>
+  const observedPages = new Set<Page>();
+  const observePage = (page: Page): void => {
+    if (observedPages.has(page)) return;
+    observedPages.add(page);
+    record(page.mainFrame().url(), pageOrigins);
     page.on("framenavigated", (frame) => {
       if (frame === page.mainFrame()) record(frame.url(), pageOrigins);
-    }),
-  );
+    });
+  };
+  for (const page of context.pages()) observePage(page);
+  context.on("page", observePage);
 }
 
 export function requireScenarioInput(

@@ -1,6 +1,6 @@
 // Instructor workflow for creating one reusable Published Question Pool.
 
-import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { createMemo, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
@@ -17,18 +17,27 @@ import {
   type QuestionPickerEligibility,
   type QuestionPickerProps,
   type QuestionPickerSelection,
-  type QuestionPickerSourceRepository,
 } from "../features/question_picker";
 import {
   questionPoolEligibilityForQuestion,
   questionPoolMemberTuples,
   questionPoolStartingEligibility,
-  questionPoolSourcePickerRepository,
   QuestionPoolSelectionError,
   type QuestionPoolStartingQuestion,
   type QuestionPoolStartingContext,
 } from "./question_pool_create_model";
-import { RecordSequence } from "./record_list/record_sequence";
+import { QuestionPoolAvailableQuestions } from "./question_pool_available_questions";
+import { questionNativePreview } from "./question_native_preview";
+import { SearchBlock } from "./search_block/search_block";
+import { SearchControls } from "./search_block/search_controls";
+import { createLocalCompleteSearch } from "./search_block/local_complete_search_state";
+import {
+  comparePoolMemberFields,
+  poolMemberRowId,
+  questionPoolMemberFields,
+} from "./question_pool_member_fields";
+import type { QuestionPoolMemberDraft } from "./question_pool_members_model";
+import type { LibraryObjectQuestionRow } from "../pages/library_page_model";
 import {
   UnsavedChangesGuard,
   confirmUnsavedChanges,
@@ -37,10 +46,7 @@ import {
 import "./question_pool_create_dialog.css";
 
 type CreationState = "choosing" | "reviewing" | "creating" | "created";
-type PoolCreationMember = {
-  readonly title: string;
-  readonly publishedQuestionId: string;
-  readonly revisionNumber: number;
+type PoolCreationMember = QuestionPoolMemberDraft & {
   readonly revisionIsFixed: boolean;
 };
 
@@ -57,10 +63,7 @@ export interface QuestionPoolCreateDialogProps {
   readonly questionRevisionPreviewDocumentUrl: QuestionPickerProps["questionRevisionPreviewDocumentUrl"];
   readonly questionImageUrl: QuestionPickerProps["questionImageUrl"];
   readonly getCurrentQuestionSharedMetadata: QuestionBulkMetadataClient["getCurrentQuestionSharedMetadata"];
-  readonly classificationClient: Pick<
-    ContentClassificationClient,
-    "listDisciplinesIncludingRetired" | "listSubjects"
-  >;
+  readonly classificationClient: ContentClassificationClient;
   /** Exact Published Question Revisions that fix Pool membership and classification. */
   readonly startingQuestions?: ReadonlyArray<QuestionPoolStartingQuestion>;
   readonly onTaskPhaseChange: (active: boolean) => void;
@@ -80,6 +83,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
   const [title, setTitle] = createSignal("");
   const [description, setDescription] = createSignal("");
   const [error, setError] = createSignal<string>();
+  const [adding, setAdding] = createSignal(false);
   const creationGuardScope = Symbol("Question Pool creation");
   const [createdPool, setCreatedPool] = createSignal<{
     readonly questionPoolId: string;
@@ -87,7 +91,9 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
   }>();
   const dirty = (): boolean =>
     state() !== "created" &&
-    (trimPoolDraft(title()).length > 0 || trimPoolDraft(description()).length > 0);
+    (trimPoolDraft(title()).length > 0 ||
+      trimPoolDraft(description()).length > 0 ||
+      (selection()?.questions.length ?? 0) > 0);
   let reviewHeading: HTMLHeadingElement | undefined;
   let disposed = false;
   onCleanup(() => {
@@ -98,10 +104,6 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     props.questionLibrary,
     props.questionLibrary,
   );
-  const pickerRepository = (): QuestionPickerSourceRepository =>
-    sourceBound && eligibility() !== undefined
-      ? questionPoolSourcePickerRepository(props.questionLibrary, eligibility()!)
-      : basePickerRepository;
 
   onMount(() => {
     if (!sourceBound) return;
@@ -129,32 +131,6 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
       setError(undefined);
     }
     return context;
-  }
-
-  async function chooseAgain(): Promise<void> {
-    setError(undefined);
-    try {
-      if (sourceBound) {
-        if (startingQuestions.length >= MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY) {
-          throw new QuestionPoolSelectionError(
-            "This Pool already has the maximum number of starting Questions.",
-          );
-        }
-        const nextContext = await loadStartingContext();
-        if (disposed) return;
-        setEligibility(nextContext.eligibility);
-      }
-      if (disposed) return;
-      setState("choosing");
-      props.onTaskPhaseChange(false);
-    } catch (cause) {
-      if (!disposed)
-        setError(
-          cause instanceof QuestionPoolSelectionError
-            ? cause.message
-            : "Pool eligibility could not be loaded. Try again.",
-        );
-    }
   }
 
   async function cancelSelection(): Promise<boolean> {
@@ -202,9 +178,131 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     }
   }
 
+  const memberSource = createMemo(() => [
+    ...startingQuestions.map((question): PoolCreationMember => ({
+      publishedQuestionRevisionTuple: question.publishedQuestionRevisionTuple,
+      questionTitle: question.questionTitle,
+      nativePrompt: null,
+      questionLicense: null,
+      revisionIsFixed: true,
+    })),
+    ...(selection()?.questions ?? []).map((question): PoolCreationMember => ({
+      publishedQuestionRevisionTuple: question.row.publishedQuestionRevisionTuple,
+      questionTitle: question.row.questionTitle,
+      nativePrompt: question.row.nativePrompt,
+      questionLicense: question.row.questionLicense,
+      revisionIsFixed: false,
+    })),
+  ]);
+  const memberFields = questionPoolMemberFields<PoolCreationMember>();
+  const memberCount = (): number => startingQuestions.length + (selection()?.questions.length ?? 0);
+  const memberSearch = createLocalCompleteSearch(
+    { rows: memberSource },
+    {
+      fields: memberFields,
+      rowId: poolMemberRowId,
+      keyword: (member) =>
+        `${member.questionTitle} ${member.publishedQuestionRevisionTuple.publishedQuestionId}`,
+      compare: comparePoolMemberFields,
+      content: (member) => ({
+        title: member.questionTitle,
+        preview: questionNativePreview(member),
+        details: [
+          {
+            kind: "questionId",
+            questionTitle: member.questionTitle,
+            displayId: member.publishedQuestionRevisionTuple.publishedQuestionId,
+          },
+          {
+            kind: "text",
+            label: "Revision",
+            value: String(member.publishedQuestionRevisionTuple.revisionNumber),
+          },
+        ],
+        actions: [
+          {
+            id: "remove",
+            kind: "command",
+            label: "Remove",
+            disabled:
+              member.revisionIsFixed || memberCount() <= 1 || adding() || state() !== "reviewing",
+            onClick: (): void => {
+              if (
+                member.revisionIsFixed ||
+                memberCount() <= 1 ||
+                adding() ||
+                state() !== "reviewing"
+              )
+                return;
+              const id = member.publishedQuestionRevisionTuple.publishedQuestionId;
+              setSelection((current) =>
+                current === undefined
+                  ? current
+                  : {
+                      questionIds: current.questionIds.filter((value) => value !== id),
+                      questions: current.questions.filter((question) => question.questionId !== id),
+                    },
+              );
+              setError(undefined);
+            },
+          },
+        ],
+      }),
+    },
+  );
+
+  async function addQuestion(row: LibraryObjectQuestionRow): Promise<boolean> {
+    const currentEligibility = eligibility();
+    if (
+      currentEligibility === undefined ||
+      adding() ||
+      state() !== "reviewing" ||
+      memberCount() >= MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
+    )
+      return false;
+    const id = row.displayId;
+    if (
+      startingQuestions.some(
+        (question) => question.publishedQuestionRevisionTuple.publishedQuestionId === id,
+      ) ||
+      selection()?.questionIds.includes(id)
+    )
+      return false;
+    setAdding(true);
+    setError(undefined);
+    try {
+      const addition = { questionIds: [id], questions: [{ questionId: id, row }] };
+      // ASVS 2.2.1/2.2.2: validate the exact selected revision; Create repeats checks server-side.
+      await questionPoolMemberTuples(
+        addition,
+        props.loadQuestionInspection,
+        props.getCurrentQuestionSharedMetadata,
+        currentEligibility,
+      );
+      if (disposed) return false;
+      setSelection((current) =>
+        current === undefined
+          ? current
+          : {
+              questionIds: [...current.questionIds, id],
+              questions: [...current.questions, ...addition.questions],
+            },
+      );
+      return true;
+    } catch {
+      if (!disposed)
+        setError(
+          "This Question no longer meets the Pool requirements. Your selected Questions and entered work are still here.",
+        );
+      return false;
+    } finally {
+      if (!disposed) setAdding(false);
+    }
+  }
+
   async function createPool(): Promise<boolean> {
     const selected = selection();
-    if (selected === undefined || state() !== "reviewing") return false;
+    if (selected === undefined || state() !== "reviewing" || adding()) return false;
     try {
       decodeQuestionPoolText(trimPoolDraft(title()), "Title", 512);
       decodeQuestionPoolText(trimPoolDraft(description()), "Description", 4000);
@@ -271,32 +369,20 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
         inFlightSave={trackedCreate.inFlightSave}
         copy={{
           heading: "Discard Question Pool creation?",
-          description: "Your Pool Title or Description will be discarded.",
+          description: "Your selected Questions, Pool Title, and Description will be discarded.",
         }}
       />
       <Show when={state() === "choosing"}>
         <QuestionPicker
-          repository={pickerRepository()}
+          repository={basePickerRepository}
           sources={pickerSources}
           loadQuestionInspection={props.loadQuestionInspection}
           questionRevisionPreviewDocumentUrl={props.questionRevisionPreviewDocumentUrl}
           questionImageUrl={props.questionImageUrl}
-          eligibility={eligibility()}
-          mode={sourceBound || eligibility() !== undefined ? "many" : "one"}
-          maximumSelection={MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY - startingQuestions.length}
-          initialSelection={selection()}
-          title={
-            sourceBound
-              ? "Add published Questions to this Pool"
-              : "Choose published Questions for this Pool"
-          }
-          instructions={
-            !sourceBound
-              ? "Select published Questions for this reusable Pool."
-              : startingContext() === undefined
-                ? `The ${startingQuestions.length} starting Questions are already selected.`
-                : `Results begin filtered to ${startingContext()!.disciplineName} / ${startingContext()!.subjectName}. The ${startingQuestions.length} starting Questions are already selected.`
-          }
+          mode="one"
+          maximumSelection={1}
+          title="Choose published Questions for this Pool"
+          instructions="Choose the first published Question to establish this Pool's Discipline, Subject, Type, and Backend."
           confirmLabel="Review selected Questions"
           trigger={undefined}
           onConfirm={acceptSelection}
@@ -317,99 +403,107 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
             >
               Create Question Pool
             </h1>
+            <Show when={state() !== "created"}>
+              <fieldset disabled={state() === "creating"}>
+                <legend>Pool metadata</legend>
+                <div class="question-pool-create-title-context">
+                  <label class="assessment-editor-field">
+                    Pool Title (required)
+                    <input
+                      required
+                      value={title()}
+                      onInput={(event) => setTitle(event.currentTarget.value)}
+                    />
+                  </label>
+                  <Show when={startingContext()}>
+                    {(context) => (
+                      <dl class="question-pool-starting-classification">
+                        <div>
+                          <dt>Discipline</dt>
+                          <dd>{context().disciplineName}</dd>
+                        </div>
+                        <div>
+                          <dt>Subject</dt>
+                          <dd>{context().subjectName}</dd>
+                        </div>
+                      </dl>
+                    )}
+                  </Show>
+                </div>
+                <label class="assessment-editor-field">
+                  Description (required)
+                  <textarea
+                    required
+                    value={description()}
+                    onInput={(event) => setDescription(event.currentTarget.value)}
+                  />
+                </label>
+                <Show
+                  when={startingContext()}
+                  fallback={
+                    <p>
+                      The first Question, {selected().questions[0]?.row.questionTitle}, establishes
+                      this Pool's Discipline and Subject. Every additional Question must share both.
+                      The server checks this when you create the Pool.
+                    </p>
+                  }
+                >
+                  {(context) => (
+                    <p>
+                      The starting Questions establish this Pool's {context().disciplineName}{" "}
+                      Discipline and {context().subjectName} Subject. Every additional Question must
+                      share both.
+                    </p>
+                  )}
+                </Show>
+              </fieldset>
+            </Show>
             <div class="question-pool-create-review-grid">
               <section aria-labelledby="question-pool-selected-heading">
                 <h3 id="question-pool-selected-heading">Selected Questions</h3>
-                <RecordSequence
-                  rows={[
-                    ...startingQuestions.map((question) => ({
-                      title: question.questionTitle,
-                      publishedQuestionId:
-                        question.publishedQuestionRevisionTuple.publishedQuestionId,
-                      revisionNumber: question.publishedQuestionRevisionTuple.revisionNumber,
-                      revisionIsFixed: true,
-                    })),
-                    ...selected().questions.map((question) => ({
-                      title: question.row.questionTitle,
-                      publishedQuestionId:
-                        question.row.publishedQuestionRevisionTuple.publishedQuestionId,
-                      revisionNumber: question.row.publishedQuestionRevisionTuple.revisionNumber,
-                      revisionIsFixed: false,
-                    })),
-                  ].sort((left, right) => left.title.localeCompare(right.title))}
-                  content={(member: PoolCreationMember) => ({
-                    title: member.title,
-                    details: [
-                      {
-                        kind: "text",
-                        label: member.revisionIsFixed
-                          ? "Fixed Published Question revision"
-                          : "Current selected Question revision (rechecked when creating)",
-                        value: `${member.publishedQuestionId}, Revision ${member.revisionNumber}`,
-                      },
-                    ],
-                    actions: [],
-                  })}
-                  recordId={(member) => `${member.publishedQuestionId}:${member.revisionNumber}`}
-                  state={{ kind: "ready" }}
-                  ariaLabel="Selected Questions sorted by title"
-                  emptyState={{ title: "No Questions are selected." }}
+                <SearchBlock
+                  layout="above"
+                  state={memberSearch.state}
+                  controls={
+                    <SearchControls
+                      state={memberSearch.state}
+                      textLabel="Search selected Pool Questions"
+                    />
+                  }
+                  collection={{
+                    ariaLabel: "Selected Pool Questions",
+                    fields: memberFields,
+                    query: memberSearch.query,
+                    emptyState: { title: "No selected Questions match this search." },
+                  }}
                 />
               </section>
-              <Show when={state() !== "created"}>
-                <fieldset disabled={state() === "creating"}>
-                  <legend>Pool metadata</legend>
-                  <div class="question-pool-create-title-context">
-                    <label class="assessment-editor-field">
-                      Pool Title (required)
-                      <input
-                        required
-                        value={title()}
-                        onInput={(event) => setTitle(event.currentTarget.value)}
-                      />
-                    </label>
-                    <Show when={startingContext()}>
-                      {(context) => (
-                        <dl class="question-pool-starting-classification">
-                          <div>
-                            <dt>Discipline</dt>
-                            <dd>{context().disciplineName}</dd>
-                          </div>
-                          <div>
-                            <dt>Subject</dt>
-                            <dd>{context().subjectName}</dd>
-                          </div>
-                        </dl>
-                      )}
-                    </Show>
-                  </div>
-                  <label class="assessment-editor-field">
-                    Description (required)
-                    <textarea
-                      required
-                      value={description()}
-                      onInput={(event) => setDescription(event.currentTarget.value)}
+              <Show when={state() !== "created" && eligibility()}>
+                {(currentEligibility) => (
+                  <section aria-labelledby="question-pool-create-available-heading">
+                    <h3 id="question-pool-create-available-heading">Library Questions</h3>
+                    <QuestionPoolAvailableQuestions
+                      repository={props.questionLibrary}
+                      classificationClient={props.classificationClient}
+                      eligibility={currentEligibility()}
+                      includedIds={
+                        new Set([
+                          ...startingQuestions.map(
+                            (question) =>
+                              question.publishedQuestionRevisionTuple.publishedQuestionId,
+                          ),
+                          ...(selection()?.questionIds ?? []),
+                        ])
+                      }
+                      disabled={
+                        state() !== "reviewing" ||
+                        adding() ||
+                        memberCount() >= MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
+                      }
+                      onAdd={addQuestion}
                     />
-                  </label>
-                  <Show
-                    when={startingContext()}
-                    fallback={
-                      <p>
-                        The first Question, {selected().questions[0]?.row.questionTitle},
-                        establishes this Pool's Discipline and Subject. Every additional Question
-                        must share both. The server checks this when you create the Pool.
-                      </p>
-                    }
-                  >
-                    {(context) => (
-                      <p>
-                        The starting Questions establish this Pool's {context().disciplineName}{" "}
-                        Discipline and {context().subjectName} Subject. Every additional Question
-                        must share both.
-                      </p>
-                    )}
-                  </Show>
-                </fieldset>
+                  </section>
+                )}
               </Show>
             </div>
             <Show when={state() !== "created"}>
@@ -419,20 +513,13 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                   Cancel
                 </button>{" "}
                 <button
-                  class="quiet-action"
-                  type="button"
-                  disabled={state() === "creating"}
-                  onClick={() => void chooseAgain()}
-                >
-                  {sourceBound ? "Add or change Questions" : "Choose different Questions"}
-                </button>{" "}
-                <button
                   class="primary-action"
                   type="button"
                   disabled={
                     trimPoolDraft(title()).length === 0 ||
                     trimPoolDraft(description()).length === 0 ||
-                    state() === "creating"
+                    state() === "creating" ||
+                    adding()
                   }
                   onClick={() => void trackedCreate.save()}
                 >

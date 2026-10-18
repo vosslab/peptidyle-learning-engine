@@ -16,9 +16,29 @@ export interface BlueprintWatchProjection {
 }
 
 export interface BlueprintWatchEvent {
+  readonly eventId: string;
   readonly kind: "revision" | "archived" | "restored";
   readonly occurredAt: number;
 }
+
+export type BlueprintWatchEventKind = BlueprintWatchEvent["kind"];
+
+export type BlueprintWatchQuery = {
+  readonly q: string;
+  readonly eventKinds: ReadonlyArray<BlueprintWatchEventKind>;
+  readonly direction: "ascending" | "descending";
+};
+
+export type BlueprintWatchPage = {
+  readonly items: ReadonlyArray<BlueprintWatchEvent>;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly totalCount: number;
+  readonly eventKindFacets: ReadonlyArray<{
+    readonly value: BlueprintWatchEventKind;
+    readonly count: number;
+  }>;
+};
 
 export interface BlueprintPromotion {
   readonly promoted: boolean;
@@ -45,8 +65,10 @@ export interface BlueprintStewardshipClient {
   ) => Promise<BlueprintWatchProjection>;
   readonly getBlueprintWatchEvents: (
     blueprintCourseId: BlueprintCourseId,
-    limit?: number,
-  ) => Promise<readonly BlueprintWatchEvent[]>;
+    query: BlueprintWatchQuery,
+    pageNumber: number,
+    pageSize: number,
+  ) => Promise<BlueprintWatchPage>;
   readonly getBlueprintPromotion: (
     blueprintCourseId: BlueprintCourseId,
   ) => Promise<BlueprintPromotion>;

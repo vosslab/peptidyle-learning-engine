@@ -23,9 +23,21 @@
   max-width: 100%;
   white-space: normal;
 }
-.blueprint-fork-destination .record-outline-list__item {
-  margin-block: 1rem;
-  overflow-wrap: anywhere;
+.blueprint-fork-destination {
+  display: grid;
+  gap: var(--ple-section-gap);
+}
+.blueprint-fork-destination > section {
+  min-width: 0;
+}
+.blueprint-fork-destination-detail {
+  grid-column: 1 / -1;
+}
+@media (min-width: 70rem) {
+  .blueprint-fork-destination {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    align-items: start;
+  }
 }
 .blueprint-fork-apply h5 {
   font-size: 1rem;

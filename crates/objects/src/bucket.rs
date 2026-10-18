@@ -55,6 +55,8 @@ pub enum ObjectDataClass {
     QuestionImage,
     /// A deterministic answer-free Question render.
     QuestionRender,
+    /// A private publication thumbnail for an exact Question Revision.
+    QuestionThumbnail,
     /// A Course Banner Upload or saved Course Banner.
     CourseAppearance,
     /// A normalized, self-authorized Account Profile image.
@@ -176,6 +178,14 @@ pub enum ObjectAddress {
         /// Physical object-record identity.
         object_id: ObjectId,
     },
+    /// Immutable publication thumbnail for one exact published Question Revision.
+    /// These bytes stay private and use the authorized Question Library delivery route.
+    QuestionThumbnail {
+        /// Exact immutable Question Revision that owns the thumbnail.
+        published_question_revision_tuple: PublishedQuestionRevisionTuple,
+        /// Physical object-record identity.
+        object_id: ObjectId,
+    },
     /// Validated banner bytes awaiting one authorized appearance save.
     ///
     /// Upload bytes are short-lived, non-signable, and scoped to one
@@ -235,6 +245,7 @@ impl ObjectAddress {
             | Self::PublishedImportArchive { .. }
             | Self::RestrictedQuestionImage { .. }
             | Self::QuestionRender { .. }
+            | Self::QuestionThumbnail { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. }
             | Self::ProfileImage { .. } => ObjectStorageArea::PrivateContent,
@@ -259,6 +270,7 @@ impl ObjectAddress {
                 ObjectDataClass::QuestionImage
             }
             Self::QuestionRender { .. } => ObjectDataClass::QuestionRender,
+            Self::QuestionThumbnail { .. } => ObjectDataClass::QuestionThumbnail,
             Self::CourseBannerUpload { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. } => ObjectDataClass::CourseAppearance,
@@ -364,6 +376,16 @@ impl ObjectAddress {
                 published_question_revision_tuple.revision_number,
                 question_seed.value()
             ),
+            Self::QuestionThumbnail {
+                published_question_revision_tuple,
+                object_id,
+            } => format!(
+                "questions/{}/versions/{}/thumbnail/{object_id}",
+                published_question_revision_tuple
+                    .published_question_id
+                    .as_str(),
+                published_question_revision_tuple.revision_number
+            ),
             Self::CourseBannerUpload {
                 course_instance_id,
                 course_banner_upload_id,
@@ -417,6 +439,7 @@ impl ObjectAddress {
             | Self::QuestionImage { object_id, .. }
             | Self::RestrictedQuestionImage { object_id, .. }
             | Self::QuestionRender { object_id, .. }
+            | Self::QuestionThumbnail { object_id, .. }
             | Self::StudentRecord { object_id, .. }
             | Self::Temporary { object_id } => *object_id,
             Self::CourseBannerUpload {
@@ -458,6 +481,10 @@ impl ObjectAddress {
                 ..
             }
             | Self::QuestionRender {
+                published_question_revision_tuple,
+                ..
+            }
+            | Self::QuestionThumbnail {
                 published_question_revision_tuple,
                 ..
             } => Some(published_question_revision_tuple),

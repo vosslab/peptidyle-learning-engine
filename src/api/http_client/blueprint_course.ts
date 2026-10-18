@@ -3,6 +3,7 @@
 import type { BlueprintCourseId } from "../../../generated/api/BlueprintCourseId";
 import type { BlueprintPoolMembersView } from "../../../generated/api/BlueprintPoolMembersView";
 import { MAX_DISCOVERY_PAGE_SIZE } from "../../../generated/api/MAX_DISCOVERY_PAGE_SIZE";
+import type { BlueprintCourseListPageView } from "../../../generated/api/BlueprintCourseListPageView";
 import { decodeBlueprintPoolMembersView } from "../decoders/blueprint_pool_members";
 import { decodeRecognitionTitles } from "../decoders/recognition_titles";
 import {
@@ -20,7 +21,6 @@ import {
   recognitionTitleBatches,
   type RecognitionTitleMaps,
 } from "../recognition_titles";
-import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintMetadataState } from "../../../generated/api/BlueprintMetadataState";
@@ -35,7 +35,6 @@ import {
   decodeBlueprintForkApplyResponse,
 } from "../decoders/blueprint_fork_apply";
 import type { ApiClient } from "../client";
-import type { CursorPage } from "../contracts";
 import {
   decodeBlueprintCoursePage,
   decodeKnownBlueprintForks,
@@ -77,7 +76,7 @@ const MAX_BLUEPRINT_RESPONSE_CHARACTERS = 16 * 1_024 * 1_024;
 
 function pagePath(
   path: string,
-  cursor: string | undefined,
+  pageNumber: number | undefined,
   pageSize: number | undefined,
   includeArchived: boolean,
   searchQuery?: string,
@@ -93,6 +92,12 @@ function pagePath(
     (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE)
   ) {
     throw new ApiProtocolError("Blueprint Course page size must be an integer from 1 through 250");
+  }
+  if (
+    pageNumber !== undefined &&
+    (!Number.isSafeInteger(pageNumber) || pageNumber < 1 || pageNumber > 0xffffffff)
+  ) {
+    throw new ApiProtocolError("Blueprint Course page number must be a positive 32-bit integer");
   }
   // ASVS 2.2.1, 2.2.2: mirror service limits for useful client feedback; server remains authoritative.
   if (
@@ -134,7 +139,7 @@ function pagePath(
     );
   }
   const query = new URLSearchParams();
-  if (cursor !== undefined) query.set("cursor", cursor);
+  if (pageNumber !== undefined) query.set("pageNumber", String(pageNumber));
   if (pageSize !== undefined) query.set("pageSize", String(pageSize));
   if (includeArchived) query.set("includeArchived", "true");
   // ASVS 1.2.2: encode literal search text as a query value, never URL syntax.
@@ -358,13 +363,15 @@ export function createBlueprintCourseClient(
       blueprintCourseId,
       kind,
       query: BlueprintHistoryQuery,
-      cursor,
+      pageNumber,
       pageSize,
     ): Promise<BlueprintHistoryPage> => {
       if (kind !== "revisions" && kind !== "metadata")
         throw new ApiProtocolError("Blueprint history kind must be revisions or metadata");
       if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100)
         throw new ApiProtocolError("Blueprint history page size must be 1 through 100");
+      if (!Number.isSafeInteger(pageNumber) || pageNumber < 1)
+        throw new ApiProtocolError("Blueprint history page number must be a positive integer");
       if (query.q.length > 120 || /\p{Cc}/u.test(query.q))
         throw new ApiProtocolError("Blueprint history search is invalid");
       if (
@@ -380,15 +387,11 @@ export function createBlueprintCourseClient(
         q: query.q,
         sort: query.sort,
         direction: query.direction,
+        pageNumber: String(pageNumber),
         pageSize: String(pageSize),
       });
       if (query.availability.length > 0)
         params.set("availability", [...new Set(query.availability)].sort().join(","));
-      if (cursor !== null) {
-        if (cursor.length === 0 || cursor.length > 8192 || !/^[A-Za-z0-9_-]+$/u.test(cursor))
-          throw new ApiProtocolError("Blueprint history cursor is invalid");
-        params.set("cursor", cursor);
-      }
       const path = `${blueprintPath(blueprintCourseId)}/history?${params}`;
       const body = (
         await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintHistoryPageView, {
@@ -397,6 +400,7 @@ export function createBlueprintCourseClient(
       ).body;
       if (
         body.items.length > pageSize ||
+        body.pageSize !== pageSize ||
         body.items.some(
           (item) => item.kind !== (kind === "revisions" ? "savedRevision" : "metadataChange"),
         )
@@ -521,7 +525,7 @@ export function createBlueprintCourseClient(
       return titles;
     },
     listBlueprintCourses: async (
-      cursor,
+      pageNumber,
       pageSize,
       includeArchived = false,
       query,
@@ -531,10 +535,10 @@ export function createBlueprintCourseClient(
       sort,
       tag = "",
       facets,
-    ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
+    ): Promise<BlueprintCourseListPageView> => {
       const path = pagePath(
         "/api/course-blueprints",
-        cursor,
+        pageNumber,
         pageSize,
         includeArchived,
         query,

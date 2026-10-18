@@ -72,7 +72,9 @@ pub struct BlueprintChangeProposalSummaryView {
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintChangeProposalPageView {
     pub items: Vec<BlueprintChangeProposalSummaryView>,
-    pub next_cursor: Option<String>,
+    pub page_number: u32,
+    pub page_size: u16,
+    pub total_count: u64,
 }
 
 /// Original ID-bearing inventory, labelled with its exact pinned basis.

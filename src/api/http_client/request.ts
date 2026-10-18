@@ -42,9 +42,6 @@ export function browserFetch(input: RequestInfo | URL, init?: RequestInit): Prom
 export function requestPath(basePath: string, path: string): string {
   return `${basePath}${path}`;
 }
-export function cursorPath(path: string, cursor: string | undefined): string {
-  return cursor === undefined ? path : `${path}?${new URLSearchParams({ cursor }).toString()}`;
-}
 export function encodedId(value: string): string {
   return encodeURIComponent(value);
 }

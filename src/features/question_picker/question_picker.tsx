@@ -1,25 +1,29 @@
 // question_picker.tsx - shared-search Question selector for Instructor workflows.
 
-import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { For, Show, batch, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionImageAssetId } from "../../../generated/api/QuestionImageAssetId";
 import type { QuestionImageUrlResolver } from "../../components/question_renderer";
-import type { RecordListSelection } from "../../components/record_list/record_list";
-import type { RecordField, RecordListQuery } from "../../components/record_list/record_fields";
-import type { RecordSort } from "../../components/record_list/record_fields";
-import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
+import type { DataSheetSelection } from "../../components/data_sheet/data_sheet_state";
+import type { RecordField, RecordListQuery } from "../../components/data_sheet/record_fields";
+import type { RecordSort } from "../../components/data_sheet/record_fields";
+import {
+  reorderedRecordListRows,
+  type RecordReorderBinding,
+} from "../../components/data_sheet/record_reorder";
 import type {
   QuestionLibraryBrowseQuery,
   QuestionLibraryBrowseRow,
 } from "../../pages/library_page_model";
 import type { LibraryRecordSortKey } from "../../pages/library_search_fields";
-import { RecordSequence } from "../../components/record_list/record_sequence";
-import { UnsavedChangesGuard, confirmUnsavedChanges } from "../../components/unsaved_changes_guard";
-import { SearchControls } from "../search/search_controls";
-import { SearchBlock } from "../search/search_block";
-import { createSearchState } from "../search/search_state";
+import { questionNativePreview } from "../../components/question_native_preview";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { createSearchState } from "../../components/search_block/search_state";
 import "./question_picker.css";
 import { QuestionPickerInspection } from "./question_picker_inspection";
 import {
@@ -47,7 +51,7 @@ export interface QuestionPickerProps {
   readonly onConfirm: (
     selection: QuestionPickerSelection,
   ) => void | boolean | Promise<void | boolean>;
-  /** Returning false keeps this picker open after its own staged-selection check. */
+  /** Returning false keeps this picker open. */
   readonly onCancel: () => void | boolean | Promise<void | boolean>;
   readonly trigger: HTMLButtonElement | undefined;
   readonly confirmLabel?: string;
@@ -140,37 +144,22 @@ function selectedCopy(
   return `${selection.questionIds.length} Questions selected in order.`;
 }
 
-function selectionIdentity(selection: QuestionPickerSelection): string {
-  return JSON.stringify(
-    selection.questions.map((question) => [
-      question.questionId,
-      question.row.publishedQuestionRevisionTuple.publishedQuestionId,
-      question.row.publishedQuestionRevisionTuple.revisionNumber,
-    ]),
-  );
-}
-
 /** One native dialog retains its tray and inspection while shared search owns discovery state. */
 export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
   const initialSource = props.sources[0];
   if (initialSource === undefined) throw new Error("Question Picker needs at least one source.");
-  const [selection, setSelection] = createSignal<QuestionPickerSelection>(
-    questionPickerSelection(
-      props.mode,
-      props.maximumSelection,
-      props.initialSelection?.questions.map((question) => question.row) ?? [],
-    ),
+  const hasInstructions = (props.instructions?.trim().length ?? 0) > 0;
+  const initialSelection = questionPickerSelection(
+    props.mode,
+    props.maximumSelection,
+    props.initialSelection?.questions.map((question) => question.row) ?? [],
   );
-  const [selectionMessage, setSelectionMessage] = createSignal(
-    selectedCopy(selection(), props.mode),
+  // Ordered row snapshots pin revisions; shared search owns pending membership.
+  const [pinnedRows, setPinnedRows] = createSignal<ReadonlyArray<QuestionLibraryBrowseRow>>(
+    initialSelection.questions.map((question) => question.row),
   );
-  const initialSelectionIdentity = selectionIdentity(selection());
-  const guardScope = Symbol("Question picker selection");
-  const [cancelRequested, setCancelRequested] = createSignal(false);
-  const [confirmed, setConfirmed] = createSignal(false);
+  const [selectionMessage, setSelectionMessage] = createSignal<string>();
   const [confirmPending, setConfirmPending] = createSignal(false);
-  const dirty = (): boolean =>
-    !confirmed() && selectionIdentity(selection()) !== initialSelectionIdentity;
   let disposed = false;
   let cancelInProgress = false;
   const [inspection, setInspection] = createSignal<PickerInspection>({ kind: "closed" });
@@ -192,7 +181,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           (entry) => entry.sort.key === sort.key && entry.sort.direction === sort.direction,
         )?.order;
         if (order === undefined || order === search.query().libraryQuery.sort) return;
-        void search.apply((current) => ({
+        void search.sort((current) => ({
           ...current,
           libraryQuery: { ...current.libraryQuery, sort: order },
         }));
@@ -200,20 +189,170 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     },
   };
 
+  function selection(): QuestionPickerSelection {
+    const selectedIds = search.selectedIds();
+    return questionPickerSelection(
+      props.mode,
+      props.maximumSelection,
+      pinnedRows().filter((row) => selectedIds.has(row.displayId)),
+    );
+  }
+
+  // This complete projection carries draft positions through display-only sorting and filtering.
+  const trayRows = createMemo(() =>
+    selection().questions.map((question, index) => ({ ...question, position: index + 1 })),
+  );
+  type TrayRow = ReturnType<typeof trayRows>[number];
+  type TraySort = "position" | "title" | "questionId" | "discipline" | "revision";
+  type TrayFilter = "discipline";
+  const trayFields: ReadonlyArray<RecordField<TrayRow, TraySort, TrayFilter>> = [
+    {
+      id: "position",
+      label: "Selected position",
+      sortKey: "position",
+      value: (question) => question.position,
+      defaultColumn: { priority: 2, width: "8rem" },
+    },
+    {
+      id: "title",
+      label: "Question title",
+      role: "identity",
+      sortKey: "title",
+      value: (question) => question.row.questionTitle,
+      defaultColumn: { priority: 1, width: "18rem" },
+    },
+    {
+      id: "questionId",
+      label: "Question ID",
+      sortKey: "questionId",
+      value: (question) => question.questionId,
+      defaultColumn: { priority: 3, width: "13rem" },
+    },
+    {
+      id: "discipline",
+      label: "Discipline",
+      sortKey: "discipline",
+      filterKey: "discipline",
+      value: (question) => question.row.disciplineName,
+      defaultColumn: { priority: 4, width: "10rem" },
+    },
+    {
+      id: "revision",
+      label: "Revision",
+      sortKey: "revision",
+      value: (question) => question.row.publishedQuestionRevisionTuple.revisionNumber,
+      defaultColumn: { priority: 6, width: "7rem" },
+    },
+  ];
+  const traySearch = createLocalCompleteSearch(
+    { rows: trayRows },
+    {
+      fields: trayFields,
+      rowId: (question) => question.questionId,
+      keyword: (question) =>
+        `${question.position} ${question.row.questionTitle} ${question.questionId} ${question.row.disciplineName} ${question.row.summary}`,
+      content: (question): RecordContent => ({
+        title: question.row.questionTitle,
+        preview: questionNativePreview(question.row),
+        description: question.row.summary,
+        details: [
+          { kind: "text", label: "Selected position", value: String(question.position) },
+          {
+            kind: "questionId",
+            questionTitle: question.row.questionTitle,
+            displayId: question.questionId,
+          },
+          { kind: "text", label: "Discipline", value: question.row.disciplineName },
+          {
+            kind: "text",
+            label: "Revision",
+            value: String(question.row.publishedQuestionRevisionTuple.revisionNumber),
+          },
+        ],
+        actions: [
+          {
+            id: "inspect",
+            kind: "command",
+            label: "Inspect",
+            onClick: () => inspectRow(question.row),
+          },
+          {
+            id: "remove",
+            kind: "command",
+            label: "Remove",
+            disabled: confirmPending(),
+            onClick: () => toggleRow(question.row, false),
+          },
+          {
+            id: "moveEarlier",
+            kind: "command",
+            label: "Move earlier",
+            disabled: confirmPending() || question.position === 1,
+            onClick: () => moveTrayQuestion(question.questionId, -1),
+          },
+          {
+            id: "moveLater",
+            kind: "command",
+            label: "Move later",
+            disabled: confirmPending() || question.position === selection().questions.length,
+            onClick: () => moveTrayQuestion(question.questionId, 1),
+          },
+        ],
+      }),
+    },
+  );
+
+  function moveTrayQuestion(questionId: string, direction: -1 | 1): void {
+    const questions = selection().questions;
+    const sourceIndex = questions.findIndex((question) => question.questionId === questionId);
+    if (sourceIndex < 0) return;
+    const targetId = questions[sourceIndex + direction]?.questionId;
+    if (targetId !== undefined) reorderTrayQuestion(questionId, targetId);
+  }
+
+  function reorderTrayQuestion(sourceId: string, targetId: string): void {
+    if (confirmPending() || sourceId === targetId) return;
+    const questions = selection().questions;
+    const sourceIndex = questions.findIndex((question) => question.questionId === sourceId);
+    const destinationIndex = questions.findIndex((question) => question.questionId === targetId);
+    if (sourceIndex < 0 || destinationIndex < 0) return;
+    const rows = reorderedRecordListRows(questions, sourceIndex, destinationIndex).map(
+      (question) => question.row,
+    );
+    updateSelection(questionPickerSelection(props.mode, props.maximumSelection, rows));
+  }
+
+  const trayReorder: RecordReorderBinding = {
+    orderForRecord: (id) => {
+      const currentFullAuthoredIds = selection().questions.map((question) => question.questionId);
+      return currentFullAuthoredIds.includes(id) ? currentFullAuthoredIds : [];
+    },
+    onMove: reorderTrayQuestion,
+    recordLabel: (id) =>
+      selection().questions.find((question) => question.questionId === id)?.row.questionTitle ??
+      "Question",
+    isDisabled: confirmPending,
+  };
+
   function updateSelection(next: QuestionPickerSelection): void {
     if (confirmPending()) return;
-    setSelection(next);
-    setSelectionMessage(selectedCopy(next, props.mode));
+    batch(() => {
+      setPinnedRows(next.questions.map((question) => question.row));
+      search.deselectIds([...search.selectedIds()].filter((id) => !next.questionIds.includes(id)));
+      next.questions.forEach((question) => search.select(question.row, true));
+      setSelectionMessage(undefined);
+    });
   }
 
   function updateLibraryQuery(change: Partial<QuestionLibraryBrowseQuery>): void {
+    if (confirmPending()) return;
     void search.apply({
       ...search.query(),
       libraryQuery: { ...search.query().libraryQuery, ...change },
     });
   }
 
-  async function selectSource(event: Event): Promise<void> {
+  function selectSource(event: Event): void {
     const target = event.currentTarget;
     if (!(target instanceof HTMLSelectElement)) return;
     const source = sourceFromKey(props.sources, target.value);
@@ -222,12 +361,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
       target.value = sourceKey(search.query().source);
       return;
     }
-    if (!(await confirmUnsavedChanges(guardScope)) || disposed) {
-      if (!disposed) target.value = sourceKey(search.query().source);
-      return;
-    }
-    updateSelection(questionPickerSelection(props.mode, props.maximumSelection, []));
-    search.clearSelection();
     void search.apply({ ...search.query(), source });
   }
 
@@ -286,7 +419,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           checked,
         ),
       );
-      search.select(row, checked);
     } catch (error: unknown) {
       setSelectionMessage(
         error instanceof Error ? error.message : "That Question could not be selected.",
@@ -294,11 +426,12 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     }
   }
 
-  function selectedRows(): RecordListSelection<QuestionLibraryBrowseRow> | undefined {
+  function selectedRows(): DataSheetSelection<QuestionLibraryBrowseRow> | undefined {
     if (props.mode === "none") return undefined;
     return {
       kind: props.mode === "one" ? "radio" : "checkbox",
-      selectedIds: () => new Set(selection().questionIds),
+      selectedIds: search.selectedIds,
+      disabled: () => confirmPending(),
       onChange: toggleRow,
     };
   }
@@ -320,7 +453,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
 
   function cancel(): void {
     if (confirmPending()) return;
-    setCancelRequested(true);
+    void closePicker();
   }
 
   async function confirm(): Promise<void> {
@@ -340,7 +473,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           );
         return;
       }
-      setConfirmed(true);
       if (dialog.open) dialog.close();
       props.trigger?.focus();
     } catch {
@@ -364,7 +496,10 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     return current.kind === "ready" ? current : undefined;
   };
 
-  onMount(() => void search.open(search.query()));
+  onMount(() => {
+    void search.open(search.query());
+    initialSelection.questions.forEach((question) => search.select(question.row, true));
+  });
   onCleanup(() => {
     disposed = true;
     if (dialog.open) dialog.close();
@@ -375,7 +510,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
       <dialog
         class="question-picker-dialog"
         aria-labelledby="question-picker-heading"
-        aria-describedby="question-picker-instructions"
+        aria-describedby={hasInstructions ? "question-picker-instructions" : undefined}
         ref={(element) => {
           dialog = element;
           queueMicrotask(() => dialog.showModal());
@@ -388,10 +523,9 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
         <header class="question-picker-header">
           <div>
             <h2 id="question-picker-heading">{props.title ?? "Choose published Questions"}</h2>
-            <p id="question-picker-instructions">
-              {props.instructions ??
-                "Choose a source, refine the current Library result, then add Questions in the order you want to use them."}
-            </p>
+            <Show when={hasInstructions}>
+              <p id="question-picker-instructions">{props.instructions}</p>
+            </Show>
           </div>
           <button class="quiet-action" type="button" disabled={confirmPending()} onClick={cancel}>
             Close picker
@@ -399,7 +533,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
         </header>
 
         <section class="question-picker-results" aria-label="Question results">
-          <h3>Current results</h3>
           <SearchBlock
             layout="above"
             state={search}
@@ -408,8 +541,17 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                 state={search}
                 textLabel="Search Questions"
                 textPlaceholder="Title, concept, or tag"
+                disabled={confirmPending}
+                onSubmit={() => {
+                  if (!confirmPending()) void search.submit();
+                }}
               >
-                <div class="question-picker-filters">
+                <fieldset
+                  class="question-picker-filters"
+                  aria-label="Question filters"
+                  disabled={confirmPending()}
+                  style="border: 0; padding: 0; margin: 0; min-width: 0;"
+                >
                   <label>
                     Question source
                     <select
@@ -537,7 +679,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                       </For>
                     </select>
                   </label>
-                </div>
+                </fieldset>
               </SearchControls>
             }
             collection={{
@@ -562,7 +704,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                       updateSelection(
                         questionPickerSelection(props.mode, props.maximumSelection, []),
                       );
-                      search.clearSelection();
                     },
                   },
                 };
@@ -576,7 +717,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
         </section>
 
         <p class="question-picker-status" role="status" aria-live="polite">
-          {selectionMessage()}
+          {selectionMessage() ?? selectedCopy(selection(), props.mode)}
         </p>
         <Show when={props.confirmationError}>{(message) => <p role="alert">{message()}</p>}</Show>
         <Show when={inspection().kind === "loading"}>
@@ -613,48 +754,34 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
         <Show when={props.mode !== "none"}>
           <section class="question-picker-tray" aria-labelledby="question-picker-tray-heading">
             <h3 id="question-picker-tray-heading">Selected Questions</h3>
-            <RecordSequence
-              rows={selection().questions}
-              content={(question) => ({
-                title: question.row.questionTitle,
-                details: [
-                  {
-                    kind: "questionId",
-                    questionTitle: question.row.questionTitle,
-                    displayId: question.questionId,
-                  },
-                ],
-                actions: [],
-              })}
-              renderBody={(question) => (
-                <button
-                  class="quiet-action"
-                  type="button"
-                  onClick={() => toggleRow(question().row, false)}
-                >
-                  Remove
-                </button>
-              )}
-              recordId={(question) => question.questionId}
-              reorder={{
-                onMove: (sourceIndex, destinationIndex) => {
-                  const nextRows = reorderedRecordListRows(
-                    selection().questions,
-                    sourceIndex,
-                    destinationIndex,
-                  ).map((question) => question.row);
-                  updateSelection(
-                    questionPickerSelection(props.mode, props.maximumSelection, nextRows),
-                  );
+            <SearchBlock
+              layout="above"
+              state={traySearch.state}
+              controls={
+                <SearchControls
+                  state={traySearch.state}
+                  textLabel="Search selected Questions"
+                  disabled={confirmPending}
+                />
+              }
+              collection={{
+                ariaLabel: "Selected Questions in order",
+                fields: trayFields,
+                query: traySearch.query,
+                disabled: confirmPending,
+                reorder: trayReorder,
+                get emptyState() {
+                  return selection().questions.length === 0
+                    ? {
+                        title: "No Questions are selected.",
+                        message:
+                          "Choose a result to add it here. The order becomes the returned Question ID order.",
+                      }
+                    : {
+                        title: "No selected Questions match this search.",
+                        message: "Clear the tray search to see every selected Question in order.",
+                      };
                 },
-                recordLabel: (question) => question.row.questionTitle,
-              }}
-              state={{ kind: "ready" }}
-              ariaLabel="Selected Questions in order"
-              emptyState={{
-                title: "No Questions are selected.",
-                message:
-                  "Choose a result to add it here. The order becomes the returned Question ID order.",
               }}
             />
           </section>
@@ -675,19 +802,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           </button>
         </footer>
       </dialog>
-      <UnsavedChangesGuard
-        scope={guardScope}
-        dirty={dirty}
-        manualLeave={{
-          requested: cancelRequested,
-          clearRequest: () => setCancelRequested(false),
-          continue: () => void closePicker(),
-        }}
-        copy={{
-          heading: "Discard selected Questions?",
-          description: "Your unconfirmed Question selection will be discarded.",
-        }}
-      />
     </>
   );
 }

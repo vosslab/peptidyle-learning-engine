@@ -4,10 +4,10 @@ import { Show, type JSX } from "solid-js";
 import type { BlueprintCourseClient } from "../api/blueprint_course";
 import type { ContentClassificationClient } from "../api/content_classification";
 import { useSessionBootstrap } from "../auth/session_context";
-import { PageFrame } from "../components/page_frame";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createSearchState } from "../features/search/search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createSearchState } from "../components/search_block/search_state";
 import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
 import { BlueprintSearchClassification } from "./blueprint_course_search_classification";
 import {
@@ -49,6 +49,7 @@ export function BlueprintCourseCollection(props: BlueprintCourseCollectionProps)
   const recordQuery = blueprintCourseSearchRecordQuery({
     query,
     apply: searchState.apply,
+    sort: searchState.sort,
     client: props.client,
     scope: props.scope,
   });
@@ -99,6 +100,7 @@ export function BlueprintCourseCollection(props: BlueprintCourseCollectionProps)
           ariaLabel: props.scope === "all" ? "Blueprint Courses" : "Public Blueprint Courses",
           fields,
           query: recordQuery,
+          initialMode: props.scope === "public" ? "cards" : undefined,
           initialEmptyState: {
             title: "Enter a name or choose a classification to search.",
             message: "",

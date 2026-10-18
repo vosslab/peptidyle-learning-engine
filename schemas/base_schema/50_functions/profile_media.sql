@@ -111,12 +111,9 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.record_initial_account_avatar();
 -- C837's cross-Account projection is narrower than the self Avatar API: a
 -- Sysadmin may learn only a selected provided-avatar ID. Generic and private
 -- Profile-image choices both project as NULL, never as an image reference.
-CREATE FUNCTION ple_private.list_instructor_account_avatar_summaries(
-    p_query text DEFAULT NULL,
-    p_state text DEFAULT NULL,
-    p_after_account_id text DEFAULT NULL,
-    p_limit integer DEFAULT NULL,
-    p_sort text DEFAULT 'idAscending'
+CREATE FUNCTION ple_private.find_instructor_account_avatar_summaries(
+    p_query text,
+    p_state text DEFAULT NULL
 )
 RETURNS TABLE (
     account_id text,
@@ -130,12 +127,8 @@ AS $$
 DECLARE
     v_query text := NULLIF(btrim(p_query), '');
     v_state text := NULLIF(btrim(p_state), '');
-    v_after text := NULLIF(btrim(p_after_account_id), '');
-    v_limit integer := p_limit;
 BEGIN
     PERFORM ple_private.require_current_sysadmin_account();
-    -- ASVS 2.2.1: state, cursor, and page size are allow-listed. A null limit
-    -- remains the complete filtered list for a single-account lookup.
     IF v_query IS NOT NULL AND (
         char_length(v_query) > 320 OR v_query ~ '[[:cntrl:]]'
     ) THEN
@@ -146,22 +139,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Instructor Account list is invalid';
     END IF;
-    IF v_after IS NOT NULL AND v_after !~ '^U[0-9A-HJKMNP-TV-Z]{8}$' THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Instructor Account list is invalid';
-    END IF;
-    IF v_limit IS NOT NULL AND v_limit NOT IN (50, 100, 250) THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Instructor Account list is invalid';
-    END IF;
-    IF p_sort NOT IN ('idAscending', 'idDescending') THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Instructor Account sort is invalid';
-    END IF;
     -- The match may use the exact support Account ID, authentication email,
-    -- or Profile display name.
-    -- Neither value is selected into this browser-safe summary. ASVS 8.2.3.
-    -- A page asks for one extra row so the caller can see that another page exists.
+    -- or Profile display name. Neither private value is selected. ASVS 8.2.3.
     RETURN QUERY
     SELECT summary.account_id,
            summary.state,
@@ -172,9 +151,6 @@ BEGIN
       LEFT JOIN ple_private.account_avatar AS avatar ON avatar.account_id = account.account_id
      WHERE account.user_role = 'instructor'
        AND (v_state IS NULL OR summary.state = v_state)
-       AND (v_after IS NULL OR
-            (p_sort = 'idAscending' AND summary.account_id > v_after) OR
-            (p_sort = 'idDescending' AND summary.account_id < v_after))
        AND (
             v_query IS NULL
             OR account.account_id = v_query
@@ -190,36 +166,113 @@ BEGIN
                 lower(v_query)
             ) > 0
        )
+     ORDER BY summary.account_id;
+END
+$$;
+
+CREATE FUNCTION ple_private.list_instructor_account_avatar_summaries(
+    p_query text,
+    p_state text,
+    p_page_number bigint,
+    p_page_size integer,
+    p_sort text
+)
+RETURNS TABLE (
+    account_id text,
+    state text,
+    last_successful_sign_in timestamp with time zone,
+    provided_avatar_id text,
+    total_count bigint,
+    page_number bigint
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private
+AS $$
+DECLARE
+    v_query text := NULLIF(btrim(p_query), '');
+    v_state text := NULLIF(btrim(p_state), '');
+    v_page_number bigint := p_page_number;
+    v_page_size integer := p_page_size;
+BEGIN
+    PERFORM ple_private.require_current_sysadmin_account();
+    IF v_page_number IS NULL OR v_page_number NOT BETWEEN 1 AND 4294967295
+       OR v_page_size IS NULL OR v_page_size NOT BETWEEN 1 AND 100 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Instructor Account page is invalid';
+    END IF;
+    IF p_sort IS NULL OR p_sort NOT IN ('idAscending', 'idDescending') THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Instructor Account sort is invalid';
+    END IF;
+    RETURN QUERY
+    WITH matching AS MATERIALIZED (
+        SELECT * FROM ple_private.find_instructor_account_avatar_summaries(v_query, v_state)
+    ),
+    result_count AS (
+        SELECT count(*)::bigint AS total_count FROM matching
+    ),
+    resolved_page AS (
+        SELECT result_count.total_count,
+               greatest(
+                   1::bigint,
+                   least(
+                       v_page_number,
+                       ceil(result_count.total_count::numeric / v_page_size)::bigint
+                   )
+               ) AS page_number
+          FROM result_count
+    ),
+    page_rows AS (
+        SELECT matching.*
+          FROM matching
+          CROSS JOIN resolved_page
+         ORDER BY
+             CASE WHEN p_sort = 'idAscending' THEN matching.account_id END ASC,
+             CASE WHEN p_sort = 'idDescending' THEN matching.account_id END DESC
+         OFFSET (
+             (SELECT resolved_page.page_number - 1 FROM resolved_page) * v_page_size
+         )
+         LIMIT v_page_size
+    )
+    SELECT page_rows.account_id,
+           page_rows.state,
+           page_rows.last_successful_sign_in,
+           page_rows.provided_avatar_id,
+           resolved_page.total_count,
+           resolved_page.page_number
+      FROM resolved_page
+      LEFT JOIN page_rows ON true
      ORDER BY
-         CASE WHEN p_sort = 'idAscending' THEN summary.account_id END ASC,
-         CASE WHEN p_sort = 'idDescending' THEN summary.account_id END DESC
-     LIMIT (CASE WHEN v_limit IS NULL THEN NULL ELSE v_limit + 1 END);
+         CASE WHEN p_sort = 'idAscending' THEN page_rows.account_id END ASC,
+         CASE WHEN p_sort = 'idDescending' THEN page_rows.account_id END DESC;
 END
 $$;
 
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.list_instructor_account_avatar_summaries(
-    p_query text DEFAULT NULL,
-    p_state text DEFAULT NULL,
-    p_after_account_id text DEFAULT NULL,
-    p_limit integer DEFAULT NULL,
-    p_sort text DEFAULT 'idAscending'
+    p_query text,
+    p_state text,
+    p_page_number bigint,
+    p_page_size integer,
+    p_sort text
 )
 RETURNS TABLE (
     account_id text,
     state text,
     last_successful_sign_in timestamp with time zone,
-    provided_avatar_id text
+    provided_avatar_id text,
+    total_count bigint,
+    page_number bigint
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT * FROM ple_private.list_instructor_account_avatar_summaries(
-    p_query, p_state, p_after_account_id, p_limit, p_sort
+    p_query, p_state, p_page_number, p_page_size, p_sort
 ) $$;
 
--- State choices are computed from the entire authorized ID/name/email match,
--- excluding the selected State and any result-page cursor.
+-- State choices are computed from the complete authorized ID/name/email match,
+-- independently of the selected State and numbered result page.
 CREATE FUNCTION ple_api.instructor_account_state_choices(p_query text)
 RETURNS TABLE(state text, matching_count bigint)
 LANGUAGE sql SECURITY DEFINER
@@ -227,8 +280,8 @@ SET search_path = pg_catalog, ple_api, ple_private
 AS $$
     SELECT choices.state, count(summary.account_id)::bigint
       FROM (VALUES ('active'), ('deactivated'), ('closed')) AS choices(state)
-      LEFT JOIN ple_private.list_instructor_account_avatar_summaries(
-          p_query, NULL, NULL, NULL, 'idAscending'
+      LEFT JOIN ple_private.find_instructor_account_avatar_summaries(
+          p_query, NULL
       ) AS summary ON summary.state = choices.state
      GROUP BY choices.state
 $$;

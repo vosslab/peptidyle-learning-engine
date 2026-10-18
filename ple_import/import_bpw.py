@@ -210,12 +210,7 @@ def parse_args() -> argparse.Namespace:
 #============================================
 def repo_root() -> pathlib.Path:
 	"""Resolve the checkout containing this package independently of the caller's directory."""
-	package_dir = pathlib.Path(__file__).resolve().parent
-	# ASVS 1.2.5: invoke Git with explicit arguments and no shell interpolation.
-	result = subprocess.run(["git", "-C", str(package_dir), "rev-parse", "--show-toplevel"],
-		capture_output=True, text=True, check=True)
-	root = pathlib.Path(result.stdout.strip())
-	return root
+	return pathlib.Path(__file__).resolve().parent.parent
 
 
 #============================================

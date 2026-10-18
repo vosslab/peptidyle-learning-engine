@@ -19,7 +19,7 @@ import type {
   UnreleasedLiveAssessment,
 } from "../../api/assessment_release";
 import { useApplicationApi } from "../../api/application_api";
-import { PageFrame } from "../../components/page_frame";
+import { PageFrame } from "../../components/page_frame/page_frame";
 import {
   parseAssessmentId,
   parseCourseInstanceId,
@@ -85,10 +85,6 @@ export function AssessmentWorkspaceIdentity(): JSX.Element {
     workspace.assessment().workspace;
   return (
     <dl class="assessment-workspace-identity" aria-label="Current Assessment">
-      <div>
-        <dt>Assessment</dt>
-        <dd>{assessment().title}</dd>
-      </div>
       <div>
         <dt>Release status</dt>
         <dd data-assessment-release-status={assessment().status}>

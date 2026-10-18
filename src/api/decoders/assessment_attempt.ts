@@ -5,11 +5,8 @@ import type { AssessmentGrade } from "../../../generated/api/AssessmentGrade";
 import type { AssessmentAttempt } from "../../../generated/api/AssessmentAttempt";
 import type { AssessmentAttemptPolicySource } from "../../../generated/api/AssessmentAttemptPolicySource";
 import type { BaseAssessmentPolicy } from "../../../generated/api/BaseAssessmentPolicy";
-import type { StudentAssessmentLandingSummary } from "../../../generated/api/StudentAssessmentLandingSummary";
 import type { QuestionAttemptState } from "../../../generated/api/QuestionAttemptState";
 import type { QuestionAttemptTiming } from "../../../generated/api/QuestionAttemptTiming";
-import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
-import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { IssuedAttemptCapability } from "../../../generated/api/IssuedAttemptCapability";
 import type { StudentQuestionAttemptView } from "../../../generated/api/StudentQuestionAttemptView";
 import type { QuestionResponse } from "../../../generated/api/QuestionResponse";
@@ -21,7 +18,6 @@ import type { AssessmentGradeScoreState } from "../../../generated/api/Assessmen
 import type { AssessmentScoringState } from "../../../generated/api/AssessmentScoringState";
 import type {
   AuthenticatedSession,
-  CursorPage,
   StudentFeedbackReleaseResponse,
   StudentQuestionAttempt,
   QuestionPoolSelectionPosition,
@@ -46,7 +42,6 @@ import {
   decodeAccountId,
   decodeAssessmentId,
   decodeCapability,
-  decodeCursorPage,
   decodeIdentifier,
   decodeAssessmentTitle,
   decodePublishedQuestionRevisionTuple,
@@ -54,11 +49,9 @@ import {
   field,
   requireOnlyFields,
 } from "./shared";
-import { decodeStudentAssessmentLandingSummary } from "./question_library";
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeAssessmentActivityRules, decodeAssessmentInstructions } from "./assessment_release";
 import { decodeGradingResult, decodeStudentResponse } from "./question_delivery";
-import { decodeQuestionSummary, decodeCourseSummary } from "./question_library";
 
 const ISSUED_ATTEMPT_CAPABILITIES = [
   "questionPresentation",
@@ -692,39 +685,6 @@ export function decodeSignedOutResponse(value: unknown, path = "response"): Sign
     throw new DecodeError(`${path}.authenticated`, "false");
   }
   return { authenticated: false };
-}
-
-export function decodeQuestionPage(value: unknown, path = "response"): CursorPage<QuestionSummary> {
-  return decodeCursorPage(value, path, (item, itemPath) =>
-    decodeQuestionSummary(item, itemPath, true),
-  );
-}
-
-export function decodeCoursePage(value: unknown, path = "response"): CursorPage<CourseSummary> {
-  return decodeCursorPage(value, path, decodeCourseSummary);
-}
-
-export function decodeStudentAssessmentPage(
-  value: unknown,
-  path = "response",
-): CursorPage<StudentAssessmentLandingSummary> {
-  return decodeCursorPage(value, path, (item, itemPath) =>
-    decodeStudentAssessmentLandingSummary(item, itemPath, true),
-  );
-}
-
-export function decodeAssessmentAttemptPage(
-  value: unknown,
-  path = "response",
-): CursorPage<AssessmentAttempt> {
-  return decodeCursorPage(value, path, decodeAssessmentAttempt);
-}
-
-export function decodeAttemptPage(
-  value: unknown,
-  path = "response",
-): CursorPage<StudentQuestionAttempt> {
-  return decodeCursorPage(value, path, decodeStudentQuestionAttempt);
 }
 
 export function decodeQuestionAttemptTimingDecision(

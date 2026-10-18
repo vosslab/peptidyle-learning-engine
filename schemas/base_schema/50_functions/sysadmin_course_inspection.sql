@@ -7,8 +7,7 @@ SET LOCAL ROLE ple_api_owner;
 -- retention state, and active Instructor display names.
 CREATE FUNCTION ple_api.list_installation_courses(
     p_query text,
-    p_after_long_name text,
-    p_after_course_instance_id text,
+    p_page_number bigint,
     p_page_size integer,
     p_sort text DEFAULT 'nameAscending',
     p_activity text[] DEFAULT ARRAY[]::text[],
@@ -23,7 +22,8 @@ RETURNS TABLE(
     course_lifecycle_state text,
     retention_lifecycle_state text,
     instructor_display_names text[],
-    cursor_long_name text
+    total_count bigint,
+    resolved_page_number bigint
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -43,71 +43,99 @@ BEGIN
         RAISE EXCEPTION 'installation Course query is invalid'
             USING ERRCODE = '22023';
     END IF;
-    IF p_page_size NOT BETWEEN 1 AND 250
-       OR (p_after_long_name IS NULL) <> (p_after_course_instance_id IS NULL)
-       OR p_sort NOT IN ('nameAscending', 'nameDescending')
+    IF p_page_number IS NULL OR p_page_number < 1
+       OR p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 250
+       OR p_sort IS NULL OR p_sort NOT IN ('nameAscending', 'nameDescending')
+       OR p_activity IS NULL OR p_retention IS NULL
        OR EXISTS (SELECT 1 FROM unnest(p_activity) AS value WHERE value NOT IN ('active', 'inactive'))
        OR EXISTS (SELECT 1 FROM unnest(p_retention) AS value WHERE value NOT IN ('active', 'archived', 'deleted')) THEN
         RAISE EXCEPTION 'installation Course page is invalid' USING ERRCODE = '22023';
     END IF;
     RETURN QUERY
-    SELECT course.course_instance_id::text,
-           course.course_short_name::text,
-           course.course_long_name::text,
-           course.term_starts_on,
-           course.term_ends_on,
-           course.course_lifecycle_state::text,
-           course.retention_lifecycle_state::text,
-           COALESCE((
-               SELECT array_agg(named.display_name ORDER BY named.display_name)
-                 FROM (
-                     SELECT DISTINCT ple_private.instructor_display_name(
-                                membership.account_id::text
-                            ) AS display_name
-                       FROM ple_data.course_membership AS membership
-                      WHERE membership.course_instance_id = course.course_instance_id
-                        AND membership.role = 'instructor'
-                        AND ple_data.course_membership_is_active(membership.course_membership_id)
-                 ) AS named
-                WHERE named.display_name IS NOT NULL
-                  AND named.display_name = btrim(named.display_name)
-                  AND char_length(named.display_name) BETWEEN 1 AND 200
-                  AND named.display_name !~ '[[:cntrl:]]'
-           ), ARRAY[]::text[]),
-           course.course_long_name::text
-      FROM ple_data.course_instance AS course
-     WHERE (v_query IS NULL
-        OR upper(v_query) = course.course_instance_id::text
-        OR position(lower(v_query) IN lower(course.course_short_name)) > 0
-        OR position(lower(v_query) IN lower(course.course_long_name)) > 0
-        OR position(lower(v_query) IN lower(course.course_instance_id::text)) > 0
-        OR EXISTS (
-            SELECT 1
-              FROM ple_data.course_membership AS membership
-             WHERE membership.course_instance_id = course.course_instance_id
-               AND membership.role = 'instructor'
-               AND ple_data.course_membership_is_active(membership.course_membership_id)
-               AND position(
-                       lower(v_query) IN lower(
-                           ple_private.instructor_display_name(membership.account_id::text)
-                       )
-                   ) > 0
-        ))
-       AND (cardinality(p_activity) = 0 OR course.course_lifecycle_state::text = ANY(p_activity))
-       AND (cardinality(p_retention) = 0 OR course.retention_lifecycle_state::text = ANY(p_retention))
-       AND (p_after_long_name IS NULL OR
-            (p_sort = 'nameAscending' AND
-             (course.course_long_name, course.course_instance_id) >
-             (p_after_long_name, p_after_course_instance_id)) OR
-            (p_sort = 'nameDescending' AND
-             (course.course_long_name, course.course_instance_id) <
-             (p_after_long_name, p_after_course_instance_id)))
-     ORDER BY
-         CASE WHEN p_sort = 'nameAscending' THEN course.course_long_name END ASC,
-         CASE WHEN p_sort = 'nameAscending' THEN course.course_instance_id END ASC,
-         CASE WHEN p_sort = 'nameDescending' THEN course.course_long_name END DESC,
-         CASE WHEN p_sort = 'nameDescending' THEN course.course_instance_id END DESC
-     LIMIT p_page_size + 1;
+    WITH matching AS MATERIALIZED (
+        SELECT course.course_instance_id,
+               course.course_short_name,
+               course.course_long_name,
+               course.term_starts_on,
+               course.term_ends_on,
+               course.course_lifecycle_state,
+               course.retention_lifecycle_state,
+               COALESCE((
+                   SELECT array_agg(named.display_name ORDER BY named.display_name)
+                     FROM (
+                         SELECT DISTINCT ple_private.instructor_display_name(
+                                    membership.account_id::text
+                                ) AS display_name
+                           FROM ple_data.course_membership AS membership
+                          WHERE membership.course_instance_id = course.course_instance_id
+                            AND membership.role = 'instructor'
+                            AND ple_data.course_membership_is_active(membership.course_membership_id)
+                     ) AS named
+                    WHERE named.display_name IS NOT NULL
+                      AND named.display_name = btrim(named.display_name)
+                      AND char_length(named.display_name) BETWEEN 1 AND 200
+                      AND named.display_name !~ '[[:cntrl:]]'
+               ), ARRAY[]::text[]) AS instructor_display_names
+          FROM ple_data.course_instance AS course
+         WHERE (v_query IS NULL
+            OR upper(v_query) = course.course_instance_id::text
+            OR position(lower(v_query) IN lower(course.course_short_name)) > 0
+            OR position(lower(v_query) IN lower(course.course_long_name)) > 0
+            OR position(lower(v_query) IN lower(course.course_instance_id::text)) > 0
+            OR EXISTS (
+                SELECT 1
+                  FROM ple_data.course_membership AS membership
+                 WHERE membership.course_instance_id = course.course_instance_id
+                   AND membership.role = 'instructor'
+                   AND ple_data.course_membership_is_active(membership.course_membership_id)
+                   AND position(lower(v_query) IN lower(
+                       ple_private.instructor_display_name(membership.account_id::text)
+                   )) > 0
+            ))
+           AND (cardinality(p_activity) = 0 OR course.course_lifecycle_state::text = ANY(p_activity))
+           AND (cardinality(p_retention) = 0 OR course.retention_lifecycle_state::text = ANY(p_retention))
+    ), page_metadata AS (
+        SELECT count(*)::bigint AS total_count,
+               greatest(1::bigint, ceil(count(*)::numeric / p_page_size)::bigint) AS last_page
+          FROM matching
+    ), resolved_page AS (
+        SELECT page_metadata.total_count,
+               least(p_page_number, page_metadata.last_page) AS resolved_page_number
+          FROM page_metadata
+    ), page_rows AS (
+        SELECT matching.*,
+               row_number() OVER (
+                   ORDER BY
+                       CASE WHEN p_sort = 'nameAscending' THEN matching.course_long_name END ASC,
+                       CASE WHEN p_sort = 'nameAscending' THEN matching.course_instance_id END ASC,
+                       CASE WHEN p_sort = 'nameDescending' THEN matching.course_long_name END DESC,
+                       CASE WHEN p_sort = 'nameDescending' THEN matching.course_instance_id END DESC
+               ) AS page_order
+          FROM matching
+         ORDER BY
+               CASE WHEN p_sort = 'nameAscending' THEN matching.course_long_name END ASC,
+               CASE WHEN p_sort = 'nameAscending' THEN matching.course_instance_id END ASC,
+               CASE WHEN p_sort = 'nameDescending' THEN matching.course_long_name END DESC,
+               CASE WHEN p_sort = 'nameDescending' THEN matching.course_instance_id END DESC
+         OFFSET (
+             SELECT (resolved_page.resolved_page_number - 1) * p_page_size
+               FROM resolved_page
+         )
+         LIMIT p_page_size
+    )
+    SELECT page_rows.course_instance_id::text,
+           page_rows.course_short_name::text,
+           page_rows.course_long_name::text,
+           page_rows.term_starts_on,
+           page_rows.term_ends_on,
+           page_rows.course_lifecycle_state::text,
+           page_rows.retention_lifecycle_state::text,
+           page_rows.instructor_display_names,
+           resolved_page.total_count,
+           resolved_page.resolved_page_number
+      FROM resolved_page
+      LEFT JOIN page_rows ON true
+     ORDER BY page_rows.page_order;
 END
 $$;
 

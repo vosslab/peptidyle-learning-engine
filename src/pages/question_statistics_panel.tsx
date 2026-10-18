@@ -1,25 +1,27 @@
 // question_statistics_panel.tsx - explainable, answer-free Question Statistics and use detail.
 
 import { A } from "@solidjs/router";
-import { Show, createResource, type JSX } from "solid-js";
+import { createMemo, Show, type JSX } from "solid-js";
 
 import type { QuestionStatistics } from "../../generated/api/QuestionStatistics";
 import type { QuestionUseDetails } from "../../generated/api/QuestionUseDetails";
 import type { QuestionRevisionUsageStatistics } from "../../generated/api/QuestionRevisionUsageStatistics";
 import { courseInstanceRouteId } from "../navigation/public_route";
-import type { RecordContent } from "../components/record_list/record_list";
-import type { RecordField } from "../components/record_list/record_fields";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import type { RecordField } from "../components/data_sheet/record_fields";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import "./question_statistics_panel.css";
 
 export interface QuestionStatisticsPanelProps {
   readonly evidence: QuestionStatistics;
+  readonly onRefresh: () => unknown;
 }
 
 export interface QuestionUsePanelProps {
   readonly usage: QuestionUseDetails;
+  readonly onRefresh: () => unknown;
 }
 
 const wholeNumber = new Intl.NumberFormat("en-US");
@@ -143,10 +145,11 @@ function formatMean(mean: number | undefined, observations: number): string {
 
 function RevisionStatisticsList(props: {
   readonly rows: readonly RevisionStatistics[];
+  readonly onRefresh: () => unknown;
 }): JSX.Element {
-  const [revisions, { refetch }] = createResource(() => props.rows);
+  const revisions = createMemo(() => props.rows);
   const search = createLocalCompleteSearch(
-    { resource: revisions, refetchSource: refetch, rows: (value) => value },
+    { rows: revisions, refetchSource: () => props.onRefresh() },
     {
       fields: revisionFields,
       rowId: (revision) => String(revision.revision_number),
@@ -170,10 +173,13 @@ function RevisionStatisticsList(props: {
   );
 }
 
-function OwnCourseUseList(props: { readonly rows: readonly CourseUse[] }): JSX.Element {
-  const [courses, { refetch }] = createResource(() => props.rows);
+function OwnCourseUseList(props: {
+  readonly rows: readonly CourseUse[];
+  readonly onRefresh: () => unknown;
+}): JSX.Element {
+  const courses = createMemo(() => props.rows);
   const search = createLocalCompleteSearch(
-    { resource: courses, refetchSource: refetch, rows: (value) => value },
+    { rows: courses, refetchSource: () => props.onRefresh() },
     {
       fields: courseUseFields,
       rowId: (course) => course.courseInstanceId,
@@ -251,7 +257,7 @@ export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JS
             {(revisions) => (
               <>
                 <h3>By revision</h3>
-                <RevisionStatisticsList rows={revisions()} />
+                <RevisionStatisticsList rows={revisions()} onRefresh={props.onRefresh} />
               </>
             )}
           </Show>
@@ -292,7 +298,7 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
         }
       >
         <h3>Your courses using this question</h3>
-        <OwnCourseUseList rows={props.usage.ownCourses} />
+        <OwnCourseUseList rows={props.usage.ownCourses} onRefresh={props.onRefresh} />
       </Show>
       <p class="question-usage-next-step">
         Review these course uses before replacing the question. A future assessment can use a

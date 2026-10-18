@@ -302,9 +302,40 @@ async function captureLanding(
     await choosePersona(session.page, persona);
     await openStudentCourse(session.page);
     await openAllStudentCoursework(session.page);
-    // The named Coursework row appears only after the landing resource has settled. The separate
-    // Assignment-overview workflow covers action navigation.
-    await courseworkRow(session.page).waitFor();
+    const assignment = courseworkRow(session.page);
+    await assignment.waitFor();
+    if (persona === "Jack Nguyen") {
+      const resume = assignment.getByRole("link", {
+        name: `Resume ${ASSESSMENT_TYPE_LABEL}`,
+        exact: true,
+      });
+      // Timed Attempts can expire between capture runs. Start another permitted Attempt through
+      // the ordinary Student workflow when the landing no longer offers Resume.
+      if ((await resume.count()) === 0) {
+        await openStudentAssignment(session.page);
+        await session.page.getByRole("button", { name: ASSESSMENT_ENTRY_BUTTON }).click();
+        await attemptSurface(session).waitFor();
+        await waitForAttemptPosition(session.page, 1);
+        await saveCurrentResponse(session);
+        await openStudentCourse(session.page);
+        await openAllStudentCoursework(session.page);
+      }
+      await resume.waitFor();
+    } else if (persona === "Mary Okafor") {
+      await assignment
+        .getByRole("link", { name: `Review ${ASSESSMENT_TYPE_LABEL}`, exact: true })
+        .waitFor();
+    } else {
+      await assignment
+        .getByRole("link", { name: `Open ${ASSESSMENT_TYPE_LABEL}`, exact: true })
+        .waitFor();
+      await openStudentAssignment(session.page);
+      await session.page
+        .getByRole("button", { name: `Start ${ASSESSMENT_TYPE_LABEL}`, exact: true })
+        .waitFor();
+      await openStudentCourse(session.page);
+      await openAllStudentCoursework(session.page);
+    }
     await captureCheckpoint(runtime, checkpoint, session);
   } finally {
     await runtime.close(session);

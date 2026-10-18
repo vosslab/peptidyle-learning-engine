@@ -1,10 +1,13 @@
 // Search state and browser mapping for one Instructor's private Starred collection.
 
 import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
-import type { RecordFilterChoices } from "../components/record_list/record_fields";
-import type { RecordPageSize } from "../components/record_list/record_page_controls";
-import type { RecordContent } from "../components/record_list/record_list";
-import type { SearchDefinition, SearchPage } from "../features/search/search_session";
+import type { RecordFilterChoices } from "../components/data_sheet/record_fields";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import type {
+  SearchDefinition,
+  SearchPage,
+  SearchPageRequest,
+} from "../components/search_block/search_session";
 import type { ApiClient } from "../api/client";
 import type { StarredQuestionSort } from "../api/question_star";
 import {
@@ -88,8 +91,7 @@ export function starredQuestionContent(
 export function starredSearchRepository(client: ApiClient): {
   search: (
     query: QuestionLibraryBrowseQuery,
-    cursor: string | null,
-    pageSize?: RecordPageSize,
+    page: SearchPageRequest,
   ) => Promise<ReturnType<typeof decodeLibrarySearchPage>>;
   listFacetChoices: (
     field: LibraryFacetField,
@@ -101,23 +103,27 @@ export function starredSearchRepository(client: ApiClient): {
   return {
     async search(
       query: QuestionLibraryBrowseQuery,
-      cursor: string | null,
-      pageSize: RecordPageSize = 50,
+      pageRequest: SearchPageRequest,
     ): Promise<ReturnType<typeof decodeLibrarySearchPage>> {
       const starredQuery = query as StarredBrowseQuery;
       const request = libraryObjectSearchRequest(
         { ...starredQuery, kind: "questions", questions: "all", sort: "titleAscending" },
-        cursor,
+        pageRequest,
         "any",
-        pageSize,
       );
-      const page = await client.listStarredQuestions(request, starredQuery.starredSort);
+      const page = await client.listStarredQuestions(
+        request,
+        starredQuery.starredSort,
+        pageRequest,
+      );
       const rawRows = page.items.map((item) =>
         questionLibraryRowFromResult({ kind: "question", ...item }),
       );
       const decoded = decodeLibrarySearchPage({
         items: rawRows,
-        nextCursor: page.nextCursor,
+        pageNumber: page.pageNumber,
+        pageSize: page.pageSize,
+        totalCount: page.totalCount,
         aggregates: libraryFacetAggregates(page),
         facetTruncation: {
           authorNames: page.facets.authorNamesTruncated,
@@ -141,12 +147,14 @@ export function starredSearchRepository(client: ApiClient): {
       cursor: string | null,
     ): Promise<RecordFilterChoices> {
       const starredQuery = query as StarredBrowseQuery;
-      const request = libraryObjectSearchRequest(
-        { ...starredQuery, kind: "questions", questions: "all", sort: "titleAscending" },
+      const request = {
+        ...libraryObjectSearchRequest(
+          { ...starredQuery, kind: "questions", questions: "all", sort: "titleAscending" },
+          null,
+          "any",
+        ),
         cursor,
-        "any",
-        50,
-      );
+      };
       return client.listStarredFacetChoices(field, request, starredQuery.starredSort, search);
     },
   };
@@ -167,15 +175,16 @@ export function starredSearchDefinition(
     content: (row) => starredQuestionContent(row, onUnstar),
     fetchPage: async (
       query,
-      cursor,
-      pageSize,
+      pageRequest,
     ): Promise<SearchPage<StarredQuestionRow, QuestionLibraryFilterCounts>> => {
-      const page = await repository.search(query, cursor, pageSize);
+      const page = await repository.search(query, pageRequest);
       if (page.items.some((row) => row.kind !== "question"))
         throw new Error("Starred page contained a Pool");
       return {
         items: page.items as ReadonlyArray<StarredQuestionRow>,
-        nextCursor: page.nextCursor,
+        pageNumber: page.pageNumber,
+        pageSize: page.pageSize,
+        totalCount: page.totalCount,
         filterCounts: { aggregates: page.aggregates, facetTruncation: page.facetTruncation },
       };
     },

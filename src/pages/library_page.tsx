@@ -13,12 +13,12 @@ import type { QuestionBulkMetadataClient } from "../api/question_bulk_metadata";
 import type { QuestionPoolSearchMetadataClient } from "../api/question_pool_search_metadata";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import { useSessionBootstrap } from "../auth/session_context";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { confirmUnsavedChanges } from "../components/unsaved_changes_guard";
 import "./library_page.css";
-import { createSearchState } from "../features/search/search_state";
-import { SearchControls } from "../features/search/search_controls";
-import { SearchBlock } from "../features/search/search_block";
+import { createSearchState } from "../components/search_block/search_state";
+import { SearchControls } from "../components/search_block/search_controls";
+import { SearchBlock } from "../components/search_block/search_block";
 import { fixedKindLibrarySearchFields, librarySearchFields } from "./library_search_fields";
 import { libraryRecordQuery } from "./library_record_filters";
 import {
@@ -128,6 +128,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const recordQuery = libraryRecordQuery({
     query,
     apply: searchState.apply,
+    sort: searchState.sort,
     replacementRevision: searchState.replacementRevision,
     repository: props.repository,
     classificationClient: props.classificationClient,
@@ -188,6 +189,24 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     }
   }
 
+  function createQuestionPoolAction(): JSX.Element {
+    return (
+      <Show when={mayMutateLibrary}>
+        <button
+          type="button"
+          class={props.mode === "browse" ? "primary-action" : undefined}
+          disabled={editorBusy()}
+          onClick={() => {
+            setCreateStartingQuestions([]);
+            setQuestionPoolCreateOpen(true);
+          }}
+        >
+          Create Question Pool
+        </button>
+      </Show>
+    );
+  }
+
   return (
     <PageFrame
       // Library controls, browse groups, and the active pool-creation review.
@@ -223,20 +242,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                 <Show when={recordFilterError()}>
                   {(message) => <p role="alert">{message()}</p>}
                 </Show>
-                <Show when={mayMutateLibrary}>
-                  <p>
-                    <button
-                      type="button"
-                      class="primary-action"
-                      disabled={editorBusy()}
-                      onClick={() => {
-                        setCreateStartingQuestions([]);
-                        setQuestionPoolCreateOpen(true);
-                      }}
-                    >
-                      Create Question Pool
-                    </button>
-                  </p>
+                <Show when={props.mode === "browse" && mayMutateLibrary}>
+                  <p>{createQuestionPoolAction()}</p>
                 </Show>
                 <p class="sr-only" role="status" aria-live="polite">
                   {state().kind === "loading" ? "Loading Question Library results." : ""}
@@ -254,26 +261,29 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                     textPlaceholder="Title or concept"
                     disabled={editorBusy}
                   >
-                    <LibrarySearchFilters
-                      query={query}
-                      disabled={editorBusy}
-                      onChange={changeQuery}
-                      fixedOwner={myPools}
-                    />
-                    <details class="question-library-search-tips">
-                      <summary>Search tips</summary>
-                      <div>
-                        <p>
-                          Ordinary words search together. Use quotes for a phrase and a leading
-                          minus to exclude.
-                        </p>
-                        <p>
-                          Fields: <code>discipline:</code>, <code>subject:</code>,{" "}
-                          <code>topic:</code>, <code>subtopic:</code>, <code>tags:</code>,{" "}
-                          <code>type:</code>, and <code>author:</code>.
-                        </p>
-                      </div>
-                    </details>
+                    <div class="library-search-secondary-actions">
+                      <LibrarySearchFilters
+                        query={query}
+                        disabled={editorBusy}
+                        onChange={changeQuery}
+                        fixedOwner={myPools}
+                      />
+                      <details class="question-library-search-tips">
+                        <summary>Search tips</summary>
+                        <div>
+                          <p>
+                            Ordinary words search together. Use quotes for a phrase and a leading
+                            minus to exclude.
+                          </p>
+                          <p>
+                            Fields: <code>discipline:</code>, <code>subject:</code>,{" "}
+                            <code>topic:</code>, <code>subtopic:</code>, <code>tags:</code>,{" "}
+                            <code>type:</code>, and <code>author:</code>.
+                          </p>
+                        </div>
+                      </details>
+                      {createQuestionPoolAction()}
+                    </div>
                   </SearchControls>
                 </Show>
                 <Show when={props.mode === "browse"}>

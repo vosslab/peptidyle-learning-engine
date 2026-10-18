@@ -1,7 +1,7 @@
 // assessment_attempt_summary_page.tsx - bounded, server-projected Assessment Attempt history.
 
 import { A, useParams } from "@solidjs/router";
-import { Show, type JSX } from "solid-js";
+import { createMemo, createSignal, Show, type JSX } from "solid-js";
 
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentAssessmentAttemptHistory } from "../api/assessment_attempt_history";
@@ -12,13 +12,22 @@ import {
 } from "../api/assessment_attempt_history";
 import { AuthorContentFrame } from "../components/author_content_frame";
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
-import { RecordDetailList } from "../components/record_list/record_detail_list";
 import { ContentBlockList } from "../components/student_feedback_panel";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { NativeRecordedQuestionPresentation } from "../components/native_recorded_question_presentation";
 import { useApplicationApi } from "../api/application_api";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
+import {
+  assessmentAttemptRecordContent,
+  assessmentAttemptRecordFields,
+  assessmentAttemptRecordKeyword,
+  compareAssessmentAttemptRecords,
+  type RecordedQuestionReview,
+} from "./assessment_attempt_record_fields";
 import { ASSESSMENT_ATTEMPT_SUMMARY_STYLES } from "./assessment_attempt_summary_styles";
 import {
   useRetryRouteScope,
@@ -85,7 +94,31 @@ export function AssessmentAttemptHistoryContent(props: {
   readonly history: StudentAssessmentAttemptHistory;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
-  const retry = useRetryRouteScope();
+  const [reviewVersions, setReviewVersions] = createSignal<Readonly<Record<string, number>>>({});
+  const reviewKey = (position: number, review: RecordedQuestionReview): string =>
+    `${position}:${review}`;
+  const reviewVersion = (position: number, review: RecordedQuestionReview): number =>
+    reviewVersions()[reviewKey(position, review)] ?? 1;
+  function retryReview(position: number, review: RecordedQuestionReview): void {
+    const key = reviewKey(position, review);
+    // Remount only this opaque document; the authorized history and collection stay intact.
+    setReviewVersions((versions) => ({ ...versions, [key]: (versions[key] ?? 1) + 1 }));
+  }
+  // ASVS 14.3.3: search only this already authorized, in-memory Attempt projection.
+  const recordedQuestions = createMemo(() => props.history.questions);
+  const recordedSearch = createLocalCompleteSearch(
+    { rows: recordedQuestions },
+    {
+      fields: assessmentAttemptRecordFields,
+      rowId: (question) => question.position.toString(),
+      keyword: assessmentAttemptRecordKeyword,
+      compare: compareAssessmentAttemptRecords,
+      content: (question) =>
+        assessmentAttemptRecordContent(question, (review) =>
+          retryReview(question.position, review),
+        ),
+    },
+  );
   function questionImageUrlForQuestion(
     publishedQuestionRevisionTuple: StudentAssessmentAttemptHistory["questions"][number]["publishedQuestionRevisionTuple"],
   ): Parameters<typeof ContentBlockList>[0]["questionImageUrl"] {
@@ -115,157 +148,155 @@ export function AssessmentAttemptHistoryContent(props: {
       </section>
       <section aria-labelledby="assessment-attempt-responses-heading">
         <h2 id="assessment-attempt-responses-heading">Your recorded work</h2>
-        <RecordDetailList
-          ariaLabel="Recorded Question work"
-          emptyState={{ title: "No recorded Questions are available." }}
-          recordId={(question) => question.position.toString()}
-          rows={props.history.questions}
-          state={{ kind: "ready" }}
-          renderRecord={(question) => (
-            <div class="attempt-summary__question">
-              <header class="attempt-history__question-header">
-                <h3>Question {question.position}</h3>
-                <p class="attempt-history__result">
-                  <span>{question.responseState === "closed" ? "Unanswered." : "Submitted."}</span>
-                  <Show when={question.correctness !== undefined}>
-                    <span>{question.correctness ? "Marked correct." : "Marked not correct."}</span>
-                  </Show>
-                  <Show
-                    when={
-                      question.pointsEarned !== undefined && question.pointsPossible !== undefined
-                    }
-                  >
-                    <span>
-                      {formatPointScore(question.pointsEarned!, question.pointsPossible!)} points
-                    </span>
-                  </Show>
-                </p>
-              </header>
-              <NativeRecordedQuestion
-                assessmentAttemptId={props.history.assessmentAttemptId}
-                question={question}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <Show when={question.backendReview === "available"}>
-                <section class="attempt-summary__disclosure">
-                  <h4>Question and your recorded response</h4>
-                  <OpaqueWebworkPreviewFrame
-                    class="attempt-history__answer-review"
-                    src={backendRecordedReviewDocumentUrl(
-                      props.history.assessmentAttemptId,
-                      question.position,
-                    )}
-                    title="Question and your recorded response"
-                  />
-                  <button class="quiet-action" type="button" onClick={retry}>
-                    Retry recorded Question
-                  </button>
-                </section>
-              </Show>
-              <Show
-                when={
-                  question.responseState === "submitted" && question.backendReview === undefined
-                }
-              >
-                <section class="attempt-history__response">
-                  <h4>Recorded response</h4>
-                  <Show when={question.response} fallback={<p>Your response is not available.</p>}>
-                    {(response) => (
-                      <ContentBlockList
-                        blocks={response()}
-                        publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                        questionImageUrl={questionImageUrlForQuestion(
-                          question.publishedQuestionRevisionTuple,
-                        )}
-                      />
-                    )}
-                  </Show>
-                </section>
-              </Show>
-              <ReleasedBlocks
-                title="Feedback"
-                blocks={question.choiceFeedback}
-                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <ReleasedBlocks
-                title="Feedback"
-                blocks={question.correctFeedback}
-                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <ReleasedBlocks
-                title="Feedback"
-                blocks={question.incorrectFeedback}
-                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <ReleasedBlocks
-                title="Hints"
-                blocks={question.hints}
-                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <ReleasedBlocks
-                title="Worked Solution"
-                blocks={question.workedSolution}
-                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <ReleasedBlocks
-                title="General feedback"
-                blocks={question.generalFeedback}
-                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <ReleasedBlocks
-                title="Correct answer"
-                blocks={question.questionAnswer}
-                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <ReleasedBlocks
-                title="Answer explanation"
-                blocks={question.questionAnswerExplanation}
-                publishedQuestionRevisionTuple={question.publishedQuestionRevisionTuple}
-                questionImageUrl={questionImageUrlForQuestion(
-                  question.publishedQuestionRevisionTuple,
-                )}
-              />
-              <Show when={question.backendAnswerReview === "available"}>
-                <section class="attempt-summary__disclosure">
-                  <h4>Correct answer</h4>
-                  <OpaqueWebworkPreviewFrame
-                    class="attempt-history__answer-review"
-                    src={backendAnswerReviewDocumentUrl(
-                      props.history.assessmentAttemptId,
-                      question.position,
-                    )}
-                    title="Correct answer"
-                  />
-                  <button class="quiet-action" type="button" onClick={retry}>
-                    Retry correct answer
-                  </button>
-                </section>
-              </Show>
-            </div>
-          )}
+        <SearchBlock
+          layout="above"
+          controls={
+            <SearchControls
+              state={recordedSearch.state}
+              textLabel="Search recorded Question results"
+            />
+          }
+          state={recordedSearch.state}
+          collection={{
+            ariaLabel: "Recorded Question work",
+            initialMode: "cards",
+            fields: assessmentAttemptRecordFields,
+            query: recordedSearch.query,
+            emptyState: { title: "No recorded Questions match your search." },
+            renderBody: (question) => (
+              <div class="attempt-summary__question">
+                <NativeRecordedQuestion
+                  assessmentAttemptId={props.history.assessmentAttemptId}
+                  question={question()}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <Show when={question().backendReview === "available"}>
+                  <section class="attempt-summary__disclosure">
+                    <h4>Question and your recorded response</h4>
+                    <Show when={reviewVersion(question().position, "recorded")} keyed>
+                      {(_version) => (
+                        <OpaqueWebworkPreviewFrame
+                          class="attempt-history__answer-review"
+                          src={backendRecordedReviewDocumentUrl(
+                            props.history.assessmentAttemptId,
+                            question().position,
+                          )}
+                          title="Question and your recorded response"
+                        />
+                      )}
+                    </Show>
+                  </section>
+                </Show>
+                <Show
+                  when={
+                    question().responseState === "submitted" &&
+                    question().backendReview === undefined
+                  }
+                >
+                  <section class="attempt-history__response">
+                    <h4>Recorded response</h4>
+                    <Show
+                      when={question().response}
+                      fallback={<p>Your response is not available.</p>}
+                    >
+                      {(response) => (
+                        <ContentBlockList
+                          blocks={response()}
+                          publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                          questionImageUrl={questionImageUrlForQuestion(
+                            question().publishedQuestionRevisionTuple,
+                          )}
+                        />
+                      )}
+                    </Show>
+                  </section>
+                </Show>
+                <ReleasedBlocks
+                  title="Feedback"
+                  blocks={question().choiceFeedback}
+                  publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <ReleasedBlocks
+                  title="Feedback"
+                  blocks={question().correctFeedback}
+                  publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <ReleasedBlocks
+                  title="Feedback"
+                  blocks={question().incorrectFeedback}
+                  publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <ReleasedBlocks
+                  title="Hints"
+                  blocks={question().hints}
+                  publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <ReleasedBlocks
+                  title="Worked Solution"
+                  blocks={question().workedSolution}
+                  publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <ReleasedBlocks
+                  title="General feedback"
+                  blocks={question().generalFeedback}
+                  publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <ReleasedBlocks
+                  title="Correct answer"
+                  blocks={question().questionAnswer}
+                  publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <ReleasedBlocks
+                  title="Answer explanation"
+                  blocks={question().questionAnswerExplanation}
+                  publishedQuestionRevisionTuple={question().publishedQuestionRevisionTuple}
+                  questionImageUrl={questionImageUrlForQuestion(
+                    question().publishedQuestionRevisionTuple,
+                  )}
+                />
+                <Show when={question().backendAnswerReview === "available"}>
+                  <section class="attempt-summary__disclosure">
+                    <h4>Correct answer</h4>
+                    <Show when={reviewVersion(question().position, "answer")} keyed>
+                      {(_version) => (
+                        <OpaqueWebworkPreviewFrame
+                          class="attempt-history__answer-review"
+                          src={backendAnswerReviewDocumentUrl(
+                            props.history.assessmentAttemptId,
+                            question().position,
+                          )}
+                          title="Correct answer"
+                        />
+                      )}
+                    </Show>
+                  </section>
+                </Show>
+              </div>
+            ),
+          }}
         />
       </section>
       <A

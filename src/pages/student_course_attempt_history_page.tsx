@@ -15,13 +15,16 @@ import type {
   RecordFilterChoices,
   RecordListQuery,
   RecordSort,
-} from "../components/record_list/record_fields";
-import type { RecordContent } from "../components/record_list/record_list";
-import { PageFrame } from "../components/page_frame";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createSearchState } from "../features/search/search_state";
-import type { SearchDefinition } from "../features/search/search_session";
+} from "../components/data_sheet/record_fields";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { PageFrame } from "../components/page_frame/page_frame";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createSearchState } from "../components/search_block/search_state";
+import type {
+  SearchDefinition,
+  SearchPageRequest,
+} from "../components/search_block/search_session";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
 import { studentCrossCourseLabel } from "./student_collection_fields";
 import {
@@ -206,13 +209,22 @@ export function StudentAttemptHistoryPage(): JSX.Element {
       setText: (query, search) => ({ ...query, search }),
       rowId: (attempt) => attempt.assessmentAttemptId,
       content,
-      fetchPage: async (query, cursor, pageSize) => {
+      fetchPage: async (query, requestPage: SearchPageRequest) => {
         const page = await api.client.listStudentAttemptHistory(
           query,
-          pageSize,
-          cursor ?? undefined,
+          requestPage.pageNumber,
+          requestPage.pageSize,
         );
-        return { items: page.items, nextCursor: page.nextCursor ?? null, filterCounts: null };
+        if (page.pageSize !== requestPage.pageSize) {
+          throw new Error("Attempt History returned a different page size than requested");
+        }
+        return {
+          items: page.items,
+          pageNumber: page.pageNumber,
+          pageSize: requestPage.pageSize,
+          totalCount: page.totalCount,
+          filterCounts: null,
+        };
       },
     };
   const state = createSearchState(definition, { runOnMount: true });
@@ -229,7 +241,7 @@ export function StudentAttemptHistoryPage(): JSX.Element {
             candidate.key === sort.key && candidate.direction === sort.direction,
         );
         if (order !== undefined) {
-          void state.apply((query) => ({ ...query, sort: order.value }));
+          void state.sort((query) => ({ ...query, sort: order.value }));
         }
       },
     },

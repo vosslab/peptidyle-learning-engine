@@ -11,12 +11,12 @@ import {
   assessmentAttemptRouteState,
 } from "../navigation/assessment_attempt_route";
 import { assessmentAttemptRouteId } from "../navigation/public_route";
-import { PageFrame } from "../components/page_frame";
-import type { RecordField } from "../components/record_list/record_fields";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import type { RecordField } from "../components/data_sheet/record_fields";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { recognitionTitle } from "../features/recognition_label";
 import { studentCrossCourseLabel } from "./student_collection_fields";
 import { loadStudentCrossCourseCollection } from "./student_cross_course_collection";
@@ -141,7 +141,15 @@ export function StudentResponseStatsPage(): JSX.Element {
     };
   });
   const search = createLocalCompleteSearch(
-    { resource: responses, refetchSource: refetch, rows: (value) => value.rows },
+    {
+      rows: () => {
+        const value = responses();
+        return value === undefined ? undefined : value.rows;
+      },
+      loading: () => responses.loading,
+      error: (): unknown => responses.error,
+      refetchSource: refetch,
+    },
     {
       fields: responseFields,
       rowId,

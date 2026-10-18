@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::BlueprintCourseId;
 
-use crate::{Page, PageRequest, SessionTokenHash, StoreError};
+use crate::{NumberedPage, NumberedPageRequest, PageSize, SessionTokenHash, StoreError};
 use browser_api_contract::blueprint_course::BlueprintHistoryEntryView;
 
 /// The two independent immutable fact sequences; no merged chronology is implied.
@@ -40,7 +40,7 @@ pub struct BlueprintHistoryQuery {
 
 #[derive(Debug, Clone)]
 pub struct BlueprintHistoryResult {
-    pub page: Page<BlueprintHistoryEntryView>,
+    pub page: NumberedPage<BlueprintHistoryEntryView, PageSize>,
     pub public_count: u64,
     pub archived_count: u64,
 }
@@ -63,6 +63,6 @@ pub trait BlueprintHistoryStore: Send + Sync {
         blueprint_course_id: BlueprintCourseId,
         kind: BlueprintHistoryKind,
         query: BlueprintHistoryQuery,
-        page: PageRequest,
+        page: NumberedPageRequest,
     ) -> Result<BlueprintHistoryResult, StoreError>;
 }

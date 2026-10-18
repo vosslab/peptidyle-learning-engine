@@ -172,37 +172,60 @@ $$;
 
 CREATE FUNCTION ple_data.read_current_library_watch_notifications(
     p_search text, p_target_kinds text[], p_event_kinds text[],
-    p_ascending boolean, p_after_at timestamptz, p_after_id uuid, p_limit integer
+    p_ascending boolean, p_page_number bigint, p_page_size bigint
 )
 RETURNS TABLE(
     event_id uuid, target_kind text, target_public_id text, event_kind text,
     question_revision_number bigint, question_pool_edit_number bigint,
-    forked_public_id text, occurred_at_millis bigint, occurred_at_cursor text
+    forked_public_id text, occurred_at_millis bigint,
+    total_count bigint, resolved_page_number bigint
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 251 OR p_ascending IS NULL
-       OR (p_after_at IS NULL) != (p_after_id IS NULL) THEN
+    IF p_page_number IS NULL OR p_page_number NOT BETWEEN 1 AND 4294967295
+       OR p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
+       OR p_ascending IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Library Watch page is invalid';
     END IF;
     RETURN QUERY
-    SELECT event.event_id, event.target_kind::text, event.target_public_id, event.event_kind::text,
-           event.question_revision_number::bigint, event.question_pool_edit_number,
-           event.forked_public_id,
+    WITH matched AS MATERIALIZED (
+        SELECT event.*
+          FROM ple_data.match_current_library_watch_events(
+              p_search, p_target_kinds, p_event_kinds
+          ) AS event
+    ),
+    counts AS (
+        SELECT count(*)::bigint AS total_count FROM matched
+    ),
+    resolved AS (
+        SELECT counts.total_count,
+               LEAST(
+                   p_page_number,
+                   GREATEST(1::bigint, ceil(counts.total_count::numeric / p_page_size)::bigint)
+               ) AS resolved_page_number
+          FROM counts AS counts
+    )
+    SELECT event.event_id, event.target_kind::text, event.target_public_id,
+           event.event_kind::text, event.question_revision_number::bigint,
+           event.question_pool_edit_number, event.forked_public_id,
            (EXTRACT(EPOCH FROM event.occurred_at) * 1000)::bigint,
-           to_char(event.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
-      FROM ple_data.match_current_library_watch_events(
-          p_search, p_target_kinds, p_event_kinds
-      ) AS event
-     WHERE p_after_at IS NULL
-        OR (p_ascending AND (event.occurred_at, event.event_id) > (p_after_at, p_after_id))
-        OR (NOT p_ascending AND (event.occurred_at, event.event_id) < (p_after_at, p_after_id))
+           resolved.total_count, resolved.resolved_page_number
+      FROM resolved
+      LEFT JOIN LATERAL (
+          SELECT matched.*
+            FROM matched
+           ORDER BY CASE WHEN p_ascending THEN matched.occurred_at END ASC,
+                    CASE WHEN p_ascending THEN matched.event_id END ASC,
+                    CASE WHEN NOT p_ascending THEN matched.occurred_at END DESC,
+                    CASE WHEN NOT p_ascending THEN matched.event_id END DESC
+           OFFSET ((SELECT resolved_page.resolved_page_number FROM resolved AS resolved_page) - 1) * p_page_size
+           LIMIT p_page_size
+      ) AS event ON true
      ORDER BY CASE WHEN p_ascending THEN event.occurred_at END ASC,
               CASE WHEN p_ascending THEN event.event_id END ASC,
               CASE WHEN NOT p_ascending THEN event.occurred_at END DESC,
-              CASE WHEN NOT p_ascending THEN event.event_id END DESC
-     LIMIT p_limit;
+              CASE WHEN NOT p_ascending THEN event.event_id END DESC;
 END
 $$;
 
@@ -225,15 +248,16 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.read_current_library_watch_notifications(
     p_search text, p_target_kinds text[], p_event_kinds text[],
-    p_ascending boolean, p_after_at timestamptz, p_after_id uuid, p_limit integer
+    p_ascending boolean, p_page_number bigint, p_page_size bigint
 )
 RETURNS TABLE(
     event_id uuid, target_kind text, target_public_id text, event_kind text,
     question_revision_number bigint, question_pool_edit_number bigint,
-    forked_public_id text, occurred_at_millis bigint, occurred_at_cursor text
+    forked_public_id text, occurred_at_millis bigint,
+    total_count bigint, resolved_page_number bigint
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT * FROM ple_data.read_current_library_watch_notifications($1, $2, $3, $4, $5, $6, $7)
+    SELECT * FROM ple_data.read_current_library_watch_notifications($1, $2, $3, $4, $5, $6)
 $$;
 
 CREATE FUNCTION ple_api.read_current_library_watch_facets(

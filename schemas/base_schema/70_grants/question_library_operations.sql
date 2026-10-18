@@ -8,12 +8,12 @@ GRANT EXECUTE ON FUNCTION ple_private.question_library_entries(text, integer, bo
 
 REVOKE ALL ON FUNCTION ple_private.search_question_library_entries(
     text, jsonb, text[], text[], text[], text[], text[], uuid[], uuid[], uuid[], uuid[], boolean,
-    text[], text[], text[], text[], boolean, text, text, text, text, text, bigint, text, integer, text, bigint
+    text[], text[], text[], text[], boolean, text, text, text, text, bigint, integer, text, text[]
 ) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_private.search_question_library_entries(
     text, jsonb, text[], text[], text[], text[], text[], uuid[], uuid[], uuid[], uuid[], boolean,
-    text[], text[], text[], text[], boolean, text, text, text, text, text, bigint, text, integer, text, bigint
+    text[], text[], text[], text[], boolean, text, text, text, text, bigint, integer, text, text[]
 ) TO ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_private.matching_question_library_entries(
@@ -27,11 +27,11 @@ GRANT EXECUTE ON FUNCTION ple_private.matching_question_library_entries(
 
 REVOKE ALL ON FUNCTION ple_private.question_library_facet_choices(
     text, jsonb, text[], text[], text[], text[], text[], uuid[], uuid[], uuid[], uuid[], boolean,
-    text[], text[], text[], text[], boolean, text, text, text, text, text, text, integer, text[], text
+    text[], text[], text[], text[], boolean, text, text, text, text, text, text, integer, text[], text, text[]
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.question_library_facet_choices(
     text, jsonb, text[], text[], text[], text[], text[], uuid[], uuid[], uuid[], uuid[], boolean,
-    text[], text[], text[], text[], boolean, text, text, text, text, text, text, integer, text[], text
+    text[], text[], text[], text[], boolean, text, text, text, text, text, text, integer, text[], text, text[]
 ) TO ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_private.load_library_object_kind(text) FROM PUBLIC;
@@ -51,11 +51,11 @@ REVOKE ALL ON FUNCTION ple_api.list_question_library_entries(),
     ple_api.load_question_library_lineage(text),
     ple_api.search_question_library_entries(
         text, jsonb, text[], text[], text[], text[], text[], uuid[], uuid[], uuid[], uuid[], boolean,
-        text[], text[], text[], text[], boolean, text, text, text, text, text, bigint, text, integer, text, bigint
+        text[], text[], text[], text[], boolean, text, text, text, text, bigint, integer, text, text[]
     ),
     ple_api.question_library_facet_choices(
         text, jsonb, text[], text[], text[], text[], text[], uuid[], uuid[], uuid[], uuid[], boolean,
-        text[], text[], text[], text[], boolean, text, text, text, text, text, text, integer, text[], text
+        text[], text[], text[], text[], boolean, text, text, text, text, text, text, integer, text[], text, text[]
     ),
     ple_api.load_library_object_kind(text),
     ple_api.load_question_library_revision(text, integer),
@@ -67,11 +67,11 @@ GRANT EXECUTE ON FUNCTION ple_api.list_question_library_entries(),
     ple_api.load_question_library_lineage(text),
     ple_api.search_question_library_entries(
         text, jsonb, text[], text[], text[], text[], text[], uuid[], uuid[], uuid[], uuid[], boolean,
-        text[], text[], text[], text[], boolean, text, text, text, text, text, bigint, text, integer, text, bigint
+        text[], text[], text[], text[], boolean, text, text, text, text, bigint, integer, text, text[]
     ),
     ple_api.question_library_facet_choices(
         text, jsonb, text[], text[], text[], text[], text[], uuid[], uuid[], uuid[], uuid[], boolean,
-        text[], text[], text[], text[], boolean, text, text, text, text, text, text, integer, text[], text
+        text[], text[], text[], text[], boolean, text, text, text, text, text, text, integer, text[], text, text[]
     ),
     ple_api.load_library_object_kind(text),
     ple_api.load_question_library_revision(text, integer),

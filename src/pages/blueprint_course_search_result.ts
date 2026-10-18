@@ -1,8 +1,7 @@
 // Shared Blueprint discovery result content. The list renders this record shape.
 
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
-import type { RecordContent } from "../components/record_list/record_list";
-
+import type { RecordContent } from "../components/data_sheet/record_content";
 function blueprintCoursePath(blueprintCourseId: string): string {
   return `/blueprint-courses/${encodeURIComponent(blueprintCourseId)}`;
 }

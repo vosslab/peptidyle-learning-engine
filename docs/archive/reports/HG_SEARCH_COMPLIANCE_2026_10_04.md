@@ -70,7 +70,7 @@ modes and OER Commons' simple search/image-focused boxes as references
   `src/pages/library_browse_rows.tsx` (historical path; retired)).
 - **Static:** The currently assembled workflow has no compact/list/movie-poster mode selection.
   `RecordListImageBrowser` offers only Gallery and List, and is not wired to Question search
-  ([`record_list_image_browser.tsx:22-69`](../../../src/components/record_list/record_list_image_browser.tsx#L22-L69)).
+  (`src/components/record_list/record_list_image_browser.tsx:22-69`).
 
 The simple input feeds the same page-level query state and exposes filters after search, so
 ordinary-word search and later refinement are partly present

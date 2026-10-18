@@ -37,7 +37,9 @@ export interface StudentAttemptHistoryEntry {
 
 export interface StudentAttemptHistoryPage {
   readonly items: ReadonlyArray<StudentAttemptHistoryEntry>;
-  readonly nextCursor?: string;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly totalCount: number;
 }
 
 export interface StudentAttemptHistoryFacetPage {
@@ -52,8 +54,8 @@ export interface StudentAttemptHistoryFacetPage {
 export interface StudentAttemptHistoryClient {
   readonly listStudentAttemptHistory: (
     query: StudentAttemptHistoryQuery,
-    pageSize?: number,
-    cursor?: string,
+    pageNumber: number,
+    pageSize: number,
   ) => Promise<StudentAttemptHistoryPage>;
   readonly listStudentAttemptHistoryFacetChoices: (
     query: StudentAttemptHistoryQuery,

@@ -4,15 +4,15 @@ import type { AccountId } from "../../generated/api/AccountId";
 
 export type InstructorAccountState = "active" | "deactivated" | "closed";
 
-export type InstructorAccountPageSize = 50 | 100 | 250;
+export type InstructorAccountPageSize = 50 | 100;
 
 /** One server page of the Sysadmin Instructor Account list. */
 export interface InstructorAccountBrowse {
   readonly query: string;
   readonly state: InstructorAccountState | null;
   readonly sort: "idAscending" | "idDescending";
+  readonly pageNumber: number;
   readonly pageSize: 50 | 100;
-  readonly cursor: string | null;
 }
 
 /** The only Instructor Account fields available to the browser. */
@@ -26,10 +26,11 @@ export interface InstructorAccountSummary {
 
 /** Sysadmin-owned display context for the closed Instructor Account list. */
 export interface InstructorAccountList {
-  readonly accounts: ReadonlyArray<InstructorAccountSummary>;
+  readonly items: ReadonlyArray<InstructorAccountSummary>;
+  readonly pageNumber: number;
+  readonly pageSize: 50 | 100;
+  readonly totalCount: number;
   readonly displayTimeZone: string;
-  /** Query-bound opaque cursor for another page. */
-  readonly nextCursor: string | null;
   readonly stateChoices: ReadonlyArray<{
     readonly key: InstructorAccountState;
     readonly count: number;

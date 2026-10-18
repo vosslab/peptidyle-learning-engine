@@ -16,7 +16,8 @@ CREATE FUNCTION ple_private.question_library_entries(
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     source_object_record_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text, language text, citation_text text,
-    parent_published_question_id text, parent_revision_number integer
+    parent_published_question_id text, parent_revision_number integer,
+    has_question_thumbnail boolean
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
@@ -75,7 +76,8 @@ BEGIN
            metadata.bloom_cognitive_process::text, metadata.bloom_knowledge_dimension::text,
            binding.source_object_record_id, binding.source_object_checksum, record.media_type,
            binding.webwork_pg_path, metadata.language, citation.citation_text,
-           lineage.parent_published_question_id::text, lineage.parent_revision_number
+           lineage.parent_published_question_id::text, lineage.parent_revision_number,
+           thumbnail.published_question_id IS NOT NULL
       FROM ple_data.question_revision AS revision
       JOIN ple_data.published_question AS lineage ON lineage.published_question_id = revision.published_question_id
       JOIN ple_data.question_revision_metadata AS metadata
@@ -89,6 +91,9 @@ BEGIN
       JOIN ple_private.question_revision_source_binding AS binding
         ON binding.published_question_id = revision.published_question_id AND binding.revision_number = revision.revision_number
       JOIN ple_private.object_record AS record ON record.object_record_id = binding.source_object_record_id
+      LEFT JOIN ple_private.question_revision_thumbnail AS thumbnail
+        ON thumbnail.published_question_id = revision.published_question_id
+       AND thumbnail.revision_number = revision.revision_number
      WHERE (p_published_question_id IS NULL OR revision.published_question_id = p_published_question_id)
        AND (p_revision_number IS NULL OR revision.revision_number = p_revision_number)
        AND (p_revision_number IS NOT NULL OR revision.revision_number = (
@@ -134,7 +139,8 @@ RETURNS TABLE (
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     source_object_record_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text, language text, citation_text text,
-    parent_published_question_id text, parent_revision_number integer
+    parent_published_question_id text, parent_revision_number integer,
+    has_question_thumbnail boolean
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.question_library_entries(NULL, NULL, true)
 $$;
@@ -150,7 +156,8 @@ RETURNS TABLE (
     bloom_cognitive_process text, bloom_knowledge_dimension text,
     source_object_record_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text, language text, citation_text text,
-    parent_published_question_id text, parent_revision_number integer
+    parent_published_question_id text, parent_revision_number integer,
+    has_question_thumbnail boolean
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.question_library_entries(p_published_question_id, NULL, false)
 $$;
@@ -166,8 +173,8 @@ CREATE FUNCTION ple_private.search_question_library_entries(
     p_bloom_knowledge_dimensions text[], p_question_types text[], p_question_licenses text[],
     p_authored_by_current_account boolean,
     p_result_kind text, p_questions text, p_owner_account_id text,
-    p_sort text, p_after_title text, p_after_published_at_millis bigint, p_after_public_id text,
-    p_limit integer, p_scope text DEFAULT 'public', p_after_starred_at_micros bigint DEFAULT NULL
+    p_sort text, p_page_number bigint, p_page_size integer, p_scope text,
+    p_excluded_question_ids text[]
 ) RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[], author_account_ids text[],
@@ -180,9 +187,10 @@ CREATE FUNCTION ple_private.search_question_library_entries(
     subject_name text, topic_name text, discipline_name text, discipline_is_retired boolean, subtopic_name text,
     row_kind text, public_id text, owner_account_id text, in_pool boolean,
     question_pool_edit_number bigint, question_pool_metadata_edit_number bigint, question_pool_member_count bigint,
-    facets jsonb, language text, citation_text text,
+    facets jsonb, total_count bigint, resolved_page_number bigint, resolved_page_size integer,
+    language text, citation_text text,
     parent_published_question_id text, parent_revision_number integer,
-    starred_at_micros bigint
+    starred_at_micros bigint, has_question_thumbnail boolean
 ) LANGUAGE plpgsql SECURITY DEFINER
 -- Interactive metadata search spends more on JIT compilation than on execution.
 -- Live Demo EXPLAIN measured 1465 ms compiling versus 22 ms without JIT.
@@ -195,7 +203,10 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Library requires an active Instructor or Sysadmin Account';
     END IF;
-    IF p_limit NOT BETWEEN 1 AND 251
+    IF p_page_number IS NULL
+       OR p_page_number NOT BETWEEN 1 AND 4294967295
+       OR p_page_size IS NULL
+       OR p_page_size NOT BETWEEN 1 AND 250
        OR p_sort NOT IN ('title_ascending', 'title_descending', 'kind_ascending', 'kind_descending',
                          'discipline_ascending', 'discipline_descending',
                          'question_type_ascending', 'question_type_descending', 'published_newest',
@@ -220,8 +231,12 @@ BEGIN
             p_cross_discipline, p_bloom_cognitive_processes, p_bloom_knowledge_dimensions,
             p_question_types, p_question_licenses, p_authored_by_current_account,
             p_owner_account_id, NULL, p_scope)
-    ), filtered AS MATERIALIZED (
+    ), category_eligible AS MATERIALIZED (
         SELECT * FROM eligible entry
+         WHERE entry.row_kind <> 'question'
+            OR NOT (entry.published_question_id = ANY(COALESCE(p_excluded_question_ids, ARRAY[]::text[])))
+    ), filtered AS MATERIALIZED (
+        SELECT * FROM category_eligible entry
          WHERE (p_result_kind = 'both' OR p_result_kind = CASE entry.row_kind WHEN 'question' THEN 'questions' ELSE 'pools' END)
            AND (entry.row_kind = 'pool' OR p_questions = 'all' OR NOT entry.in_pool)
     ), author_values AS (
@@ -270,6 +285,12 @@ BEGIN
         SELECT normalized_value, min(display_value) AS display_value, count(*)::bigint AS facet_count
           FROM topic_values
          GROUP BY normalized_value
+    ), pagination AS MATERIALIZED (
+        SELECT count(*)::bigint AS total_count,
+               CASE WHEN count(*) = 0 THEN 1
+                    ELSE least(p_page_number, (count(*) + p_page_size - 1) / p_page_size)
+               END AS resolved_page_number
+          FROM filtered
     ), keyed AS MATERIALIZED (
         SELECT entry.*,
                CASE
@@ -292,19 +313,6 @@ BEGIN
           FROM filtered entry
     ), page AS MATERIALIZED (
         SELECT * FROM keyed entry
-         WHERE p_after_public_id IS NULL
-            OR (p_sort IN ('title_ascending', 'kind_ascending', 'discipline_ascending', 'question_type_ascending')
-                AND (entry.sort_key COLLATE "C" > p_after_title COLLATE "C"
-                     OR (entry.sort_key COLLATE "C" = p_after_title COLLATE "C" AND entry.public_id > p_after_public_id)))
-            OR (p_sort IN ('title_descending', 'kind_descending', 'discipline_descending', 'question_type_descending')
-                AND (entry.sort_key COLLATE "C" < p_after_title COLLATE "C"
-                     OR (entry.sort_key COLLATE "C" = p_after_title COLLATE "C" AND entry.public_id > p_after_public_id)))
-            OR (p_sort = 'published_newest' AND (entry.published_at_millis < p_after_published_at_millis
-                OR (entry.published_at_millis = p_after_published_at_millis AND entry.public_id > p_after_public_id)))
-            OR (p_sort = 'starred_date_ascending' AND (entry.starred_at_micros > p_after_starred_at_micros
-                OR (entry.starred_at_micros = p_after_starred_at_micros AND entry.public_id > p_after_public_id)))
-            OR (p_sort = 'starred_date_descending' AND (entry.starred_at_micros < p_after_starred_at_micros
-                OR (entry.starred_at_micros = p_after_starred_at_micros AND entry.public_id > p_after_public_id)))
          ORDER BY CASE WHEN p_sort IN ('title_ascending', 'kind_ascending', 'discipline_ascending', 'question_type_ascending')
                        THEN entry.sort_key END COLLATE "C" ASC NULLS LAST,
                   CASE WHEN p_sort IN ('title_descending', 'kind_descending', 'discipline_descending', 'question_type_descending')
@@ -313,13 +321,14 @@ BEGIN
                   CASE WHEN p_sort = 'starred_date_ascending' THEN entry.starred_at_micros END ASC NULLS LAST,
                   CASE WHEN p_sort = 'starred_date_descending' THEN entry.starred_at_micros END DESC NULLS LAST,
                   entry.public_id ASC
-         LIMIT p_limit
+         LIMIT p_page_size
+        OFFSET (SELECT (pagination.resolved_page_number - 1) * p_page_size::bigint FROM pagination)
     ), aggregates AS (
         SELECT jsonb_build_object(
             'categories', jsonb_build_object(
-                'questionsInNoPool', (SELECT count(*) FROM eligible AS entry WHERE entry.row_kind = 'question' AND NOT entry.in_pool),
-                'questionsInPool', (SELECT count(*) FROM eligible AS entry WHERE entry.row_kind = 'question' AND entry.in_pool),
-                'pools', (SELECT count(*) FROM eligible AS entry WHERE entry.row_kind = 'pool')
+                'questionsInNoPool', (SELECT count(*) FROM category_eligible AS entry WHERE entry.row_kind = 'question' AND NOT entry.in_pool),
+                'questionsInPool', (SELECT count(*) FROM category_eligible AS entry WHERE entry.row_kind = 'question' AND entry.in_pool),
+                'pools', (SELECT count(*) FROM category_eligible AS entry WHERE entry.row_kind = 'pool')
             ),
             'authorNames', COALESCE((
                 SELECT jsonb_agg(jsonb_build_object('authorName', display_value, 'count', facet_count)
@@ -406,9 +415,11 @@ BEGIN
            page.subject_name, page.topic_name, page.discipline_name, page.discipline_is_retired, page.subtopic_name,
            page.row_kind, page.public_id, page.owner_account_id, page.in_pool,
            page.question_pool_edit_number, page.question_pool_metadata_edit_number, page.question_pool_member_count,
-           aggregates.facets, page.language, page.citation_text,
-           page.parent_published_question_id, page.parent_revision_number, page.starred_at_micros
-      FROM aggregates LEFT JOIN page ON true
+           aggregates.facets, pagination.total_count, pagination.resolved_page_number, p_page_size,
+           page.language, page.citation_text,
+           page.parent_published_question_id, page.parent_revision_number, page.starred_at_micros,
+           page.has_question_thumbnail
+      FROM aggregates CROSS JOIN pagination LEFT JOIN page ON true
      ORDER BY CASE WHEN p_sort IN ('title_ascending', 'kind_ascending', 'discipline_ascending', 'question_type_ascending')
                    THEN page.sort_key END COLLATE "C" ASC NULLS LAST,
               CASE WHEN p_sort IN ('title_descending', 'kind_descending', 'discipline_descending', 'question_type_descending')
@@ -429,8 +440,8 @@ CREATE FUNCTION ple_api.search_question_library_entries(
     p_bloom_knowledge_dimensions text[], p_question_types text[], p_question_licenses text[],
     p_authored_by_current_account boolean,
     p_result_kind text, p_questions text, p_owner_account_id text,
-    p_sort text, p_after_title text, p_after_published_at_millis bigint, p_after_public_id text,
-    p_limit integer, p_scope text DEFAULT 'public', p_after_starred_at_micros bigint DEFAULT NULL
+    p_sort text, p_page_number bigint, p_page_size integer, p_scope text,
+    p_excluded_question_ids text[]
 ) RETURNS TABLE (
     published_question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[], author_account_ids text[],
@@ -443,17 +454,18 @@ CREATE FUNCTION ple_api.search_question_library_entries(
     subject_name text, topic_name text, discipline_name text, discipline_is_retired boolean, subtopic_name text,
     row_kind text, public_id text, owner_account_id text, in_pool boolean,
     question_pool_edit_number bigint, question_pool_metadata_edit_number bigint, question_pool_member_count bigint,
-    facets jsonb, language text, citation_text text,
+    facets jsonb, total_count bigint, resolved_page_number bigint, resolved_page_size integer,
+    language text, citation_text text,
     parent_published_question_id text, parent_revision_number integer,
-    starred_at_micros bigint
+    starred_at_micros bigint, has_question_thumbnail boolean
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.search_question_library_entries(
         p_exact_question_id, p_text_terms, p_author_names, p_backends, p_tags, p_subjects, p_topics,
         p_discipline_ids, p_subject_ids, p_topic_ids, p_subtopic_ids, p_cross_discipline,
         p_bloom_cognitive_processes, p_bloom_knowledge_dimensions, p_question_types, p_question_licenses,
         p_authored_by_current_account, p_result_kind, p_questions,
-        p_owner_account_id, p_sort, p_after_title, p_after_published_at_millis,
-        p_after_public_id, p_limit, p_scope, p_after_starred_at_micros)
+        p_owner_account_id, p_sort, p_page_number, p_page_size, p_scope,
+        p_excluded_question_ids)
 $$;
 
 SET LOCAL ROLE ple_private_owner;
@@ -500,6 +512,7 @@ RETURNS TABLE (
     source_object_record_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text, language text, citation_text text,
     parent_published_question_id text, parent_revision_number integer,
+    has_question_thumbnail boolean,
     revision_general_feedback text, revision_hint text, revision_worked_solution text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT entry.*, revision.general_feedback, revision.hint, revision.worked_solution

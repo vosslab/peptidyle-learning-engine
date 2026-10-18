@@ -1389,6 +1389,87 @@ geometry stays stable for every signed-in route.
 rule, [application_shell.tsx](../src/application_shell.tsx), and
 [app_ribbon_density.css](../src/ribbon/app_ribbon_density.css).
 
+### Shared collections have one component boundary
+
+**Decision.** The approved target uses `SearchBlock` to compose page-supplied
+criteria with `DataSheetControls` and one required `DataSheetBlock`.
+`DataSheetControls` supplies mode choice, pagination, counts, optional bulk UI,
+and sort/filter interfaces through shared state and callbacks.
+`DataSheetBlock` owns all four display modes and shared sorting, filtering,
+selection, and record actions. `DataSheetTable` owns Compact/List presentation,
+column configuration, and resize/show/hide/rearrange/responsive-hide mechanics,
+with independent temporary widths, visibility, and order per table mode.
+`HeaderRow` sits inside `DataSheetTable`, forwarding sort/filter criteria to
+`DataSheetBlock` and column input to `DataSheetTable`. `RecordItem` provides
+content and direct actions in every mode, inside `DataSheetTable` for
+Compact/List. Surrounding controls invoke these owners without a second query
+or presentation controller. Page/domain owners supply scope, criteria, queries,
+creation actions, and domain commands.
+
+Every collection exposes Compact, List, Cards, and Visual Boxes. Domain rules
+can restrict operations without removing a presentation mode. Compact uses
+aligned single-line rows; List is a wrapping table with richer metadata. Cards are
+text-oriented; Visual Boxes are image-oriented. Mode changes preserve query,
+sort, page, and selected record identities without a query request. Query and
+filter changes clear selection; sorting preserves it. Selection supports
+optional bulk operations and does not replace direct record actions.
+
+Edits made in another tab leave a search snapshot unchanged until a new query
+or explicit refresh. Successful commands in the current interface update the
+directly affected content; Add, Remove, and reorder commands update an editor's
+current draft immediately. Cross-tab edits do not synchronize automatically.
+Pool and Assessment editors compose independent contents and Library
+collections; membership and saved order remain editor-owned. Search, sorting,
+and filtering do not change membership. Assessment contents retain saved order
+while filtered, and reorder operations address stable entries in saved order.
+
+**Why.** A shared interaction contract removes page-specific collection
+behavior while leaving query authority and editor domain rules with their
+owners. Explicit refresh makes snapshot changes predictable, and direct record
+actions remain usable without bulk-selection state.
+
+**Consequence.** This is the approved target boundary. Implementation and
+acceptance evidence belong in
+[datasheet_collection_status.md](active_plans/reports/datasheet_collection_status.md)
+against the active plan milestones; this decision does not imply completion.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md),
+[SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md), and the active
+[modular_ui_architecture_completion_plan.md](active_plans/active/modular_ui_architecture_completion_plan.md).
+
+### Published WeBWorK thumbnails are revision artifacts
+
+**Decision.** Publication creates a thumbnail for the exact published
+WeBWorK Question Revision through a private synchronous Playwright renderer.
+The API retains the seed-zero validation HTML and remains authoritative for
+source and revision identity; Chromium runs outside the API container. The
+renderer captures the question region at sufficient source resolution to
+produce thumbnails that are always 256 x 256 pixels without raster upscaling. It
+preserves the existing rendered layout and content proportions, crops excess
+width symmetrically from both sides and excess height from the bottom, and
+keeps content horizontally centered and vertically top-aligned. It encodes
+WebP quality 80. Library browsing reads the stored immutable artifact; an
+explicit idempotent backfill handles existing published
+revisions. No browsing-triggered render or persistent preview cache is added.
+
+**Why.** A stable, revision-bound image supports visual identification without
+putting a browser in the API runtime or rerendering during browsing.
+
+**Consequence.** Source, revision, and thumbnail register together in the
+publication transaction. Capture, storage, or registration failure prevents
+publication and leaves the Draft editable; cleanup follows the existing
+conclusive-failure and ambiguous-commit recovery policy. The active plan and
+[datasheet_collection_status.md](active_plans/reports/datasheet_collection_status.md)
+track implementation and acceptance. The archived component specification's
+older cache and uncropped preview wording is superseded for
+this feature.
+
+**Owner.** [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md),
+[CACHING_AND_PREFETCH.md](CACHING_AND_PREFETCH.md), and the active
+[modular_ui_architecture_completion_plan.md](active_plans/active/modular_ui_architecture_completion_plan.md),
+especially M19-M22.
+
 ### PageFrame owns page-level structure
 
 **Decision.** `PageFrame` owns route content width, standard vertical spacing,
@@ -1405,8 +1486,8 @@ actions gives routes a consistent layout without duplicating page identity.
 inherit the reading width; dense routes opt into `fullWidth`. The frame does
 not define a page title or in-page section abstraction.
 
-**Owner.** [src/components/page_frame.tsx](../src/components/page_frame.tsx)
-and [src/components/page_frame.css](../src/components/page_frame.css).
+**Owner.** [src/components/page_frame/page_frame.tsx](../src/components/page_frame/page_frame.tsx)
+and [src/components/page_frame/page_frame.css](../src/components/page_frame/page_frame.css).
 
 ### Reserve space but never fabricate a control
 
@@ -1432,46 +1513,52 @@ and [ribbon_selected_tab_visibility.ts](../src/ribbon/ribbon_selected_tab_visibi
 
 ### Record presentations and server pages have separate ownership
 
-**Decision.** Each record component uses semantics that match its task:
-`RecordList` for compact scans, `RecordSequence` for saved order,
-`RecordTable` for named columns, `RecordOutlineList` and `RecordOutlineItem`
-for nested membership, and `RecordDetailList` for expanded reviews and
-comparisons. They share loading, empty, and error states while callers retain
-domain and workflow state. `RecordTable` owns its shared table skin and internal
-horizontal scrolling; callers set task-specific column proportions and logical
-alignment. Bounded server pages replaced client windowing. Question, Pool, and
+**Decision.** All record collections use the shared four-mode `DataSheetBlock`
+boundary above. Compact/List share `DataSheetTable`, including its table skin
+and internal horizontal scrolling; collection field definitions supply column
+defaults and logical alignment. Existing sequence, outline, and detail
+primitives may express saved order, nested membership, and expanded review
+within this boundary. Editor/domain owners retain membership, saved order,
+hierarchy, and workflow state; those semantics do not create separate collection
+controllers or remove display modes. Noncollection forms retain their task
+semantics. Bounded server pages replaced client windowing. Question, Pool, and
 Blueprint discovery each keep one server page of 50, 100, or 250 records.
-The client window helper is gone.
 
-**Why.** A scan row, table row, ordered entry, hierarchy, and full review have
-different structural meaning. A shared component should remove repeated
-presentation code without erasing those differences. A shorter client slice of
-a larger result is no longer useful once discovery already returns one page.
+**Why.** Shared collection behavior can preserve domain order, hierarchy, and
+review structure through existing primitives. A shorter client slice of a
+larger result is unnecessary once discovery already returns one page.
 
 **Consequence.** All presentations use the same accessible collection states.
-RecordList renders the returned page. It does not calculate a mounted slice,
-overscan, spacers, or scroll-to-record position.
+The shared presentation renders the returned page without a mounted slice,
+overscan, spacers, or scroll-to-record calculation. Query/data owners apply
+sorting and filtering to the complete matching collection before pagination;
+database-backed collections use PostgreSQL `WHERE` and `ORDER BY`, and complete
+local collections use equivalent shared client processing.
 
 **Owner.** The shared components under
-[src/components/record_list/](../src/components/record_list/)
+[src/components/data_sheet/](../src/components/data_sheet/)
 and their composition boundary in [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md).
 
 ### Scan rows show one decision-sized summary
 
-**Decision.** A scan row carries the title and the facts a person needs to
-compare items without opening each one, plus the main action. Human Guidance
-names those facts for each collection. Question Library scans keep description,
-authors, classification, and the exact Question ID on the row. Public Blueprint
-scans include Course name, classification, author, institution, and useful usage
-or stewardship signals as HG requires. Existing API fields do not cap the
-required result content.
+**Decision.** Compact carries the title, essential comparison facts, and direct
+actions in aligned single-line rows with truncation. List uses wrapping rows
+and fewer, wider columns to reveal richer descriptions and metadata. Human
+Guidance names the useful fields for each collection: Question Library
+descriptions, authors, classification, and exact Question IDs; public Blueprint
+Course names, classification, authors, institutions, and useful usage or
+stewardship signals. Provide those fields through the collection's suitable
+columns and presentations, with fuller details available on inspection.
+Compact need not display every metadata field in each row. Existing API fields
+do not cap the required result content.
 
 **Why.** Repeated records need a compact, comparable decision surface rather
 than a compressed detail page.
 
-**Consequence.** This rule applies only to scan rows. Dense task tables such
-as Gradebook and roster retain the columns their task requires; they are not
-capped by the scan-row summary.
+**Consequence.** Choose essential Compact defaults for each collection and
+make its distinction from the richer List presentation clear. Gradebook and
+roster retain task-specific fields within the same four-mode collection
+boundary; noncollection forms keep their own presentation.
 
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md)'s Instructor list-density
 guidance and the Question Library scan-row regions in
@@ -1977,7 +2064,7 @@ Library display default does not make a Question in another Pool ineligible for 
 
 ### Searches share session behavior
 
-**Decision.** Shared search behavior lives in `src/features/search/`. Each content definition
+**Decision.** Shared search behavior lives in `src/components/search_block/`. Each content definition
 supplies its typed query, decoder/API call, row identity, record description, filters, and orders.
 Text applies on Enter or Search; filters, sort, and page size apply immediately. Search state
 lasts only while the page or dialog is open.
@@ -1992,7 +2079,7 @@ Result kinds and Pool membership remain Library rules. The Question picker keeps
 outside shared search state: search Clear resets discovery, while its separate Clear selection
 action resets the tray. The Assessment content picker owns its Question-or-one-Pool selection rule.
 
-**Owner.** [search_session.ts](../src/features/search/search_session.ts)
+**Owner.** [search_session.ts](../src/components/search_block/search_session.ts)
 
 ### Pool credit identifies its owner and source Pool
 

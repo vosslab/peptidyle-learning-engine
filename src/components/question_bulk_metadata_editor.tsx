@@ -11,7 +11,11 @@ import {
   type VocabularyCreation,
 } from "./authoring_classification_level";
 import { ContentClassificationSelect } from "./content_classification_select";
-import { RecordDetailList } from "./record_list/record_detail_list";
+import type { RecordContent } from "./data_sheet/record_content";
+import type { RecordField } from "./data_sheet/record_fields";
+import { SearchBlock } from "./search_block/search_block";
+import { SearchControls } from "./search_block/search_controls";
+import { createLocalCompleteSearch } from "./search_block/local_complete_search_state";
 import { UnsavedChangesGuard, trackEditorSave } from "./unsaved_changes_guard";
 import type {
   QuestionBulkMetadataClient,
@@ -29,6 +33,8 @@ const CLASSIFICATION_FIELDS = [
   "subtopicUuid",
 ] as const;
 type ClassificationField = (typeof CLASSIFICATION_FIELDS)[number];
+type MetadataSortKey = "title" | "questionId" | "tags" | "metadataEditNumber" | ClassificationField;
+type MetadataFilterKey = "tags" | ClassificationField;
 const CLASSIFICATION_LABELS: Readonly<Record<ClassificationField, string>> = {
   disciplineUuid: "Discipline",
   subjectUuid: "Subject",
@@ -234,6 +240,98 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
   const currentNames = (): ReadonlyMap<string, string> =>
     names.error ? new Map() : (names() ?? new Map());
 
+  const questionTitle = (item: PublishedQuestionSharedMetadata): string =>
+    props.questionTitles.get(item.questionId) ?? "Question";
+  const classificationName = (
+    item: PublishedQuestionSharedMetadata,
+    field: ClassificationField,
+  ): string => {
+    const uuid = item[field];
+    return uuid === null ? "Not set" : (currentNames().get(uuid) ?? "Name unavailable");
+  };
+  const metadataFields: ReadonlyArray<
+    RecordField<PublishedQuestionSharedMetadata, MetadataSortKey, MetadataFilterKey>
+  > = [
+    {
+      id: "title",
+      label: "Question",
+      role: "identity",
+      sortKey: "title",
+      value: questionTitle,
+      defaultColumn: { priority: 0 },
+    },
+    {
+      id: "questionId",
+      label: "Question ID",
+      sortKey: "questionId",
+      value: (item) => item.questionId,
+      defaultColumn: { priority: 1 },
+    },
+    {
+      id: "tags",
+      label: "Tags",
+      sortKey: "tags",
+      filterKey: "tags",
+      value: (item) => item.tags,
+      defaultColumn: { priority: 2 },
+    },
+    ...CLASSIFICATION_FIELDS.map((field, index) => ({
+      id: field,
+      label: CLASSIFICATION_LABELS[field],
+      sortKey: field,
+      filterKey: field,
+      value: (item: PublishedQuestionSharedMetadata): string => classificationName(item, field),
+      defaultColumn: { priority: index + 3 },
+    })),
+    {
+      id: "metadataEditNumber",
+      label: "Metadata Edit Number",
+      sortKey: "metadataEditNumber",
+      value: (item) => item.metadataEditNumber,
+      defaultColumn: { priority: 7 },
+    },
+  ];
+  const metadataContent = (item: PublishedQuestionSharedMetadata): RecordContent => ({
+    title: questionTitle(item),
+    // ASVS 1.2.1: shared record facts render metadata as escaped text.
+    details: [
+      { kind: "questionId", questionTitle: questionTitle(item), displayId: item.questionId },
+      {
+        kind: "text",
+        label: "Tags",
+        value: item.tags.length === 0 ? "No tags" : item.tags.join(", "),
+      },
+      ...CLASSIFICATION_FIELDS.map((field) => ({
+        kind: "text" as const,
+        label: CLASSIFICATION_LABELS[field],
+        value: classificationName(item, field),
+      })),
+      { kind: "text", label: "Metadata Edit Number", value: String(item.metadataEditNumber) },
+    ],
+    actions: [],
+  });
+  // Search projects the complete metadata collection; saves keep the full target set above.
+  const reviewSource = (): ReadonlyArray<PublishedQuestionSharedMetadata> => {
+    currentNames();
+    void props.questionTitles;
+    return metadata();
+  };
+  const metadataSearch = createLocalCompleteSearch(
+    { rows: reviewSource },
+    {
+      fields: metadataFields,
+      rowId: (item) => item.questionId,
+      keyword: (item) =>
+        [
+          questionTitle(item),
+          item.questionId,
+          ...item.tags,
+          ...CLASSIFICATION_FIELDS.map((field) => classificationName(item, field)),
+        ].join(" "),
+      content: metadataContent,
+    },
+  );
+
   function effectiveParent(field: ClassificationField): string | null {
     if (modes()[field] === "replace") return selections()[field];
     if (modes()[field] === "clear") return null;
@@ -411,29 +509,23 @@ export function QuestionBulkMetadataEditor(props: QuestionBulkMetadataEditorProp
       <details>
         <summary>Review current values for every selected Question</summary>
         <div class="bulk-metadata-current-values">
-          <RecordDetailList
-            ariaLabel="Current metadata by selected Question"
-            emptyState={{ title: "No selected Questions have current metadata." }}
-            recordId={(item) => item.questionId}
-            rows={metadata()}
-            state={{ kind: "ready" }}
-            renderRecord={(item) => (
-              <div>
-                <h3>{props.questionTitles.get(item.questionId) ?? "Question"}</h3>
-                <p>Question ID {item.questionId}</p>
-                <p>Tags: {item.tags.length === 0 ? "No tags" : item.tags.join(", ")}</p>
-                <For each={CLASSIFICATION_FIELDS}>
-                  {(field) => (
-                    <p>
-                      {CLASSIFICATION_LABELS[field]}:{" "}
-                      {item[field] === null
-                        ? "Not set"
-                        : (currentNames().get(item[field] ?? "") ?? "Name unavailable")}
-                    </p>
-                  )}
-                </For>
-              </div>
-            )}
+          <SearchBlock
+            layout="above"
+            controls={
+              <SearchControls
+                state={metadataSearch.state}
+                textLabel="Search selected Question metadata"
+                disabled={busy}
+              />
+            }
+            state={metadataSearch.state}
+            collection={{
+              ariaLabel: "Current metadata by selected Question",
+              fields: metadataFields,
+              query: metadataSearch.query,
+              emptyState: { title: "No selected Questions match this metadata search." },
+              disabled: busy,
+            }}
           />
         </div>
       </details>

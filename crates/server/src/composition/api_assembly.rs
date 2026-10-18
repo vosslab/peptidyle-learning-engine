@@ -103,6 +103,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let webwork_adapter = environment::webwork_adapter_from_env()?;
     let webwork_asset_proxy = environment::webwork_asset_proxy_from_env()?;
     let question_id_issuer = environment::question_id_issuer();
+    let thumbnail_capture = environment::question_thumbnail_capture_from_env()?;
     let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone());
     let assessments = PostgresLiveAssessmentStore::new(pool.clone());
     let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone());
@@ -259,6 +260,7 @@ pub async fn production_router_from_env() -> Result<Router> {
             authoring_publication,
             question_library_objects.clone(),
             Arc::clone(&webwork_adapter),
+            thumbnail_capture,
             question_id_issuer,
         ))
         .merge(crate::blueprint_course::blueprint_course_router(

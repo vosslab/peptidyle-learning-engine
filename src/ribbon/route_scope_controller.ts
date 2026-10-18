@@ -1,5 +1,6 @@
 // route_scope_controller.ts - browser-neutral reactive cache for route-scope presentation data.
 
+import { query } from "@solidjs/router";
 import { createEffect, createMemo, createSignal, type Accessor } from "solid-js";
 
 import type { ApplicationApi } from "../api/application_api";
@@ -201,7 +202,9 @@ export function createRouteScopeController(
       case "courseInstance":
         break;
       case "assessmentAttempt":
-        if (!isAssessmentAttemptSummary(pathnameForScope)) {
+        if (isAssessmentAttemptSummary(pathnameForScope)) {
+          query.delete(queries.assessmentAttemptHistory.keyFor(scope.assessmentAttemptId));
+        } else {
           assessmentAttemptScopes.delete(scope.assessmentAttemptId);
         }
         break;

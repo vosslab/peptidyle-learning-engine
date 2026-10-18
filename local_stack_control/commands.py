@@ -632,7 +632,7 @@ APPLICATION_REBUILD_SERVICES = local_stack_control.lifecycle.APPLICATION_REBUILD
 
 
 #============================================
-def live_demo_rebuild_target(
+def live_demo_target(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> (
@@ -640,7 +640,7 @@ def live_demo_rebuild_target(
 	| local_stack_control.models.DisposableComposeTarget
 	| None
 ):
-	"""Return the running Live Demo target when its private workspace is present."""
+	"""Return the existing owned Live Demo target when its private workspace is present."""
 	control = (
 		repo_root
 		/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
@@ -657,7 +657,7 @@ def live_demo_rebuild_target(
 	manifest = local_stack_control.disposable_stack_adapter.load_manifest(repo_root, manifest_path)
 	if manifest.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
 		raise local_stack_control.models.ControllerError(
-			"rebuild-application refuses a non Live Demo disposable owner"
+			"operation requires the Live Demo disposable owner"
 		)
 	return local_stack_control.disposable_stack_adapter.disposable_target(
 		runner, repo_root, manifest
@@ -671,7 +671,7 @@ def rebuild_application(
 	repo_root: pathlib.Path,
 ) -> int:
 	"""Rebuild the shared application image and recreate api, worker, and publisher."""
-	target = live_demo_rebuild_target(runner, repo_root)
+	target = live_demo_target(runner, repo_root)
 	if target is None:
 		target = target_from_args(args, runner, repo_root)
 		local_stack_control.compose.require_default_mutation_target(target)
@@ -687,6 +687,27 @@ def rebuild_application(
 	print(
 		"Rebuilt application services: " + ", ".join(APPLICATION_REBUILD_SERVICES)
 	)
+	return 0
+
+
+#============================================
+def backfill_question_thumbnails(
+	args: argparse.Namespace,
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+) -> int:
+	"""Backfill thumbnails only in the existing owned Live Demo."""
+	del args
+	target = live_demo_target(runner, repo_root)
+	if target is None:
+		raise local_stack_control.models.ControllerError(
+			"backfill-question-thumbnails requires the existing Live Demo workspace"
+		)
+	# ASVS 8.2.1 and 8.3.1: bind the mutation to its manifest owner and current resource capability.
+	local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, target)
+	local_stack_control.disposable_stack_adapter.require_browser_profile(target)
+	local_stack_control.lifecycle_provision.backfill_question_thumbnails(target, runner)
+	print("Live Demo Question thumbnails: backfilled")
 	return 0
 
 

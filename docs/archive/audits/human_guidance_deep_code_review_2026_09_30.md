@@ -98,7 +98,7 @@ records exist. With 251 Stars, an older Star cannot be reached through this coll
 
 Fix the store/API contract with keyset pagination on the existing `starred_at` and Question-ID order,
 then reuse the shared paging controls. Raising the cap would retain the same defect. Separately,
-[my_questions_model.ts](../../../src/pages/my_questions_model.ts) always requests the first 50 rows,
+`src/pages/my_questions_model.ts` always requests the first 50 rows,
 although its existing backend already returns a cursor. Completing that page should reuse the
 existing paging model; it does not require another backend abstraction.
 

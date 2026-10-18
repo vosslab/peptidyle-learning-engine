@@ -18,7 +18,6 @@ import {
   decodeQuestionContentBlock,
   decodeQuestionResponseFormat,
   decodeQuestionType,
-  questionResponseFormatSupportsType,
   decodeResponseSelectionRule,
 } from "./question_response_format";
 
@@ -27,7 +26,6 @@ export {
   decodeQuestionResponseFormat,
   decodeQuestionType,
   decodeResponseSelectionRule,
-  questionResponseFormatSupportsType,
 };
 
 /** Strict key-free static PLE Question JSON Draft Question Preview. */

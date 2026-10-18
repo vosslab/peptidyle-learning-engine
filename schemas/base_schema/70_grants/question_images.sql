@@ -45,3 +45,15 @@ REVOKE ALL ON FUNCTION ple_api.load_question_fork_asset(text, integer) FROM PUBL
 
 GRANT EXECUTE ON FUNCTION ple_api.load_question_fork_asset(text, integer) TO ple_app;
 
+SET LOCAL ROLE ple_private_owner;
+
+REVOKE ALL ON FUNCTION ple_private.load_question_library_image_bindings(text, integer) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_private.load_question_library_image_bindings(text, integer) TO ple_api_owner;
+
+SET LOCAL ROLE ple_api_owner;
+
+REVOKE ALL ON FUNCTION ple_api.load_question_library_image_bindings(text, integer) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION ple_api.load_question_library_image_bindings(text, integer) TO ple_app;
+

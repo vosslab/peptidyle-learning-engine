@@ -109,7 +109,7 @@ def _crate_source_mtime(repo_root: pathlib.Path) -> float | None:
 	crates_root = repo_root / "crates"
 	if crates_root.is_dir():
 		for crate in crates_root.iterdir():
-			if not crate.is_dir() or crate.name == "wasm":
+			if not crate.is_dir() or crate.name in {"wasm", "project-tools"}:
 				continue
 			candidate = newest_mtime(crate)
 			if candidate is not None and (newest is None or candidate > newest):

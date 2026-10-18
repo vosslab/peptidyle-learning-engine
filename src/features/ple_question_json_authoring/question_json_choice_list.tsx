@@ -31,6 +31,7 @@ function errorFor(props: PleQuestionJsonChoiceListProps, path: string): string |
 /** Uses the source's stable semantic IDs, so reordering never changes a response identity. */
 export function PleQuestionJsonChoiceList(props: PleQuestionJsonChoiceListProps): JSX.Element {
   const groupId = "ple-question-json-correct-choice";
+  const choicesError = (): string | undefined => errorFor(props, "response.choices");
   return (
     <fieldset class="ple-question-json-authoring__choices">
       <legend>Answer choices</legend>
@@ -49,9 +50,9 @@ export function PleQuestionJsonChoiceList(props: PleQuestionJsonChoiceListProps)
           Randomize answer choices for each student
         </span>
       </label>
-      <Show when={errorFor(props, "choices") !== undefined}>
+      <Show when={choicesError() !== undefined}>
         <p class="ple-question-json-authoring__error" role="alert">
-          {errorFor(props, "choices")}
+          {choicesError()}
         </p>
       </Show>
       <div
@@ -65,10 +66,10 @@ export function PleQuestionJsonChoiceList(props: PleQuestionJsonChoiceListProps)
         <ol class="ple-question-json-authoring__choice-list">
           <For each={props.choices}>
             {(choice, index): JSX.Element => {
-              const choicePath = `choices.${choice.id}`;
-              const textError = (): string | undefined => errorFor(props, `${choicePath}.text`);
+              const textError = (): string | undefined =>
+                errorFor(props, `response.choices[${index()}].text`);
               const feedbackError = (): string | undefined =>
-                errorFor(props, `${choicePath}.feedback`);
+                errorFor(props, `response.choices[${index()}].feedback`);
               return (
                 <li class="ple-question-json-authoring__choice">
                   <div class="ple-question-json-authoring__choice-header">

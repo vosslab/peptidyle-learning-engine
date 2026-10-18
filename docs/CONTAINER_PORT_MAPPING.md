@@ -17,6 +17,7 @@ points, not services exposed to the LAN.
 | `gateway`          | Caddy `8080`           | `127.0.0.1:8080 -> 8080` | The one browser and API origin.               |
 | `api`              | Axum `3000`            | none                     | Gateway accesses it on private `gateway_api`. |
 | `webwork-renderer` | PG renderer `3000`     | none                     | API-only private renderer endpoint.           |
+| `question-thumbnail-renderer` | Playwright service `3001` | none | API-only endpoint on `renderer_private`; health starts Chromium. |
 
 The base topology uses `PLE_GATEWAY_HOST_PORT` and defaults to `8080`. The
 fixed `ple-live-demo-browser` lifecycle instead selects private loopback ports
@@ -31,6 +32,10 @@ port conflict. Podman gives each service its own network namespace, and the
 private service name plus port identifies the destination. The API reaches the
 renderer at `http://webwork-renderer:3000/`; the gateway reaches the API over
 the separate internal `gateway_api` network.
+
+The API reaches the private thumbnail helper at
+`http://question-thumbnail-renderer:3001/`. It has no host mapping; its
+`GET /health` check launches Chromium and does not call the API.
 
 `podman ps` can show `3000/tcp` without a `HOST:PORT->CONTAINER_PORT` arrow.
 That is a container-local exposed-port declaration, not a host publication.

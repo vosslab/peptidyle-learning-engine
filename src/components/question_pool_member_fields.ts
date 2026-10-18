@@ -1,8 +1,8 @@
-import type { RecordField } from "./record_list/record_fields";
+import type { RecordField } from "./data_sheet/record_fields";
 import {
   compareQuestionPoolMemberRows,
   type QuestionPoolMemberSortEntry,
-} from "./record_list/question_pool_member_sort";
+} from "./question_pool_member_sort";
 
 export type PoolMemberSortKey = "title" | "questionId" | "revision" | "license";
 export type PoolMemberFilterKey = "license";

@@ -1,7 +1,7 @@
 import { A } from "@solidjs/router";
 import { Show, type JSX } from "solid-js";
 
-import { PageFrame } from "../../components/page_frame";
+import { PageFrame } from "../../components/page_frame/page_frame";
 import { formatLocalWallClockDateTime } from "../../format_datetime";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";

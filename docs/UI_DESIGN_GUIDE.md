@@ -46,7 +46,7 @@ requirements and remain outside this browser rule.
   column. Reading-heavy student prose may use a local readable measure inside the wider shell.
 - Instructor pages: prioritize horizontal scanning, compact rows, sticky local actions when useful,
   and one coherent primary work surface. Question Library Search uses full-width results; Browse
-  places a compact classification sidebar beside the same RecordList.
+  places a compact classification sidebar beside the same SearchBlock.
 - Student questions: keep prompt, response, feedback, navigation, and timer in one visual sequence.
   On large screens, use width to improve line length and grouping, not to separate the question from
   its answer across a long eye movement.
@@ -86,12 +86,17 @@ instead of PageFrame headings, short labels, or introductory text.
 Use compact spacing and consistent alignment. Adapt to available width while preserving useful
 content and reachable actions. Shared PageFrame improvements apply consistently across pages.
 
-## Shared RecordList interface
+## Shared collection interface
 
-Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#shared-recordlist-interface).
-RecordList provides one modular collection interface. Collections supply relevant fields, records,
-and actions. Compact, List, and Visual boxes share filtering, sorting, and record actions. Compact
-mode uses dense spreadsheet-style rows with aligned columns and little vertical overhead.
+Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#datasheetblock-interface).
+The approved target uses DataSheetBlock for all four display modes and shared sorting, filtering,
+selection, and record actions. Every collection exposes Compact, List, Cards, and Visual Boxes;
+domain rules can restrict operations without removing a mode. DataSheetTable provides Compact/List
+presentation and owns column configuration and mechanics, with independent temporary widths,
+visibility, and order per table mode. HeaderRow sits within DataSheetTable and forwards sort/filter
+input to DataSheetBlock and column input to DataSheetTable. RecordItem supplies content and direct
+actions in every mode, inside DataSheetTable for Compact/List. Compact uses aligned single-line
+rows; List is a wrapping table; Cards are text-oriented; Visual Boxes are image-oriented.
 
 - Resize columns by dragging their edges. Hide and show individual columns, and rearrange
   columns by dragging their headings.
@@ -103,23 +108,27 @@ mode uses dense spreadsheet-style rows with aligned columns and little vertical 
   before pagination.
 - Filter through column headings by selecting one or more available values. Combine filters
   across columns to narrow results and keep filtering available for hidden columns.
-- Adapt visible columns while preserving shared functionality. Apply shared improvements across
-  PLE rather than duplicating the collection interface in individual pages.
+- Keep selection distinct from editor membership and single-choice selection. Query/filter changes
+  clear it; sorting, pagination, and mode changes preserve stable selected identities.
+- Keep direct record actions available without selection. Optional bulk controls appear only when
+  the collection has meaningful bulk actions.
 
-This shared pattern is implemented across the applicable collection consumers.
-[SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) explains the composition;
-[modular_ui_completion_ledger.md](active_plans/audits/modular_ui_completion_ledger.md) records
-current consumer acceptance and evidence. This guide describes the design; the ledger records
-runtime proof. Content-specific matching and authorization remain with each domain.
+This guide describes the approved target design; the four-mode target is planned work, not a
+shipped claim. [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) explains the composition.
+The current [modular_ui_architecture_completion_plan.md](active_plans/active/modular_ui_architecture_completion_plan.md) and
+[datasheet_collection_status.md](active_plans/reports/datasheet_collection_status.md) record target
+milestones and evidence. The earlier [modular UI ledger](active_plans/audits/modular_ui_completion_ledger.md)
+records historical acceptance of the earlier 32 milestones. Content-specific matching and
+authorization remain with each domain.
 
 ## Shared SearchBlock interface
 
 Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#shared-searchblock-interface).
 PageFrame arranges page content and actions. Searchable collections and search results go through
-SearchBlock, which requires RecordList to display results. Ordinary page content can appear
-directly in PageFrame. SearchBlock places supplied controls above RecordList or beside it.
-The page chooses that layout from its
-purpose; loading or clearing a search does not change it. Side controls stack above results on
+SearchBlock. In the approved target, SearchBlock composes DataSheetControls with its required
+DataSheetBlock. Ordinary page content can appear directly in PageFrame. SearchBlock places supplied
+controls above results or beside them. The page chooses that layout from its purpose; loading or
+clearing a search does not change it. Side controls stack above results on
 narrow screens. Pages supply domain controls and connect them to shared search state.
 
 My Questions, My Pools, My Drafts, Starred, Watched, Search Question Library, and Browse Question
@@ -128,30 +137,50 @@ supplies its fields, records, and actions. My Questions is a search with a prede
 The empty-on-entry rule remains specific to Search Question Library; this shared structure does
 not impose that starting state on personal collections.
 
-RecordList owns sorting, column filtering, display modes, and record actions. SearchBlock keeps
-that shared presentation in both layouts. Meaningful unsaved edits are protected by their editors;
-temporary search terms and results do not need leave confirmation.
+Target DataSheetControls supplies modes, pagination, counts, optional bulk UI, and sort/filter
+interfaces through shared state and callbacks. It invokes DataSheetBlock's shared collection
+behavior and DataSheetTable's column mechanics without a second query or presentation controller.
+The page/domain owns criteria, scope, queries, and creation actions. The data/query layer applies
+sorting and filtering to the complete matching collection before pagination: PostgreSQL `WHERE`
+and `ORDER BY` for database-backed collections, equivalent shared processing for complete local
+collections. Search snapshots stay unchanged after cross-tab edits until a new query or
+explicit refresh. Meaningful unsaved edits are protected by their editors; temporary search terms
+and results do not need leave confirmation.
 
 Navigation proceeds directly unless leaving would discard meaningful unsaved edits. Search terms,
 filters, results, and merely opening an editor do not count. Editors use the shared
 UnsavedChangesGuard for meaningful unsaved work. Apply the same rule to closing an editor or
 changing a selection within the page: confirm only when the action would discard those edits.
 
-The current Library pages place SearchBlock inside PageFrame. SearchBlock renders SearchResults,
-which keeps one RecordList mounted even before a search runs. The Library page supplies the Search
-or Browse layout and its criteria; the shared block does not classify search activity as unsaved
-work. See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the current component
-boundary and [the modular UI ledger](active_plans/audits/modular_ui_completion_ledger.md) for
-consumer status and acceptance evidence.
+## Content-first review
+
+For each element between breadcrumbs and primary work, assess necessity, redundancy, frequency,
+priority, density, context, and responsiveness. Keep controls ahead of records when the task needs
+them there; remove repeated identity text and explanations without a demonstrated usability need.
+Assess visible useful content, interface overhead, and common-task cost together. Apply recurring
+layout repairs at shared component owners. The active
+[modular_ui_architecture_completion_plan.md](active_plans/active/modular_ui_architecture_completion_plan.md) defines the
+acceptance rubric and M03 evidence.
+
+The approved Library composition places SearchBlock inside PageFrame. SearchBlock composes
+DataSheetControls and its required DataSheetBlock, including DataSheetTable for Compact/List. The
+Library page supplies the Search or Browse layout and its criteria; the shared block does not
+classify search activity as unsaved work.
+See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the component boundary.
+The active [modular UI architecture plan](active_plans/active/modular_ui_architecture_completion_plan.md)
+and [status report](active_plans/reports/datasheet_collection_status.md) track target work; the
+[modular UI ledger](active_plans/audits/modular_ui_completion_ledger.md) records historical
+acceptance of the earlier 32 milestones.
 
 ## Question Library discovery
 
 Authority: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-interface).
-Search and Browse use the same RecordList and underlying Question Library results. Search adds
-keyword search above full-width results with more visible columns. Browse adds a narrow
-classification sidebar, leaving a narrower result area with fewer columns and the same capabilities.
-Choose the layout by Search or Browse mode, not by whether a query has run. On narrow screens,
-place Browse's navigator above results. Shared RecordList controls remain available in both modes.
+Search and Browse use the same SearchBlock and underlying Question Library results. Search places
+keyword criteria above full-width results with more visible columns. Browse places a narrow
+classification sidebar beside SearchBlock, leaving a narrower result area with fewer columns and
+the same capabilities. Choose the layout by Search or Browse mode, not by whether a query has run.
+On narrow screens, place Browse's navigator above results. Shared DataSheetControls remain
+available in both modes.
 
 Search opens with an empty spreadsheet, functional column headings, and a concise prompt to enter
 a keyword or select a filter. At least one keyword or filter is required to show results. Sorting
@@ -181,8 +210,10 @@ stored for restoration. Column preferences also reset when the view reopens.
 Pool creation and metadata editors protect meaningful unsaved edits independently of search
 activity. Temporary search state alone also does not require reload or tab-close confirmation.
 See [SEARCH_PAGE_ARCHITECTURE.md](SEARCH_PAGE_ARCHITECTURE.md) for the current Search and Browse
-composition. The [modular UI ledger](active_plans/audits/modular_ui_completion_ledger.md) records
-which consumers and acceptance gates are complete.
+composition. The active [modular UI architecture plan](active_plans/active/modular_ui_architecture_completion_plan.md)
+and [status report](active_plans/reports/datasheet_collection_status.md) track current target work.
+The [modular UI ledger](active_plans/audits/modular_ui_completion_ledger.md) records historical
+acceptance of the earlier 32 milestones.
 
 Assessment editors offer Search and Browse paths, inspection before adding, and bulk addition by
 Question ID. The Pool member picker offers Published Questions only. Data, matching, result fields,

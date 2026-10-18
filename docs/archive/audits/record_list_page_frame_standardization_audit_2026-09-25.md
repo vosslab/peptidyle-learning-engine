@@ -76,7 +76,7 @@ row class, row style, or general-purpose row renderer. Avoid accumulating page-n
 lines 68-79, marks score and completion status as `high` priority.
 [student_course_attempt_history_page.tsx](../../../src/pages/student_course_attempt_history_page.tsx),
 lines 76-89, does the same for scores and "Score not released".
-[record_list.css](../../../src/components/record_list/record_list.css), lines 88-96, hides that
+[record_list.css](../../../src/components/data_sheet/data_sheet.css), lines 88-96, hides that
 priority entirely below 32rem.
 
 Current-source Chromium fixtures confirm that both status regions compute to `display: none` at
@@ -98,7 +98,7 @@ describes the relevant container-based sizing mechanism.
 
 **P2: remove row decoration overrides during migration.**
 
-[student_course_attempt_history_page.css](../../../src/pages/student_course_attempt_history_page.css),
+`src/pages/student_course_attempt_history_page.css`,
 lines 9-14, changes shared rows into individually bordered, rounded boxes without adding row spacing.
 Chromium measures an 8 px radius and a 0 px gap between adjacent boxes. Screenshots confirm the
 touching corners and doubled divider. This directly reproduces the reported visual concern.
@@ -165,9 +165,9 @@ Blueprint records need a valid collection parent rather than an unconditional "M
 
 **P2: centralize ordinary section spacing.**
 
-[page_frame.tsx](../../../src/components/page_frame.tsx) correctly centralizes the title,
+[page_frame.tsx](../../../src/components/page_frame/page_frame.tsx) correctly centralizes the title,
 optional introductory slots, actions, and route-owned content width. Its root does not accept caller
-classes. However, [page_frame.css](../../../src/components/page_frame.css), lines 34-36, gives
+classes. However, [page_frame.css](../../../src/components/page_frame/page_frame.css), lines 34-36, gives
 the content region only `min-inline-size: 0`; children have no shared stack or gap.
 
 Twenty-four of 62 PageFrame uses supply `contentClass`. Those classes are not all mistakes: editors

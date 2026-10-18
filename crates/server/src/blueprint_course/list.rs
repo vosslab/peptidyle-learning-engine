@@ -12,12 +12,12 @@ use axum::{
 };
 use axum_extra::extract::{Query, QueryRejection};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use browser_api_contract::blueprint_course::BlueprintCourseListPageView;
 use learning_data_access::{
     BlueprintCourseFacetChoice, BlueprintCourseFacetChoiceRequest, BlueprintCourseFacetField,
-    BlueprintCourseListCursorPosition, BlueprintCourseListRequest, BlueprintCourseListSort,
-    BlueprintCourseStore, Cursor, DiscoveryPageRequest, DiscoveryPageSize,
+    BlueprintCourseListRequest, BlueprintCourseListSort, BlueprintCourseStore, DiscoveryPageSize,
+    NumberedDiscoveryPageRequest, PageNumber,
 };
-use question_model::BlueprintCourseSummaryView;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -32,7 +32,7 @@ pub(super) struct ListQuery {
     promoted_only: bool,
     #[serde(default)]
     query: String,
-    cursor: Option<String>,
+    page_number: Option<u32>,
     page_size: Option<u16>,
     discipline_uuid: Option<Uuid>,
     subject_uuid: Option<Uuid>,
@@ -58,39 +58,7 @@ pub(super) struct ListQuery {
     choice_cursor: Option<String>,
 }
 
-const BLUEPRINT_LIST_CURSOR_VERSION: u8 = 7;
 const BLUEPRINT_TRANSPORT_CURSOR_MAX: usize = 16_384;
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ListCursor {
-    version: u8,
-    query: String,
-    include_archived: bool,
-    public_only: bool,
-    promoted_only: bool,
-    page_size: u16,
-    after: BlueprintCourseListCursorPosition,
-    discipline_uuid: Option<Uuid>,
-    subject_uuid: Option<Uuid>,
-    topic_uuid: Option<Uuid>,
-    subtopic_uuid: Option<Uuid>,
-    cross_discipline: bool,
-    sort: BlueprintCourseListSort,
-    tag: String,
-    discipline_uuids: Vec<Uuid>,
-    subject_uuids: Vec<Uuid>,
-    topic_uuids: Vec<Uuid>,
-    subtopic_uuids: Vec<Uuid>,
-    tags: Vec<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ListResponse {
-    items: Vec<BlueprintCourseSummaryView>,
-    next_cursor: Option<String>,
-}
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -127,7 +95,7 @@ pub(super) async fn facet_choices(
     let Some(Query(mut query)) = query.ok() else {
         return route_error(StatusCode::BAD_REQUEST, "Blueprint facet query is invalid");
     };
-    if query.cursor.is_some() || query.page_size.is_some_and(|size| size > 100) {
+    if query.page_number.is_some() || query.page_size.is_some_and(|size| size > 100) {
         return route_error(StatusCode::BAD_REQUEST, "Blueprint facet query is invalid");
     }
     let choice_search = query
@@ -240,85 +208,26 @@ pub(super) async fn list_blueprints(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let binding = (
-        request.query.clone(),
-        request.include_archived,
-        request.public_only,
-        request.promoted_only,
-        request.page.size.get(),
-        request.discipline_uuid,
-        request.subject_uuid,
-        request.topic_uuid,
-        request.subtopic_uuid,
-        request.cross_discipline,
-        request.sort,
-        request.tag.clone(),
-        request.discipline_uuids.clone(),
-        request.subject_uuids.clone(),
-        request.topic_uuids.clone(),
-        request.subtopic_uuids.clone(),
-        request.tags.clone(),
-    );
     match state
         .blueprints
         .list_blueprint_courses(session, request)
         .await
     {
-        Ok(page) => {
-            let next_cursor = match page.next_cursor {
-                Some(after) => {
-                    let after = match serde_json::from_str(after.as_str()) {
-                        Ok(value) => value,
-                        Err(_) => return unavailable(),
-                    };
-                    let cursor = ListCursor {
-                        version: BLUEPRINT_LIST_CURSOR_VERSION,
-                        query: binding.0,
-                        include_archived: binding.1,
-                        public_only: binding.2,
-                        promoted_only: binding.3,
-                        page_size: binding.4,
-                        after,
-                        discipline_uuid: binding.5,
-                        subject_uuid: binding.6,
-                        topic_uuid: binding.7,
-                        subtopic_uuid: binding.8,
-                        cross_discipline: binding.9,
-                        sort: binding.10,
-                        tag: binding.11,
-                        discipline_uuids: binding.12,
-                        subject_uuids: binding.13,
-                        topic_uuids: binding.14,
-                        subtopic_uuids: binding.15,
-                        tags: binding.16,
-                    };
-                    match serde_json::to_vec(&cursor) {
-                        Ok(bytes) => Some(URL_SAFE_NO_PAD.encode(bytes)),
-                        Err(_) => return unavailable(),
-                    }
-                }
-                None => None,
-            };
-            if next_cursor
-                .as_ref()
-                .is_some_and(|value| value.len() > BLUEPRINT_TRANSPORT_CURSOR_MAX)
-            {
-                return unavailable();
-            }
-            crate::auth::no_store(
-                Json(ListResponse {
-                    items: page.items.into_iter().map(summary_view).collect(),
-                    next_cursor,
-                })
-                .into_response(),
-            )
-        }
+        Ok(page) => crate::auth::no_store(
+            Json(BlueprintCourseListPageView {
+                items: page.items.into_iter().map(summary_view).collect(),
+                page_number: page.page_number.get(),
+                page_size: page.page_size.get(),
+                total_count: page.total_count,
+            })
+            .into_response(),
+        ),
         Err(error) => store_error_response(error),
     }
 }
 
 fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
-    // ASVS 2.2.1/2/3: trusted bounds and cursor binding to the full normalized request.
+    // ASVS 2.2.1/2/3: validate bounded numbered pages and the complete query.
     let tag = query.tag.trim_matches(' ').to_owned();
     if query.query.chars().count() > 256
         || query.query.chars().any(char::is_control)
@@ -348,42 +257,13 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
     if normalized.chars().count() > 256 {
         return None;
     }
-    let size = DiscoveryPageSize::new(query.page_size.unwrap_or(50)).ok()?;
-    let after = match query.cursor {
-        Some(token) => {
-            if token.len() > BLUEPRINT_TRANSPORT_CURSOR_MAX {
-                return None;
-            }
-            let cursor: ListCursor =
-                serde_json::from_slice(&URL_SAFE_NO_PAD.decode(token).ok()?).ok()?;
-            if cursor.version != BLUEPRINT_LIST_CURSOR_VERSION
-                || cursor.query != normalized
-                || cursor.include_archived != query.include_archived
-                || cursor.public_only != query.public_only
-                || cursor.promoted_only != query.promoted_only
-                || cursor.page_size != size.get()
-                || cursor.discipline_uuid != query.discipline_uuid
-                || cursor.subject_uuid != query.subject_uuid
-                || cursor.topic_uuid != query.topic_uuid
-                || cursor.subtopic_uuid != query.subtopic_uuid
-                || cursor.cross_discipline != query.cross_discipline
-                || cursor.sort != query.sort
-                || cursor.tag != tag
-                || cursor.discipline_uuids != query.discipline_uuids
-                || cursor.subject_uuids != query.subject_uuids
-                || cursor.topic_uuids != query.topic_uuids
-                || cursor.subtopic_uuids != query.subtopic_uuids
-                || cursor.tags != query.tags
-                || !valid_cursor_position(&cursor.after, query.sort)
-            {
-                return None;
-            }
-            Some(Cursor::parse(serde_json::to_string(&cursor.after).ok()?).ok()?)
-        }
-        None => None,
-    };
+    let page_number = PageNumber::new(query.page_number.unwrap_or(1)).ok()?;
+    let page_size = DiscoveryPageSize::new(query.page_size.unwrap_or(50)).ok()?;
     Some(BlueprintCourseListRequest {
-        page: DiscoveryPageRequest { after, size },
+        page: NumberedDiscoveryPageRequest {
+            page_number,
+            page_size,
+        },
         sort: query.sort,
         query: normalized,
         include_archived: query.include_archived,
@@ -401,37 +281,4 @@ fn list_request(query: ListQuery) -> Option<BlueprintCourseListRequest> {
         subtopic_uuids: query.subtopic_uuids,
         tags: query.tags,
     })
-}
-
-fn valid_cursor_position(
-    position: &BlueprintCourseListCursorPosition,
-    sort: BlueprintCourseListSort,
-) -> bool {
-    match (sort, position) {
-        (
-            BlueprintCourseListSort::Name | BlueprintCourseListSort::NameDescending,
-            BlueprintCourseListCursorPosition::Name { long_name, .. },
-        ) => long_name.chars().count() <= 500,
-        (
-            BlueprintCourseListSort::Adoptions | BlueprintCourseListSort::AdoptionsAscending,
-            BlueprintCourseListCursorPosition::Adoptions { long_name, .. },
-        )
-        | (
-            BlueprintCourseListSort::Students | BlueprintCourseListSort::StudentsAscending,
-            BlueprintCourseListCursorPosition::Students { long_name, .. },
-        )
-        | (
-            BlueprintCourseListSort::Stars | BlueprintCourseListSort::StarsAscending,
-            BlueprintCourseListCursorPosition::Stars { long_name, .. },
-        )
-        | (
-            BlueprintCourseListSort::Watches | BlueprintCourseListSort::WatchesAscending,
-            BlueprintCourseListCursorPosition::Watches { long_name, .. },
-        )
-        | (
-            BlueprintCourseListSort::RecentEdits | BlueprintCourseListSort::RecentEditsAscending,
-            BlueprintCourseListCursorPosition::RecentEdits { long_name, .. },
-        ) => long_name.chars().count() <= 500,
-        _ => false,
-    }
 }

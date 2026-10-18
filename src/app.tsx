@@ -5,7 +5,7 @@ import { Show, type JSX } from "solid-js";
 
 import { ApplicationShell } from "./application_shell";
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
-import { PageFrame } from "./components/page_frame";
+import { PageFrame } from "./components/page_frame/page_frame";
 import { courseRouteView, type CourseThemeRouteData } from "./appearance/theme_context";
 import { routeParams, type RouteParams } from "./navigation/route_params";
 import { routeContractForPathname, type RouteContract } from "./route_contract";

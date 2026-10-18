@@ -1,19 +1,31 @@
 // Reusable Blueprint Course structure: save, names, assessment outline, and the open editor.
-import { For, Show, type JSX } from "solid-js";
+import { createMemo, Show, type JSX } from "solid-js";
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
-import {
-  RecordOutlineItem,
-  RecordOutlineList,
-} from "../../components/record_list/record_outline_list";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import type { QuestionNativePreview } from "../../components/question_native_preview";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../question_picker";
 import { BlueprintAssessmentContentEditor } from "./blueprint_assessment_content_editor";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { assessmentTypePresentation } from "../../assessment_type_presentation";
+import {
+  blueprintStructureAssessments,
+  blueprintStructureModules,
+  blueprintStructureAssessmentFields,
+  blueprintStructureModuleFields,
+  blueprintStructureAssessmentContent,
+  blueprintStructureModuleContent,
+  type BlueprintStructureAssessment,
+  type BlueprintStructureModule,
+} from "./blueprint_course_structure_records";
 
 export interface SelectedBlueprintAssessment {
   readonly moduleIndex: number;
   readonly assessmentIndex: number;
-  /** The outline action that regains focus when this local editor closes. */
+  /** The record action that regains focus when this local editor closes. */
   readonly triggerId: string;
 }
 
@@ -39,6 +51,8 @@ export interface BlueprintCourseDetailStructureProps {
   readonly onSaveNames: () => void;
   readonly onReloadMetadata: () => void;
   readonly modules: ReadonlyArray<BlueprintModule>;
+  readonly questionPreviews: ReadonlyMap<string, QuestionNativePreview>;
+  readonly onRememberQuestionPreviews: (questions: ReadonlyArray<QuestionNativePreview>) => void;
   readonly courseLongName: string;
   readonly ownerEditing: boolean;
   readonly selectedAssessment: SelectedBlueprintAssessment | undefined;
@@ -62,11 +76,24 @@ export interface BlueprintCourseDetailStructureProps {
   ) => void;
 }
 
-/** Assessment outline and the local editor for one reusable Blueprint Course. */
+/** Complete Module and Assessment collections and the local editor for one Blueprint Course. */
 export function BlueprintCourseDetailStructure(
   props: BlueprintCourseDetailStructureProps,
 ): JSX.Element {
   const selection = (): SelectedBlueprintAssessment | undefined => props.selectedAssessment;
+  let assessmentOverview: HTMLElement | undefined;
+  function returnToAssessmentList(): void {
+    const current = selection();
+    props.onReturnToAssessmentList();
+    // The parent restores the original action first; edited titles can remove it from search.
+    queueMicrotask(() => {
+      if (current === undefined || selection() !== undefined || !assessmentOverview?.isConnected) {
+        return;
+      }
+      if (assessmentOverview.ownerDocument.getElementById(current.triggerId) !== null) return;
+      assessmentOverview.focus();
+    });
+  }
   const openContent = (): BlueprintAssessment["content"] | undefined => {
     const current = selection();
     if (current === undefined) return undefined;
@@ -77,6 +104,50 @@ export function BlueprintCourseDetailStructure(
     if (current === undefined) return undefined;
     return props.modules[current.moduleIndex]?.label;
   };
+  const modules = createMemo(() => blueprintStructureModules(props.modules));
+  const assessments = createMemo(() => blueprintStructureAssessments(props.modules));
+  function assessmentRecordContent(row: BlueprintStructureAssessment): RecordContent {
+    return blueprintStructureAssessmentContent(row, {
+      id: "open_assessment",
+      kind: "command",
+      label: props.editing ? "Edit assessment" : "View assessment",
+      onClick: () => props.onSelectAssessment(row.moduleIndex, row.assessmentIndex),
+      ref: (element) => {
+        const triggerId = props.assessmentTriggerId(row.moduleIndex, row.assessmentIndex);
+        element.id = triggerId;
+        props.registerAssessmentTrigger(triggerId, element);
+      },
+    });
+  }
+  const assessmentSearch = createLocalCompleteSearch(
+    { rows: assessments },
+    {
+      fields: blueprintStructureAssessmentFields,
+      rowId: (row) => row.id,
+      keyword: (row) =>
+        `${row.title} ${row.moduleContext} ${assessmentTypePresentation(row.assessmentType).label}`,
+      compare: (key, left, right) =>
+        key === "module" ? left.moduleIndex - right.moduleIndex : undefined,
+      content: assessmentRecordContent,
+    },
+  );
+  function moduleRecordContent(row: BlueprintStructureModule): RecordContent {
+    return blueprintStructureModuleContent(row, {
+      id: "view_assessments",
+      kind: "command",
+      label: "View Assessments",
+      onClick: () => assessmentSearch.query.filters?.onChange("module", [row.context]),
+    });
+  }
+  const moduleSearch = createLocalCompleteSearch(
+    { rows: modules },
+    {
+      fields: blueprintStructureModuleFields,
+      rowId: (row) => row.id,
+      keyword: (row) => row.label,
+      content: moduleRecordContent,
+    },
+  );
   return (
     <section
       class="blueprint-course-primary-structure"
@@ -163,72 +234,55 @@ export function BlueprintCourseDetailStructure(
         </div>
       </Show>
       <div class="blueprint-course-editor-content">
-        <Show
-          when={selection() === undefined}
-          fallback={
-            <button type="button" class="quiet-action" onClick={props.onReturnToAssessmentList}>
-              Return to assessment list
-            </button>
-          }
-        >
+        <Show when={selection() !== undefined}>
+          <button type="button" class="quiet-action" onClick={returnToAssessmentList}>
+            Return to assessment list
+          </button>
+        </Show>
+        <div hidden={selection() !== undefined}>
           <Show when={props.editing}>
             <p>Select an assessment to edit its Questions and defaults.</p>
           </Show>
-          <RecordOutlineList
-            state={{ kind: "ready" }}
-            isEmpty={props.modules.length === 0}
-            ariaLabel="Blueprint Modules and Assessments"
-            emptyState={{
-              title: "No Blueprint Modules",
-              message: "This Blueprint Course has no reusable Assessments.",
-            }}
-          >
-            <For each={props.modules}>
-              {(module, moduleIndex) => (
-                <RecordOutlineItem recordId={`module-${moduleIndex()}`}>
-                  <section class="blueprint-course-module">
-                    <h3>{module.label}</h3>
-                    <RecordOutlineList
-                      state={{ kind: "ready" }}
-                      isEmpty={module.assessments.length === 0}
-                      ariaLabel={`${module.label} Assessments`}
-                      emptyState={{
-                        title: "No Assessments",
-                        message: "This Module has no reusable Assessments.",
-                      }}
-                    >
-                      <For each={module.assessments}>
-                        {(assessment, assessmentIndex) => (
-                          <RecordOutlineItem
-                            recordId={`assessment-${moduleIndex()}-${assessmentIndex()}`}
-                          >
-                            <span>{assessment.content.title}</span>
-                            <button
-                              id={props.assessmentTriggerId(moduleIndex(), assessmentIndex())}
-                              type="button"
-                              class="quiet-action"
-                              ref={(element) =>
-                                props.registerAssessmentTrigger(
-                                  props.assessmentTriggerId(moduleIndex(), assessmentIndex()),
-                                  element,
-                                )
-                              }
-                              onClick={() =>
-                                props.onSelectAssessment(moduleIndex(), assessmentIndex())
-                              }
-                            >
-                              {props.editing ? "Edit assessment" : "View assessment"}
-                            </button>
-                          </RecordOutlineItem>
-                        )}
-                      </For>
-                    </RecordOutlineList>
-                  </section>
-                </RecordOutlineItem>
-              )}
-            </For>
-          </RecordOutlineList>
-        </Show>
+          {/* ASVS 1.2.1: shared record fields render labels as text, including authored names. */}
+          <div class="blueprint-course-structure-collections">
+            <section aria-label="Blueprint Module index">
+              <h3>Modules</h3>
+              <SearchBlock
+                layout="above"
+                controls={<SearchControls state={moduleSearch.state} textLabel="Search Modules" />}
+                state={moduleSearch.state}
+                collection={{
+                  ariaLabel: "Blueprint Modules",
+                  initialMode: "compact",
+                  fields: blueprintStructureModuleFields,
+                  query: moduleSearch.query,
+                  emptyState: { title: "No Modules match your search." },
+                }}
+              />
+            </section>
+            <section
+              aria-label="Blueprint Assessment overview"
+              tabindex="-1"
+              ref={(element) => (assessmentOverview = element)}
+            >
+              <h3>Assessments</h3>
+              <SearchBlock
+                layout="above"
+                controls={
+                  <SearchControls state={assessmentSearch.state} textLabel="Search Assessments" />
+                }
+                state={assessmentSearch.state}
+                collection={{
+                  ariaLabel: "Blueprint Assessments",
+                  initialMode: "compact",
+                  fields: blueprintStructureAssessmentFields,
+                  query: assessmentSearch.query,
+                  emptyState: { title: "No Assessments match your search." },
+                }}
+              />
+            </section>
+          </div>
+        </div>
         <Show when={selection()} keyed>
           {(currentSelection) => (
             <Show when={openContent()}>
@@ -243,6 +297,8 @@ export function BlueprintCourseDetailStructure(
                   </nav>
                   <BlueprintAssessmentContentEditor
                     content={assessmentContent()}
+                    questionPreviews={props.questionPreviews}
+                    onRememberQuestionPreviews={props.onRememberQuestionPreviews}
                     blueprintClient={props.blueprintClient}
                     editable={props.ownerEditing}
                     pickerRepository={props.pickerRepository}

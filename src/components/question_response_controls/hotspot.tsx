@@ -7,7 +7,7 @@ import type { StudentHotspotSelection } from "../../../generated/api/StudentHots
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { HotspotRegion } from "../../../generated/api/HotspotRegion";
 
-import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
+import { handleQuestionResponseControlKeyDown } from "./keyboard";
 import { QuestionContentError, resolveSameOriginQuestionImageUrl } from "../question_renderer";
 import {
   Actions,

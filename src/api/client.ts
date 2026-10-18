@@ -39,7 +39,6 @@ import type {
   StudentAssessmentDetail,
   StudentQuestionAttempt,
   AuthenticatedSession,
-  CursorPage,
   ImathasQuestionBackendLaunch,
   StudentFeedbackReleaseResponse,
 } from "./contracts";
@@ -160,7 +159,6 @@ export interface ApiClient
   readonly resolveNavigation: (id: NavigationRouteId) => Promise<NavigationResolution>;
   /** Revokes the account credential for this browser. */
   readonly logout: () => Promise<void>;
-  readonly listQuestions: (cursor?: string) => Promise<CursorPage<QuestionSummary>>;
   /** Searches mixed Library Object metadata with server-computed facets. */
   readonly searchLibraryObjects: (
     query: LibraryObjectSearchRequest,
@@ -203,17 +201,9 @@ export interface ApiClient
   readonly getAssessment: (assessmentId: AssessmentId) => Promise<StudentAssessmentDetail>;
   /** Current key-free student progress; the server omits withheld score totals. */
   readonly getAssessmentSummary: (assessmentId: AssessmentId) => Promise<StudentAssessmentProgress>;
-  readonly listAssessmentAttempts: (
-    studentRecordId: StudentRecordId,
-    cursor?: string,
-  ) => Promise<CursorPage<AssessmentAttempt>>;
   readonly getAssessmentAttempt: (
     assessmentAttemptId: AssessmentAttemptId,
   ) => Promise<AssessmentAttempt>;
-  readonly listQuestionAttempts: (
-    assessmentAttemptId: AssessmentAttemptId,
-    cursor?: string,
-  ) => Promise<CursorPage<StudentQuestionAttempt>>;
   readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<StudentQuestionAttempt>;
   /** Returns the regenerated, answer-free Question Presentation; grading stays server-side. */
   readonly getIssuedQuestion: (

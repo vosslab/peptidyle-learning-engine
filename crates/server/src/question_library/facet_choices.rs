@@ -59,11 +59,12 @@ pub(super) async fn facet_choices_route(
         LibraryFacetField::Capabilities => effective.capabilities.clear(),
         _ => {}
     }
-    let mut request = mixed_search::store_search_request(&effective, None);
+    let mut request = mixed_search::store_search_request(&effective);
     // Backend capabilities are declared by adapters. Count compatible Backend
     // rows over the complete collection, then fold through that same owner.
     if field == LibraryFacetField::Capabilities {
-        request.page_size = 100;
+        request.page.page_size = learning_data_access::DiscoveryPageSize::new(100)
+            .expect("bounded facet-choice page size");
         request.backends = eligible_backends(&effective);
     }
     if field == LibraryFacetField::Backends {

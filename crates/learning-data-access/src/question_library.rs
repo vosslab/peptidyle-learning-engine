@@ -6,27 +6,33 @@
 //! browser DTO.
 
 use async_trait::async_trait;
+use objects::ObjectRecord;
 use question_model::{
     AccountId, BloomClassificationView, BloomCognitiveProcess, BloomKnowledgeDimension,
-    LibraryObjectId, LibrarySearchCategoryCounts, LibrarySearchKind, ObjectId,
-    PublishedQuestionFilter, PublishedQuestionId, PublishedQuestionRevisionTuple,
-    PublishedQuestionSharedMetadata, QuestionAuthorship, QuestionAvailability,
-    QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat, QuestionLicense,
-    QuestionPoolLibrarySummary, QuestionSearchAuthorFacet, QuestionSearchBackendFacet,
-    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
-    QuestionSearchQuestionLicenseFacet, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
-    QuestionSearchTopicFacet, QuestionType, QuestionTypeFacet, SourceObjectChecksum, Timestamp,
+    LibrarySearchCategoryCounts, LibrarySearchKind, ObjectId, PublishedQuestionFilter,
+    PublishedQuestionId, PublishedQuestionRevisionTuple, PublishedQuestionSharedMetadata,
+    QuestionAuthorship, QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend,
+    QuestionFormat, QuestionLicense, QuestionPoolLibrarySummary, QuestionSearchAuthorFacet,
+    QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchQuestionLicenseFacet,
+    QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet, QuestionType,
+    QuestionTypeFacet, SourceObjectChecksum, Timestamp,
 };
 use question_model::{LibraryFacetChoice, LibraryFacetField};
 use uuid::Uuid;
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{
+    DiscoveryPageSize, NumberedDiscoveryPageRequest, NumberedPage, SessionTokenHash, StoreError,
+};
 
 /// One Instructor-authorized Published Question plus its exact private source binding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedQuestionLibraryEntry {
     /// Stable Published Question and latest accepted Question Revision.
     pub published_question_revision_tuple: PublishedQuestionRevisionTuple,
+    /// Whether an immutable thumbnail relation exists for this exact authorized Revision.
+    /// This is registration metadata, not a check of stored artifact health.
+    pub has_question_thumbnail: bool,
     /// Exact immediate source Revision for a forked Question lineage.
     pub parent_published_question_revision_tuple: Option<PublishedQuestionRevisionTuple>,
     /// The exact backend that must interpret the immutable source.
@@ -80,8 +86,9 @@ pub struct PublishedQuestionLibraryEntry {
     pub source_object_checksum: SourceObjectChecksum,
     /// Source media type required before backend parsing.
     pub source_media_type: String,
-    /// Exact ready image registry supplied only by authorized detail reads.
-    pub question_image_renditions: Vec<crate::ReadyQuestionImageRendition>,
+    /// Immutable exact-revision source registry for Native compilation, independent
+    /// of public image delivery readiness. Server use only.
+    pub question_image_bindings: Vec<question_model::QuestionHtmlImageBinding>,
     /// Registered backend-private WeBWorK path for this exact Revision.
     /// Absent for Questions that do not use the WeBWorK backend.
     pub webwork_pg_path: Option<String>,
@@ -89,6 +96,18 @@ pub struct PublishedQuestionLibraryEntry {
     pub revision_general_feedback: Option<String>,
     pub revision_hint: Option<String>,
     pub revision_worked_solution: Option<String>,
+}
+
+/// One exact private thumbnail Object Record authorized through the Question
+/// Library's existing active-Instructor/Sysadmin visibility relation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublishedQuestionThumbnail {
+    /// Immutable stored-object metadata. The caller derives the sole typed
+    /// address from this value and revalidates the returned bytes.
+    pub object_record: ObjectRecord,
+    /// Stored thumbnail dimensions, independently constrained by the relation.
+    pub intrinsic_width: u32,
+    pub intrinsic_height: u32,
 }
 
 /// Database-confirmed current availability after one lineage transition.
@@ -139,7 +158,7 @@ pub enum QuestionLibraryBackendRestriction {
     Only(Vec<QuestionBackend>),
 }
 
-/// Store-only order choice for Question Library keyset discovery.
+/// Store-only order choice for Question Library discovery.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionLibrarySearchSort {
     TitleAscending,
@@ -163,25 +182,7 @@ pub enum QuestionLibrarySearchScope {
     CurrentStarred,
 }
 
-/// Typed keyset position decoded and authenticated by the server route.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum QuestionLibrarySearchCursorPosition {
-    Text {
-        sort: QuestionLibrarySearchSort,
-        key: String,
-        public_id: LibraryObjectId,
-    },
-    PublishedNewest {
-        published_at_millis: i64,
-        public_id: LibraryObjectId,
-    },
-    StarredDate {
-        starred_at_micros: i64,
-        public_id: LibraryObjectId,
-    },
-}
-
-/// Complete normalized filter plus bounded page selection for one store query.
+/// Complete normalized filter plus numbered page selection for one store query.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionLibrarySearchRequest {
     pub scope: QuestionLibrarySearchScope,
@@ -206,8 +207,10 @@ pub struct QuestionLibrarySearchRequest {
     pub question_licenses: Vec<QuestionLicense>,
     pub authored_by_current_account: bool,
     pub sort: QuestionLibrarySearchSort,
-    pub page_size: u16,
-    pub after: Option<QuestionLibrarySearchCursorPosition>,
+    pub page: NumberedDiscoveryPageRequest,
+    /// Excludes exact Question identities before the complete result set is counted and paged.
+    /// Normal Library requests leave this empty; picker callers use it only for fixed members.
+    pub excluded_question_ids: Vec<PublishedQuestionId>,
 }
 
 /// One selected bounded page and a typed continuation position for its final row.
@@ -262,12 +265,11 @@ impl LibrarySearchEntry {
     }
 }
 
-/// One selected bounded page and a typed continuation position for its final row.
+/// One globally filtered and ordered numbered page with Question Library facets.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionLibrarySearchPage {
-    pub items: Vec<LibrarySearchEntry>,
-    pub next_position: Option<QuestionLibrarySearchCursorPosition>,
-    /// Complete authorized-query aggregates, evaluated before cursor paging.
+    pub page: NumberedPage<LibrarySearchEntry, DiscoveryPageSize>,
+    /// Complete authorized-query aggregates, evaluated before numbered paging.
     pub facets: QuestionLibrarySearchFacets,
 }
 
@@ -315,6 +317,14 @@ pub struct QuestionLibrarySearchFacets {
 /// Store for the authenticated Instructor Question Library read boundary.
 #[async_trait]
 pub trait QuestionLibraryStore: Send + Sync {
+    /// Resolves one exact published Revision's private thumbnail only after
+    /// the ordinary Question Library visibility relation authorizes it.
+    async fn resolve_question_thumbnail(
+        &self,
+        session_token_hash: SessionTokenHash,
+        published_question_revision_tuple: &PublishedQuestionRevisionTuple,
+    ) -> Result<PublishedQuestionThumbnail, StoreError>;
+
     async fn list_question_library_facet_choices(
         &self,
         session_token_hash: SessionTokenHash,
@@ -323,7 +333,7 @@ pub trait QuestionLibraryStore: Send + Sync {
 
     /// Selects one globally filtered and ordered Question Library page.
     ///
-    /// The server parses text grammar and validates opaque cursor binding; the
+    /// The server parses text grammar and validates the numbered request; the
     /// store applies only this typed request under current session authority.
     async fn search_published_question_library_entries(
         &self,

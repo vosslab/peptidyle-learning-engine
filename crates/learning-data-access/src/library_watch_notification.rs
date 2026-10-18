@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use question_model::{LibraryObjectId, QuestionPoolEditNumber, QuestionRevisionNumber, Timestamp};
 use uuid::Uuid;
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{NumberedPage, NumberedPageRequest, PageSize, SessionTokenHash, StoreError};
 
 /// The two stable Library Object kinds a Watch can follow.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,20 +60,13 @@ pub enum LibraryWatchEventKind {
     Fork,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LibraryWatchCursorPosition {
-    pub occurred_at: String,
-    pub event_id: Uuid,
-}
-
 #[derive(Debug, Clone)]
 pub struct LibraryWatchInboxQuery {
     pub search: String,
     pub target_kinds: Vec<LibraryWatchTargetKind>,
     pub event_kinds: Vec<LibraryWatchEventKind>,
     pub direction: LibraryWatchDirection,
-    pub after: Option<LibraryWatchCursorPosition>,
-    pub limit: u16,
+    pub page: NumberedPageRequest,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,8 +77,7 @@ pub struct LibraryWatchFacetCount {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryWatchInboxPage {
-    pub notifications: Vec<LibraryWatchNotification>,
-    pub next_position: Option<LibraryWatchCursorPosition>,
+    pub page: NumberedPage<LibraryWatchNotification, PageSize>,
     pub target_kind_facets: Vec<LibraryWatchFacetCount>,
     pub event_kind_facets: Vec<LibraryWatchFacetCount>,
 }

@@ -171,43 +171,52 @@ async function discover(page: Page, example: Example): Promise<QuestionSummary |
   if (!response.ok()) throw new Error(`Question search failed: HTTP ${response.status()}`);
   // Search filters become visible after the initial search. Include Questions already assigned
   // to a Pool so earlier preparation in this same run cannot hide an installed example.
-  const questionsFilter = page.getByRole("combobox", {
-    name: "Question membership",
-    exact: true,
-  });
-  if ((await questionsFilter.inputValue()) !== "all") {
-    const allQuestionsLoaded = page.waitForResponse((result) => {
-      const url = new URL(result.url());
-      return (
-        url.origin === new URL(page.url()).origin &&
-        url.pathname === "/api/library-objects/search" &&
-        url.searchParams.get("text") === example.title &&
-        url.searchParams.get("questions") === "all"
-      );
+  const searchFilters = page.locator("details.library-search-filters");
+  const openedSearchFilters = !(await searchFilters.evaluate(
+    (element) => (element as HTMLDetailsElement).open,
+  ));
+  if (openedSearchFilters) await searchFilters.locator(":scope > summary").click();
+  try {
+    const questionsFilter = page.getByRole("combobox", {
+      name: "Question membership",
+      exact: true,
     });
-    await questionsFilter.selectOption("all");
-    response = await allQuestionsLoaded;
-    if (!response.ok()) throw new Error(`Question search failed: HTTP ${response.status()}`);
+    if ((await questionsFilter.inputValue()) !== "all") {
+      const allQuestionsLoaded = page.waitForResponse((result) => {
+        const url = new URL(result.url());
+        return (
+          url.origin === new URL(page.url()).origin &&
+          url.pathname === "/api/library-objects/search" &&
+          url.searchParams.get("text") === example.title &&
+          url.searchParams.get("questions") === "all"
+        );
+      });
+      await questionsFilter.selectOption("all");
+      response = await allQuestionsLoaded;
+      if (!response.ok()) throw new Error(`Question search failed: HTTP ${response.status()}`);
+    }
+    const search = decodeLibraryObjectSearchPage(await response.json());
+    const matches = search.items
+      .flatMap((item) => (item.kind === "question" ? [item.question.summary] : []))
+      .filter(
+        (summary) =>
+          summary.metadata.questionTitle === example.title &&
+          summary.backend === example.backend &&
+          summary.questionType === example.type &&
+          summary.availability.availability === "available",
+      );
+    if (matches.length > 1) throw new Error(`Ambiguous published example: ${example.title}`);
+    const summary = matches[0];
+    if (summary !== undefined) {
+      await page
+        .locator(`tr[data-record-id="${summary.questionId}"]`)
+        .filter({ has: page.getByText(example.title, { exact: true }) })
+        .waitFor();
+    }
+    return summary;
+  } finally {
+    if (openedSearchFilters) await searchFilters.locator(":scope > summary").click();
   }
-  const search = decodeLibraryObjectSearchPage(await response.json());
-  const matches = search.items
-    .flatMap((item) => (item.kind === "question" ? [item.question.summary] : []))
-    .filter(
-      (summary) =>
-        summary.metadata.questionTitle === example.title &&
-        summary.backend === example.backend &&
-        summary.questionType === example.type &&
-        summary.availability.availability === "available",
-    );
-  if (matches.length > 1) throw new Error(`Ambiguous published example: ${example.title}`);
-  const summary = matches[0];
-  if (summary !== undefined) {
-    await page
-      .locator(`tr[data-record-id="${summary.questionId}"]`)
-      .filter({ has: page.getByText(example.title, { exact: true }) })
-      .waitFor();
-  }
-  return summary;
 }
 
 async function fillItems(fields: Locator, values: ReadonlyArray<string>): Promise<void> {
@@ -367,29 +376,27 @@ async function prepare(
       .selectOption("practice_question_assignment");
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("main", { name: "Questions", exact: true }).waitFor();
-    for (const { example } of selected) {
-      await page
-        .getByRole("button", { name: "Choose published Assessment content", exact: true })
-        .click();
-      const picker = page.getByRole("dialog", {
-        name: "Choose published Assessment content",
-        exact: true,
-      });
-      await picker
+    const available = page.getByRole("region", {
+      name: "Available Assessment content",
+      exact: true,
+    });
+    await available.getByRole("combobox", { name: "Show", exact: true }).selectOption("questions");
+    await available
+      .getByRole("combobox", { name: "Question membership", exact: true })
+      .selectOption("all");
+    for (const { example, summary } of selected) {
+      await available
         .getByLabel("Search published Assessment content", { exact: true })
         .fill(example.title);
-      await picker.getByRole("button", { name: "Search", exact: true }).click();
-      const choice = picker.getByRole("checkbox", {
-        name: `Select ${example.title}`,
-        exact: true,
-      });
-      await choice.first().waitFor();
-      if ((await choice.count()) !== 1) {
-        throw new Error(`Exact published Question is unavailable for selection: ${example.title}`);
-      }
-      await choice.check();
-      await picker.getByRole("button", { name: "Add selected content", exact: true }).click();
-      await picker.waitFor({ state: "hidden" });
+      await available.getByRole("button", { name: "Search", exact: true }).click();
+      await available
+        .locator(`[data-record-id="${summary.questionId}"]`)
+        .getByRole("button", { name: "Add", exact: true })
+        .click();
+      await page
+        .getByRole("region", { name: "Assessment contents", exact: true })
+        .getByText(example.title, { exact: true })
+        .waitFor();
     }
     await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
     await page

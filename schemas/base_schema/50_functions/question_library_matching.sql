@@ -22,7 +22,7 @@ CREATE FUNCTION ple_private.matching_question_library_entries(
     question_pool_edit_number bigint, question_pool_metadata_edit_number bigint, question_pool_member_count bigint,
     language text, citation_text text,
     parent_published_question_id text, parent_revision_number integer,
-    starred_at_micros bigint
+    starred_at_micros bigint, has_question_thumbnail boolean
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET jit = off
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -84,6 +84,7 @@ BEGIN
                NULL::text AS source_media_type, NULL::text AS webwork_pg_path,
                NULL::text AS language, NULL::text AS citation_text,
                NULL::text AS parent_published_question_id, NULL::integer AS parent_revision_number,
+               false AS has_question_thumbnail,
                subject.name AS subject_name, topic.name AS topic_name, discipline.name AS discipline_name,
                discipline.is_retired AS discipline_is_retired, subtopic.name AS subtopic_name,
                pool.owner_account_id::text AS owner_account_id, false AS in_pool,
@@ -153,6 +154,6 @@ BEGIN
                     ELSE false END)
            )
     )
-    SELECT entry.published_question_id, entry.revision_number, entry.backend, entry.question_format, entry.question_type, entry.published_at_millis, entry.question_title, entry.question_description, entry.author_names, entry.author_account_ids, entry.authored_by_current_account, entry.viewer_may_archive, entry.viewer_may_edit_metadata, entry.question_license, entry.availability, entry.availability_edit_number, entry.metadata_edit_number, entry.tags, entry.content_discipline_id, entry.content_subject_id, entry.content_topic_id, entry.content_subtopic_id, entry.bloom_cognitive_process, entry.bloom_knowledge_dimension, entry.source_object_record_id, entry.source_object_checksum, entry.source_media_type, entry.webwork_pg_path, entry.subject_name, entry.topic_name, entry.discipline_name, entry.discipline_is_retired, entry.subtopic_name, entry.row_kind, entry.public_id, entry.owner_account_id, entry.in_pool, entry.question_pool_edit_number, entry.question_pool_metadata_edit_number, entry.question_pool_member_count, entry.language, entry.citation_text, entry.parent_published_question_id, entry.parent_revision_number, entry.starred_at_micros FROM eligible entry;
+    SELECT entry.published_question_id, entry.revision_number, entry.backend, entry.question_format, entry.question_type, entry.published_at_millis, entry.question_title, entry.question_description, entry.author_names, entry.author_account_ids, entry.authored_by_current_account, entry.viewer_may_archive, entry.viewer_may_edit_metadata, entry.question_license, entry.availability, entry.availability_edit_number, entry.metadata_edit_number, entry.tags, entry.content_discipline_id, entry.content_subject_id, entry.content_topic_id, entry.content_subtopic_id, entry.bloom_cognitive_process, entry.bloom_knowledge_dimension, entry.source_object_record_id, entry.source_object_checksum, entry.source_media_type, entry.webwork_pg_path, entry.subject_name, entry.topic_name, entry.discipline_name, entry.discipline_is_retired, entry.subtopic_name, entry.row_kind, entry.public_id, entry.owner_account_id, entry.in_pool, entry.question_pool_edit_number, entry.question_pool_metadata_edit_number, entry.question_pool_member_count, entry.language, entry.citation_text, entry.parent_published_question_id, entry.parent_revision_number, entry.starred_at_micros, entry.has_question_thumbnail FROM eligible entry;
 END
 $$;

@@ -10,7 +10,7 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{DiscoveryPageRequest, Page, SessionTokenHash, StoreError};
+use crate::{NumberedDiscoveryPageRequest, NumberedPage, SessionTokenHash, StoreError};
 
 /// Closed source for a new live Course Instance.
 ///
@@ -239,8 +239,8 @@ pub trait CourseInstanceStore: Send + Sync {
         sort: &str,
         activity: &[String],
         retention: &[String],
-        page: DiscoveryPageRequest,
-    ) -> Result<Page<InstallationCourseInspection>, StoreError>;
+        page: NumberedDiscoveryPageRequest,
+    ) -> Result<NumberedPage<InstallationCourseInspection, crate::DiscoveryPageSize>, StoreError>;
 
     async fn list_installation_course_facets(
         &self,

@@ -71,6 +71,8 @@ pub enum StillImageError {
     WrongCourseBannerAspectRatio,
     /// Both visual dimensions of a Profile image must meet the minimum.
     ProfileImageTooSmall,
+    /// A Question Thumbnail must be exactly 256 pixels square.
+    WrongQuestionThumbnailDimensions,
     /// A valid container was followed by unowned bytes, so it could be a
     /// polyglot or an ambiguity between parsers.
     Polyglot,
@@ -196,6 +198,9 @@ impl StillImageError {
                 "upload an image with an exact 5:1 width-to-height ratio"
             }
             Self::ProfileImageTooSmall => "upload an image at least 128 pixels wide and tall",
+            Self::WrongQuestionThumbnailDimensions => {
+                "thumbnail dimensions must be 256 by 256 pixels"
+            }
             Self::Polyglot | Self::Malformed => "upload a complete, readable image file",
             Self::UnsupportedSvgText => {
                 "remove text from the SVG, or upload a PNG, JPEG, or WebP image"
@@ -217,6 +222,9 @@ impl StillImageError {
             }
             Self::ProfileImageTooSmall => {
                 "Profile image dimensions must each be at least 128 pixels"
+            }
+            Self::WrongQuestionThumbnailDimensions => {
+                "thumbnail dimensions must be 256 by 256 pixels"
             }
             Self::Polyglot => "image has bytes after its declared container",
             Self::UnsupportedSvgText => {

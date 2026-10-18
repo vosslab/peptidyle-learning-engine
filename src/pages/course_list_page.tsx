@@ -1,7 +1,7 @@
 // course_list_page.tsx - live Course Instance creation, empty or from exact Blueprint Revisions.
 
 import { useSearchParams } from "@solidjs/router";
-import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
+import { createMemo, createResource, createSignal, Show, type JSX } from "solid-js";
 
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type {
@@ -9,6 +9,8 @@ import type {
   CourseInstanceLifecycleState,
   CourseInstanceSummary,
 } from "../api/course_instance";
+import type { BlueprintCourseClient } from "../api/blueprint_course";
+import type { ContentClassificationClient } from "../api/content_classification";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { courseInstanceRouteId, parseBlueprintCourseId } from "../navigation/public_route";
@@ -18,13 +20,23 @@ import {
   emptyCourseClassification,
   type CourseClassificationDraft,
 } from "../components/course_classification_fields";
-import { PageFrame } from "../components/page_frame";
-import type { RecordContent } from "../components/record_list/record_list";
+import { PageFrame } from "../components/page_frame/page_frame";
+import type { RecordContent } from "../components/data_sheet/record_content";
 import { decodeCourseClassification } from "../api/decoders/course_classification";
 import { courseTermFitsActiveLifetime } from "../api/decoders/course_term";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createSearchState } from "../components/search_block/search_state";
+import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
+import {
+  blueprintCourseSearchDefinition,
+  emptyBlueprintSearch,
+} from "./blueprint_course_search_definition";
+import {
+  blueprintCourseSearchFields,
+  blueprintCourseSearchRecordQuery,
+} from "./blueprint_course_search_fields";
 import { courseCollectionFields } from "./course_collection_fields";
 import "./course_list_page.css";
 
@@ -46,31 +58,55 @@ function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
 
 type CourseListMode = CourseInstanceLifecycleState;
 
-function BlueprintSourceSelect(props: {
-  readonly blueprints: ReadonlyArray<AdoptableBlueprintCourse>;
+function BlueprintSourcePicker(props: {
+  readonly client: BlueprintCourseClient & ContentClassificationClient;
   readonly value: string;
-  readonly onChange: (value: string) => void;
+  readonly onChoose: (blueprint: BlueprintCourseSummaryView) => void;
 }): JSX.Element {
+  const formatTimestamp = useSelectedDisplayDateTimeFormatter();
+  const definition = blueprintCourseSearchDefinition(props.client, formatTimestamp, "public");
+  const state = createSearchState(
+    {
+      ...definition,
+      initialQuery: emptyBlueprintSearch(false),
+      isEligible: () => true,
+      content: (blueprint: BlueprintCourseSummaryView): RecordContent => ({
+        ...definition.content(blueprint),
+        actions: [
+          {
+            id: "choose-source",
+            kind: "command",
+            label: "Choose Blueprint",
+            primary: true,
+            pressed: props.value === blueprintSourceValue(blueprint),
+            onClick: () => props.onChoose(blueprint),
+          },
+        ],
+      }),
+    },
+    { runOnMount: true },
+  );
   return (
-    <label for="course-blueprint-source">
-      Blueprint Course
-      <select
-        id="course-blueprint-source"
-        name="blueprintSource"
-        value={props.value}
-        onInput={(event) => props.onChange(event.currentTarget.value)}
-        required
-      >
-        <option value="">Choose a reusable Blueprint Course</option>
-        <For each={props.blueprints}>
-          {(blueprint) => (
-            <option value={blueprintSourceValue(blueprint)}>
-              {blueprint.long_name} · Revision {blueprint.current_revision_tuple.revisionNumber}
-            </option>
-          )}
-        </For>
-      </select>
-    </label>
+    <SearchBlock
+      layout="above"
+      state={state}
+      controls={<SearchControls state={state} textLabel="Search public Blueprint sources" />}
+      collection={{
+        ariaLabel: "Public Blueprint sources",
+        fields: blueprintCourseSearchFields(props.client, "public", formatTimestamp),
+        query: blueprintCourseSearchRecordQuery({
+          query: state.query,
+          apply: state.apply,
+          sort: state.sort,
+          client: props.client,
+          scope: "public",
+        }),
+        emptyState: {
+          title: "No public Blueprint sources match.",
+          message: "Try another name or clear the search.",
+        },
+      }}
+    />
   );
 }
 
@@ -92,15 +128,6 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       parseBlueprintCourseId(searchParams.blueprint) !== null
       ? "adopted"
       : "empty",
-  );
-  const [blueprintCursors, setBlueprintCursors] = createSignal<ReadonlyArray<string>>([""]);
-  const [blueprints, { refetch: refetchBlueprints }] = createResource(
-    () =>
-      isInstructor() &&
-      creationSource() === "adopted" &&
-      blueprintCursors()[blueprintCursors().length - 1],
-    async (cursor) =>
-      applicationApi.client.listBlueprintCourses(cursor || undefined, 50, false, undefined, true),
   );
   const [linkedBlueprint, { refetch: refetchLinkedBlueprint }] = createResource(
     () => {
@@ -168,7 +195,12 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   });
 
   const courseSearch = createLocalCompleteSearch(
-    { resource: courses, refetchSource: refetchCourses, rows: (value) => value },
+    {
+      rows: courses,
+      loading: () => courses.loading,
+      error: (): unknown => courses.error,
+      refetchSource: refetchCourses,
+    },
     {
       fields: courseCollectionFields,
       rowId: (course) => course.id,
@@ -190,15 +222,18 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
   const adoptableBlueprints = createMemo(() => {
     const linked = linkedBlueprint.error === undefined ? linkedBlueprint() : undefined;
     const chosen = chosenBlueprint();
-    const page = blueprints.error === undefined ? (blueprints()?.items ?? []) : [];
     const seen = new Set<string>();
-    return [...(linked ? [linked] : []), ...(chosen ? [chosen] : []), ...page].filter(
-      (blueprint) => {
-        if (!isAdoptableBlueprintCourse(blueprint) || seen.has(blueprint.id)) return false;
-        seen.add(blueprint.id);
-        return true;
-      },
-    );
+    const candidates: AdoptableBlueprintCourse[] = linked ? [linked] : [];
+    if (chosen) {
+      const linkedIndex = candidates.findIndex((blueprint) => blueprint.id === chosen.id);
+      if (linkedIndex === -1) candidates.push(chosen);
+      else candidates[linkedIndex] = chosen;
+    }
+    return candidates.filter((blueprint) => {
+      if (!isAdoptableBlueprintCourse(blueprint) || seen.has(blueprint.id)) return false;
+      seen.add(blueprint.id);
+      return true;
+    });
   });
 
   async function createCourseInstance(event: SubmitEvent): Promise<void> {
@@ -299,19 +334,13 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
       }
     >
       <Show when={isInstructor() && isActiveMode()}>
-        <form
-          id="create-course-instance"
-          class="course-create-form"
-          hidden={!isCreationExpanded()}
-          aria-busy={isCreating()}
-          novalidate
-          onSubmit={(event) => void createCourseInstance(event)}
-        >
+        <div id="create-course-instance" hidden={!isCreationExpanded()}>
           <label for="course-creation-source">
             Start with
             <select
               id="course-creation-source"
               name="creationSource"
+              form="create-course-instance-form"
               value={creationSource()}
               onInput={(event) => {
                 setCreationSource(event.currentTarget.value === "adopted" ? "adopted" : "empty");
@@ -323,17 +352,6 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
             </select>
           </label>
           <Show when={creationSource() === "adopted"}>
-            <Show when={blueprints.loading}>
-              <p class="loading-state">Loading Blueprint Courses...</p>
-            </Show>
-            <Show when={blueprints.error !== undefined}>
-              <p class="route-error" role="alert">
-                Blueprint Courses could not be loaded.
-                <button type="button" onClick={() => void refetchBlueprints()}>
-                  Try again
-                </button>
-              </p>
-            </Show>
             <Show when={linkedBlueprint.loading}>
               <p class="loading-state">Loading the linked Blueprint Course...</p>
             </Show>
@@ -357,111 +375,95 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
                 Only Public Blueprint Courses can be adopted. Choose a Public Blueprint Course.
               </p>
             </Show>
+            <BlueprintSourcePicker
+              client={applicationApi.client}
+              value={blueprintSource()}
+              onChoose={(blueprint) => {
+                setBlueprintChoice(blueprintSourceValue(blueprint));
+                setChosenBlueprint(blueprint);
+              }}
+            />
             <Show
-              when={adoptableBlueprints().length > 0}
-              fallback={
-                <Show
-                  when={
-                    !blueprints.loading &&
-                    !linkedBlueprint.loading &&
-                    blueprints.error === undefined
-                  }
-                >
-                  <p class="empty-state">No public Blueprint Courses are available to adopt.</p>
-                </Show>
-              }
+              when={adoptableBlueprints().find(
+                (blueprint) => blueprintSourceValue(blueprint) === blueprintSource(),
+              )}
             >
-              <BlueprintSourceSelect
-                blueprints={adoptableBlueprints()}
-                value={blueprintSource()}
-                onChange={(value) => {
-                  setBlueprintChoice(value);
-                  setChosenBlueprint(
-                    adoptableBlueprints().find(
-                      (blueprint) => blueprintSourceValue(blueprint) === value,
-                    ),
-                  );
-                }}
-              />
-            </Show>
-            <Show when={blueprintCursors().length > 1}>
-              <button
-                type="button"
-                disabled={blueprints.loading}
-                onClick={() => setBlueprintCursors((cursors) => cursors.slice(0, -1))}
-              >
-                Previous Blueprint Courses
-              </button>
-            </Show>
-            <Show when={blueprints.error === undefined && blueprints()?.nextCursor}>
-              {(cursor) => (
-                <button
-                  type="button"
-                  disabled={blueprints.loading}
-                  onClick={() => setBlueprintCursors((cursors) => [...cursors, cursor()])}
-                >
-                  Next Blueprint Courses
-                </button>
+              {(blueprint) => (
+                <p role="status">
+                  Selected source: {blueprint().long_name} · Revision{" "}
+                  {blueprint().current_revision_tuple.revisionNumber}
+                </p>
               )}
             </Show>
           </Show>
-          <label for="course-short-name">
-            Course short name
-            <input
-              id="course-short-name"
-              name="shortName"
-              type="text"
-              value={shortName()}
-              onInput={(event) => setShortName(event.currentTarget.value)}
-              autocomplete="off"
-              required
+          <form
+            id="create-course-instance-form"
+            class="course-create-form"
+            aria-busy={isCreating()}
+            novalidate
+            onSubmit={(event) => void createCourseInstance(event)}
+          >
+            <Show when={creationSource() === "adopted"}>
+              <input type="hidden" name="blueprintSource" value={blueprintSource()} />
+            </Show>
+            <label for="course-short-name">
+              Course short name
+              <input
+                id="course-short-name"
+                name="shortName"
+                type="text"
+                value={shortName()}
+                onInput={(event) => setShortName(event.currentTarget.value)}
+                autocomplete="off"
+                required
+              />
+              <small>For compact navigation; about 16 characters when practical.</small>
+            </label>
+            <label for="course-long-name">
+              Course long name
+              <input
+                id="course-long-name"
+                name="longName"
+                type="text"
+                value={longName()}
+                onInput={(event) => setLongName(event.currentTarget.value)}
+                autocomplete="off"
+                required
+              />
+            </label>
+            <CourseClassificationFields
+              value={classification()}
+              disabled={isCreating()}
+              onChange={setClassification}
             />
-            <small>For compact navigation; about 16 characters when practical.</small>
-          </label>
-          <label for="course-long-name">
-            Course long name
-            <input
-              id="course-long-name"
-              name="longName"
-              type="text"
-              value={longName()}
-              onInput={(event) => setLongName(event.currentTarget.value)}
-              autocomplete="off"
-              required
-            />
-          </label>
-          <CourseClassificationFields
-            value={classification()}
-            disabled={isCreating()}
-            onChange={setClassification}
-          />
-          <label for="course-start-date">
-            Course Term start date
-            <input
-              id="course-start-date"
-              name="startDate"
-              type="date"
-              value={startDate()}
-              onInput={(event) => setStartDate(event.currentTarget.value)}
-              required
-            />
-          </label>
-          <label for="course-end-date">
-            Course Term end date
-            <input
-              id="course-end-date"
-              name="endDate"
-              type="date"
-              value={endDate()}
-              onInput={(event) => setEndDate(event.currentTarget.value)}
-              required
-            />
-          </label>
-          <button class="primary-action" type="submit" disabled={isCreating()}>
-            {isCreating() ? "Creating Course Instance..." : "Create Course Instance"}
-          </button>
-          <Show when={creationError()}>{(error) => <p role="alert">{error()}</p>}</Show>
-        </form>
+            <label for="course-start-date">
+              Course Term start date
+              <input
+                id="course-start-date"
+                name="startDate"
+                type="date"
+                value={startDate()}
+                onInput={(event) => setStartDate(event.currentTarget.value)}
+                required
+              />
+            </label>
+            <label for="course-end-date">
+              Course Term end date
+              <input
+                id="course-end-date"
+                name="endDate"
+                type="date"
+                value={endDate()}
+                onInput={(event) => setEndDate(event.currentTarget.value)}
+                required
+              />
+            </label>
+            <button class="primary-action" type="submit" disabled={isCreating()}>
+              {isCreating() ? "Creating Course Instance..." : "Create Course Instance"}
+            </button>
+            <Show when={creationError()}>{(error) => <p role="alert">{error()}</p>}</Show>
+          </form>
+        </div>
       </Show>
       <Show when={!isInstructor()}>
         <p class="empty-state">Course access begins when you hold an active Course Membership.</p>
@@ -473,15 +475,7 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
             <SearchControls
               state={courseSearch.state}
               textLabel={isActiveMode() ? "Search active Courses" : "Search inactive Courses"}
-            >
-              <button
-                type="button"
-                class="quiet-action"
-                onClick={() => void courseSearch.state.refresh()}
-              >
-                Refresh Courses
-              </button>
-            </SearchControls>
+            />
           }
           state={courseSearch.state}
           collection={{

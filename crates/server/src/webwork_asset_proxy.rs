@@ -200,6 +200,22 @@ fn is_public_installation_asset(raw_path: &str) -> bool {
         || raw_path.starts_with("pg_files/node_modules/")
 }
 
+fn is_generated_image_asset(raw_path: &str, content_type: &HeaderValue) -> bool {
+    if !raw_path.starts_with("pg_files/tmp/images/") {
+        return false;
+    }
+    let Ok(value) = content_type.to_str() else {
+        return false;
+    };
+    let Some(media_type) = value.split(';').next() else {
+        return false;
+    };
+    matches!(
+        media_type.trim().to_ascii_lowercase().as_str(),
+        "image/png" | "image/jpeg" | "image/gif" | "image/svg+xml" | "image/webp"
+    )
+}
+
 fn is_font_content_type(value: &HeaderValue) -> bool {
     let Ok(value) = value.to_str() else {
         return false;
@@ -239,14 +255,14 @@ fn asset_response(
     let mut response = Response::new(Body::from(bytes));
     let headers = response.headers_mut();
     let public_static = is_public_installation_asset(raw_path);
+    let generated_image = is_generated_image_asset(raw_path, &content_type);
     let public_font = public_static && is_font_content_type(&content_type);
     headers.insert(CONTENT_TYPE, content_type);
     headers.insert(CACHE_CONTROL, HeaderValue::from_static(cache_control));
-    // ASVS 3.4.2 and 3.5.8: only installation-published framework namespaces
-    // used by the opaque preview can be embedded cross-origin. Question-
-    // dependent pg_files/tmp and every unclassified pg_files path retain
-    // same-origin CORP.
-    let corp = if public_static {
+    // ASVS 3.5.8: the opaque preview embeds installation assets and generated
+    // display images from the renderer-owned image namespace. Generated
+    // non-image responses and unclassified pg_files paths retain same-origin CORP.
+    let corp = if public_static || generated_image {
         "cross-origin"
     } else {
         "same-origin"
@@ -255,7 +271,7 @@ fn asset_response(
         "cross-origin-resource-policy",
         HeaderValue::from_static(corp),
     );
-    // Opaque-origin font fetches use CORS. Fonts in these installation-owned
+    // ASVS 3.4.2: opaque-origin font fetches use CORS. Fonts in these installation-owned
     // namespaces carry no identity or protected content and never allow credentials.
     if public_font {
         headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
@@ -273,4 +289,72 @@ async fn method_not_allowed() -> Response {
 
 fn unavailable() -> Response {
     StatusCode::SERVICE_UNAVAILABLE.into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::http::{HeaderValue, header};
+
+    use super::asset_response;
+
+    #[test]
+    fn generated_images_embed_without_widening_script_or_font_access() {
+        for (path, media_type, corp, cors) in [
+            (
+                "pg_files/tmp/images/graph.png",
+                "image/png",
+                "cross-origin",
+                false,
+            ),
+            (
+                "pg_files/tmp/images/graph.svg",
+                "image/svg+xml",
+                "cross-origin",
+                false,
+            ),
+            (
+                "pg_files/tmp/images/graph.png",
+                "application/javascript",
+                "same-origin",
+                false,
+            ),
+            (
+                "pg_files/tmp/images/font.woff2",
+                "font/woff2",
+                "same-origin",
+                false,
+            ),
+            ("pg_files/tmp/graph.png", "image/png", "same-origin", false),
+            (
+                "pg_files/tmp/images-other/graph.png",
+                "image/png",
+                "same-origin",
+                false,
+            ),
+            (
+                "pg_files/node_modules/font.woff2",
+                "font/woff2",
+                "cross-origin",
+                true,
+            ),
+        ] {
+            let response = asset_response(
+                "pg_files",
+                path,
+                HeaderValue::from_static(media_type),
+                Vec::new(),
+            );
+            let headers = response.headers();
+            assert_eq!(
+                headers["cross-origin-resource-policy"], corp,
+                "{path}: {media_type}"
+            );
+            assert_eq!(headers[header::CACHE_CONTROL], "no-store");
+            assert_eq!(
+                headers.contains_key(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+                cors
+            );
+            assert!(!headers.contains_key(header::ACCESS_CONTROL_ALLOW_CREDENTIALS));
+        }
+    }
 }

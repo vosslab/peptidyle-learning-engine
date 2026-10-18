@@ -24,11 +24,13 @@ zeroize.workspace = true
 bigdecimal.workspace = true
 grading.workspace = true
 idna.workspace = true
+tracing = "*"
 
 # Enabled by the `postgres` feature; the in-memory backend has no database dependency.
 sqlx = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 
 [features]
 default = []
-postgres = ["dep:sqlx"]
+postgres = ["dep:sqlx", "dep:tokio"]
 

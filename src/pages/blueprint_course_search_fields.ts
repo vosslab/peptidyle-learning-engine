@@ -11,7 +11,7 @@ import type {
   RecordFilterChoices,
   RecordListQuery,
   RecordSort,
-} from "../components/record_list/record_fields";
+} from "../components/data_sheet/record_fields";
 import type { BlueprintCourseSearchQuery } from "./blueprint_course_search_definition";
 import { blueprintVocabularyCell } from "./blueprint_course_vocabulary_cell";
 
@@ -169,6 +169,9 @@ export function blueprintCourseSearchRecordQuery(props: {
   readonly apply: (
     query: (current: BlueprintCourseSearchQuery) => BlueprintCourseSearchQuery,
   ) => Promise<void>;
+  readonly sort: (
+    query: (current: BlueprintCourseSearchQuery) => BlueprintCourseSearchQuery,
+  ) => Promise<void>;
   readonly client: Pick<BlueprintCourseClient, "listBlueprintCourseFacetChoices">;
   readonly scope: "public" | "all";
 }): RecordListQuery<BlueprintRecordSortKey, BlueprintCourseFacetField> {
@@ -183,7 +186,7 @@ export function blueprintCourseSearchRecordQuery(props: {
           (entry) => entry.sort.key === sort.key && entry.sort.direction === sort.direction,
         )?.order;
         if (order !== undefined && order !== props.query().sort)
-          void props.apply((current) => ({ ...current, sort: order }));
+          void props.sort((current) => ({ ...current, sort: order }));
       },
     },
     filters: {

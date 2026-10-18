@@ -12,6 +12,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Guidance bullets should start with the subject when practical, making them easier to scan.
 - Guidance should stay terse and in my own words.
+- Keep my product behavior here and implementation details in technical documentation.
 - Describe intended PLE behavior with positive instructions and omit irrelevant alternatives.
 - Uncertainty should remain when I have not made a final decision.
 - This document uses GitHub Flavored Markdown (GFM).
@@ -159,13 +160,21 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Collection interface vocabulary
 
-- **PageFrame**: The shared page layout for content, spacing, and page actions. It contains page-specific content, including SearchBlock when appropriate.
-- **SearchBlock**: The searchable collection interface. It combines page-supplied search criteria and controls with DataSheetControls and DataSheetBlock.
-- **DataSheetControls**: The controls for display modes, pagination, counts, sorting, filtering, and bulk actions associated with DataSheetBlock.
-- **DataSheetBlock**: The shared collection interface. It manages records, all display modes, shared collection interactions, and collection-level actions. It contains DataSheetTable in Compact and List modes and RecordItem instances in all modes.
-- **DataSheetTable**: The shared tabular presentation for Compact and List modes. It configures and manages column interactions and contains HeaderRow and RecordItem instances.
-- **HeaderRow**: The heading interface within DataSheetTable. It presents column headings, forwards sorting and filtering input to DataSheetBlock, and exposes DataSheetTable column interactions.
-- **RecordItem**: The individual record interface across all four DataSheetBlock modes, providing content, selection, previews, and direct actions.
+- **PageFrame**: The shared page layout for content, spacing, and page actions. It contains
+  page-specific content, including SearchBlock when appropriate.
+- **SearchBlock**: The searchable collection interface, combining search criteria and controls
+  with DataSheetControls and DataSheetBlock.
+- **DataSheetControls**: The display mode, pagination, count, sorting, filtering, and optional
+  bulk-action controls for DataSheetBlock.
+- **DataSheetBlock**: The shared collection interface for records, all four modes, and shared
+  interactions and actions. It contains DataSheetTable in Compact and List and RecordItem in
+  every mode.
+- **DataSheetTable**: The shared Compact and List table, with column controls, HeaderRow,
+  and RecordItem.
+- **HeaderRow**: The column headings inside DataSheetTable, with sorting, filtering, and
+  column controls.
+- **RecordItem**: The individual record in all four modes, with content, selection, previews,
+  and direct actions.
 
 ```text
 PageFrame
@@ -383,7 +392,7 @@ PageFrame
 #### Collection modes and shared interactions
 
 - DataSheetBlock provides PLE's shared collection interface across all four display modes.
-- The approved target collection interface has Compact, List, Cards, and Visual Boxes modes.
+- The collection interface has Compact, List, Cards, and Visual Boxes modes.
 - Compact and List use DataSheetTable.
 - Compact uses aligned, single-line rows; List uses a wrapping table with fewer, wider columns.
 - Cards are text-oriented panels; Visual Boxes are image-oriented tiles.
@@ -391,40 +400,34 @@ PageFrame
   record actions.
 - DataSheetTable owns the Compact and List tabular presentation, column configuration, and column
   interactions. It contains HeaderRow and RecordItem instances.
-- DataSheetControls provides surrounding controls such as display modes, pagination, counts, optional
-  bulk UI, and sort/filter interfaces where useful. It invokes the same DataSheetBlock interactions
-  through shared state and callbacks; it does not acquire a second query or presentation controller.
+- DataSheetControls provides display mode, pagination, count, sorting, filtering, and optional
+  bulk-action controls for DataSheetBlock.
 - Compact mode uses dense spreadsheet-style rows with aligned columns.
 - Compact rows prioritize useful information and minimize vertical space.
 - Filters can be combined to narrow results.
-- The UI requests sorting and filtering through DataSheetBlock interactions. The data/query layer
-  applies those criteria across the complete matching collection before pagination: database-backed
-  collections use PostgreSQL `WHERE` and `ORDER BY`; complete local collections use equivalent
-  shared client-side processing. Page-only sorting or filtering is invalid.
+- Sorting and filtering apply to the entire collection, not just the current page.
 - Filtering, sorting, display modes, selection, and record actions remain available across the
   collection presentations.
 
 #### Collection scope and selection
 
-- Every collection exposes all four modes: Compact, List, Cards, and Visual Boxes. Domain rules can
-  restrict an operation, such as display sorting for saved Assessment contents, without removing a
-  presentation mode.
+- Every collection provides all four display modes: Compact, List, Cards, and Visual Boxes.
 - Each collection supplies its relevant fields, records, and actions.
 - Selection remains unobtrusive and is shown when it supports meaningful bulk actions. Direct
   record actions remain available without selecting a row.
-- Selection follows record identity when pages or display modes change. Query and filter changes
-  clear selection; sorting preserves it.
+- Changing keywords or filters clears selection. Sorting, pagination, and display-mode changes
+  preserve it.
 - DataSheetBlock improvements should apply consistently across PLE.
 
 ### DataSheetTable interface
 
 - DataSheetTable provides the shared tabular presentation and column interface for Compact and List.
-- DataSheetTable supports sorting through HeaderRow column headings, forwarding the selected sort
-  criteria to DataSheetBlock. Sorting toggles between ascending and descending order.
-- DataSheetTable supports filtering through HeaderRow column headings, forwarding the selected filter
-  criteria to DataSheetBlock. Instructors can select one or more available filter values.
-- HeaderRow presents column headings and forwards sorting and filtering input to DataSheetBlock;
-  DataSheetTable handles column mechanics, and HeaderRow is not an independent controller.
+- DataSheetTable supports sorting through HeaderRow column headings, toggling between ascending
+  and descending order.
+- DataSheetTable supports filtering through HeaderRow column headings. Instructors can select
+  one or more available filter values.
+- HeaderRow provides the column headings and sorting, filtering, and column controls inside
+  DataSheetTable.
 - Filters remain available for columns that are currently hidden.
 - DataSheetTable supports resizing columns by dragging their edges in HeaderRow.
 - DataSheetTable supports hiding and showing individual columns through HeaderRow and controls.
@@ -438,12 +441,12 @@ PageFrame
 
 ### Shared SearchBlock interface
 
-- SearchBlock composes page-supplied search criteria and controls, DataSheetControls, and its required
-  DataSheetBlock into PLE's complete searchable-collection interface.
+- SearchBlock combines search criteria and controls, DataSheetControls, and its DataSheetBlock
+  into PLE's complete searchable collection interface.
 - Pages use SearchBlock to display searchable collections, including personal collections and
   library searches.
-- DataSheetBlock manages shared collection interactions and record actions. DataSheetTable presents
-  Compact and List; HeaderRow forwards sorting and filtering input to DataSheetBlock.
+- DataSheetBlock handles collection interactions and record actions; DataSheetTable presents
+  Compact and List, with column headings and controls in HeaderRow.
 - Each page supplies its search criteria and controls to SearchBlock; DataSheetBlock receives the
   collection's fields, records, and actions.
 - My Questions, My Pools, My Drafts, Starred, Watched, Search Question Library, and Browse
@@ -476,13 +479,10 @@ PageFrame
 
 - Published WeBWorK Questions have a visual thumbnail that helps identify the question; its text
   need not be readable.
-- A thumbnail represents the published Question Revision. Browsing a collection reads its
-  published thumbnail rather than starting a new render.
-- Thumbnail production follows the Question Thumbnail technical capture contract in
-  [CONTRACTS.md](CONTRACTS.md): Question thumbnails are always 256 x 256 pixels. Render the question
-  at sufficient source resolution to fill the thumbnail without raster upscaling. Preserve the
-  rendered content's proportions. Crop excess width symmetrically from both sides and excess height
-  from the bottom, keeping the content horizontally centered and vertically top-aligned.
+- A thumbnail shows the published Question Revision and is reused while browsing.
+- Question thumbnails are always 256 x 256 pixels.
+- Preserve the Question's appearance and proportions, with content centered horizontally and
+  top-aligned vertically.
 
 ### Interaction design
 
@@ -579,13 +579,12 @@ PageFrame
 - PageFrame uses compact spacing and consistent alignment across pages.
 - PageFrame adapts to available screen width while preserving useful content and actions.
 - Page-specific content and actions fit within the shared PageFrame structure.
-- PageFrame displays ordinary page content directly; searchable collections and search results
-  go through SearchBlock, which composes DataSheetControls with DataSheetBlock.
-- PageFrame provides layout, spacing, actions, and content. The Ribbon and breadcrumbs provide
-  page identification instead of PageFrame headings, short labels, or introductory text.
-- Evaluate content between breadcrumbs and primary work for necessity, redundancy, frequency,
-  priority, density, context, and responsive behavior. Keep an element ahead of the records when
-  it serves a demonstrated task need.
+- PageFrame displays ordinary page content directly and searchable collections through SearchBlock.
+- PageFrame does not repeat page headings, short labels, or introductory text; the Ribbon and
+  breadcrumbs already identify the page.
+- Content ahead of the main work should earn its space: keep it useful, concise, relevant to the
+  task, and suited to the screen.
+- Keep additional explanations only when their absence would cause a specific usability problem.
 - Shared PageFrame improvements should apply consistently across PLE.
 
 ### User top bar interface
@@ -815,8 +814,7 @@ PageFrame
 
 ##### Question Library filters
 
-- Search and Browse use DataSheetBlock's shared column filters to narrow Question Library results;
-  HeaderRow presents these filters and forwards selections through DataSheetTable to DataSheetBlock.
+- Search and Browse use DataSheetBlock's shared column filters to narrow Question Library results.
 - DataSheetBlock exposes Discipline, Subject, Topic, and Subtopic through spreadsheet column filters,
   following their classification relationships.
 - Keyword search and column filters work together to narrow the same results.

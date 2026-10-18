@@ -5,11 +5,11 @@ import { Show, createResource, type JSX } from "solid-js";
 
 import type { DueSoonAssessmentSummary } from "../api/assessment_release";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { assessmentRouteId, courseInstanceRouteId } from "../navigation/public_route";
 import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
 import {
@@ -71,7 +71,12 @@ export function AssessmentsDueSoonPage(): JSX.Element {
   const recordContent = (assessment: DueSoonAssessmentSummary): RecordContent =>
     dueSoonContent(formatDueTime)(assessment);
   const dueSoonSearch = createLocalCompleteSearch(
-    { resource: assessments, refetchSource: refetch, rows: (value) => value },
+    {
+      rows: assessments,
+      loading: () => assessments.loading,
+      error: (): unknown => assessments.error,
+      refetchSource: refetch,
+    },
     {
       fields,
       rowId: (assessment) => `${assessment.courseInstanceId}:${assessment.assessmentId}`,

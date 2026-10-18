@@ -1,7 +1,7 @@
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
 import type { BlueprintForkApplyModuleLayout } from "../../../generated/api/BlueprintForkApplyModuleLayout";
 import type { BlueprintForkApplySelection } from "../../../generated/api/BlueprintForkApplySelection";
-import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
+import { reorderedRecordListRows } from "../../components/data_sheet/record_reorder";
 import { MAX_REUSABLE_ENTRIES } from "../blueprint_course/blueprint_course_model";
 export type Layout = BlueprintForkApplyModuleLayout;
 export function destinationKey(value: Layout["module"] | Layout["assessments"][number]): string {

@@ -1,5 +1,5 @@
 import type { AssessmentTemplate } from "../../generated/api/AssessmentTemplate";
-import type { RecordField } from "../components/record_list/record_fields";
+import type { RecordField } from "../components/data_sheet/record_fields";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 
 export type TemplateSortKey = "name" | "assessmentType";

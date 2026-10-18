@@ -1,7 +1,12 @@
 // Recognition heading for one Blueprint Assessment entry.
 
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
-import type { RecordContent } from "../../components/record_list/record_list";
+import {
+  questionNativePreview,
+  questionNativePreviewKey,
+  type QuestionNativePreview,
+} from "../../components/question_native_preview";
+import type { RecordContent } from "../../components/data_sheet/record_content";
 import type { RecognitionTitleMaps } from "../../api/recognition_titles";
 import { recognitionTitle } from "../recognition_label";
 
@@ -11,15 +16,13 @@ type EntryInput = BlueprintAssessmentContentInput["entries"][number];
 export function blueprintAssessmentEntryContent(
   entry: EntryInput,
   titles: RecognitionTitleMaps,
-  remove: (() => void) | undefined,
+  previews: ReadonlyMap<string, QuestionNativePreview>,
 ): RecordContent {
-  const removeAction =
-    remove === undefined
-      ? []
-      : [{ id: "remove-entry", kind: "command" as const, label: "Remove", onClick: remove }];
   if (entry.kind === "fixed") {
     const revision = entry.published_question_revision_tuple;
+    const preview = previews.get(questionNativePreviewKey(revision));
     return {
+      preview: preview === undefined ? undefined : questionNativePreview(preview),
       title: recognitionTitle(titles.questions.get(revision.publishedQuestionId), "Question"),
       details: [
         { kind: "text", label: "Question ID", value: revision.publishedQuestionId },
@@ -27,7 +30,7 @@ export function blueprintAssessmentEntryContent(
         { kind: "text", label: "Points possible", value: entry.points_possible },
         { kind: "text", label: "Scoring", value: entry.scoring_rule },
       ],
-      actions: removeAction,
+      actions: [],
     };
   }
   return {
@@ -42,7 +45,7 @@ export function blueprintAssessmentEntryContent(
       { kind: "text", label: "Points per Question", value: entry.points_per_item },
       { kind: "text", label: "Scoring", value: entry.scoring_rule },
     ],
-    actions: removeAction,
+    actions: [],
   };
 }
 

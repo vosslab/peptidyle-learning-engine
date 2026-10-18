@@ -5,6 +5,8 @@ mod api_assembly;
 mod composition_live_demo;
 mod environment;
 mod object_storage;
+mod question_thumbnail_backfill;
+pub use question_thumbnail_backfill::backfill_question_thumbnails_from_env;
 mod worker_runners;
 
 pub use api_assembly::production_router_from_env;

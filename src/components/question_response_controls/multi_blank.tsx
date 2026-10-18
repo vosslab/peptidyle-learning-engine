@@ -4,7 +4,7 @@ import { createSignal, For, type JSX } from "solid-js";
 
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
-import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
+import { handleQuestionResponseControlKeyDown } from "./keyboard";
 import {
   Actions,
   createResponseController,

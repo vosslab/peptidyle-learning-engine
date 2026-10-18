@@ -20,7 +20,6 @@ import {
   decodeArray,
   decodeNonemptyString,
   decodeNonnegativeInteger,
-  decodeNullable,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
@@ -330,7 +329,14 @@ export function decodeInstallationCoursePage(
   path = "response",
 ): InstallationCoursePage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courses", "nextCursor", "activityChoices", "retentionChoices"]);
+  requireOnlyFields(record, path, [
+    "courses",
+    "pageNumber",
+    "pageSize",
+    "totalCount",
+    "activityChoices",
+    "retentionChoices",
+  ]);
   const courses = decodeArray(
     field(record, "courses", path),
     `${path}.courses`,
@@ -339,17 +345,28 @@ export function decodeInstallationCoursePage(
   if (courses.length > 250) {
     throw new DecodeError(`${path}.courses`, "at most 250 Courses");
   }
-  const nextCursor = decodeNullable(
-    field(record, "nextCursor", path),
-    `${path}.nextCursor`,
-    decodeNonemptyString,
+  const pageNumber = decodeNonnegativeInteger(
+    field(record, "pageNumber", path),
+    `${path}.pageNumber`,
   );
-  if (nextCursor !== null && nextCursor.length > 4096) {
-    throw new DecodeError(`${path}.nextCursor`, "a bounded installation Course cursor");
+  const pageSize = decodeNonnegativeInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeNonnegativeInteger(
+    field(record, "totalCount", path),
+    `${path}.totalCount`,
+  );
+  if (
+    pageNumber < 1 ||
+    (pageSize !== 50 && pageSize !== 100 && pageSize !== 250) ||
+    pageNumber > Math.max(1, Math.ceil(totalCount / pageSize)) ||
+    courses.length > pageSize
+  ) {
+    throw new DecodeError(path, "valid installation Course numbered-page metadata");
   }
   return {
     courses,
-    nextCursor,
+    pageNumber,
+    pageSize,
+    totalCount,
     activityChoices: decodeArray(
       field(record, "activityChoices", path),
       `${path}.activityChoices`,

@@ -9,7 +9,6 @@ import type {
 
 export interface BlueprintCoursesWorkspaceProps {
   readonly client: BlueprintCourseClient & ContentClassificationClient;
-  readonly proposalClient?: BlueprintCourseClient & BlueprintChangeProposalClient;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
   readonly loadQuestionInspection: QuestionPickerProps["loadQuestionInspection"];
@@ -18,5 +17,6 @@ export interface BlueprintCoursesWorkspaceProps {
 }
 
 export interface BlueprintCourseDetailWorkspaceProps extends BlueprintCoursesWorkspaceProps {
+  readonly proposalClient?: BlueprintCourseClient & BlueprintChangeProposalClient;
   readonly blueprintCourseId: string;
 }

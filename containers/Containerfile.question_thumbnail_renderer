@@ -1,0 +1,24 @@
+# The Playwright image pins Chromium and its operating-system dependencies to
+# the same release as the helper's locked Playwright client.
+FROM mcr.microsoft.com/playwright:v1.64.1-noble
+
+USER root
+RUN apt-get update \
+	&& apt-get install --no-install-recommends --yes webp \
+	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/question-thumbnail-renderer
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+COPY --chown=pwuser:pwuser question_thumbnail_renderer/src ./src
+COPY --chown=pwuser:pwuser src/styles/ple_embed.css ./assets/styles/ple_embed.css
+COPY --chown=pwuser:pwuser src/public/ple_bridge.js ./assets/public/ple_bridge.js
+COPY --chown=pwuser:pwuser src/assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable.woff2 ./assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable.woff2
+COPY --chown=pwuser:pwuser src/assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable_italic.woff2 ./assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable_italic.woff2
+COPY --chown=pwuser:pwuser src/assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable.woff2 ./assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable.woff2
+COPY --chown=pwuser:pwuser src/assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable_italic.woff2 ./assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable_italic.woff2
+
+ENV NODE_ENV=production PORT=3001
+USER pwuser
+CMD ["node", "src/server.js"]

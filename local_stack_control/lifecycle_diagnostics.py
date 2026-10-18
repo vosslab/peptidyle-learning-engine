@@ -44,7 +44,7 @@ def redacted_failure_detail(
 				re.IGNORECASE,
 			)
 			if cargo_test_failure is None and compose_wrapper is None and re.search(
-				r"^\s*(?:psql:[^\n]*?:\s*)?(?:ERROR|FATAL|PANIC):", line, re.IGNORECASE,
+				r"^\s*(?:psql:[^\n]*?:\s*)?(?:ERROR|FATAL|PANIC):", line,
 			):
 				database_error_context.append(line.strip())
 				for context_line in lines[index + 1:index + 5]:

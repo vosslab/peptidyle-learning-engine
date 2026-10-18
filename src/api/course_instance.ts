@@ -80,7 +80,9 @@ export interface InstallationCourseInspection {
 /** One bounded installation Course page. */
 export interface InstallationCoursePage {
   readonly courses: ReadonlyArray<InstallationCourseInspection>;
-  readonly nextCursor: string | null;
+  readonly pageNumber: number;
+  readonly pageSize: 50 | 100 | 250;
+  readonly totalCount: number;
   readonly activityChoices: ReadonlyArray<{
     readonly key: CourseInstanceLifecycleState;
     readonly count: number;
@@ -96,8 +98,8 @@ export interface InstallationCourseBrowse {
   readonly sort: "nameAscending" | "nameDescending";
   readonly activity: ReadonlyArray<CourseInstanceLifecycleState>;
   readonly retention: ReadonlyArray<CourseRetentionLifecycleState>;
-  readonly cursor: string | null;
-  readonly pageSize: 50 | 100;
+  readonly pageNumber: number;
+  readonly pageSize: 50 | 100 | 250;
 }
 
 /** Creation receipt that does not imply creator Course access. */

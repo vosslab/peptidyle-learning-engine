@@ -383,12 +383,6 @@ def main() -> None:
 			{**os.environ, "DEBUG": "", "PWDEBUG": ""},
 		)
 		print_elapsed("verify-static", started)
-	started = print_step("playwright", "ensure Chromium headless shell for screenshot capture")
-	run_command(
-		["node", "node_modules/playwright/cli.js", "install", "--only-shell", "chromium"], root
-	)
-	print_elapsed("playwright", started)
-
 	owned_stop = False
 	if args.fresh:
 		started = print_step("fresh", "stop any owned Live Demo")

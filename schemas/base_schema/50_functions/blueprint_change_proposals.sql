@@ -207,9 +207,11 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
      ORDER BY basis.position;
 $$;
 
+DROP FUNCTION IF EXISTS ple_api.list_blueprint_change_proposals(text, boolean, text, uuid, integer, text, boolean, text);
+
 CREATE FUNCTION ple_api.list_blueprint_change_proposals(
-    p_target_blueprint_course_id text, p_mine boolean, p_after_created_at text,
-    p_after_proposal_id uuid, p_limit integer, p_text text, p_ascending boolean, p_status text
+    p_target_blueprint_course_id text, p_mine boolean, p_page_number bigint,
+    p_page_size integer, p_text text, p_ascending boolean, p_status text
 ) RETURNS TABLE (
     blueprint_change_proposal_id uuid, created_at_ms bigint, created_at_key text,
     source_blueprint_course_id text, source_revision_number bigint, source_blueprint_edit_number bigint,
@@ -217,37 +219,23 @@ CREATE FUNCTION ple_api.list_blueprint_change_proposals(
     target_blueprint_course_id text, target_revision_number bigint, target_blueprint_edit_number bigint,
     target_short_name text, target_long_name text, target_is_stale boolean,
     accepted_at_ms bigint, accepted_target_revision_number bigint,
-    accepted_target_blueprint_edit_number bigint
+    accepted_target_blueprint_edit_number bigint, total_count bigint, resolved_page_number bigint
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     v_actor text := ple_api.current_session_account_id();
-    v_after timestamp with time zone;
 BEGIN
-    -- ASVS 2.2.1/2/3: exactly one scope, bounded lookahead, and paired precise keys.
-    IF p_mine IS NULL OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 101
+    -- ASVS 2.2.1/2/3: exactly one scope and bounded one-based numbered page.
+    IF p_mine IS NULL OR p_page_number IS NULL OR p_page_number NOT BETWEEN 1 AND 4294967295
+       OR p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
        OR p_text IS NULL OR length(p_text) > 160 OR p_ascending IS NULL
        OR p_status NOT IN ('', 'accepted', 'proposed', 'stale',
                            'accepted,proposed', 'accepted,stale', 'proposed,stale',
                            'accepted,proposed,stale') OR p_status IS NULL
        OR (p_mine AND p_target_blueprint_course_id IS NOT NULL)
        OR (NOT p_mine AND (p_target_blueprint_course_id IS NULL
-           OR NOT ple_private.is_canonical_prefixed_public_id(p_target_blueprint_course_id, 'BP')))
-       OR (p_after_created_at IS NULL) <> (p_after_proposal_id IS NULL) THEN
+           OR NOT ple_private.is_canonical_prefixed_public_id(p_target_blueprint_course_id, 'BP'))) THEN
         RAISE EXCEPTION 'Blueprint Proposal list request is invalid' USING ERRCODE = '22023';
-    END IF;
-    IF p_after_created_at IS NOT NULL THEN
-        IF p_after_created_at !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$' THEN
-            RAISE EXCEPTION 'Blueprint Proposal cursor is invalid' USING ERRCODE = '22023';
-        END IF;
-        BEGIN
-            v_after := p_after_created_at::timestamp with time zone;
-        EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow THEN
-            RAISE EXCEPTION 'Blueprint Proposal cursor is invalid' USING ERRCODE = '22023';
-        END;
-        IF to_char(v_after AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') <> p_after_created_at THEN
-            RAISE EXCEPTION 'Blueprint Proposal cursor is invalid' USING ERRCODE = '22023';
-        END IF;
     END IF;
     -- ASVS 8.2.1/2, 8.3.1/2: a Public target grants no ambient Proposal discovery.
     IF v_actor IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -268,63 +256,90 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'Blueprint Proposal list is unavailable' USING ERRCODE = '42501';
     END IF;
-    -- ASVS 1.2.4: static parameterized SQL; recheck the exact-read predicates
-    -- for each returned record. Only pinned metadata supplies basis names.
+    -- Count and page use the same participant, visibility, text, and state predicates.
     RETURN QUERY
-    SELECT proposal.blueprint_change_proposal_id, (extract(epoch FROM proposal.created_at) * 1000)::bigint,
-           to_char(proposal.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-           source.blueprint_course_id::text, proposal.source_revision_number::bigint, proposal.source_blueprint_edit_number,
-           source_event.short_name, source_event.long_name,
-           target.blueprint_course_id::text, proposal.target_revision_number::bigint, proposal.target_blueprint_edit_number,
-           target_event.short_name, target_event.long_name,
-           target.current_blueprint_revision_number <> proposal.target_revision_number
-               OR target.blueprint_edit_number <> proposal.target_blueprint_edit_number,
-           (extract(epoch FROM accepted.accepted_at) * 1000)::bigint,
-           accepted.resulting_revision_number::bigint, accepted.resulting_blueprint_edit_number
-      FROM ple_data.blueprint_change_proposal AS proposal
-      JOIN ple_data.blueprint_course AS source
-        ON source.blueprint_course_id = proposal.source_blueprint_course_id
-      JOIN ple_data.blueprint_course AS target
-        ON target.blueprint_course_id = proposal.target_blueprint_course_id
-      JOIN ple_data.blueprint_metadata_event AS source_event
-        ON source_event.blueprint_course_id = proposal.source_blueprint_course_id
-       AND source_event.blueprint_edit_number = proposal.source_blueprint_edit_number
-      JOIN ple_data.blueprint_metadata_event AS target_event
-        ON target_event.blueprint_course_id = proposal.target_blueprint_course_id
-       AND target_event.blueprint_edit_number = proposal.target_blueprint_edit_number
-      LEFT JOIN ple_data.blueprint_change_proposal_acceptance AS accepted
-        ON accepted.blueprint_change_proposal_id = proposal.blueprint_change_proposal_id
-       AND accepted.target_blueprint_course_id = proposal.target_blueprint_course_id
-     WHERE (p_mine AND proposal.proposer_account_id = v_actor
-            OR NOT p_mine AND target.blueprint_course_id = p_target_blueprint_course_id)
-       AND (proposal.proposer_account_id = v_actor OR target.owner_account_id = v_actor)
-       AND source.availability IN ('public', 'archived')
-       AND target.availability IN ('public', 'archived')
-       AND (p_text = '' OR source_event.long_name ILIKE '%' || p_text || '%'
-            OR source_event.short_name ILIKE '%' || p_text || '%'
-            OR target_event.long_name ILIKE '%' || p_text || '%'
-            OR target_event.short_name ILIKE '%' || p_text || '%'
-            OR proposal.blueprint_change_proposal_id::text ILIKE '%' || p_text || '%')
-       AND (p_status = ''
-            OR 'accepted' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NOT NULL
-            OR 'stale' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NULL
-               AND (target.current_blueprint_revision_number <> proposal.target_revision_number
-                    OR target.blueprint_edit_number <> proposal.target_blueprint_edit_number)
-            OR 'proposed' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NULL
-               AND target.current_blueprint_revision_number = proposal.target_revision_number
-               AND target.blueprint_edit_number = proposal.target_blueprint_edit_number)
-       AND (v_after IS NULL OR p_ascending AND
-            (proposal.created_at, proposal.blueprint_change_proposal_id) > (v_after, p_after_proposal_id)
-            OR v_after IS NOT NULL AND NOT p_ascending AND
-            (proposal.created_at, proposal.blueprint_change_proposal_id) < (v_after, p_after_proposal_id))
-     ORDER BY CASE WHEN p_ascending THEN proposal.created_at END ASC,
-              CASE WHEN p_ascending THEN proposal.blueprint_change_proposal_id END ASC,
-              CASE WHEN NOT p_ascending THEN proposal.created_at END DESC,
-              CASE WHEN NOT p_ascending THEN proposal.blueprint_change_proposal_id END DESC
-     LIMIT p_limit;
+    WITH matching AS MATERIALIZED (
+        SELECT proposal.blueprint_change_proposal_id,
+               proposal.created_at,
+               (extract(epoch FROM proposal.created_at) * 1000)::bigint AS created_at_ms,
+               to_char(proposal.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_key,
+               source.blueprint_course_id::text AS source_blueprint_course_id,
+               proposal.source_revision_number::bigint AS source_revision_number,
+               proposal.source_blueprint_edit_number,
+               source_event.short_name AS source_short_name,
+               source_event.long_name AS source_long_name,
+               target.blueprint_course_id::text AS target_blueprint_course_id,
+               proposal.target_revision_number::bigint AS target_revision_number,
+               proposal.target_blueprint_edit_number,
+               target_event.short_name AS target_short_name,
+               target_event.long_name AS target_long_name,
+               target.current_blueprint_revision_number <> proposal.target_revision_number
+                   OR target.blueprint_edit_number <> proposal.target_blueprint_edit_number AS target_is_stale,
+               (extract(epoch FROM accepted.accepted_at) * 1000)::bigint AS accepted_at_ms,
+               accepted.resulting_revision_number::bigint AS accepted_target_revision_number,
+               accepted.resulting_blueprint_edit_number AS accepted_target_blueprint_edit_number
+          FROM ple_data.blueprint_change_proposal AS proposal
+          JOIN ple_data.blueprint_course AS source
+            ON source.blueprint_course_id = proposal.source_blueprint_course_id
+          JOIN ple_data.blueprint_course AS target
+            ON target.blueprint_course_id = proposal.target_blueprint_course_id
+          JOIN ple_data.blueprint_metadata_event AS source_event
+            ON source_event.blueprint_course_id = proposal.source_blueprint_course_id
+           AND source_event.blueprint_edit_number = proposal.source_blueprint_edit_number
+          JOIN ple_data.blueprint_metadata_event AS target_event
+            ON target_event.blueprint_course_id = proposal.target_blueprint_course_id
+           AND target_event.blueprint_edit_number = proposal.target_blueprint_edit_number
+          LEFT JOIN ple_data.blueprint_change_proposal_acceptance AS accepted
+            ON accepted.blueprint_change_proposal_id = proposal.blueprint_change_proposal_id
+           AND accepted.target_blueprint_course_id = proposal.target_blueprint_course_id
+         WHERE (p_mine AND proposal.proposer_account_id = v_actor
+                OR NOT p_mine AND target.blueprint_course_id = p_target_blueprint_course_id)
+           AND (proposal.proposer_account_id = v_actor OR target.owner_account_id = v_actor)
+           AND source.availability IN ('public', 'archived')
+           AND target.availability IN ('public', 'archived')
+           AND (p_text = '' OR source_event.long_name ILIKE '%' || p_text || '%'
+                OR source_event.short_name ILIKE '%' || p_text || '%'
+                OR target_event.long_name ILIKE '%' || p_text || '%'
+                OR target_event.short_name ILIKE '%' || p_text || '%'
+                OR proposal.blueprint_change_proposal_id::text ILIKE '%' || p_text || '%')
+           AND (p_status = ''
+                OR 'accepted' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NOT NULL
+                OR 'stale' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NULL
+                   AND (target.current_blueprint_revision_number <> proposal.target_revision_number
+                        OR target.blueprint_edit_number <> proposal.target_blueprint_edit_number)
+                OR 'proposed' = ANY(string_to_array(p_status, ',')) AND accepted.blueprint_change_proposal_id IS NULL
+                   AND target.current_blueprint_revision_number = proposal.target_revision_number
+                   AND target.blueprint_edit_number = proposal.target_blueprint_edit_number)
+    ), ordered AS MATERIALIZED (
+        SELECT matching.*,
+               row_number() OVER (
+                   ORDER BY CASE WHEN p_ascending THEN matching.created_at END ASC,
+                            CASE WHEN p_ascending THEN matching.blueprint_change_proposal_id END ASC,
+                            CASE WHEN NOT p_ascending THEN matching.created_at END DESC,
+                            CASE WHEN NOT p_ascending THEN matching.blueprint_change_proposal_id END DESC
+               ) AS row_position
+          FROM matching
+    ), bounds AS (
+        SELECT count(*)::bigint AS total_count,
+               LEAST(p_page_number,
+                     GREATEST(1::bigint, ceil(count(*)::numeric / p_page_size)::bigint)) AS resolved_page_number
+          FROM ordered
+    ), page_rows AS (
+        SELECT ordered.* FROM ordered
+         WHERE ordered.row_position > (SELECT ((bounds.resolved_page_number - 1) * p_page_size::bigint) FROM bounds)
+           AND ordered.row_position <= (SELECT (bounds.resolved_page_number * p_page_size::bigint) FROM bounds)
+    )
+    SELECT page_rows.blueprint_change_proposal_id, page_rows.created_at_ms, page_rows.created_at_key,
+           page_rows.source_blueprint_course_id, page_rows.source_revision_number, page_rows.source_blueprint_edit_number,
+           page_rows.source_short_name, page_rows.source_long_name,
+           page_rows.target_blueprint_course_id, page_rows.target_revision_number, page_rows.target_blueprint_edit_number,
+           page_rows.target_short_name, page_rows.target_long_name, page_rows.target_is_stale,
+           page_rows.accepted_at_ms, page_rows.accepted_target_revision_number,
+           page_rows.accepted_target_blueprint_edit_number, bounds.total_count, bounds.resolved_page_number
+      FROM bounds LEFT JOIN page_rows ON true
+     ORDER BY page_rows.row_position;
 END
 $$;
-
 
 
 -- ASVS 8.2.2/8.3.1, 2.3.3: authorize and retain the target owner lock before

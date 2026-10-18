@@ -124,12 +124,6 @@ export interface AssessmentCapabilityViolation {
   readonly capability: Capability;
 }
 
-/** Cursor-paged API result. Offset pagination is intentionally absent. */
-export interface CursorPage<T> {
-  readonly items: ReadonlyArray<T>;
-  readonly nextCursor: string | null;
-}
-
 /** Resolved browser-safe Authenticated Session. The credential remains HttpOnly. */
 export interface AuthenticatedSession {
   readonly authenticated: true;

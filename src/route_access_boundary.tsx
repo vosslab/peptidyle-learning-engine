@@ -4,7 +4,7 @@ import { A, useLocation } from "@solidjs/router";
 import { createMemo, onMount, Show, type Component, type JSX } from "solid-js";
 
 import { useSessionBootstrap } from "./auth/session_context";
-import { PageFrame } from "./components/page_frame";
+import { PageFrame } from "./components/page_frame/page_frame";
 import {
   userRoleMayAccessRoute,
   routeContractForPathname,

@@ -10,19 +10,20 @@ import type {
   LibraryWatchQuery,
   LibraryWatchTargetKind,
 } from "../api/library_watch_notification";
+import type { SearchPageRequest } from "../components/search_block/search_session";
 import { useApplicationApi } from "../api/application_api";
 import { useSelectedDisplayDateTimeFormatter } from "../selected_display_zone";
-import { PageFrame } from "../components/page_frame";
-import type { RecordContent } from "../components/record_list/record_list";
+import { PageFrame } from "../components/page_frame/page_frame";
+import type { RecordContent } from "../components/data_sheet/record_content";
 import type {
   RecordField,
   RecordFilterChoices,
   RecordListQuery,
-} from "../components/record_list/record_fields";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createSearchState } from "../features/search/search_state";
-import type { SearchDefinition, SearchPage } from "../features/search/search_session";
+} from "../components/data_sheet/record_fields";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createSearchState } from "../components/search_block/search_state";
+import type { SearchDefinition, SearchPage } from "../components/search_block/search_session";
 
 const INITIAL_QUERY: LibraryWatchQuery = {
   q: "",
@@ -150,15 +151,12 @@ function cleanQuery(query: LibraryWatchQuery): LibraryWatchQuery {
 }
 
 function watchDefinition(
-  load: (
-    query: LibraryWatchQuery,
-    cursor: string | null,
-    size: number,
-  ) => Promise<LibraryWatchPage>,
+  load: (query: LibraryWatchQuery, page: SearchPageRequest) => Promise<LibraryWatchPage>,
   content: (row: LibraryWatchNotification) => RecordContent,
 ): SearchDefinition<LibraryWatchQuery, LibraryWatchNotification, LibraryWatchPage> {
   return {
     initialQuery: INITIAL_QUERY,
+    maximumPageSize: 100,
     cleanup: cleanQuery,
     isEligible: () => true,
     getText: (query) => query.q,
@@ -167,11 +165,16 @@ function watchDefinition(
     content,
     fetchPage: async (
       query,
-      cursor,
-      size,
+      request,
     ): Promise<SearchPage<LibraryWatchNotification, LibraryWatchPage>> => {
-      const page = await load(query, cursor, size);
-      return { items: page.notifications, nextCursor: page.nextCursor, filterCounts: page };
+      const page = await load(query, request);
+      return {
+        items: page.items,
+        pageNumber: page.pageNumber,
+        pageSize: page.pageSize as SearchPageRequest["pageSize"],
+        totalCount: page.totalCount,
+        filterCounts: page,
+      };
     },
     appliedFilters: (query) => [
       ...query.targetKinds.map((value) => ({
@@ -227,11 +230,8 @@ function facetChoices(
 export function LibraryWatchNotificationsPage(): JSX.Element {
   const client = useApplicationApi().client;
   const formatTimestamp = useSelectedDisplayDateTimeFormatter();
-  const load = (
-    query: LibraryWatchQuery,
-    cursor: string | null,
-    size: number,
-  ): Promise<LibraryWatchPage> => client.getLibraryWatchNotifications(query, cursor, size);
+  const load = (query: LibraryWatchQuery, page: SearchPageRequest): Promise<LibraryWatchPage> =>
+    client.getLibraryWatchNotifications(query, page);
   const state = createSearchState(
     watchDefinition(load, (row) => notificationContent(formatTimestamp())(row)),
     {
@@ -244,8 +244,7 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
       get value() {
         return { key: "occurredAt" as const, direction: state.query().direction };
       },
-      onChange: (sort) =>
-        void state.apply((current) => ({ ...current, direction: sort.direction })),
+      onChange: (sort) => void state.sort((current) => ({ ...current, direction: sort.direction })),
     },
     filters: {
       get values() {
@@ -266,7 +265,7 @@ export function LibraryWatchNotificationsPage(): JSX.Element {
         const query = state.query();
         const withoutOwn =
           key === "targetKind" ? { ...query, targetKinds: [] } : { ...query, eventKinds: [] };
-        const page = await load(withoutOwn, null, 1);
+        const page = await load(withoutOwn, { pageNumber: 1, pageSize: 50 });
         return facetChoices(
           key,
           page,

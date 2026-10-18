@@ -1,11 +1,11 @@
 // Instructor picker screenshots from normal Blueprint and Course Assessment workflows.
 // Selector contract: Blueprint creation owns its Question picker in
 // src/features/blueprint_course/blueprint_course_create_dialog.tsx and question_picker.tsx;
-// Course Assessment creation owns the shared content picker in
+// Course Assessment creation owns parallel content regions and row actions in
 // src/pages/assessment_workspace/assessment_workspace_questions_view.tsx and
-// src/features/assessment_content_picker/assessment_content_picker.tsx.
+// src/features/assessment_content_picker/assessment_editor.tsx.
 
-import type { Locator, Page } from "playwright";
+import type { Page } from "playwright";
 
 import { decodeLibraryObjectSearchPage } from "../../../src/api/decoders/question_library";
 
@@ -16,39 +16,39 @@ import { enterInstructor, openInstructorCourse } from "./visible_workflows";
 
 const BLUEPRINT_TITLE = "Screenshot picker Blueprint preview";
 const ASSESSMENT_TITLE = "Screenshot picker Assessment preview";
-const SOURCE_QUESTION_TITLE = "Genetic disorders: Which one?";
-
-async function requireOpaqueDialogSurface(dialog: Locator): Promise<void> {
-  const background = await dialog.evaluate((element) => getComputedStyle(element).backgroundColor);
-  if (background === "transparent" || background === "rgba(0, 0, 0, 0)") {
-    throw new Error("the Assessment content picker dialog must resolve an opaque themed surface");
-  }
-}
 
 async function createAssessmentPickerPool(page: Page): Promise<string> {
   const poolTitle = `Assessment picker screenshot ${Date.now()}`;
-  const response: unknown = await page.evaluate(async (sourceQuestionTitle) => {
+  const response: unknown = await page.evaluate(async () => {
     const query = new URLSearchParams({
       kind: "questions",
       questions: "all",
       authorship: "any",
-      sort: "titleAscending",
+      backends: "ple",
+      question_types: "multipleChoice",
       page_size: "50",
-      text: sourceQuestionTitle,
+      sort: "titleAscending",
     });
     const searched = await fetch(`/api/library-objects/search?${query.toString()}`);
-    if (!searched.ok) throw new Error(`Pilot Question search status ${searched.status}`);
+    if (!searched.ok) throw new Error(`Native MC Question search status ${searched.status}`);
     return (await searched.json()) as unknown;
-  }, SOURCE_QUESTION_TITLE);
-  const matches = decodeLibraryObjectSearchPage(response).items.filter(
-    (item) =>
-      item.kind === "question" &&
-      item.question.summary.metadata.questionTitle === SOURCE_QUESTION_TITLE,
+  });
+  const questionSummaries = decodeLibraryObjectSearchPage(response).items.flatMap((item) =>
+    item.kind === "question" ? [item.question.summary] : [],
   );
-  const match = matches[0];
-  if (matches.length !== 1 || match?.kind !== "question")
-    throw new Error("Expected one exact Pilot Question for this capture.");
-  const source = match.question.summary;
+  const eligibleQuestions = questionSummaries.filter(
+    (summary) =>
+      summary.backend === "ple" &&
+      summary.questionType === "multipleChoice" &&
+      summary.availability.availability === "available",
+  );
+  const source = eligibleQuestions[0];
+  if (source === undefined) {
+    throw new Error(
+      `No available Native MC Question in the first 50 Library rows ` +
+        `(questions=${questionSummaries.length}, eligible=${eligibleQuestions.length}).`,
+    );
+  }
   await page.evaluate(
     async ({ title, publishedQuestionRevisionTuple }) => {
       const created = await fetch("/api/question-pools", {
@@ -56,7 +56,7 @@ async function createAssessmentPickerPool(page: Page): Promise<string> {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           title,
-          description: "One exact Pilot Question for this Assessment picker capture.",
+          description: "One published Question selected from the Library for this picker capture.",
           members: [publishedQuestionRevisionTuple],
         }),
       });
@@ -93,8 +93,7 @@ async function openBlueprintQuestionPicker(page: Page): Promise<void> {
     name: "Choose the first reusable Questions",
     exact: true,
   });
-  await picker.getByRole("button", { name: "Search", exact: true }).click();
-  await picker.getByRole("heading", { name: "Current results", exact: true }).waitFor();
+  await picker.getByLabel("Search Questions", { exact: true }).press("Enter");
   await picker.getByRole("checkbox").first().waitFor();
 }
 
@@ -109,30 +108,39 @@ async function openAssessmentContentPicker(page: Page): Promise<void> {
     .selectOption("practice_question_assignment");
   await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
   await page.getByRole("main", { name: "Questions", exact: true }).waitFor();
-  await page
-    .getByRole("button", { name: "Choose published Assessment content", exact: true })
-    .click();
-  const picker = page.getByRole("dialog", {
-    name: "Choose published Assessment content",
+  const available = page.getByRole("region", {
+    name: "Available Assessment content",
     exact: true,
   });
-  const results = picker.getByRole("table", {
-    name: "Published Assessment content",
-    exact: true,
-  });
-  const rows = results.locator("[data-record-id]");
-  await rows.nth(1).waitFor();
-  await rows
+  await available
+    .getByLabel("Search published Assessment content", { exact: true })
+    .fill(poolTitle);
+  await available.getByRole("button", { name: "Search", exact: true }).click();
+  const poolRow = available
+    .locator("[data-record-id]")
     .filter({ has: page.getByText(poolTitle, { exact: true }) })
-    .first()
-    .waitFor();
-  await requireOpaqueDialogSurface(picker);
+    .first();
+  await poolRow.waitFor();
+  await poolRow.getByRole("button", { name: "Add", exact: true }).waitFor();
 }
 
 async function captureBlueprintQuestionPicker(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open("blueprint_question_picker_laptop");
   try {
     await openBlueprintQuestionPicker(session.page);
+    const windowScrollY = await session.page.evaluate(() => {
+      window.scrollTo(0, 0);
+      return window.scrollY;
+    });
+    if (windowScrollY !== 0) throw new Error("Blueprint Question picker page is not at the top.");
+    const dialogScrollTop = await session.page
+      .getByRole("dialog", { name: "Choose the first reusable Questions", exact: true })
+      .evaluate((dialog) => {
+        dialog.scrollTop = 0;
+        return dialog.scrollTop;
+      });
+    if (dialogScrollTop !== 0)
+      throw new Error("Blueprint Question picker dialog is not at the top.");
     await runtime.captureCheckpoint(session, "blueprint_question_picker_laptop");
   } finally {
     await runtime.close(session);
@@ -143,6 +151,11 @@ async function captureAssessmentContentPicker(runtime: ScenarioRuntime): Promise
   const session = await runtime.open("assessment_content_picker_laptop");
   try {
     await openAssessmentContentPicker(session.page);
+    const windowScrollY = await session.page.evaluate(() => {
+      window.scrollTo(0, 0);
+      return window.scrollY;
+    });
+    if (windowScrollY !== 0) throw new Error("Assessment content picker page is not at the top.");
     await runtime.captureCheckpoint(session, "assessment_content_picker_laptop");
   } finally {
     await runtime.close(session);

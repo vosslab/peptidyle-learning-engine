@@ -17,13 +17,13 @@ import type {
 import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
 import type { QuestionPoolStartingQuestion } from "../components/question_pool_create_model";
-import type { RecordAction } from "../components/record_list/record_list";
+import type { RecordAction } from "../components/data_sheet/record_content";
 import { confirmUnsavedChanges } from "../components/unsaved_changes_guard";
 import {
   QuestionPoolSearchMetadataEditor,
   type QuestionPoolSearchMetadataTarget,
 } from "../components/question_pool_search_metadata_editor";
-import type { SearchStateController } from "../features/search/search_state";
+import type { SearchStateController } from "../components/search_block/search_state";
 import type {
   LibrarySearchRow,
   QuestionLibraryBrowseQuery,

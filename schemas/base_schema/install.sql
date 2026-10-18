@@ -16,6 +16,7 @@
 \ir 20_tables/question_pool.sql
 \ir 20_tables/object_record.sql
 \ir 20_tables/question_authoring.sql
+\ir 20_tables/question_thumbnails.sql
 \ir 20_tables/question_images.sql
 \ir 20_tables/library_watch.sql
 \ir 20_tables/blueprint_course.sql
@@ -80,6 +81,7 @@
 \ir 50_functions/assessments.sql
 \ir 50_functions/question_library_matching.sql
 \ir 50_functions/question_library_operations.sql
+\ir 50_functions/question_thumbnails.sql
 \ir 50_functions/question_library_facet_choices.sql
 \ir 50_functions/recognition_titles.sql
 \ir 50_functions/assessment_creation.sql

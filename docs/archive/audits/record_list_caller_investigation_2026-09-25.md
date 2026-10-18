@@ -81,7 +81,7 @@ A second boundary pass checked whether the richer schema would still force local
 | Library notices belong to the logical loaded collection, not its virtual slice | Compose the existing shared state boundary outside the scrolling/spacer subtree; inner rows remain ordinary shared records | LIBRARY: loading/error/retry retains selection and useful window position without distorting measurements |
 
 One layering issue also affects implementation elegance:
-[record_list_reorder.tsx](../../../src/components/record_list/record_list_reorder.tsx):3 imports its
+[record_list_reorder.tsx](../../../src/components/data_sheet/record_reorder.tsx):3 imports its
 pure array operation from the Blueprint fork feature model. WP-C7 moves that operation into shared
 ownership and the Blueprint caller consumes it. This is a small dependency inversion, with domain
 validation left in the feature; the final cutover removes any temporary re-export. Shared components
@@ -116,7 +116,7 @@ record header or a page-specific row surface. Source line numbers are investigat
 | [blueprint_fork_review.tsx](../../../src/features/blueprint_forks/blueprint_fork_review.tsx); RecordList:511 | Scan | Action scan: fork long name; short name, availability, source/fork revisions, owner/change facts; Open and Compare. Keep paired Detail review, expanded/controls semantics and trigger focus restoration. |
 | [provided_avatar_picker.tsx](../../../src/features/profile_avatar/provided_avatar_picker.tsx); RecordList:211, RecordList:227 | Image scan / Gallery | Image scan/Gallery: one adapter supplies catalog asset URL, name and description; shared media owns size/fit/fallback, controlled radio and switcher own interaction and layout. |
 | [question_picker.tsx](../../../src/features/question_picker/question_picker.tsx); RecordList:369, RecordSequence:434 | Selectable scan + sequence | Selectable Question scan: title, description and shared exact ID/reference. Selected tray uses shared Sequence movement/removal; preserve selection modes, limits and exact returned order. |
-| [account_pending_invitations_page.tsx](../../../src/pages/account_pending_invitations_page.tsx); RecordList:245, RecordList:259 | Scan | Action scan: Course title, invitation state and expiry; Accept/Decline. Keep confirmation, busy state, reload and trigger/heading focus. |
+| `src/pages/account_pending_invitations_page.tsx`; RecordList:245, RecordList:259 | Scan | Action scan: Course title, invitation state and expiry; Accept/Decline. Keep confirmation, busy state, reload and trigger/heading focus. |
 | [assessment_overview_page.tsx](../../../src/pages/assessment_overview_page.tsx); RecordList:232 | Scan | Base: Attempt number, submitted/closed state and score/unavailable score; Review Attempt. |
 | [assessment_templates_page.tsx](../../../src/pages/assessment_templates_page.tsx); RecordList:300 | Scan | Scan: Template name and shared Type fact; Edit command retains pressed/disabled state for the adjacent loaded editor, dirty replacement guard and focus. |
 | [assessment_blueprint_update_review.tsx](../../../src/pages/assessment_workspace/assessment_blueprint_update_review.tsx); RecordSequence:167 | Sequence | Sequence: ordered exact Question/Pool identity and complete facts; retain separate current/proposed labels. |

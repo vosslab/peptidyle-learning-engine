@@ -15,21 +15,19 @@ use axum::{
     routing::get,
 };
 use axum_extra::extract::Query;
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    QuestionLibrarySearchCursorPosition, QuestionLibrarySearchScope, QuestionLibrarySearchSort,
-    QuestionLibraryStore, QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor,
-    SessionTokenHash, StoreError,
+    QuestionLibrarySearchScope, QuestionLibrarySearchSort, QuestionLibraryStore,
+    QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor, SessionTokenHash,
+    StoreError,
     postgres::{PostgresQuestionLibraryStore, PostgresQuestionStarStore, PostgresSessionStore},
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    LibraryObjectId, LibraryObjectSearchRequest, LibrarySearchClassification, LibrarySearchKind,
+    LibraryObjectSearchRequest, LibrarySearchClassification, LibrarySearchKind,
     PublishedQuestionFilter, PublishedQuestionId, QuestionSearchFacets, QuestionSearchResult,
     UserRole,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -108,7 +106,9 @@ impl From<QuestionStarredInstructor> for StarredInstructorResponse {
 #[serde(rename_all = "camelCase")]
 struct StarredQuestionListResponse {
     items: Vec<StarredQuestionItemResponse>,
-    next_cursor: Option<String>,
+    page_number: u32,
+    page_size: u16,
+    total_count: u64,
     facets: QuestionSearchFacets,
 }
 
@@ -183,31 +183,6 @@ impl From<QuestionStarProjection> for StarResponse {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct StarredCursor {
-    version: u8,
-    query_digest: [u8; 32],
-    position: StarredCursorPosition,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-enum StarredCursorPosition {
-    Text {
-        key: String,
-        public_id: LibraryObjectId,
-    },
-    PublishedNewest {
-        published_at_millis: i64,
-        public_id: LibraryObjectId,
-    },
-    StarredDate {
-        starred_at_micros: i64,
-        public_id: LibraryObjectId,
-    },
-}
-
 fn store_sort(sort: StarredSort) -> QuestionLibrarySearchSort {
     match sort {
         StarredSort::StarredDateAscending => QuestionLibrarySearchSort::StarredDateAscending,
@@ -220,102 +195,6 @@ fn store_sort(sort: StarredSort) -> QuestionLibrarySearchSort {
         StarredSort::QuestionTypeDescending => QuestionLibrarySearchSort::QuestionTypeDescending,
         StarredSort::PublishedNewest => QuestionLibrarySearchSort::PublishedNewest,
     }
-}
-
-fn query_digest(query: &LibraryObjectSearchRequest, sort: StarredSort, actor: &str) -> [u8; 32] {
-    let mut query = query.clone();
-    query.cursor = None;
-    let bytes = serde_json::to_vec(&("currentStarred", actor, sort, query))
-        .expect("normalized Starred query serializes");
-    Sha256::digest(bytes).into()
-}
-
-fn decode_starred_cursor(
-    cursor: Option<&str>,
-    query: &LibraryObjectSearchRequest,
-    sort: StarredSort,
-    actor: &str,
-) -> Result<Option<QuestionLibrarySearchCursorPosition>, ()> {
-    let Some(cursor) = cursor else {
-        return Ok(None);
-    };
-    if cursor.len() > question_model::MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES {
-        return Err(());
-    }
-    let bytes = URL_SAFE_NO_PAD.decode(cursor).map_err(|_| ())?;
-    if bytes.len() > 4096 || URL_SAFE_NO_PAD.encode(&bytes) != cursor {
-        return Err(());
-    }
-    let decoded: StarredCursor = serde_json::from_slice(&bytes).map_err(|_| ())?;
-    if decoded.version != 1 || decoded.query_digest != query_digest(query, sort, actor) {
-        return Err(());
-    }
-    let position = match (sort, decoded.position) {
-        (
-            StarredSort::StarredDateAscending | StarredSort::StarredDateDescending,
-            StarredCursorPosition::StarredDate {
-                starred_at_micros,
-                public_id,
-            },
-        ) => QuestionLibrarySearchCursorPosition::StarredDate {
-            starred_at_micros,
-            public_id,
-        },
-        (
-            StarredSort::PublishedNewest,
-            StarredCursorPosition::PublishedNewest {
-                published_at_millis,
-                public_id,
-            },
-        ) => QuestionLibrarySearchCursorPosition::PublishedNewest {
-            published_at_millis,
-            public_id,
-        },
-        (sort, StarredCursorPosition::Text { key, public_id }) if !key.is_empty() => {
-            QuestionLibrarySearchCursorPosition::Text {
-                sort: store_sort(sort),
-                key,
-                public_id,
-            }
-        }
-        _ => return Err(()),
-    };
-    Ok(Some(position))
-}
-
-fn encode_starred_cursor(
-    position: QuestionLibrarySearchCursorPosition,
-    query: &LibraryObjectSearchRequest,
-    sort: StarredSort,
-    actor: &str,
-) -> String {
-    let position = match position {
-        QuestionLibrarySearchCursorPosition::Text { key, public_id, .. } => {
-            StarredCursorPosition::Text { key, public_id }
-        }
-        QuestionLibrarySearchCursorPosition::PublishedNewest {
-            published_at_millis,
-            public_id,
-        } => StarredCursorPosition::PublishedNewest {
-            published_at_millis,
-            public_id,
-        },
-        QuestionLibrarySearchCursorPosition::StarredDate {
-            starred_at_micros,
-            public_id,
-        } => StarredCursorPosition::StarredDate {
-            starred_at_micros,
-            public_id,
-        },
-    };
-    URL_SAFE_NO_PAD.encode(
-        serde_json::to_vec(&StarredCursor {
-            version: 1,
-            query_digest: query_digest(query, sort, actor),
-            position,
-        })
-        .expect("Starred cursor serializes"),
-    )
 }
 
 async fn list_stars(
@@ -333,22 +212,11 @@ async fn list_stars(
     };
     public_query.kind = LibrarySearchKind::Questions;
     public_query.questions = PublishedQuestionFilter::All;
-    let (session, actor) = match instructor_session(&state, &headers).await {
+    let (session, _) = match instructor_session(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let after =
-        match decode_starred_cursor(public_query.cursor.as_deref(), &public_query, sort, &actor) {
-            Ok(value) => value,
-            Err(()) => {
-                return route_error(
-                    StatusCode::BAD_REQUEST,
-                    "Starred Question cursor is invalid",
-                );
-            }
-        };
-    let mut request =
-        crate::question_library::mixed_search::store_search_request(&public_query, after);
+    let mut request = crate::question_library::mixed_search::store_search_request(&public_query);
     request.scope = QuestionLibrarySearchScope::CurrentStarred;
     request.sort = store_sort(sort);
     let page = match state
@@ -360,14 +228,14 @@ async fn list_stars(
         Err(error) => return store_error_response(error),
     };
     let starred_dates = page
+        .page
         .items
         .iter()
         .map(|entry| entry.starred_at_micros())
         .collect::<Vec<_>>();
-    let next_cursor = page
-        .next_position
-        .clone()
-        .map(|position| encode_starred_cursor(position, &public_query, sort, &actor));
+    let page_number = page.page.page_number.get();
+    let page_size = page.page.page_size.get();
+    let total_count = page.page.total_count;
     let (results, facets) = match crate::question_library::mixed_search::materialize_search_page(
         &state.library,
         &state.objects,
@@ -411,7 +279,9 @@ async fn list_stars(
     crate::auth::no_store(
         Json(StarredQuestionListResponse {
             items,
-            next_cursor,
+            page_number,
+            page_size,
+            total_count,
             facets,
         })
         .into_response(),

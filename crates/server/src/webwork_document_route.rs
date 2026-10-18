@@ -16,9 +16,7 @@ use question_model::{AssessmentAttemptId, PublishedQuestionRevisionTuple};
 use crate::assessment_delivery::{StateData, concealed, student};
 
 const DOCUMENT_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
-const PREVIEW_DOCUMENT_CSP: &str = "sandbox allow-scripts; default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
-const PARENT_TELEMETRY_SCRIPT_PATH: &str =
-    "/api/webwork-assets/webwork2_files/js/apps/Problem/problem.";
+const RECORDED_REVIEW_CSP: &str = "sandbox allow-scripts; default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
 
 /// Re-renders one Student's recorded WeBWorK Question and response without
 /// grading or correct-answer disclosure.
@@ -362,13 +360,13 @@ pub(crate) async fn document(
 /// Callers must authorize and resolve the exact immutable Question source
 /// before passing backend output to this response-only helper.
 pub(crate) fn backend_document_response(document: String) -> Response {
-    document_response(document, DOCUMENT_CSP)
+    document_response(&document, DOCUMENT_CSP)
 }
 
 /// Applies a response-level script-only sandbox to a no-write preview document.
 pub(crate) fn preview_backend_document_response(document: String) -> Response {
-    match without_preview_parent_telemetry(document) {
-        Some(document) => document_response(document, PREVIEW_DOCUMENT_CSP),
+    match crate::webwork_preview_document::prepare_preview_document(document) {
+        Some(prepared) => document_response(&prepared.html, &prepared.content_security_policy),
         None => concealed(),
     }
 }
@@ -377,7 +375,10 @@ pub(crate) fn preview_backend_document_response(document: String) -> Response {
 /// The shared bridge recognizes this marker and prevents form editing or
 /// submission; the opaque response sandbox remains the enforcement boundary.
 fn recorded_review_document_response(document: String, response_available: bool) -> Response {
-    let Some(document) = without_preview_parent_telemetry(document).and_then(|document| {
+    let Some(document) = crate::webwork_preview_document::without_preview_parent_telemetry(
+        document,
+    )
+    .and_then(|document| {
         document.find("<head>").map(|index| {
             let marker = if response_available {
                 "<meta name=\"ple-review\" content=\"recorded\">"
@@ -394,49 +395,13 @@ fn recorded_review_document_response(document: String, response_available: bool)
     }) else {
         return concealed();
     };
-    document_response(document, PREVIEW_DOCUMENT_CSP)
+    document_response(&document, RECORDED_REVIEW_CSP)
 }
 
-fn without_preview_parent_telemetry(mut document: String) -> Option<String> {
-    // The renderer always includes this parent-frame telemetry/result-popover
-    // loader. Its frameElement access cannot run in an opaque preview, which has
-    // neither Student interaction reporting nor grading results. Omit only that
-    // exact loader; do not interpret Question controls or change Student bytes.
-    const OPEN: &str = "<script defer src=\"";
-    const CLOSE: &str = "\"></script>";
-    let Some(path_start) = document.find(PARENT_TELEMETRY_SCRIPT_PATH) else {
-        return Some(document);
-    };
-    if document[path_start + PARENT_TELEMETRY_SCRIPT_PATH.len()..]
-        .contains(PARENT_TELEMETRY_SCRIPT_PATH)
-    {
-        return None;
-    }
-    let start = document[..path_start].rfind(OPEN)?;
-    let source_end = path_start + document[path_start..].find(CLOSE)?;
-    let source = url::Url::parse(&document[start + OPEN.len()..source_end]).ok()?;
-    let filename = source.path().strip_prefix(PARENT_TELEMETRY_SCRIPT_PATH)?;
-    let recognized_filename = filename == "js"
-        || filename.strip_suffix(".min.js").is_some_and(|hash| {
-            !hash.is_empty() && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
-        });
-    if !recognized_filename
-        || !matches!(source.scheme(), "http" | "https")
-        || !source.username().is_empty()
-        || source.password().is_some()
-        || source.query().is_some()
-        || source.fragment().is_some()
-    {
-        return None;
-    }
-    document.replace_range(start..source_end + CLOSE.len(), "");
-    Some(document)
-}
-
-fn document_response(document: String, content_security_policy: &'static str) -> Response {
+fn document_response(document: &str, content_security_policy: &str) -> Response {
     // ASVS 3.2.1, 3.4.3-3.4.6, and 4.1.1: preserve the existing isolated
     // document CSP and declare its exact media, cache, origin, and referrer policy.
-    let mut response = (StatusCode::OK, document).into_response();
+    let mut response = (StatusCode::OK, document.to_owned()).into_response();
     let response_headers = response.headers_mut();
     response_headers.insert(
         header::CONTENT_TYPE,
@@ -445,7 +410,7 @@ fn document_response(document: String, content_security_policy: &'static str) ->
     response_headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response_headers.insert(
         header::CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static(content_security_policy),
+        HeaderValue::from_str(content_security_policy).expect("valid server-owned CSP header"),
     );
     response_headers.insert(
         HeaderName::from_static("cross-origin-resource-policy"),
@@ -466,7 +431,7 @@ fn document_response(document: String, content_security_policy: &'static str) ->
 mod tests {
     use axum::{body::to_bytes, http::header};
 
-    use super::{PREVIEW_DOCUMENT_CSP, recorded_review_document_response};
+    use super::{RECORDED_REVIEW_CSP, recorded_review_document_response};
 
     #[tokio::test]
     async fn recorded_review_marks_the_renderer_document_for_read_only_bridge_behavior() {
@@ -478,7 +443,7 @@ mod tests {
         assert!(response.status().is_success());
         assert_eq!(
             response.headers().get(header::CONTENT_SECURITY_POLICY),
-            Some(&header::HeaderValue::from_static(PREVIEW_DOCUMENT_CSP))
+            Some(&header::HeaderValue::from_static(RECORDED_REVIEW_CSP))
         );
         let body = to_bytes(response.into_body(), 4096)
             .await

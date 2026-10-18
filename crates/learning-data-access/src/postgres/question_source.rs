@@ -5,6 +5,7 @@ use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, S
 use question_model::{ObjectId, PublishedQuestionId, Timestamp};
 use serde::Serialize;
 use sqlx::{Postgres, Row, Transaction, types::Json};
+use std::time::Duration;
 
 use super::Pool;
 use super::connection::map_sqlx_error;
@@ -102,6 +103,26 @@ impl PostgresDraftQuestionSourceBindingStore {
         Self { pool }
     }
 
+    async fn begin_publication_transaction(
+        &self,
+        token_hash: SessionTokenHash,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        // ASVS 2.3.3/13.2.6: pool acquisition and authentication are bounded before
+        // publication can write; the server bounds its locked registration statement.
+        tokio::time::timeout(Duration::from_secs(10), async {
+            let mut transaction = self
+                .begin_authenticated_application_transaction(token_hash)
+                .await?;
+            sqlx::query("SET LOCAL statement_timeout = '12s'")
+                .execute(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+            Ok(transaction)
+        })
+        .await
+        .map_err(|_| StoreError::Unavailable("Publication transaction setup timed out".into()))?
+    }
+
     async fn begin_authenticated_application_transaction(
         &self,
         token_hash: SessionTokenHash,
@@ -185,16 +206,16 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
     {
         input
             .validate()
-            .map_err(NewQuestionLineagePublicationError::Store)?;
+            .map_err(NewQuestionLineagePublicationError::NotCommitted)?;
         let published_question_revision_tuple = input.published_question_revision_tuple();
         let object_record = &input.question_source_object_record;
         let object_address = serde_json::to_value(&object_record.address).map_err(|_| {
-            NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
+            NewQuestionLineagePublicationError::NotCommitted(StoreError::InvalidRecord(
                 "Question Publication Object Address cannot be encoded".to_string(),
             ))
         })?;
         let size_bytes = i64::try_from(object_record.size_bytes).map_err(|_| {
-            NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
+            NewQuestionLineagePublicationError::NotCommitted(StoreError::InvalidRecord(
                 "Question Publication source size exceeds PostgreSQL bigint".to_string(),
             ))
         })?;
@@ -205,7 +226,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
             .map(|author| author.display_name.as_str())
             .collect();
         let question_authorship = serde_json::to_value(question_authorship).map_err(|_| {
-            NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
+            NewQuestionLineagePublicationError::NotCommitted(StoreError::InvalidRecord(
                 "Question Authorship cannot be encoded".to_string(),
             ))
         })?;
@@ -215,19 +236,23 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
             .map(|tag| tag.as_str())
             .collect();
         let question_license = wire_string(&input.question_license, "Question License")
-            .map_err(NewQuestionLineagePublicationError::Store)?;
+            .map_err(NewQuestionLineagePublicationError::NotCommitted)?;
+        let images = encode_prepared_question_images(&input.question_images)
+            .map_err(NewQuestionLineagePublicationError::NotCommitted)?;
+        let thumbnail = encode_prepared_question_thumbnail(input.question_thumbnail.as_ref())
+            .map_err(NewQuestionLineagePublicationError::NotCommitted)?;
         let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
+            .begin_publication_transaction(session_token_hash)
             .await
-            .map_err(NewQuestionLineagePublicationError::Store)?;
+            .map_err(NewQuestionLineagePublicationError::NotCommitted)?;
         // ASVS 1.2.4, 2.2.2, 2.3.1, 2.3.3, 5.3.2, 8.2.1-8.2.3,
         // and 8.3.1: all values are parameters. The database rechecks current
         // Instructor/workspace authority, locks the exact Draft Question Edit
         // Number, derives the target Object Address, and commits the complete
         // Published Question aggregate in one transaction.
-        sqlx::query(
+        let result = tokio::time::timeout(Duration::from_secs(15), sqlx::query(
             "SELECT ple_api.publish_new_question_lineage(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24\
              )",
         )
         .bind(input.draft_question_uuid.as_uuid())
@@ -256,13 +281,27 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         .bind(input.question_ownership_event_id)
         .bind(input.question_publication_event_id)
         .bind(input.question_availability_event_id)
-        .bind(encode_prepared_question_images(&input.question_images).map_err(NewQuestionLineagePublicationError::Store)?)
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_new_question_lineage_publication_error)?;
-        transaction
-            .commit()
+        .bind(images)
+        .bind(thumbnail)
+        .execute(&mut *transaction))
+        .await.unwrap_or_else(|_| Err(sqlx::Error::Protocol("Publication registration timed out".into())));
+        if let Err(error) = result {
+            if confirmed_publication_rollback(transaction).await {
+                return Err(map_new_question_lineage_publication_error(error));
+            }
+            return Err(NewQuestionLineagePublicationError::Store(map_sqlx_error(
+                error,
+            )));
+        }
+        // Once COMMIT is sent, a lost/timed-out response is explicitly ambiguous.
+        // The publisher retains every candidate, including potentially committed bytes.
+        tokio::time::timeout(Duration::from_secs(5), transaction.commit())
             .await
+            .map_err(|_| {
+                NewQuestionLineagePublicationError::Store(StoreError::Unavailable(
+                    "Publication commit outcome is unknown".into(),
+                ))
+            })?
             .map_err(map_sqlx_error)
             .map_err(NewQuestionLineagePublicationError::Store)?;
         Ok(published_question_revision_tuple)
@@ -281,74 +320,93 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
     > {
         input
             .validate()
-            .map_err(ExistingQuestionRevisionPublicationError::Store)?;
+            .map_err(ExistingQuestionRevisionPublicationError::NotCommitted)?;
         let published_question_revision_tuple = input
             .published_question_revision_tuple()
-            .map_err(ExistingQuestionRevisionPublicationError::Store)?;
+            .map_err(ExistingQuestionRevisionPublicationError::NotCommitted)?;
         let object_record = &input.question_source_object_record;
         let object_address = serde_json::to_value(&object_record.address).map_err(|_| {
-            ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
+            ExistingQuestionRevisionPublicationError::NotCommitted(StoreError::InvalidRecord(
                 "Question Revision Publication Object Address cannot be encoded".to_string(),
             ))
         })?;
         let size_bytes = i64::try_from(object_record.size_bytes).map_err(|_| {
-            ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
+            ExistingQuestionRevisionPublicationError::NotCommitted(StoreError::InvalidRecord(
                 "Question Revision Publication source size exceeds PostgreSQL bigint".to_string(),
             ))
         })?;
+        let parent_revision_number = i32::try_from(
+            input
+                .parent_published_question_revision_tuple
+                .revision_number
+                .get(),
+        )
+        .map_err(|_| {
+            ExistingQuestionRevisionPublicationError::NotCommitted(StoreError::InvalidRecord(
+                "Question parent Revision Number is invalid".into(),
+            ))
+        })?;
+        let images = encode_prepared_question_images(&input.question_images)
+            .map_err(ExistingQuestionRevisionPublicationError::NotCommitted)?;
+        let thumbnail = encode_prepared_question_thumbnail(input.question_thumbnail.as_ref())
+            .map_err(ExistingQuestionRevisionPublicationError::NotCommitted)?;
         let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
+            .begin_publication_transaction(session_token_hash)
             .await
-            .map_err(ExistingQuestionRevisionPublicationError::Store)?;
+            .map_err(ExistingQuestionRevisionPublicationError::NotCommitted)?;
         // ASVS 1.2.4, 2.2.2, 2.3.1-2.3.4, and 8.2.1-8.3.1: parameters
         // carry the browser-selected exact parent only. PostgreSQL locks the
         // lineage, repeats current owner and parent checks, and returns a
         // retryable conflict before it can register a stale successor.
-        let row = sqlx::query(
-            "SELECT ple_api.publish_question_revision(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14\
+        let result = tokio::time::timeout(
+            Duration::from_secs(15),
+            sqlx::query(
+                "SELECT ple_api.publish_question_revision(\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15\
              ) AS revision_number",
-        )
-        .bind(input.draft_question_uuid.as_uuid())
-        .bind(
-            input
-                .expected_draft_question_edit_number
-                .as_postgres_bigint(),
-        )
-        .bind(input.workspace.as_uuid())
-        .bind(question_id_for_persistence(
-            &input
-                .parent_published_question_revision_tuple
-                .published_question_id,
-        ))
-        .bind(
-            i32::try_from(
-                input
-                    .parent_published_question_revision_tuple
-                    .revision_number
-                    .get(),
             )
-            .map_err(|_| {
-                ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
-                    "Question parent Revision Number is invalid".to_string(),
-                ))
-            })?,
+            .bind(input.draft_question_uuid.as_uuid())
+            .bind(
+                input
+                    .expected_draft_question_edit_number
+                    .as_postgres_bigint(),
+            )
+            .bind(input.workspace.as_uuid())
+            .bind(question_id_for_persistence(
+                &input
+                    .parent_published_question_revision_tuple
+                    .published_question_id,
+            ))
+            .bind(parent_revision_number)
+            .bind(object_record.id.as_uuid())
+            .bind(object_address)
+            .bind(object_record.sha256.as_bytes().to_vec())
+            .bind(size_bytes)
+            .bind(&object_record.media_type)
+            .bind(object_record.created_at.as_unix_millis())
+            .bind(input.question_revision_reason.as_str())
+            .bind(input.question_publication_event_id)
+            .bind(images)
+            .bind(thumbnail)
+            .fetch_one(&mut *transaction),
         )
-        .bind(object_record.id.as_uuid())
-        .bind(object_address)
-        .bind(object_record.sha256.as_bytes().to_vec())
-        .bind(size_bytes)
-        .bind(&object_record.media_type)
-        .bind(object_record.created_at.as_unix_millis())
-        .bind(input.question_revision_reason.as_str())
-        .bind(input.question_publication_event_id)
-        .bind(
-            encode_prepared_question_images(&input.question_images)
-                .map_err(ExistingQuestionRevisionPublicationError::Store)?,
-        )
-        .fetch_one(&mut *transaction)
         .await
-        .map_err(map_existing_question_revision_publication_error)?;
+        .unwrap_or_else(|_| {
+            Err(sqlx::Error::Protocol(
+                "Publication registration timed out".into(),
+            ))
+        });
+        let row = match result {
+            Ok(row) => row,
+            Err(error) => {
+                if confirmed_publication_rollback(transaction).await {
+                    return Err(map_existing_question_revision_publication_error(error));
+                }
+                return Err(ExistingQuestionRevisionPublicationError::Store(
+                    map_sqlx_error(error),
+                ));
+            }
+        };
         let revision_number: i32 = row
             .try_get("revision_number")
             .map_err(map_sqlx_error)
@@ -368,13 +426,40 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
                 ),
             ));
         }
-        transaction
-            .commit()
+        tokio::time::timeout(Duration::from_secs(5), transaction.commit())
             .await
+            .map_err(|_| {
+                ExistingQuestionRevisionPublicationError::Store(StoreError::Unavailable(
+                    "Publication commit outcome is unknown".into(),
+                ))
+            })?
             .map_err(map_sqlx_error)
             .map_err(ExistingQuestionRevisionPublicationError::Store)?;
         Ok(published_question_revision_tuple)
     }
+}
+
+async fn confirmed_publication_rollback(transaction: Transaction<'_, Postgres>) -> bool {
+    matches!(
+        tokio::time::timeout(Duration::from_secs(2), transaction.rollback()).await,
+        Ok(Ok(()))
+    )
+}
+
+fn encode_prepared_question_thumbnail(
+    thumbnail: Option<&crate::PreparedQuestionThumbnailPublication>,
+) -> Result<Option<serde_json::Value>, StoreError> {
+    thumbnail.map(|thumbnail| {
+        let record = &thumbnail.object_record;
+        let size = i64::try_from(record.size_bytes).map_err(|_| StoreError::InvalidRecord("Thumbnail size exceeds PostgreSQL bigint".into()))?;
+        Ok(serde_json::json!({
+            "objectId": record.id, "objectAddress": record.address,
+            "checksum": record.sha256.to_string(), "byteLength": size,
+            "mediaType": record.media_type, "createdAtMillis": record.created_at.as_unix_millis(),
+            "sourceChecksum": thumbnail.source_checksum.to_string(),
+            "intrinsicWidth": thumbnail.intrinsic_width, "intrinsicHeight": thumbnail.intrinsic_height,
+        }))
+    }).transpose()
 }
 
 fn encode_prepared_question_images(
@@ -401,14 +486,11 @@ fn map_existing_question_revision_publication_error(
     if let sqlx::Error::Database(database_error) = &error
         && database_error.code().as_deref() == Some("PQR01")
     {
-        // This procedure's dedicated SQLSTATE is raised before any insert.
-        // It proves the transaction rolled back, which lets the coordinator
-        // remove only its just-written target object without inspecting a
-        // database message or treating a genuine serialization failure as
-        // conclusive.
+        // The named precondition retains its ordinary stale response. This
+        // mapper runs only after explicit rollback has been acknowledged.
         return ExistingQuestionRevisionPublicationError::Stale;
     }
-    ExistingQuestionRevisionPublicationError::Store(map_sqlx_error(error))
+    ExistingQuestionRevisionPublicationError::NotCommitted(map_sqlx_error(error))
 }
 
 fn map_new_question_lineage_publication_error(
@@ -419,7 +501,7 @@ fn map_new_question_lineage_publication_error(
     {
         return NewQuestionLineagePublicationError::IdentityCollision;
     }
-    NewQuestionLineagePublicationError::Store(map_sqlx_error(error))
+    NewQuestionLineagePublicationError::NotCommitted(map_sqlx_error(error))
 }
 
 fn question_id_for_persistence(question_id: &question_model::PublishedQuestionId) -> &str {

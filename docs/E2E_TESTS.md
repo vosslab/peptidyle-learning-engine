@@ -18,9 +18,10 @@ test policy.
 - `tests/playwright/` contains permanent browser-driven tests. Website and TypeScript repositories
   also receive `PLAYWRIGHT_TEST_STYLE.md` and `PLAYWRIGHT_USAGE.md`.
 
-Both permanent E2E subtrees run outside pytest. `tests/conftest.py` excludes only `e2e` and
-`playwright`. Pytest-suitable `test_*.py` files in `tests/_temp/` remain available to normal pytest
-collection; heavier temporary checks run explicitly.
+Both permanent E2E subtrees run outside pytest. `tests/conftest.py` excludes `e2e`, `playwright`,
+and the ignored `tests/_temp/` subtree from ordinary pytest collection. Run pytest-suitable temporary
+checks by naming their files with a temporary-specific pytest invocation that does not load the
+permanent test configuration; run other temporary checks explicitly with their native tool.
 
 ## Permanent E2E checklist
 

@@ -15,6 +15,7 @@ RESET ROLE;
 \ir 70_grants/question_watch_notifications.sql
 \ir 70_grants/object_records.sql
 \ir 70_grants/question_authoring_state.sql
+\ir 70_grants/question_thumbnails.sql
 \ir 70_grants/draft_question_images.sql
 \ir 70_grants/question_publication_operations.sql
 \ir 70_grants/question_authoring_operations.sql

@@ -1,38 +1,25 @@
 // Lazy, read-only inspection of exact saved Blueprint content and recorded metadata.
-import { For, Show, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
+import { Show, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintHistoryEntryView } from "../../../generated/api/BlueprintHistoryEntryView";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
-import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type {
   BlueprintCourseClient,
   BlueprintHistoryPage,
   BlueprintHistoryQuery,
 } from "../../api/blueprint_course";
 import { ApiRequestError } from "../../api/http_client";
-import {
-  assessmentDurationDefaultDescription,
-  assessmentDurationDisplay,
-} from "../../assessment_duration";
-import type { RecordContent } from "../../components/record_list/record_list";
+import type { RecordContent } from "../../components/data_sheet/record_content";
 import type {
   RecordField,
   RecordFilterChoices,
   RecordListQuery,
-} from "../../components/record_list/record_fields";
-import { SearchBlock } from "../search/search_block";
-import { SearchControls } from "../search/search_controls";
-import { createSearchState } from "../search/search_state";
-import type { SearchDefinition } from "../search/search_session";
-import {
-  RecordOutlineItem,
-  RecordOutlineList,
-} from "../../components/record_list/record_outline_list";
-import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
-import type { RecognitionTitleMaps } from "../../api/recognition_titles";
-import { labeledQuestionRecognition, recognitionTitle } from "../recognition_label";
-import { recognitionTitlesResource } from "../recognition_titles_load";
+} from "../../components/data_sheet/record_fields";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createSearchState } from "../../components/search_block/search_state";
+import type { SearchDefinition } from "../../components/search_block/search_session";
+import { BlueprintHistoryContent } from "./blueprint_history_content";
 
 interface HistoryProps {
   readonly client: BlueprintCourseClient;
@@ -51,79 +38,10 @@ function historyError(error: unknown): string {
   return "Blueprint history could not load. Try again.";
 }
 
-function policyLabel(name: string): string {
-  const words = name.replace(/([a-z])([A-Z])/gu, "$1 $2").replace(/_/gu, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function historicalAssessmentQuestionCount(content: BlueprintAssessmentContentView): number {
-  return content.entries.reduce(
-    (count, entry) => count + (entry.kind === "fixed" ? 1 : entry.selection_count),
-    0,
-  );
-}
-
-function historicalAssessmentDefaultDuration(content: BlueprintAssessmentContentView): string {
-  const seconds = content.defaults.assessment_attempt_time_limit_seconds;
-  if (seconds === null)
-    return assessmentDurationDefaultDescription(historicalAssessmentQuestionCount(content));
-  return assessmentDurationDisplay(seconds);
-}
-
-function historicalEntryId(entry: BlueprintAssessmentEntryView): string {
-  if (entry.kind === "fixed") {
-    const tuple = entry.question.published_question_revision_tuple;
-    return `question-${tuple.publishedQuestionId}-${tuple.revisionNumber}`;
-  }
-  return `pool-${entry.question_pool_id}`;
-}
-
 function historyEntryId(entry: BlueprintHistoryEntryView): string {
   return entry.kind === "savedRevision"
     ? `revision-${entry.revisionNumber}`
     : `metadata-${entry.blueprintEditNumber}`;
-}
-
-function historicalEntryContent(
-  entry: BlueprintAssessmentEntryView,
-  titles: RecognitionTitleMaps,
-): RecordContent {
-  const timeLimit =
-    entry.question_attempt_time_limit.kind === "limited"
-      ? `${assessmentDurationDisplay(entry.question_attempt_time_limit.seconds)} (${entry.question_attempt_time_limit.graceSeconds === 0 ? "no grace" : `${assessmentDurationDisplay(entry.question_attempt_time_limit.graceSeconds)} grace`})`
-      : "unlimited";
-  const scoring = `Scoring ${entry.scoring_rule}; Question Attempt limit ${entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit ${timeLimit}`;
-  if (entry.kind === "fixed") {
-    const tuple = entry.question.published_question_revision_tuple;
-    const line = labeledQuestionRecognition(
-      titles.questions.get(tuple.publishedQuestionId),
-      tuple.publishedQuestionId,
-      tuple.revisionNumber,
-    );
-    return {
-      title: line.title,
-      details: [
-        { kind: "text", label: "Question ID", value: tuple.publishedQuestionId },
-        { kind: "text", label: "Revision", value: String(tuple.revisionNumber) },
-        { kind: "text", label: "Points", value: String(entry.points_possible) },
-        { kind: "text", value: scoring },
-      ],
-      actions: [],
-    };
-  }
-  return {
-    title: recognitionTitle(titles.pools.get(entry.question_pool_id), "Question Pool"),
-    details: [
-      { kind: "text", label: "Question Pool ID", value: entry.question_pool_id },
-      { kind: "text", label: "Questions selected", value: String(entry.selection_count) },
-      { kind: "text", label: "Points per Question", value: String(entry.points_per_item) },
-      {
-        kind: "text",
-        value: scoring,
-      },
-    ],
-    actions: [],
-  };
 }
 
 /** Opening history never grants editing or changes the ordinary latest-Revision workspace. */
@@ -248,7 +166,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
               )}
             </Show>
             <Show when={revision()} keyed>
-              {(saved) => <RevisionContent client={props.client} revision={saved} />}
+              {(saved) => <BlueprintHistoryContent client={props.client} revision={saved} />}
             </Show>
           </section>
         )}
@@ -389,15 +307,17 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
     setText: (query, q) => ({ ...query, q }),
     rowId: historyEntryId,
     content,
-    fetchPage: async (query, cursor, size) => {
+    fetchPage: async (query, requestedPage) => {
       const page = await props.client.listBlueprintHistory(
         props.blueprintCourseId,
         props.kind,
         query,
-        cursor,
-        size,
+        requestedPage.pageNumber,
+        requestedPage.pageSize,
       );
-      return { items: page.items, nextCursor: page.nextCursor, filterCounts: page };
+      if (page.pageSize !== requestedPage.pageSize)
+        throw new Error("Blueprint history response page size differs from its request");
+      return { ...page, pageSize: requestedPage.pageSize, filterCounts: page };
     },
     appliedFilters: (query) =>
       query.availability.map((value) => ({
@@ -417,7 +337,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
         return { key: state.query().sort, direction: state.query().direction };
       },
       onChange: (sort) =>
-        void state.apply((current) => ({ ...current, sort: sort.key, direction: sort.direction })),
+        void state.sort((current) => ({ ...current, sort: sort.key, direction: sort.direction })),
     },
     ...(props.kind === "metadata"
       ? {
@@ -445,7 +365,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
                 props.blueprintCourseId,
                 props.kind,
                 { ...query, availability: [] },
-                null,
+                1,
                 1,
               );
               const choices = (["public", "archived"] as const).map((key) => ({
@@ -489,142 +409,5 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
         query: recordQuery,
       }}
     />
-  );
-}
-
-function RevisionContent(props: {
-  readonly client: BlueprintCourseClient;
-  readonly revision: BlueprintRevisionView;
-}): JSX.Element {
-  const [selectedAssessment, setSelectedAssessment] =
-    createSignal<BlueprintAssessmentContentView>();
-  const recognition = recognitionTitlesResource(
-    () => props.client,
-    () => {
-      const content = selectedAssessment();
-      if (content === undefined) return { questionIds: [], poolIds: [] };
-      const questionIds: string[] = [];
-      const poolIds: string[] = [];
-      for (const entry of content.entries) {
-        if (entry.kind === "fixed") {
-          questionIds.push(entry.question.published_question_revision_tuple.publishedQuestionId);
-        } else {
-          poolIds.push(entry.question_pool_id);
-        }
-      }
-      return { questionIds, poolIds };
-    },
-  );
-  return (
-    <>
-      <Show
-        when={selectedAssessment() === undefined}
-        fallback={
-          <button
-            type="button"
-            class="quiet-action"
-            onClick={() => setSelectedAssessment(undefined)}
-          >
-            Return to historical assessment list
-          </button>
-        }
-      >
-        <RecordOutlineList
-          state={{ kind: "ready" }}
-          isEmpty={props.revision.modules.length === 0}
-          ariaLabel="Historical Blueprint Modules and Assessments"
-          emptyState={{ title: "No Modules", message: "This saved Revision has no Modules." }}
-        >
-          <For each={props.revision.modules}>
-            {(module) => (
-              <RecordOutlineItem recordId={module.blueprint_module_id}>
-                <section class="blueprint-course-module">
-                  <h4>{module.label}</h4>
-                  <RecordOutlineList
-                    state={{ kind: "ready" }}
-                    isEmpty={module.assessments.length === 0}
-                    ariaLabel={`${module.label} historical Assessments`}
-                    emptyState={{
-                      title: "No Assessments",
-                      message: "This Module has no saved Assessments.",
-                    }}
-                  >
-                    <For each={module.assessments}>
-                      {(assessment) => (
-                        <RecordOutlineItem recordId={assessment.blueprint_assessment_id}>
-                          <span>{assessment.content.title}</span>
-                          <button
-                            type="button"
-                            class="quiet-action"
-                            onClick={() => setSelectedAssessment(assessment.content)}
-                          >
-                            View historical assessment
-                          </button>
-                        </RecordOutlineItem>
-                      )}
-                    </For>
-                  </RecordOutlineList>
-                </section>
-              </RecordOutlineItem>
-            )}
-          </For>
-        </RecordOutlineList>
-      </Show>
-      <Show when={selectedAssessment()}>
-        {(content) => (
-          <section aria-label="Read-only historical assessment">
-            <h4>{content().title}</h4>
-            <p>Assessment type: {content().assessment_type}</p>
-            {/* ASVS 1.2.1: authored instructions remain escaped plain text, never HTML. */}
-            <p style={{ "white-space": "pre-wrap" }}>{content().instructions}</p>
-            <h5>Question entries</h5>
-            <Show when={recognition.status()}>
-              <p role="status">{recognition.status()}</p>
-            </Show>
-            <RecordSequence
-              rows={content().entries}
-              content={(entry) => historicalEntryContent(entry, recognition.titles())}
-              recordId={historicalEntryId}
-              state={{ kind: "ready" }}
-              ariaLabel="Historical Question and Pool entries"
-              emptyState={{
-                title: "No Question entries",
-                message: "This historical Assessment has no reusable entries.",
-              }}
-            />
-            <h5>Assessment defaults</h5>
-            <dl>
-              <dt>Assessment Attempt time limit</dt>
-              <dd>{historicalAssessmentDefaultDuration(content())}</dd>
-              <dt>Assessment Attempt limit</dt>
-              <dd>{content().defaults.assessment_attempt_limit ?? "Unlimited"}</dd>
-              <dt>Late work rule</dt>
-              <dd>{content().defaults.late_work_rule}</dd>
-              <dt>Student feedback release rule</dt>
-              <dd>
-                <dl>
-                  <For each={Object.entries(content().defaults.student_feedback_release_rule)}>
-                    {([name, value]) => (
-                      <>
-                        <dt>{policyLabel(name)}</dt>
-                        <dd>{value}</dd>
-                      </>
-                    )}
-                  </For>
-                </dl>
-              </dd>
-              <For each={Object.entries(content().defaults.activity_rules)}>
-                {([name, value]) => (
-                  <>
-                    <dt>{policyLabel(name)}</dt>
-                    <dd>{value}</dd>
-                  </>
-                )}
-              </For>
-            </dl>
-          </section>
-        )}
-      </Show>
-    </>
   );
 }

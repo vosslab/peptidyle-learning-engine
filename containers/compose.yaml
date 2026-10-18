@@ -94,6 +94,9 @@ services:
       context: ..
       dockerfile: containers/Containerfile.api
       target: database-migrator
+    networks:
+      - default
+      - renderer_private
     depends_on:
       postgres:
         condition: service_healthy
@@ -112,6 +115,12 @@ services:
       # Provisioning uses the canonical browser origin for session-bound API
       # requests while dialing the API directly only in disposable-local mode.
       PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:-}
+      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
+      PLE_QUESTION_THUMBNAIL_RENDERER_BASE_URL: http://question-thumbnail-renderer:3001/
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
+      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
+      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
+      PLE_WEBWORK_RENDERER_VERSION_FILE: /run/ple-secrets/question-renderer-version
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
       PLE_PUBLIC_ASSETS_BUCKET: public-assets
@@ -346,6 +355,46 @@ services:
     pids_limit: 16
     restart: "no"
 
+  # PLE-owned Playwright capture process. It shares the renderer-only private
+  # network so captures can request approved assets from the API proxy.
+  question-thumbnail-renderer:
+    labels: *ple-disposable-capability-label
+    image: localhost/ple-question-thumbnail-renderer:local
+    build:
+      context: ..
+      dockerfile: containers/Containerfile.question_thumbnail_renderer
+    environment:
+      PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:?set PLE_BROWSER_ORIGIN in the env file}
+      PORT: "3001"
+    # ASVS 4.1.1: the fixed JSON health response declares its content type.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    user: "1000:1000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,mode=1777
+    cpus: "1.0"
+    mem_limit: 1g
+    pids_limit: 128
+    restart: on-failure
+    stop_grace_period: 10s
+    networks:
+      - renderer_private
+
   api:
     labels: *ple-disposable-capability-label
     # `api` is the sole Compose build owner for the shared Rust application
@@ -366,6 +415,8 @@ services:
       identity-secret-init:
         condition: service_completed_successfully
       webwork-renderer:
+        condition: service_healthy
+      question-thumbnail-renderer:
         condition: service_healthy
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
@@ -390,6 +441,7 @@ services:
       PLE_LOCAL_SYSADMIN_TOTP_SEED_FILE: /run/ple-sysadmin-totp/morgan_totp_seed
       PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_FILE: /run/ple-sysadmin-totp/morgan_totp_seed_wrapping_key
       PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
+      PLE_QUESTION_THUMBNAIL_RENDERER_BASE_URL: http://question-thumbnail-renderer:3001/
       PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
       PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
       PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}

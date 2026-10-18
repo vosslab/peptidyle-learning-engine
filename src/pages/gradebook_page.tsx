@@ -6,11 +6,11 @@ import { Show, createResource, createSignal, onCleanup, type JSX } from "solid-j
 import type { CourseInstanceId } from "../../generated/api/CourseInstanceId";
 import type { CourseGradebookStudentWork, GradebookExportFormat } from "../api/live_gradebook";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { parseCourseInstanceId } from "../navigation/public_route";
 import {
   compareGradebookWork,
@@ -41,7 +41,12 @@ function GradebookCoursePage(props: { readonly courseInstanceId: CourseInstanceI
     async (course) => (await runtime.client.getCourseGradebook(course)).studentWork,
   );
   const gradebookSearch = createLocalCompleteSearch(
-    { resource: studentWork, refetchSource: refetch, rows: (value) => value },
+    {
+      rows: studentWork,
+      loading: () => studentWork.loading,
+      error: (): unknown => studentWork.error,
+      refetchSource: refetch,
+    },
     {
       fields: gradebookFields,
       rowId: gradebookWorkId,

@@ -4,7 +4,7 @@ import { useParams } from "@solidjs/router";
 import { Show, createResource, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import { parseQuestionRouteId } from "../navigation/public_route";
 import { QuestionDetailPage } from "./question_detail_page";
 import { QuestionPoolDetail } from "./question_pool_detail";

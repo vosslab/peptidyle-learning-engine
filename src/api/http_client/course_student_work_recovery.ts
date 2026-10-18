@@ -19,7 +19,7 @@ export function createCourseStudentWorkRecoveryClient(
   async function request(courseInstanceId: string, body: unknown): Promise<unknown> {
     if (parseCourseInstanceId(courseInstanceId) === null)
       throw new ApiProtocolError("Course Instance ID must be canonical");
-    // ASVS 14.2.1, 14.3.2: selection cursor and Attempt are POST body only; no cache.
+    // ASVS 14.2.1, 14.3.2: selection page and Attempt are POST body only; no cache.
     const path = `/api/course-instances/${encodeURIComponent(courseInstanceId)}/student-work/recovery`;
     const response = await requestSameOrigin(fetchImplementation, basePath, path, {
       method: "POST",
@@ -36,9 +36,10 @@ export function createCourseStudentWorkRecoveryClient(
         browse.search.length > 200 ||
         /\p{Cc}/u.test(browse.search) ||
         (browse.sort !== "attemptAscending" && browse.sort !== "attemptDescending") ||
+        !Number.isSafeInteger(browse.pageNumber) ||
+        browse.pageNumber < 1 ||
         (browse.pageSize !== 50 && browse.pageSize !== 100) ||
-        browse.assessmentIds.length > 100 ||
-        (browse.cursor !== null && browse.cursor.length > 512)
+        browse.assessmentIds.length > 100
       ) {
         throw new ApiProtocolError("Recovery selection query is invalid");
       }

@@ -6,11 +6,10 @@ import type {
   BlueprintProposalListQuery,
 } from "../blueprint_change_proposal";
 import type { BlueprintChangeProposalDetailView } from "../../../generated/api/BlueprintChangeProposalDetailView";
-import type { RecordFilterChoices } from "../../components/record_list/record_fields";
+import type { RecordFilterChoices } from "../../components/data_sheet/record_fields";
 import { decodeNonnegativeInteger, decodeRecord } from "../decoder";
 import { field, requireOnlyFields } from "../decoders/shared";
 import { decodeBlueprintCourseId } from "../decoders/blueprint_course";
-import { decodeCursor } from "../decoders/shared";
 import {
   decodeBlueprintChangeProposalAcceptanceRequest,
   decodeBlueprintChangeProposalAcceptedView,
@@ -36,24 +35,24 @@ function targetPath(target: string): string {
 
 function pagePath(
   path: string,
-  cursor?: string,
-  pageSize?: number,
-  options?: BlueprintProposalListQuery,
+  pageNumber: number,
+  pageSize: number,
+  options: BlueprintProposalListQuery,
 ): string {
-  if (pageSize !== undefined && (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100))
+  if (!Number.isSafeInteger(pageNumber) || pageNumber < 1)
+    throw new ApiProtocolError("Blueprint Change Proposal page number must be a positive integer");
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100)
     throw new ApiProtocolError(
       "Blueprint Change Proposal page size must be an integer from 1 through 100",
     );
   const query = new URLSearchParams();
-  if (cursor !== undefined) query.set("cursor", decodeCursor(cursor, "cursor"));
-  if (pageSize !== undefined) query.set("pageSize", String(pageSize));
-  if (options !== undefined) {
-    if (options.text.length > 160 || /[%_\\]/u.test(options.text))
-      throw new ApiProtocolError("Blueprint Proposal search text is invalid");
-    query.set("text", options.text.trim());
-    query.set("sort", options.sort);
-    query.set("status", [...new Set(options.status)].sort().join(","));
-  }
+  query.set("pageNumber", String(pageNumber));
+  query.set("pageSize", String(pageSize));
+  if (options.text.length > 160 || /[%_\\]/u.test(options.text))
+    throw new ApiProtocolError("Blueprint Proposal search text is invalid");
+  query.set("text", options.text.trim());
+  query.set("sort", options.sort);
+  query.set("status", [...new Set(options.status)].sort().join(","));
   return query.size === 0 ? path : `${path}${path.includes("?") ? "&" : "?"}${query.toString()}`;
 }
 
@@ -142,18 +141,18 @@ export function createBlueprintChangeProposalClient(
         201,
       );
     },
-    listBlueprintChangeProposalsForTarget: (target, cursor, pageSize, query) =>
+    listBlueprintChangeProposalsForTarget: (target, query, pageNumber, pageSize) =>
       proposalJson(
         fetchImplementation,
         basePath,
-        pagePath(targetPath(target), cursor, pageSize, query),
+        pagePath(targetPath(target), pageNumber, pageSize, query),
         decodeBlueprintChangeProposalPageView,
       ),
-    listMyBlueprintChangeProposals: (cursor, pageSize, query) =>
+    listMyBlueprintChangeProposals: (query, pageNumber, pageSize) =>
       proposalJson(
         fetchImplementation,
         basePath,
-        pagePath("/api/blueprint-change-proposals?scope=mine", cursor, pageSize, query),
+        pagePath("/api/blueprint-change-proposals?scope=mine", pageNumber, pageSize, query),
         decodeBlueprintChangeProposalPageView,
       ),
     getBlueprintChangeProposal: (id) =>

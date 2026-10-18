@@ -1,12 +1,13 @@
 // provided_avatar_picker.tsx - catalog-driven provided-avatar controls.
 
-import { createResource, type JSX } from "solid-js";
+import { type JSX } from "solid-js";
 
-import type { RecordContent, RecordListSelection } from "../../components/record_list/record_list";
-import type { RecordField } from "../../components/record_list/record_fields";
-import { SearchBlock } from "../search/search_block";
-import { SearchControls } from "../search/search_controls";
-import { createLocalCompleteSearch } from "../search/local_complete_search_state";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import type { DataSheetSelection } from "../../components/data_sheet/data_sheet_state";
+import type { RecordField } from "../../components/data_sheet/record_fields";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
 import {
   PROVIDED_AVATAR_CATALOG,
   type ProvidedAvatarCatalogEntry,
@@ -98,8 +99,7 @@ const avatarFields: ReadonlyArray<RecordField<ProvidedAvatarCatalogEntry, "name"
 export function ProvidedAvatarPicker(props: ProvidedAvatarPickerProps): JSX.Element {
   const selectableEntries = (): readonly ProvidedAvatarCatalogEntry[] =>
     PROVIDED_AVATAR_CATALOG.filter((entry) => entry.isSelectable);
-  const [entries, { refetch }] = createResource(selectableEntries);
-  const selection: RecordListSelection<ProvidedAvatarCatalogEntry> = {
+  const selection: DataSheetSelection<ProvidedAvatarCatalogEntry> = {
     kind: "radio",
     selectedIds: () =>
       props.currentAvatarId === undefined ? new Set() : new Set([props.currentAvatarId]),
@@ -109,7 +109,7 @@ export function ProvidedAvatarPicker(props: ProvidedAvatarPickerProps): JSX.Elem
     },
   };
   const avatarSearch = createLocalCompleteSearch(
-    { resource: entries, refetchSource: refetch, rows: (value) => value },
+    { rows: selectableEntries },
     {
       fields: avatarFields,
       rowId: (entry) => entry.id,

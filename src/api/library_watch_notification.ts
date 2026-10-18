@@ -53,11 +53,18 @@ export type LibraryWatchQuery = {
   readonly direction: "ascending" | "descending";
 };
 
+export type LibraryWatchPageRequest = {
+  readonly pageNumber: number;
+  readonly pageSize: number;
+};
+
 export type LibraryWatchFacet = { readonly value: string; readonly count: number };
 
 export type LibraryWatchPage = {
-  readonly notifications: ReadonlyArray<LibraryWatchNotification>;
-  readonly nextCursor: string | null;
+  readonly items: ReadonlyArray<LibraryWatchNotification>;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly totalCount: number;
   readonly targetKindFacets: ReadonlyArray<LibraryWatchFacet>;
   readonly eventKindFacets: ReadonlyArray<LibraryWatchFacet>;
 };
@@ -65,7 +72,6 @@ export type LibraryWatchPage = {
 export interface LibraryWatchNotificationClient {
   readonly getLibraryWatchNotifications: (
     query: LibraryWatchQuery,
-    cursor?: string | null,
-    limit?: number,
+    page: LibraryWatchPageRequest,
   ) => Promise<LibraryWatchPage>;
 }

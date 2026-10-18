@@ -7,12 +7,13 @@ use axum::{
 };
 use learning_data_access::{PublishedQuestionLibraryEntry, StoreError};
 use objects::{ObjectStore, ResolvedQuestionSource};
-use question_model::{QuestionBackend, QuestionSummary};
+use question_model::{PublishedQuestionRevisionTuple, QuestionBackend, QuestionSummary};
 
 use super::QuestionAvailabilityResponse;
 
 pub(super) struct ResolvedQuestionLibraryEntry {
     pub(super) summary: QuestionSummary,
+    pub(super) question_thumbnail: Option<PublishedQuestionRevisionTuple>,
     pub(super) prompt: Vec<question_model::QuestionContentBlock>,
     pub(super) response_preview: Option<question_model::QuestionResponsePreview>,
     pub(super) subject: Option<String>,
@@ -48,27 +49,18 @@ pub(super) async fn answer_free_question_library_entry<O: ObjectStore>(
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
     match entry.backend {
-        QuestionBackend::Ple => resolved_ple_question(objects, entry, None).await,
+        QuestionBackend::Ple => resolved_ple_question(objects, entry).await,
         QuestionBackend::Webwork => webwork_question_library_entry(entry),
         QuestionBackend::Imathas => Err(()),
     }
 }
 
-/// Binds exact-revision images only when constructing rendered Question detail.
+/// Uses the same exact-revision compilation for Question detail and Library previews.
 pub(super) async fn answer_free_question_detail_entry<O: ObjectStore>(
     objects: &O,
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
-    match entry.backend {
-        QuestionBackend::Ple => {
-            let images = crate::assessment_delivery::question_html_image_bindings(
-                &entry.question_image_renditions,
-            );
-            resolved_ple_question(objects, entry, Some(&images)).await
-        }
-        QuestionBackend::Webwork => webwork_question_library_entry(entry),
-        QuestionBackend::Imathas => Err(()),
-    }
+    answer_free_question_library_entry(objects, entry).await
 }
 
 /// WeBWorK publication metadata is already database-authoritative and
@@ -79,6 +71,9 @@ fn webwork_question_library_entry(
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
     let tags = entry.shared_metadata.tags.clone();
     Ok(ResolvedQuestionLibraryEntry {
+        question_thumbnail: entry
+            .has_question_thumbnail
+            .then(|| entry.published_question_revision_tuple.clone()),
         summary: QuestionSummary {
             question_id: entry
                 .published_question_revision_tuple
@@ -115,7 +110,6 @@ fn webwork_question_library_entry(
 async fn resolved_ple_question<O: ObjectStore>(
     objects: &O,
     entry: PublishedQuestionLibraryEntry,
-    images: Option<&[question_model::QuestionHtmlImageBinding]>,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
     if entry.backend != QuestionBackend::Ple {
         return Err(());
@@ -135,11 +129,9 @@ async fn resolved_ple_question<O: ObjectStore>(
     }
     let document = adapter_ple::question_json::PleQuestionJsonDocument::parse(source.bytes())
         .map_err(|_| ())?;
-    let compiled = match images {
-        Some(images) => document.compile_with_images(images),
-        None => document.compile(),
-    }
-    .map_err(|_| ())?;
+    let compiled = document
+        .compile_with_images(&entry.question_image_bindings)
+        .map_err(|_| ())?;
     let presentation = compiled.presentation();
     if presentation.question_type() != entry.question_type {
         return Err(());
@@ -154,6 +146,9 @@ async fn resolved_ple_question<O: ObjectStore>(
         language: entry.language.clone(),
     };
     Ok(ResolvedQuestionLibraryEntry {
+        question_thumbnail: entry
+            .has_question_thumbnail
+            .then(|| entry.published_question_revision_tuple.clone()),
         summary: QuestionSummary {
             question_id: entry
                 .published_question_revision_tuple

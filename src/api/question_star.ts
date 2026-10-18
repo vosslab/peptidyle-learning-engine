@@ -8,6 +8,7 @@ import type { QuestionSearchFacets } from "../../generated/api/QuestionSearchFac
 import type { AccountId } from "../../generated/api/AccountId";
 import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
 import type { LibraryFacetChoicePage } from "../../generated/api/LibraryFacetChoicePage";
+import type { SearchPageRequest } from "../components/search_block/search_session";
 
 /** One active Instructor shown in an Instructor-only Star list. */
 export interface QuestionStarredInstructor {
@@ -49,7 +50,9 @@ export type StarredQuestionSort =
 /** The signed-in Instructor's Starred Questions, newest first. */
 export interface StarredQuestionPage {
   readonly items: ReadonlyArray<StarredQuestionSummary>;
-  readonly nextCursor: string | null;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly totalCount: number;
   readonly facets: QuestionSearchFacets;
 }
 
@@ -63,6 +66,7 @@ export interface QuestionStarClient {
   readonly listStarredQuestions: (
     query: LibraryObjectSearchRequest,
     sort: StarredQuestionSort,
+    page: SearchPageRequest,
   ) => Promise<StarredQuestionPage>;
   readonly listStarredFacetChoices: (
     field: LibraryFacetField,

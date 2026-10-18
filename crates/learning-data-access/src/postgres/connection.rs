@@ -378,6 +378,55 @@ pub(super) fn parse_assessment_id(value: String) -> Result<AssessmentId, StoreEr
 }
 
 pub(super) fn map_sqlx_error(error: sqlx::Error) -> StoreError {
+    // Log driver categories and schema metadata, never source text or row values.
+    let error_kind = match &error {
+        sqlx::Error::Configuration(_) => "configuration",
+        sqlx::Error::InvalidArgument(_) => "invalid_argument",
+        sqlx::Error::Database(_) => "database",
+        sqlx::Error::Io(_) => "io",
+        sqlx::Error::Tls(_) => "tls",
+        sqlx::Error::Protocol(_) => "protocol",
+        sqlx::Error::RowNotFound => "row_not_found",
+        sqlx::Error::TypeNotFound { .. } => "type_not_found",
+        sqlx::Error::ColumnIndexOutOfBounds { .. } => "column_index_out_of_bounds",
+        sqlx::Error::ColumnNotFound(_) => "column_not_found",
+        sqlx::Error::ColumnDecode { .. } => "column_decode",
+        sqlx::Error::Encode(_) => "encode",
+        sqlx::Error::Decode(_) => "decode",
+        sqlx::Error::AnyDriverError(_) => "any_driver",
+        sqlx::Error::PoolTimedOut => "pool_timed_out",
+        sqlx::Error::PoolClosed => "pool_closed",
+        sqlx::Error::WorkerCrashed => "worker_crashed",
+        sqlx::Error::BeginFailed => "begin_failed",
+        sqlx::Error::InvalidSavePointStatement => "invalid_savepoint_statement",
+        _ => "other",
+    };
+    let column = match &error {
+        sqlx::Error::ColumnDecode { index, .. } | sqlx::Error::ColumnNotFound(index) => {
+            Some(index.as_str())
+        }
+        _ => None,
+    };
+    let column_index = match &error {
+        sqlx::Error::ColumnIndexOutOfBounds { index, .. } => Some(*index),
+        _ => None,
+    };
+    let unexpected_null = match &error {
+        sqlx::Error::ColumnDecode { source, .. } | sqlx::Error::Decode(source) => {
+            source.is::<sqlx::error::UnexpectedNullError>()
+        }
+        _ => false,
+    };
+    let database_error = error.as_database_error();
+    tracing::error!(
+        event = "database_operation_failed",
+        error_kind,
+        column,
+        ?column_index,
+        unexpected_null,
+        sqlstate = database_error.and_then(|error| error.code()).as_deref(),
+        constraint = database_error.and_then(|error| error.constraint()),
+    );
     if let sqlx::Error::Database(database_error) = &error
         && let Some(mapped) = map_database_error(
             database_error.code().as_deref(),

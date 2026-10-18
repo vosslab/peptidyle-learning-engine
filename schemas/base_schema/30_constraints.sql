@@ -42,6 +42,13 @@ ALTER TABLE ple_private.question_revision_source_binding
     ADD CONSTRAINT question_revision_source_binding_object_record_exists
     FOREIGN KEY (source_object_record_id) REFERENCES ple_private.object_record(object_record_id);
 
+ALTER TABLE ple_private.question_revision_thumbnail
+    ADD CONSTRAINT question_revision_thumbnail_revision_fkey
+    FOREIGN KEY (published_question_id, revision_number)
+    REFERENCES ple_data.question_revision(published_question_id, revision_number),
+    ADD CONSTRAINT question_revision_thumbnail_object_record_fkey
+    FOREIGN KEY (object_record_id) REFERENCES ple_private.object_record(object_record_id);
+
 SET LOCAL ROLE ple_data_owner;
 
 ALTER TABLE ple_data.blueprint_course

@@ -111,22 +111,26 @@ export function deliveredAssessmentQuestionCount(entries: ReadonlyArray<Assessme
 /** Reorders Entry identities while retaining every Entry and Pool Item unchanged. */
 export function moveAssessmentEntry(
   entries: ReadonlyArray<AssessmentEntry>,
-  index: number,
-  offset: -1 | 1,
+  entryId: AssessmentEntryId,
+  destinationEntryId: AssessmentEntryId,
 ): ReadonlyArray<AssessmentEntry> {
-  const target = index + offset;
+  const index = entries.findIndex((entry) => entry.id === entryId);
+  const target = entries.findIndex((entry) => entry.id === destinationEntryId);
   if (index < 0 || target < 0 || index >= entries.length || target >= entries.length)
     return entries;
+  if (index === target) return entries;
   const next = [...entries];
-  [next[index], next[target]] = [next[target]!, next[index]!];
+  const [entry] = next.splice(index, 1);
+  next.splice(target, 0, entry!);
   return next;
 }
 
 /** Removes only a selected Available Entry; retained unavailable Entries stay read-only. */
 export function removeAssessmentEntry(
   entries: ReadonlyArray<AssessmentEntry>,
-  index: number,
+  entryId: AssessmentEntryId,
 ): ReadonlyArray<AssessmentEntry> {
+  const index = entries.findIndex((entry) => entry.id === entryId);
   if (index < 0 || index >= entries.length) return entries;
   if (entries[index]?.availability !== "available") return entries;
   return entries.filter((_entry, currentIndex) => currentIndex !== index);

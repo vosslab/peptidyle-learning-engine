@@ -123,19 +123,22 @@ export function decodeStudentAttemptHistoryPage(
   path = "response",
 ): StudentAttemptHistoryPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["items", "nextCursor"]);
+  requireOnlyFields(record, path, ["items", "pageNumber", "pageSize", "totalCount"]);
   const items = decodeArray(field(record, "items", path), `${path}.items`, entry);
-  const nextCursor =
-    record.nextCursor === undefined
-      ? undefined
-      : decodeString(record.nextCursor, `${path}.nextCursor`);
-  if (nextCursor !== undefined && (nextCursor.length === 0 || nextCursor.length > 512)) {
-    throw new DecodeError(`${path}.nextCursor`, "an opaque cursor of at most 512 characters");
-  }
-  if (items.length > 100) {
+  const pageNumber = decodePositiveInteger(field(record, "pageNumber", path), `${path}.pageNumber`);
+  const pageSize = decodePositiveInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeNonnegativeInteger(
+    field(record, "totalCount", path),
+    `${path}.totalCount`,
+  );
+  if (pageSize > 100 || items.length > pageSize) {
     throw new DecodeError(`${path}.items`, "a bounded page of at most 100 Attempts");
   }
-  return { items, ...(nextCursor === undefined ? {} : { nextCursor }) };
+  const lastPage = Math.max(1, Math.ceil(totalCount / pageSize));
+  if (pageNumber > lastPage || (totalCount === 0 && pageNumber !== 1)) {
+    throw new DecodeError(`${path}.pageNumber`, "a resolved page within the result set");
+  }
+  return { items, pageNumber, pageSize, totalCount };
 }
 
 export function decodeStudentAttemptHistoryFacetPage(

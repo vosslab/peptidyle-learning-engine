@@ -533,10 +533,14 @@ DROP FUNCTION IF EXISTS ple_api.list_blueprint_courses(
     uuid, uuid, uuid, uuid, boolean, text, uuid[], uuid[], uuid[], uuid[], text[]
 );
 
+DROP FUNCTION IF EXISTS ple_api.list_blueprint_courses(
+    boolean, boolean, boolean, text, text, bigint, integer,
+    uuid, uuid, uuid, uuid, boolean, text, uuid[], uuid[], uuid[], uuid[], text[]
+);
+
 CREATE FUNCTION ple_api.list_blueprint_courses(
     p_include_archived boolean, p_public_only boolean, p_promoted_only boolean, p_query text,
-    p_sort text, p_after_count bigint, p_after_long_name text, p_after_blueprint_course_id text,
-    p_limit integer,
+    p_sort text, p_page_number bigint, p_page_size integer,
     p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
     p_subtopic_uuid uuid, p_cross_discipline boolean, p_tag text,
     p_discipline_uuids uuid[], p_subject_uuids uuid[], p_topic_uuids uuid[],
@@ -549,23 +553,20 @@ RETURNS TABLE (
     total_adoptions bigint, total_students_ever_enrolled bigint, star_count bigint, watcher_count bigint,
     last_edited_at_millis bigint,
     content_discipline_id uuid, content_subject_id uuid, content_topic_id uuid, content_subtopic_id uuid, tags text[],
-    theme_id text
+    theme_id text, page_number bigint, total_count bigint
 )
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 BEGIN
     -- ASVS 2.2.1/3: reject contradictory visibility and unbounded pages.
-    IF p_limit < 1 OR p_limit > 251 OR (p_public_only AND p_include_archived)
+    IF p_page_number IS NULL OR p_page_number < 1 OR p_page_number > 4294967295
+       OR p_page_size IS NULL OR p_page_size < 1 OR p_page_size > 250
+       OR (p_public_only AND p_include_archived)
        OR length(p_query) > 256
        OR p_sort NOT IN ('name', 'nameDescending', 'adoptions', 'adoptionsAscending',
                          'students', 'studentsAscending', 'stars', 'starsAscending',
-                         'watches', 'watchesAscending', 'recentEdits', 'recentEditsAscending')
-       OR (p_after_long_name IS NULL) <> (p_after_blueprint_course_id IS NULL)
-       OR (p_sort IN ('name', 'nameDescending') AND p_after_count IS NOT NULL)
-       OR (p_sort NOT IN ('name', 'nameDescending') AND
-           ((p_after_count IS NULL) <> (p_after_long_name IS NULL)))
-       OR (p_after_count IS NOT NULL AND p_after_count < 0) THEN
+                         'watches', 'watchesAscending', 'recentEdits', 'recentEditsAscending') THEN
         RAISE EXCEPTION 'invalid Blueprint discovery page' USING ERRCODE = '22023';
     END IF;
     RETURN QUERY
@@ -633,64 +634,9 @@ BEGIN
           p_topic_uuids, p_subtopic_uuids, p_tags
       ) AS hit ON hit.blueprint_course_id = course.blueprint_course_id
     )
-    SELECT matched.* FROM matching AS matched
-     WHERE p_after_long_name IS NULL
-        OR (p_sort = 'name' AND
-            (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-            (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))
-        OR (p_sort = 'nameDescending' AND
-            (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") <
-            (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))
-        OR (p_sort = 'adoptions' AND
-            (matched.total_adoptions < p_after_count
-             OR (matched.total_adoptions = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'adoptionsAscending' AND
-            (matched.total_adoptions > p_after_count
-             OR (matched.total_adoptions = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'students' AND
-            (matched.total_students_ever_enrolled < p_after_count
-             OR (matched.total_students_ever_enrolled = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'studentsAscending' AND
-            (matched.total_students_ever_enrolled > p_after_count
-             OR (matched.total_students_ever_enrolled = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'stars' AND
-            (matched.star_count < p_after_count
-             OR (matched.star_count = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'starsAscending' AND
-            (matched.star_count > p_after_count
-             OR (matched.star_count = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'watches' AND
-            (matched.watcher_count < p_after_count
-             OR (matched.watcher_count = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'watchesAscending' AND
-            (matched.watcher_count > p_after_count
-             OR (matched.watcher_count = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'recentEdits' AND
-            (matched.last_edited_at_millis < p_after_count
-             OR (matched.last_edited_at_millis = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
-        OR (p_sort = 'recentEditsAscending' AND
-            (matched.last_edited_at_millis > p_after_count
-             OR (matched.last_edited_at_millis = p_after_count
-                 AND (matched.long_name COLLATE "C", matched.blueprint_course_id COLLATE "C") >
-                     (p_after_long_name COLLATE "C", p_after_blueprint_course_id COLLATE "C"))))
+    , ordered AS MATERIALIZED (
+        SELECT matched.*,
+               row_number() OVER (
      ORDER BY
        CASE WHEN p_sort = 'name' THEN matched.long_name END COLLATE "C" ASC,
        CASE WHEN p_sort = 'nameDescending' THEN matched.long_name END COLLATE "C" DESC,
@@ -708,7 +654,32 @@ BEGIN
        CASE WHEN p_sort = 'nameDescending' THEN matched.long_name END COLLATE "C" DESC,
        CASE WHEN p_sort <> 'nameDescending' THEN matched.blueprint_course_id END COLLATE "C" ASC,
        CASE WHEN p_sort = 'nameDescending' THEN matched.blueprint_course_id END COLLATE "C" DESC
-     LIMIT p_limit;
+               ) AS row_position
+          FROM matching AS matched
+    ), page_bounds AS (
+        SELECT count(*)::bigint AS total_count,
+               LEAST(p_page_number,
+                     GREATEST(1::bigint, ceil(count(*)::numeric / p_page_size)::bigint)) AS page_number
+          FROM ordered
+    ), page_rows AS (
+        SELECT ordered.*
+          FROM ordered
+          CROSS JOIN page_bounds AS bounds
+         WHERE ordered.row_position > (bounds.page_number - 1) * p_page_size
+           AND ordered.row_position <= bounds.page_number * p_page_size
+    )
+    SELECT page_rows.blueprint_course_id, page_rows.short_name, page_rows.long_name,
+           page_rows.availability, page_rows.blueprint_edit_number,
+           page_rows.current_blueprint_revision_number, page_rows.is_owner,
+           page_rows.owner_account_id, page_rows.owner_display_name, page_rows.owner_affiliation,
+           page_rows.total_adoptions, page_rows.total_students_ever_enrolled,
+           page_rows.star_count, page_rows.watcher_count, page_rows.last_edited_at_millis,
+           page_rows.content_discipline_id, page_rows.content_subject_id, page_rows.content_topic_id,
+           page_rows.content_subtopic_id, page_rows.tags, page_rows.theme_id,
+           bounds.page_number, bounds.total_count
+      FROM page_bounds AS bounds
+      LEFT JOIN page_rows ON true
+     ORDER BY page_rows.row_position;
 END
 $$;
 

@@ -3,6 +3,16 @@
 use question_model::{BlueprintCourseRevisionTuple, BlueprintCourseView, BlueprintModuleView};
 use serde::{Deserialize, Serialize};
 
+/// Numbered Blueprint Course results for one complete authorized query.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintCourseListPageView {
+    pub items: Vec<question_model::BlueprintCourseSummaryView>,
+    pub page_number: u32,
+    pub page_size: u16,
+    pub total_count: u64,
+}
+
 /// A saved Revision or an exact recorded metadata state, without actor identities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
@@ -35,12 +45,14 @@ pub struct BlueprintHistoryAvailabilityFacets {
     pub archived_count: u64,
 }
 
-/// One bounded section of Blueprint history; continuation is query and session scoped.
+/// One numbered section of Blueprint history with exact matching-result totals.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintHistoryPageView {
     pub items: Vec<BlueprintHistoryEntryView>,
-    pub next_cursor: Option<String>,
+    pub page_number: u32,
+    pub page_size: u16,
+    pub total_count: u64,
     pub availability_facets: BlueprintHistoryAvailabilityFacets,
 }
 

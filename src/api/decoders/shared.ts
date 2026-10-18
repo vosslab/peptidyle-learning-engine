@@ -16,7 +16,6 @@ import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
 import type { AssessmentRouteId, CourseInstanceRouteId } from "../../navigation/public_route";
 import { parseAssessmentId, parseCourseInstanceId } from "../../navigation/public_route";
 import { validateCanonicalPublicId } from "../../question_id";
-import type { CursorPage } from "../contracts";
 import {
   DecodeError,
   decodeArray,
@@ -42,9 +41,6 @@ const CAPABILITIES = [
   "printExport",
   "offlinePreview",
 ] as const satisfies ReadonlyArray<Capability>;
-export const MAX_CURSOR_LENGTH = 512;
-/** Matches the server-owned PageSize::MAX for every cursor-list response. */
-export const MAX_CURSOR_PAGE_ITEMS = 100;
 /** Matches the server-owned discovery page ceiling. */
 export const MAX_DISCOVERY_PAGE_ITEMS = MAX_DISCOVERY_PAGE_SIZE;
 /** Largest public route number accepted by the Rust public-ID contract. */
@@ -187,44 +183,6 @@ export function decodeBoundedArray<T>(
     throw new DecodeError(path, `an array with at most ${maximum} entries`);
   }
   return decoded;
-}
-
-/** Decodes one opaque cursor returned by a bounded list response. */
-export function decodeCursor(value: unknown, path: string): string {
-  const cursor = decodeNonemptyString(value, path);
-  if (cursor.length > MAX_CURSOR_LENGTH) {
-    throw new DecodeError(path, `a cursor no longer than ${MAX_CURSOR_LENGTH} characters`);
-  }
-  return cursor;
-}
-
-/**
- * Decodes the exact common Cursor Page response used by browser list routes.
- *
- * The server's shared pagination contract caps every page at 100 rows. Keeping
- * the same cap at this untrusted browser boundary prevents a malformed response
- * from bypassing the bounded transport contract before individual items decode.
- */
-export function decodeCursorPage<T>(
-  value: unknown,
-  path: string,
-  decodeItem: Decoder<T>,
-): CursorPage<T> {
-  const cursorPageResponse = decodeRecord(value, path);
-  requireOnlyFields(cursorPageResponse, path, ["items", "nextCursor"]);
-  return {
-    items: decodeBoundedArray(
-      field(cursorPageResponse, "items", path),
-      `${path}.items`,
-      MAX_CURSOR_PAGE_ITEMS,
-      decodeItem,
-    ),
-    nextCursor: decodeNullable(
-      field(cursorPageResponse, "nextCursor", path),
-      `${path}.nextCursor`,
-      decodeCursor,
-    ),
-  };
 }
 
 export function kind(record: Record<string, unknown>, path: string): string {

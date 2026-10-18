@@ -29,6 +29,7 @@ pub(crate) enum PublicationSourceValidationError {
     InvalidSource,
     NativeTypeMismatch,
     RendererUnavailable,
+    ThumbnailUnavailable,
 }
 
 /// Selects publication behavior only from the persisted source binding and Draft Type.

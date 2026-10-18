@@ -10,6 +10,7 @@ import {
 } from "./scenario_types";
 import {
   enterInstructor,
+  filterBrowseToMultipleChoice,
   searchNativeMcLibraryQuestion,
   followCaptureLink,
   openInstructorLibraryBrowse,
@@ -102,13 +103,13 @@ async function searchLibrary(runtime: ScenarioRuntime): Promise<void> {
     for (const [mode, checkpoint] of [
       ["Compact", "library_compact"],
       ["List", "library_list"],
-      ["Visual boxes", "library_visual"],
+      ["Visual Boxes", "library_visual"],
     ] as const) {
       await displays.getByRole("button", { name: mode, exact: true }).click();
       await runtime.captureCheckpoint(session, checkpoint);
     }
     await openInstructorLibraryBrowse(page);
-    await page.getByRole("button", { name: /^Multiple choice/u }).click();
+    await filterBrowseToMultipleChoice(page);
     await page.getByRole("link", { name: "Search within results", exact: true }).click();
     await page.getByLabel("Search Question Library", { exact: true }).fill(poolTitle);
     await page.getByLabel("Search Question Library", { exact: true }).press("Enter");

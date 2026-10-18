@@ -141,18 +141,36 @@ export function decodeRecoverySelection(value: unknown, path = "response"): Reco
     "action",
     "courseInstanceId",
     "attempts",
-    "nextCursor",
+    "pageNumber",
+    "pageSize",
+    "totalCount",
     "assessmentChoices",
   ]);
   if (field(record, "action", path) !== "select") throw new DecodeError(`${path}.action`, "select");
+  const attempts = decodeArray(field(record, "attempts", path), `${path}.attempts`, summary);
+  const pageNumber = decodePositiveInteger(field(record, "pageNumber", path), `${path}.pageNumber`);
+  const pageSize = decodePositiveInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeNonnegativeInteger(
+    field(record, "totalCount", path),
+    `${path}.totalCount`,
+  );
+  if (pageSize > 100 || attempts.length > pageSize) {
+    throw new DecodeError(`${path}.attempts`, "a bounded page of at most 100 Attempts");
+  }
+  const lastPage = Math.max(1, Math.ceil(totalCount / pageSize));
+  if (pageNumber > lastPage || (totalCount === 0 && pageNumber !== 1)) {
+    throw new DecodeError(`${path}.pageNumber`, "a resolved page within the result set");
+  }
   return {
     action: "select",
     courseInstanceId: decodeCourseInstanceId(
       field(record, "courseInstanceId", path),
       `${path}.courseInstanceId`,
     ),
-    attempts: decodeArray(field(record, "attempts", path), `${path}.attempts`, summary),
-    nextCursor: nullableText(field(record, "nextCursor", path), `${path}.nextCursor`),
+    attempts,
+    pageNumber,
+    pageSize,
+    totalCount,
     assessmentChoices: decodeArray(
       field(record, "assessmentChoices", path),
       `${path}.assessmentChoices`,

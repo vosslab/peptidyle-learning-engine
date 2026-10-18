@@ -45,10 +45,12 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 $$;
 
 CREATE FUNCTION ple_private.read_student_attempt_history(
-    p_after uuid, p_page_size integer, p_search text, p_state text,
+    p_page_number bigint, p_page_size integer, p_search text, p_state text,
     p_course_ids text[], p_sort text
 ) RETURNS TABLE (
-    continuation_key text,
+    has_item boolean,
+    resolved_page_number bigint,
+    total_count bigint,
     course_instance_id text,
     course_short_name text,
     course_long_name text,
@@ -63,7 +65,8 @@ CREATE FUNCTION ple_private.read_student_attempt_history(
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    IF p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
+    IF p_page_number IS NULL OR p_page_number NOT BETWEEN 1 AND 4294967295
+       OR p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
        OR p_search IS NULL OR char_length(p_search) > 200
        OR p_state IS NULL OR p_state NOT IN ('all', 'submitted', 'inProgress')
        OR p_sort IS NULL OR p_sort NOT IN ('startedNewest', 'startedOldest', 'titleAscending',
@@ -79,67 +82,41 @@ BEGIN
            AND (p_state = 'all'
                 OR (p_state = 'submitted' AND item.submitted_at IS NOT NULL)
                 OR (p_state = 'inProgress' AND item.submitted_at IS NULL))
-    ), anchor AS (
-        SELECT item.* FROM matched AS item
-         WHERE item.assessment_attempt_id = p_after
+    ), counted AS (
+        SELECT count(*)::bigint AS total FROM matched AS matched_item
+    ), resolved AS (
+        SELECT CASE WHEN counted.total = 0 THEN 1::bigint ELSE
+                    least(p_page_number, ((counted.total - 1) / p_page_size) + 1) END AS page_number,
+               counted.total AS total_count
+          FROM counted AS counted
     ), page AS MATERIALIZED (
-        SELECT item.* FROM matched AS item
-          LEFT JOIN anchor ON true
-         WHERE p_after IS NULL
-            OR (anchor.assessment_attempt_id IS NOT NULL AND (
-                (p_sort = 'startedNewest'
-                 AND (item.started_at, item.assessment_attempt_id)
-                     < (anchor.started_at, anchor.assessment_attempt_id))
-                OR (p_sort = 'startedOldest'
-                    AND (item.started_at, item.assessment_attempt_id)
-                        > (anchor.started_at, anchor.assessment_attempt_id))
-                OR (p_sort = 'titleAscending'
-                    AND (lower(item.assessment_title) COLLATE "C", item.assessment_attempt_id)
-                        > (lower(anchor.assessment_title) COLLATE "C", anchor.assessment_attempt_id))
-                OR (p_sort = 'titleDescending'
-                    AND (lower(item.assessment_title) COLLATE "C", item.assessment_attempt_id)
-                        < (lower(anchor.assessment_title) COLLATE "C", anchor.assessment_attempt_id))
-                OR (p_sort = 'courseAscending'
-                    AND (lower(item.course_long_name) COLLATE "C", item.course_instance_id,
-                         item.assessment_attempt_id)
-                        > (lower(anchor.course_long_name) COLLATE "C", anchor.course_instance_id,
-                           anchor.assessment_attempt_id))
-                OR (p_sort = 'courseDescending'
-                    AND (lower(item.course_long_name) COLLATE "C", item.course_instance_id,
-                         item.assessment_attempt_id)
-                        < (lower(anchor.course_long_name) COLLATE "C", anchor.course_instance_id,
-                           anchor.assessment_attempt_id))
-            ))
+        SELECT item.* FROM matched AS item CROSS JOIN resolved AS resolved_page
          ORDER BY
            CASE WHEN p_sort = 'startedNewest' THEN item.started_at END DESC,
            CASE WHEN p_sort = 'startedOldest' THEN item.started_at END ASC,
-           CASE WHEN p_sort = 'titleAscending'
-                THEN lower(item.assessment_title) COLLATE "C" END ASC,
-           CASE WHEN p_sort = 'titleDescending'
-                THEN lower(item.assessment_title) COLLATE "C" END DESC,
-           CASE WHEN p_sort = 'courseAscending'
-                THEN lower(item.course_long_name) COLLATE "C" END ASC,
-           CASE WHEN p_sort = 'courseDescending'
-                THEN lower(item.course_long_name) COLLATE "C" END DESC,
+           CASE WHEN p_sort = 'titleAscending' THEN lower(item.assessment_title) COLLATE "C" END ASC,
+           CASE WHEN p_sort = 'titleDescending' THEN lower(item.assessment_title) COLLATE "C" END DESC,
+           CASE WHEN p_sort = 'courseAscending' THEN lower(item.course_long_name) COLLATE "C" END ASC,
+           CASE WHEN p_sort = 'courseDescending' THEN lower(item.course_long_name) COLLATE "C" END DESC,
            CASE WHEN p_sort = 'courseAscending' THEN item.course_instance_id END ASC,
            CASE WHEN p_sort = 'courseDescending' THEN item.course_instance_id END DESC,
            CASE WHEN p_sort IN ('startedOldest', 'titleAscending', 'courseAscending')
                 THEN item.assessment_attempt_id END ASC,
            CASE WHEN p_sort IN ('startedNewest', 'titleDescending', 'courseDescending')
                 THEN item.assessment_attempt_id END DESC
-         LIMIT p_page_size + 1
-    ), evidence AS (
+         OFFSET (((SELECT resolved_page.page_number FROM resolved AS resolved_page) - 1)
+                 * p_page_size::bigint)
+         LIMIT p_page_size
+    ), evidence AS MATERIALIZED (
         SELECT page.*,
                score.is_complete, score.points_earned, score.points_possible
-          FROM page
+          FROM page AS page
           CROSS JOIN LATERAL (
               SELECT count(issued.issued_question_id) > 0
                          AND bool_and(
                              saved.question_attempt_id IS NULL
                              OR (result.grading_result_id IS NOT NULL
-                                 AND ple_api.has_automated_grading_receipt(
-                                     result.grading_result_id
-                                 ))
+                                 AND ple_api.has_automated_grading_receipt(result.grading_result_id))
                          ) AS is_complete,
                      coalesce(sum(credit.points_earned), 0) AS points_earned,
                      coalesce(sum(credit.points_possible), 0) AS points_possible
@@ -157,18 +134,17 @@ BEGIN
                   ON snapshot.assessment_entry_snapshot_id = issued.assessment_entry_snapshot_id
                 CROSS JOIN LATERAL ple_private.score_recorded_credit(
                     result.normalized_credit, snapshot.scoring_rule,
-                    ple_private.current_assessment_entry_points(
-                        issued.assessment_entry_id, snapshot.points
-                    ), page.partial_credit_enabled
+                    ple_private.current_assessment_entry_points(issued.assessment_entry_id, snapshot.points),
+                    page.partial_credit_enabled
                 ) AS credit
                WHERE issued.course_instance_id = page.course_instance_id
                  AND issued.assessment_attempt_id = page.assessment_attempt_id
           ) AS score
     )
-    SELECT item.assessment_attempt_id::text,
-           item.course_instance_id, item.course_short_name, item.course_long_name,
-           item.assessment_attempt_id, item.assessment_id, item.assessment_title,
-           item.assessment_attempt_number,
+    SELECT (item.assessment_attempt_id IS NOT NULL), resolved_page.page_number,
+           resolved_page.total_count, item.course_instance_id, item.course_short_name,
+           item.course_long_name, item.assessment_attempt_id, item.assessment_id,
+           item.assessment_title, item.assessment_attempt_number,
            floor(extract(epoch FROM item.started_at) * 1000)::bigint,
            CASE WHEN item.submitted_at IS NULL THEN NULL
                 ELSE floor(extract(epoch FROM item.submitted_at) * 1000)::bigint END,
@@ -176,18 +152,15 @@ BEGIN
                 THEN item.points_earned::double precision END,
            CASE WHEN item.submitted_at IS NOT NULL AND item.is_complete
                 THEN item.points_possible::double precision END
-      FROM evidence AS item
+      FROM resolved AS resolved_page
+      LEFT JOIN evidence AS item ON true
      ORDER BY
        CASE WHEN p_sort = 'startedNewest' THEN item.started_at END DESC,
        CASE WHEN p_sort = 'startedOldest' THEN item.started_at END ASC,
-       CASE WHEN p_sort = 'titleAscending'
-            THEN lower(item.assessment_title) COLLATE "C" END ASC,
-       CASE WHEN p_sort = 'titleDescending'
-            THEN lower(item.assessment_title) COLLATE "C" END DESC,
-       CASE WHEN p_sort = 'courseAscending'
-            THEN lower(item.course_long_name) COLLATE "C" END ASC,
-       CASE WHEN p_sort = 'courseDescending'
-            THEN lower(item.course_long_name) COLLATE "C" END DESC,
+       CASE WHEN p_sort = 'titleAscending' THEN lower(item.assessment_title) COLLATE "C" END ASC,
+       CASE WHEN p_sort = 'titleDescending' THEN lower(item.assessment_title) COLLATE "C" END DESC,
+       CASE WHEN p_sort = 'courseAscending' THEN lower(item.course_long_name) COLLATE "C" END ASC,
+       CASE WHEN p_sort = 'courseDescending' THEN lower(item.course_long_name) COLLATE "C" END DESC,
        CASE WHEN p_sort = 'courseAscending' THEN item.course_instance_id END ASC,
        CASE WHEN p_sort = 'courseDescending' THEN item.course_instance_id END DESC,
        CASE WHEN p_sort IN ('startedOldest', 'titleAscending', 'courseAscending')
@@ -270,20 +243,19 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.list_student_attempt_history(
-    p_after uuid, p_page_size integer, p_search text, p_state text,
+    p_page_number bigint, p_page_size integer, p_search text, p_state text,
     p_course_ids text[], p_sort text
 ) RETURNS TABLE (
-    continuation_key text, course_instance_id text, course_short_name text,
-    course_long_name text, assessment_attempt_id uuid, assessment_id text,
-    assessment_title text, assessment_attempt_number integer,
-    started_at_millis bigint, submitted_at_millis bigint,
-    assessment_score_points_earned double precision,
-    assessment_score_points_possible double precision
+    has_item boolean, resolved_page_number bigint, total_count bigint,
+    course_instance_id text, course_short_name text, course_long_name text,
+    assessment_attempt_id uuid, assessment_id text, assessment_title text,
+    assessment_attempt_number integer, started_at_millis bigint, submitted_at_millis bigint,
+    assessment_score_points_earned double precision, assessment_score_points_possible double precision
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
-    SELECT * FROM ple_private.read_student_attempt_history(
-        p_after, p_page_size, p_search, p_state, p_course_ids, p_sort
-    )
+    SELECT history_row.* FROM ple_private.read_student_attempt_history(
+        p_page_number, p_page_size, p_search, p_state, p_course_ids, p_sort
+    ) AS history_row
 $$;
 
 CREATE FUNCTION ple_api.list_student_attempt_history_facet_choices(

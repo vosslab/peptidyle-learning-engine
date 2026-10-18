@@ -110,7 +110,7 @@ function pageTrail(
     case "libraryBrowse":
       return [page("Browse Question Library")];
     case "libraryWatchNotifications":
-      return [page("Watch notifications")];
+      return [page("Watched")];
     case "myQuestions":
       return [page("My Questions")];
     case "myPools":

@@ -11,8 +11,8 @@ Operational steps for rebuilding the canonical screenshot corpus under
   into `cwebp -preset text -q 90 -m 6` and writes only the resulting lossy WebP.
 - Podman machine running (`podman machine list` shows `Currently running`). See
   [MACOS_PODMAN.md](MACOS_PODMAN.md).
-- Playwright browsers installed once: `./devel/setup_playwright.sh`. The capture wrapper
-  runs this itself.
+- Playwright browsers installed once with `./devel/setup_playwright.sh`; screenshot captures
+  reuse the installed browser. If Playwright reports a missing browser, run setup and retry.
 - Clean working tree so the publish diff is readable.
 
 The normal path **reuses a running Live Demo**. Start one with

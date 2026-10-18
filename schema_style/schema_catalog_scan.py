@@ -37,6 +37,11 @@ def _strip_comments_and_quotes(text: str) -> str:
 	length = len(text)
 	while index < length:
 		ch = text[index]
+		if ch == '"':
+			_name, end = _read_ident(text, index)
+			chars.append(text[index:end])
+			index = end
+			continue
 		if ch == "-" and index + 1 < length and text[index + 1] == "-":
 			while index < length and text[index] != "\n":
 				chars.append(" ")
@@ -192,6 +197,14 @@ def _scan_statement(text: str, index: int, line: int) -> tuple:
 	paren = 0
 	while index < length:
 		ch = text[index]
+		if text[index:index + 2] == "/*":
+			index, line = _skip_trivia(text, index, line)
+			continue
+		if ch == '"':
+			_name, end = _read_ident(text, index)
+			line += text[index:end].count("\n")
+			index = end
+			continue
 		if ch == "-" and index + 1 < length and text[index + 1] == "-":
 			while index < length and text[index] != "\n":
 				index += 1
@@ -281,7 +294,7 @@ def _skip_dollar(text: str, index: int, line: int, tag: str) -> tuple:
 
 def _split_top_level_commas(text: str) -> list:
 	"""
-	Split text on commas that are not inside parens or quotes.
+	Split text on commas that are not inside parens, quotes, or comments.
 
 	Args:
 		text: CREATE TABLE body or similar.
@@ -296,6 +309,12 @@ def _split_top_level_commas(text: str) -> list:
 	length = len(text)
 	while index < length:
 		ch = text[index]
+		if ch == '"':
+			_name, index = _read_ident(text, index)
+			continue
+		if text[index:index + 2] == "/*":
+			index, _line = _skip_trivia(text, index, 1)
+			continue
 		if ch == "-" and index + 1 < length and text[index + 1] == "-":
 			while index < length and text[index] != "\n":
 				index += 1
@@ -336,6 +355,12 @@ def _matching_paren(text: str, index: int) -> int:
 	pos = index
 	while pos < length:
 		ch = text[pos]
+		if text[pos:pos + 2] == "/*":
+			pos, _line = _skip_trivia(text, pos, 1)
+			continue
+		if ch == '"':
+			_name, pos = _read_ident(text, pos)
+			continue
 		if ch == "-" and pos + 1 < length and text[pos + 1] == "-":
 			while pos < length and text[pos] != "\n":
 				pos += 1
@@ -413,7 +438,7 @@ def _skip_keywords(text: str, index: int, words: list) -> int:
 #============================================
 def _read_ident(text: str, index: int) -> tuple:
 	"""
-	Read one identifier.
+	Read one identifier, unescaping doubled quotes inside quoted names.
 
 	Args:
 		text: Source.
@@ -424,12 +449,18 @@ def _read_ident(text: str, index: int) -> tuple:
 	"""
 	index = _skip_space(text, index)
 	if index < len(text) and text[index] == '"':
-		end = text.find('"', index + 1)
-		if end < 0:
-			name = text[index + 1:]
-			return name, len(text)
-		name = text[index + 1:end]
-		return name, end + 1
+		index += 1
+		name = ""
+		while index < len(text):
+			if text[index:index + 2] == '""':
+				name += '"'
+				index += 2
+				continue
+			if text[index] == '"':
+				return name, index + 1
+			name += text[index]
+			index += 1
+		return name, index
 	match = IDENT_RE.match(text, index)
 	if not match:
 		return "", index

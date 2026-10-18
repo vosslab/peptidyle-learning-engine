@@ -8,7 +8,8 @@ CREATE FUNCTION ple_private.question_library_facet_choices(
     p_bloom_knowledge_dimensions text[], p_question_types text[], p_question_licenses text[],
     p_authored_by_current_account boolean, p_owner_account_id text,
     p_result_kind text, p_questions text, p_field text, p_choice_search text,
-    p_after_key text, p_limit integer, p_selected_keys text[], p_scope text DEFAULT 'public'
+    p_after_key text, p_limit integer, p_selected_keys text[], p_scope text,
+    p_excluded_question_ids text[]
 ) RETURNS TABLE (key text, label text, choice_count bigint, is_selected boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET jit = off
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -49,6 +50,7 @@ BEGIN
         SELECT * FROM matching entry
          WHERE (p_field = 'kind' OR p_result_kind = 'both' OR p_result_kind = CASE entry.row_kind WHEN 'question' THEN 'questions' ELSE 'pools' END)
            AND (entry.row_kind = 'pool' OR p_questions = 'all' OR NOT entry.in_pool)
+           AND (entry.row_kind <> 'question' OR NOT (entry.published_question_id = ANY(COALESCE(p_excluded_question_ids, ARRAY[]::text[]))))
     ), raw_values AS (
         SELECT entry.public_id, value.key, value.label
           FROM scoped entry
@@ -138,7 +140,8 @@ CREATE FUNCTION ple_api.question_library_facet_choices(
     p_bloom_knowledge_dimensions text[], p_question_types text[], p_question_licenses text[],
     p_authored_by_current_account boolean, p_owner_account_id text,
     p_result_kind text, p_questions text, p_field text, p_choice_search text,
-    p_after_key text, p_limit integer, p_selected_keys text[], p_scope text DEFAULT 'public'
+    p_after_key text, p_limit integer, p_selected_keys text[], p_scope text,
+    p_excluded_question_ids text[]
 ) RETURNS TABLE (key text, label text, choice_count bigint, is_selected boolean)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.question_library_facet_choices(
@@ -147,5 +150,5 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private
         p_cross_discipline, p_bloom_cognitive_processes, p_bloom_knowledge_dimensions,
         p_question_types, p_question_licenses, p_authored_by_current_account,
         p_owner_account_id, p_result_kind, p_questions, p_field, p_choice_search,
-        p_after_key, p_limit, p_selected_keys, p_scope)
+        p_after_key, p_limit, p_selected_keys, p_scope, p_excluded_question_ids)
 $$;

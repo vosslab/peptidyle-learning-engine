@@ -233,6 +233,22 @@
   min-width: 0;
 }
 
+.blueprint-course-structure-collections:not([hidden]) {
+  display: grid;
+  gap: var(--ple-section-gap);
+}
+
+.blueprint-course-structure-collections > section {
+  min-width: 0;
+}
+
+@media (min-width: 70rem) {
+  .blueprint-course-structure-collections {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+
 .blueprint-course-detail-actions {
   display: flex;
   flex-wrap: wrap;

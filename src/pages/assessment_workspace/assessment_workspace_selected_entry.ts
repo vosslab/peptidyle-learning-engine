@@ -3,8 +3,7 @@
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
-import type { RecordContent, RecordFact } from "../../components/record_list/record_list";
-
+import type { RecordContent, RecordFact } from "../../components/data_sheet/record_content";
 function questionAttemptLimitLabel(entry: AssessmentEntry): string {
   const limit = entry.questionAttemptLimit.maxAttempts;
   if (limit === null) return "Unlimited";
@@ -57,15 +56,12 @@ function deliveryFacts(entry: AssessmentEntry): ReadonlyArray<RecordFact> {
 /** Exact Question or Pool identity, with delivery facts the Question editor still scans. */
 export function selectedAssessmentEntryContent(args: {
   readonly entry: AssessmentEntry;
-  readonly entryNumber: number;
   readonly questionTitle: (
     publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple,
   ) => string;
   readonly poolTitle: (questionPoolId: string) => string;
   readonly description: (publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple) => string;
   readonly bloom: BloomClassificationView | undefined;
-  readonly removeDisabled: boolean;
-  readonly remove: () => void;
 }): RecordContent {
   const entry = args.entry;
   const description =
@@ -91,24 +87,7 @@ export function selectedAssessmentEntryContent(args: {
         ? args.questionTitle(entry.publishedQuestionRevisionTuple)
         : args.poolTitle(entry.questionPoolId),
     description,
-    details: [
-      labeledFact("Entry", String(args.entryNumber)),
-      ...identity,
-      ...bloomFacts(args.bloom),
-      ...deliveryFacts(entry),
-    ],
-    actions: [
-      {
-        id: "remove",
-        kind: "command",
-        label: entry.availability === "available" ? "Remove" : "Retained unavailable",
-        disabled: args.removeDisabled || entry.availability !== "available",
-        title:
-          entry.availability === "available"
-            ? `Remove Assessment Entry ${args.entryNumber}`
-            : `Retained unavailable Assessment Entry ${args.entryNumber} cannot be removed`,
-        onClick: args.remove,
-      },
-    ],
+    details: [...identity, ...bloomFacts(args.bloom), ...deliveryFacts(entry)],
+    actions: [],
   };
 }

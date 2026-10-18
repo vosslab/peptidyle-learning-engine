@@ -1,6 +1,6 @@
 // Student Assessment Access before the issued one-question attempt lane.
 
-import { createAsync, useNavigate, useParams } from "@solidjs/router";
+import { useNavigate, useParams } from "@solidjs/router";
 import {
   createEffect,
   createMemo,
@@ -15,14 +15,17 @@ import {
 } from "solid-js";
 
 import { assessmentTypePresentation } from "../assessment_type_presentation";
-import type { LiveAssessmentPreviousAttempt } from "../api/assessment_attempt_issuance";
+import type {
+  LiveAssessmentAccess,
+  LiveAssessmentPreviousAttempt,
+} from "../api/assessment_attempt_issuance";
 import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentStartFacts } from "../components/student_assessment_presentation";
-import { PageFrame } from "../components/page_frame";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import {
   assessmentAttemptRouteId,
   parseAssessmentId,
@@ -93,18 +96,34 @@ export function AssessmentOverviewPage(): JSX.Element {
     parseCourseInstanceId(params["courseInstanceId"] ?? "");
   const assessment = (): AssessmentRouteId | null =>
     parseAssessmentId(params["assessmentId"] ?? "");
-  const access = createAsync(() => {
-    const courseInstanceId = course();
-    const assessmentId = assessment();
-    if (courseInstanceId === null || assessmentId === null) return Promise.resolve(undefined);
-    return runtime.client.getLiveAssessmentAccess(courseInstanceId, assessmentId);
-  });
-  const [previousAttempts, { refetch: refetchPreviousAttempts }] = createResource(
-    () => access()?.previousAttempts,
-    (attempts) => Promise.resolve(attempts),
+  const [accessSource, { refetch: refetchAccess }] = createResource(
+    () => {
+      const courseInstanceId = course();
+      const assessmentId = assessment();
+      return courseInstanceId === null || assessmentId === null
+        ? undefined
+        : { courseInstanceId, assessmentId };
+    },
+    async ({ courseInstanceId, assessmentId }) => ({
+      courseInstanceId,
+      assessmentId,
+      value: await runtime.client.getLiveAssessmentAccess(courseInstanceId, assessmentId),
+    }),
   );
+  const access = (): LiveAssessmentAccess | undefined => {
+    const loaded = accessSource.latest;
+    return loaded?.courseInstanceId === course() && loaded?.assessmentId === assessment()
+      ? loaded.value
+      : undefined;
+  };
+  const previousAttempts = createMemo(() => access()?.previousAttempts);
   const previousAttemptSearch = createLocalCompleteSearch(
-    { resource: previousAttempts, refetchSource: refetchPreviousAttempts, rows: (value) => value },
+    {
+      rows: previousAttempts,
+      loading: () => accessSource.loading,
+      error: (): unknown => accessSource.error,
+      refetchSource: refetchAccess,
+    },
     {
       fields: previousAttemptSearchFields,
       rowId: (attempt) => attempt.assessmentAttemptId,

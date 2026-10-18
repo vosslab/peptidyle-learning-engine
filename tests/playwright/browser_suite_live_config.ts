@@ -11,6 +11,7 @@ export interface BrowserScenarioInputV1 {
   readonly baselineReads: readonly string[];
   readonly visibleObservation: string;
   readonly serviceReceipt?: string;
+  readonly temporarySpecPath?: string;
 }
 type Value = Record<string, unknown>;
 const ID = /^[a-z][a-z0-9_]{0,95}$/u;
@@ -50,6 +51,15 @@ function identifiers(value: unknown): value is string[] {
     value.every(identifier)
   );
 }
+function temporarySpecPath(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.startsWith("tests/_temp/") &&
+    value.endsWith(".spec.ts") &&
+    !value.includes("\\") &&
+    value.split("/").every((part) => part !== "" && part !== "." && part !== "..")
+  );
+}
 function exactOrigin(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const url = new URL(value);
@@ -80,6 +90,7 @@ function parse(contents: string): BrowserScenarioInputV1 {
     "visibleObservation",
   ];
   if (input.serviceReceipt !== undefined) expected.push("serviceReceipt");
+  if (input.temporarySpecPath !== undefined) expected.push("temporarySpecPath");
   if (
     Object.keys(input).sort().join(",") !== expected.sort().join(",") ||
     input.schemaVersion !== 2 ||
@@ -90,6 +101,9 @@ function parse(contents: string): BrowserScenarioInputV1 {
     !identifiers(input.personas) ||
     !identifiers(input.baselineReads) ||
     !visibleObservation(input.visibleObservation) ||
+    (input.temporarySpecPath !== undefined &&
+      (!temporarySpecPath(input.temporarySpecPath) || input.scenarioId !== "temporary_browser")) ||
+    (input.scenarioId === "temporary_browser" && input.temporarySpecPath === undefined) ||
     (input.serviceReceipt !== undefined &&
       (typeof input.serviceReceipt !== "string" || !SERVICE_RECEIPTS.has(input.serviceReceipt)))
   )
@@ -103,6 +117,9 @@ function parse(contents: string): BrowserScenarioInputV1 {
     baselineReads: input.baselineReads,
     visibleObservation: input.visibleObservation,
     ...(input.serviceReceipt === undefined ? {} : { serviceReceipt: input.serviceReceipt }),
+    ...(input.temporarySpecPath === undefined
+      ? {}
+      : { temporarySpecPath: input.temporarySpecPath }),
   };
   if (JSON.stringify(result) !== contents)
     throw new Error("browser-suite input must use canonical ASCII JSON");

@@ -2,8 +2,10 @@
 
 import { A } from "@solidjs/router";
 import {
+  createMemo,
   For,
   Show,
+  createEffect,
   createResource,
   createSignal,
   createUniqueId,
@@ -12,35 +14,20 @@ import {
 } from "solid-js";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
-import type { BlueprintComparisonSide } from "../../../generated/api/BlueprintComparisonSide";
 import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintRevisionNumber } from "../../../generated/api/BlueprintRevisionNumber";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
-import { emptyRecognitionTitles, type RecognitionTitleMaps } from "../../api/recognition_titles";
-import {
-  comparisonRecognitionIds,
-  labeledQuestionRecognition,
-  recognitionTitle,
-  recognizedIdList,
-} from "../recognition_label";
+import { comparisonRecognitionIds, recognizedIdList } from "../recognition_label";
 import { recognitionTitlesResource } from "../recognition_titles_load";
-import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import { normalizeHumanEnteredPublicId } from "../../question_id";
-import { type RecordContent, type RecordFact } from "../../components/record_list/record_list";
-import type { RecordField } from "../../components/record_list/record_fields";
-import { SearchBlock } from "../search/search_block";
-import { SearchControls } from "../search/search_controls";
-import { createLocalCompleteSearch } from "../search/local_complete_search_state";
-import { RecordDetailList } from "../../components/record_list/record_detail_list";
+import type { RecordContent, RecordFact } from "../../components/data_sheet/record_content";
+import type { RecordField } from "../../components/data_sheet/record_fields";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
 import { BlueprintForkApply } from "./blueprint_fork_apply";
 import { ComparisonMembershipSummary } from "./blueprint_comparison_membership";
-import {
-  assessmentDifferenceLabels,
-  forkModuleLabel,
-  readableSettingName,
-  sameForkSnapshot,
-  settingLines,
-} from "./blueprint_fork_model";
+import { readableSettingName, sameForkSnapshot } from "./blueprint_fork_model";
 import "./blueprint_fork_review.css";
 
 interface ForkProps {
@@ -95,114 +82,13 @@ function coursePath(blueprintCourseId: string): string {
   return `/blueprint-courses/${encodeURIComponent(blueprintCourseId)}`;
 }
 
-export function Settings(props: { readonly value: unknown }): JSX.Element {
-  return (
-    <dl class="blueprint-fork-settings">
-      <For each={settingLines(props.value)}>
-        {(line) => (
-          <>
-            <dt>{line.label}</dt>
-            <dd>{line.value}</dd>
-          </>
-        )}
-      </For>
-    </dl>
-  );
-}
-
-export function AssessmentSnapshot(props: {
-  readonly snapshot: BlueprintComparisonSide["assessments"][number] | undefined;
-  readonly side: BlueprintComparisonSide;
-  readonly titles?: RecognitionTitleMaps;
-}): JSX.Element {
-  const titles = (): RecognitionTitleMaps => props.titles ?? emptyRecognitionTitles();
-  return (
-    <Show when={props.snapshot} fallback={<p>Not present in this Revision.</p>}>
-      {(snapshot) => (
-        <>
-          <h4>{snapshot().content.title}</h4>
-          <p>{assessmentTypePresentation(snapshot().content.assessment_type).label}</p>
-          <p>
-            Module: {forkModuleLabel(props.side, snapshot().blueprintModuleId)}; Assessment position{" "}
-            {snapshot().position + 1}.
-          </p>
-          <p class="blueprint-fork-instructions">
-            {snapshot().content.instructions || "No instructions."}
-          </p>
-          <p>
-            Question IDs in this Assessment:{" "}
-            {recognizedIdList(
-              snapshot().questionIds,
-              titles().questions,
-              "Question",
-              "Question ID",
-            )}
-            .
-          </p>
-          <h5>Questions and Pools in authored order</h5>
-          <Show
-            when={snapshot().content.entries.length > 0}
-            fallback={<p>No Questions or Pools.</p>}
-          >
-            <ol>
-              <For each={snapshot().content.entries}>
-                {(entry) => (
-                  <li>
-                    <Show when={entry.kind === "fixed" ? entry : undefined}>
-                      {(fixed) => {
-                        const tuple = fixed().published_question_revision_tuple;
-                        const line = labeledQuestionRecognition(
-                          titles().questions.get(tuple.publishedQuestionId),
-                          tuple.publishedQuestionId,
-                          tuple.revisionNumber,
-                        );
-                        return (
-                          <>
-                            <p>{line.title}</p>
-                            <p>
-                              {line.identifier}; {fixed().points_possible} points.
-                            </p>
-                          </>
-                        );
-                      }}
-                    </Show>
-                    <Show when={entry.kind === "pool" ? entry : undefined}>
-                      {(pool) => {
-                        const title = recognitionTitle(
-                          titles().pools.get(pool().question_pool_id),
-                          "Question Pool",
-                        );
-                        return (
-                          <>
-                            <p>{title}</p>
-                            <p>
-                              Question Pool ID {pool().question_pool_id}; select{" "}
-                              {pool().selection_count}; {pool().points_per_item} points per
-                              Question.
-                            </p>
-                          </>
-                        );
-                      }}
-                    </Show>
-                    <Settings
-                      value={{
-                        scoring_rule: entry.scoring_rule,
-                        question_attempt_limit: entry.question_attempt_limit,
-                        question_attempt_time_limit: entry.question_attempt_time_limit,
-                      }}
-                    />
-                  </li>
-                )}
-              </For>
-            </ol>
-          </Show>
-          <h5>Assessment Properties</h5>
-          <Settings value={snapshot().content.defaults} />
-        </>
-      )}
-    </Show>
-  );
-}
+export { Settings, AssessmentSnapshot } from "./blueprint_frozen_collections";
+import {
+  AssessmentSnapshot,
+  frozenComparisonRows,
+  type FrozenComparisonRow,
+  type FrozenComparisonKind,
+} from "./blueprint_frozen_collections";
 
 function Comparison(props: {
   readonly client: BlueprintCourseClient;
@@ -212,20 +98,95 @@ function Comparison(props: {
     () => props.client,
     () => comparisonRecognitionIds(props.view),
   );
-  const assessment = (
-    side: BlueprintComparisonSide,
-    blueprintAssessmentId: string,
-  ): BlueprintComparisonSide["assessments"][number] | undefined =>
-    side.assessments.find((item) => item.blueprintAssessmentId === blueprintAssessmentId);
-  const sideOnly = (side: "left" | "right"): BlueprintComparisonSide["assessments"] =>
-    props.view[side].assessments.filter(
-      (item) =>
-        !props.view.assessmentRelationships.some(
-          (edge) =>
-            (side === "left" ? edge.leftAssessmentId : edge.rightAssessmentId) ===
-            item.blueprintAssessmentId,
-        ),
-    );
+  const rows = createMemo(() => frozenComparisonRows(props.view, recognition.titles()));
+  const [selected, setSelected] = createSignal<{
+    readonly kind: FrozenComparisonKind;
+    readonly id: string;
+  }>();
+  const detailId = createUniqueId();
+  let detailHeading: HTMLHeadingElement | undefined;
+  let inspectTrigger: HTMLButtonElement | undefined;
+  const containers: Partial<Record<FrozenComparisonKind, HTMLDivElement>> = {};
+  const selectedRow = (): FrozenComparisonRow | undefined => {
+    const current = selected();
+    return current ? rows()?.[current.kind].find((row) => row.id === current.id) : undefined;
+  };
+  function closeInspection(): void {
+    const current = selected();
+    setSelected(undefined);
+    if (inspectTrigger?.isConnected) inspectTrigger.focus();
+    else if (current) containers[current.kind]?.focus();
+  }
+  createEffect(() => {
+    if (selected() && !selectedRow()) closeInspection();
+  });
+  const fields: ReadonlyArray<
+    RecordField<FrozenComparisonRow, "title" | "placement", "differences">
+  > = [
+    {
+      id: "title",
+      label: "Assessment",
+      role: "identity",
+      sortKey: "title",
+      value: (row) => row.title,
+      defaultColumn: { priority: 0, width: "22rem" },
+    },
+    {
+      id: "placement",
+      label: "Saved placement",
+      sortKey: "placement",
+      value: (row) => row.placement,
+      defaultColumn: { priority: 1, width: "20rem" },
+    },
+    {
+      id: "shared",
+      label: "Shared Questions",
+      value: (row) => row.sharedQuestions,
+      defaultColumn: { priority: 2, width: "18rem" },
+    },
+    {
+      id: "differences",
+      label: "Comparison",
+      filterKey: "differences",
+      value: (row) => row.differences,
+      defaultColumn: { priority: 3, width: "22rem" },
+    },
+  ];
+  function content(row: FrozenComparisonRow): RecordContent {
+    return {
+      title: row.title,
+      details: [
+        { kind: "text", label: "Saved placement", value: row.placement },
+        { kind: "text", label: "Shared Questions", value: row.sharedQuestions },
+        { kind: "text", label: "Comparison", value: row.differences },
+      ],
+      actions: [
+        {
+          id: "inspect",
+          kind: "command",
+          label: "Inspect",
+          title: `Inspect ${row.title}`,
+          expanded: selected()?.id === row.id,
+          controls: selected()?.id === row.id ? detailId : undefined,
+          onClick: (event): void => {
+            inspectTrigger = event.currentTarget;
+            setSelected({ kind: row.kind, id: row.id });
+            queueMicrotask(() => detailHeading?.focus());
+          },
+        },
+      ],
+    };
+  }
+  const options = {
+    fields,
+    rowId: (row: FrozenComparisonRow): string => row.id,
+    content,
+    keyword: (row: FrozenComparisonRow): string =>
+      `${row.title} ${row.placement} ${row.sharedQuestions} ${row.differences}`,
+  };
+  const related = createLocalCompleteSearch({ rows: () => rows()?.related ?? [] }, options);
+  const leftOnly = createLocalCompleteSearch({ rows: () => rows()?.left ?? [] }, options);
+  const rightOnly = createLocalCompleteSearch({ rows: () => rows()?.right ?? [] }, options);
   return (
     <div data-blueprint-fork-comparison>
       <Show when={recognition.status()}>
@@ -309,98 +270,120 @@ function Comparison(props: {
         )}
         .
       </p>
-      <h3>Assessments related by shared Questions</h3>
-      <RecordDetailList
-        ariaLabel="Assessments related by shared Questions"
-        emptyState={{ title: "No Assessments share Question IDs." }}
-        recordId={(edge) => `${edge.leftAssessmentId}-${edge.rightAssessmentId}`}
-        rows={props.view.assessmentRelationships}
-        state={{ kind: "ready" }}
-        renderRecord={(edge) => (
-          <details class="blueprint-fork-item">
-            <summary>
-              {assessment(props.view.left, edge.leftAssessmentId)?.content.title} compared with{" "}
-              {assessment(props.view.right, edge.rightAssessmentId)?.content.title}
-            </summary>
-            <p>
-              Shared Question IDs:{" "}
-              {recognizedIdList(
-                edge.sharedQuestionIds,
-                recognition.titles().questions,
-                "Question",
-                "Question ID",
-              )}
-              .
-            </p>
-            <Show when={assessment(props.view.left, edge.leftAssessmentId)}>
-              {(left) => (
-                <Show when={assessment(props.view.right, edge.rightAssessmentId)}>
-                  {(right) => (
-                    <p>
-                      {assessmentDifferenceLabels(
-                        left(),
-                        right(),
-                        props.view.left,
-                        props.view.right,
-                      )}
-                    </p>
-                  )}
-                </Show>
-              )}
+      <div
+        tabindex="-1"
+        ref={(element) => {
+          containers.related = element;
+        }}
+      >
+        <h3>Assessments related by shared Questions</h3>
+        <SearchBlock
+          layout="above"
+          controls={
+            <SearchControls
+              state={related.state}
+              textLabel="Related Assessment or shared Question"
+            />
+          }
+          state={related.state}
+          collection={{
+            ariaLabel: "Assessments related by shared Questions",
+            fields,
+            query: related.query,
+            emptyState: { title: "No Assessments share Question IDs or match your search." },
+          }}
+        />
+      </div>
+      <p>
+        Left-only and right-only Assessments have no shared-Question relationship on the other side;
+        this does not establish their history.
+      </p>
+      <div
+        tabindex="-1"
+        ref={(element) => {
+          containers.left = element;
+        }}
+      >
+        <h3>Removed from left to right: left-only Assessments</h3>
+        <SearchBlock
+          layout="above"
+          controls={
+            <SearchControls state={leftOnly.state} textLabel="Left-only Assessment or Module" />
+          }
+          state={leftOnly.state}
+          collection={{
+            ariaLabel: "Left-only Assessments",
+            fields,
+            query: leftOnly.query,
+            emptyState: { title: "No left-only Assessments match." },
+          }}
+        />
+      </div>
+      <div
+        tabindex="-1"
+        ref={(element) => {
+          containers.right = element;
+        }}
+      >
+        <h3>Added from left to right: right-only Assessments</h3>
+        <SearchBlock
+          layout="above"
+          controls={
+            <SearchControls state={rightOnly.state} textLabel="Right-only Assessment or Module" />
+          }
+          state={rightOnly.state}
+          collection={{
+            ariaLabel: "Right-only Assessments",
+            fields,
+            query: rightOnly.query,
+            emptyState: { title: "No right-only Assessments match." },
+          }}
+        />
+      </div>
+      <Show when={selectedRow()}>
+        {(row) => (
+          <section id={detailId} aria-labelledby={`${detailId}-heading`}>
+            <h3
+              id={`${detailId}-heading`}
+              tabindex="-1"
+              ref={(element) => {
+                detailHeading = element;
+              }}
+            >
+              {row().title}
+            </h3>
+            <button type="button" class="quiet-action" onClick={closeInspection}>
+              Close inspection
+            </button>
+            <p>{row().differences}</p>
+            <Show when={row().kind === "related"}>
+              <p>Shared Question IDs: {row().sharedQuestions}.</p>
             </Show>
             <div class="blueprint-fork-columns">
-              <section>
-                <h4>Left Assessment</h4>
-                <AssessmentSnapshot
-                  snapshot={assessment(props.view.left, edge.leftAssessmentId)}
-                  side={props.view.left}
-                  titles={recognition.titles()}
-                />
-              </section>
-              <section>
-                <h4>Right Assessment</h4>
-                <AssessmentSnapshot
-                  snapshot={assessment(props.view.right, edge.rightAssessmentId)}
-                  side={props.view.right}
-                  titles={recognition.titles()}
-                />
-              </section>
-            </div>
-          </details>
-        )}
-      />
-      <For each={["left", "right"] as const}>
-        {(key) => (
-          <section>
-            <h3>
-              {key === "left"
-                ? "Removed from left to right: left-only Assessments"
-                : "Added from left to right: right-only Assessments"}
-            </h3>
-            <p>
-              These Assessments have no shared-Question relationship on the other side; this does
-              not establish their history.
-            </p>
-            <RecordDetailList
-              ariaLabel={`${key === "left" ? "Left-only" : "Right-only"} Assessments`}
-              emptyState={{ title: "None." }}
-              recordId={(item) => item.blueprintAssessmentId}
-              rows={sideOnly(key)}
-              state={{ kind: "ready" }}
-              renderRecord={(item) => (
-                <details class="blueprint-fork-item">
-                  <summary>{item.content.title}</summary>
+              <Show when={row().left}>
+                <section>
+                  <h4>Left Assessment</h4>
                   <AssessmentSnapshot
-                    snapshot={item}
-                    side={props.view[key]}
+                    snapshot={row().left}
+                    side={props.view.left}
                     titles={recognition.titles()}
                   />
-                </details>
-              )}
-            />
+                </section>
+              </Show>
+              <Show when={row().right}>
+                <section>
+                  <h4>Right Assessment</h4>
+                  <AssessmentSnapshot
+                    snapshot={row().right}
+                    side={props.view.right}
+                    titles={recognition.titles()}
+                  />
+                </section>
+              </Show>
+            </div>
           </section>
         )}
-      </For>
+      </Show>
     </div>
   );
 }
@@ -616,7 +599,15 @@ export function BlueprintKnownForks(
     },
   ];
   const search = createLocalCompleteSearch(
-    { resource: forks, refetchSource: refetch, rows: (value) => value ?? [] },
+    {
+      rows: () => {
+        const value = forks();
+        return value === undefined ? undefined : (value ?? []);
+      },
+      loading: () => forks.loading,
+      error: (): unknown => forks.error,
+      refetchSource: refetch,
+    },
     {
       fields,
       rowId: (fork) => fork.id,

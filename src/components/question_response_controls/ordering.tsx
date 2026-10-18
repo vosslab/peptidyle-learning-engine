@@ -6,7 +6,7 @@ import type { ResponseItemId } from "../../../generated/api/ResponseItemId";
 import type { OrderingItem } from "../../../generated/api/OrderingItem";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
-import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
+import { handleQuestionResponseControlKeyDown } from "./keyboard";
 import {
   Actions,
   createResponseController,

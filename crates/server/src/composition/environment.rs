@@ -20,6 +20,15 @@ pub(super) fn required_env(name: &str) -> Result<String> {
     Ok(value)
 }
 
+/// Constructs the one fixed private capture destination for publication.
+pub(super) fn question_thumbnail_capture_from_env()
+-> Result<crate::question_publication::QuestionThumbnailCaptureClient> {
+    crate::question_publication::QuestionThumbnailCaptureClient::new(&required_env(
+        "PLE_QUESTION_THUMBNAIL_RENDERER_BASE_URL",
+    )?)
+    .map_err(anyhow::Error::msg)
+}
+
 /// Constructs the private WeBWorK boundary from deployment-owned settings.
 /// The renderer version is an attested private file, never a browser input.
 pub(super) fn webwork_adapter_from_env() -> Result<Arc<WebworkAdapter<HttpWebworkRenderer>>> {

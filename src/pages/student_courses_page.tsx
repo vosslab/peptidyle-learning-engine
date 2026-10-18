@@ -5,13 +5,12 @@ import { createResource, type JSX } from "solid-js";
 
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import { byStudentCourseNameThenId, studentCourseFields } from "./student_collection_fields";
-import { type RecordContent } from "../components/record_list/record_list";
-
+import type { RecordContent } from "../components/data_sheet/record_content";
 function courseContent(course: LiveStudentCourseLandingSummary): RecordContent {
   return {
     title: course.longName,
@@ -35,7 +34,12 @@ export function StudentCoursesPage(): JSX.Element {
     byStudentCourseNameThenId(await applicationApi.client.listLiveStudentCourses()),
   );
   const courseSearch = createLocalCompleteSearch(
-    { resource: courses, refetchSource: refetch, rows: (value) => value },
+    {
+      rows: courses,
+      loading: () => courses.loading,
+      error: (): unknown => courses.error,
+      refetchSource: refetch,
+    },
     {
       fields: studentCourseFields,
       rowId: (course) => course.id,

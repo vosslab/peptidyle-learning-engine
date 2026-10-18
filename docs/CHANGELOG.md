@@ -8,27 +8,112 @@
 > September 29 entries are archived in [CHANGELOG-2026-09r.md](CHANGELOG-2026-09r.md).
 > September 28 entries are archived in [CHANGELOG-2026-09s.md](CHANGELOG-2026-09s.md).
 
-## 2026-10-16
+## 2026-10-18
+
+### Fixes and Maintenance
+
+- Grouped shared PageFrame, DataSheet, and SearchBlock code under named component directories;
+  moved the Pool member sort helper beside its caller and folded DataSheet controls into their
+  owner. Updated imports and current architecture links without changing collection behavior.
+- Deleted the remaining 74 one-time TEMP source/probe files and 3 runner-only configs while
+  retaining useful evidence and established test workflows.
+
+## 2026-10-17
 
 ### Behavior or Interface Changes
 
-- Aligned current PageFrame and search ownership documentation, removed the
-  unused PageSection helper and styles, and deleted a temporary browser-proof
-  comment. The six-pass audit's maintained-browser-test suggestion remains
-  advisory under D-AUDIT-1; no permanent test or new completion gate was
-  added. See [the audit report](active_plans/audits/modular_ui_completion_six_pass_audit_2026_10_16.md).
-- Accepted the complete modular UI plan: M1-M32 verified, zero active or pending. Fresh `/root/final_plan_integration_spec` and distinct `/root/final_plan_integration_quality` passed with no findings, followed by manager acceptance on 2026-10-16. Approved scope and gates are unchanged. Final quality independently confirmed all 92 permanent baselines and 1,848 immutable retained artifacts unchanged, with all 75 approved operative paths absent; the two final-report indexes remain authorized mutable evidence records. Canonical fast/full and native/visual acceptance remain separately documented. The verified local build included the accepted repairs; the Demo is stopped and the post-full receipt records zero containers. Archived the completed [modular_ui_completion_plan.md](archive/modular_ui_completion_plan.md) with the user-authorized sole `git mv` (exit 0); that command stages the rename. No other Git or staging command, new permanent test, or product change was added by this closeout.
-- Completed M32 technical verification and prepared final integrated acceptance. Current Search/Browse/My Questions attempt `1792137381897594000` on bundle `723f7c8c` passed fresh specification, distinct quality, three-image visual review, actual query/DOM/shared-control proof, 20.5px Compact density, and byte-exact overlay restoration. The canonical Templates capture passed its checkpoint/privacy receipt. Fresh architecture and legacy cleanup reviews accepted RecordList as the sole sort-control owner invoking domain query bindings. Canonical fast attempt 3 and full checks exited 0: schema clean, 410 generated contracts, Rust 41 default/41 all-feature, Node 24, and Python 9,205; the full gate separately passed the disposable PostgreSQL schema/authority/persistence oracle. Exact receipts and preserved earlier failures are under `tests/_temp/modular_ui/phase_c/final_gates/`. Cleanup removed exactly 75 approved operative files (807,322 bytes), preserving 1,850 artifact hashes and 92 permanent baselines at cleanup, including reports and 355 source snapshots. Post-full state records 10.49GB, no containers or owned project volumes/networks, an empty workspace, available lease, and unchanged permanent baselines. M1-M31 remain verified; M32 stays active for final integrated specification/quality review and manager acceptance. No permanent tests were added.
-- Accepted M31 Remaining consumers. Fresh `m31_complete_runtime_fresh_spec` and distinct quality review accepted the complete inventory: current Student query/partial-retry, real Sysadmin Discipline Stay/Discard guard, 24-row update review with both header sorts and 503 recovery, Question Use, and privacy-safe five-Student statistics API/DOM proof (`1792136066729026000`). Native attempt `1792136703798793000` used the canonical current-clock transition for Course `CIJAAXY2YT`: Mary retains list and landing HTTP 200 after inactive status while retention remains active; true archived Course `CIM64DK7QF` is absent and returns 404. The resource-bound producer receipt used no future clock or direct Student data SQL. M1-M31 are verified; M32 is active for current three-page runtime captures, final visual/integrated acceptance, canonical fast/full gates, documentation closeout, and temporary-probe cleanup. No permanent tests were added.
-- Reduced the modular UI permanent-test burden further. The October 15 pruning checkpoint removed 16 files and 3,611 lines; cumulative pruning now removes 17 permanent files and 3,698 physical lines after deleting two later pure guard cases (87 lines). Node remains at its existing 24-case baseline. No replacement harness or permanent test was added; ignored reports, logs, receipts, and captures remain evidence while one-time executable probes are removed at closeout.
+- Completed shared collection integration across Library, Pools, Assessments, Blueprint editors,
+  personal/Course/Student views and remaining consumers, with separate accepted evidence for
+  numbered full-query paging, independent modes/filters, exact revision pins, real stale-edit
+  conflicts, dirty-draft recovery, access concealment and native/keyboard reorder/transfer.
+  All 37 approved milestones are verified. Accepted receipts and proof limits are recorded in
+  [datasheet_collection_status.md](active_plans/reports/datasheet_collection_status.md#current-recovery-checkpoint---2026-10-17).
+- Connected Native math/image preview and immutable seed-zero thumbnail publication/correction,
+  private MathJax capture, importer/backfill and zero-capture browsing. Actual missing-license
+  HTTP 422 returned no artifact bytes; renderer HTTP 503 preserved the Draft and same-container
+  recovery passed. These lifecycle results also passed the final runtime gates.
+- Preserved protected Course Blueprint Entry identity through updates and grade changes; source-fork
+  saves now tolerate an advanced source revision while retaining immutable origin, parent identity,
+  authorization, locking and current-revision/Edit-CAS checks.
+- Corrected MC/MA authoring validation at canonical indexed choice paths while preserving semantic
+  answer identity and actionable MA guidance. Focused TypeScript/lint/format and 13 isolated mapping
+  checks passed; actual C62 authoring interaction, failed-save Stay/Discard and reload passed.
+- Composed the ordered Assessment heading and Bloom reorder action in a naturally wrapping header;
+  the action names its draft-order effect and retains availability feedback.
+- Completed Instructor, Student and Admin content-first layout acceptance, including
+  default-closed filters, on-demand ID entry and retained failed input. Accepted narrow evidence
+  exposes seven rows initially. Current Student state captures, Instructor task checkpoints,
+  desktop/theme/zoom review and phone Add/Remove/reorder/save/reload passed.
 
-- Accepted M30 Administration as verified. Fresh `m30_completed_actual_runtime_spec` and distinct quality review accepted native attempt `1792133969893494000` (exit 0), whose sole original Sysadmin spec restored byte-exactly. The resource-bound fixture uses Course `CIM64DK7QF` and true archived, not deleted, Attempt `7fd0f105-b871-43d9-a96f-a6c3240510eb`. Recovery Select and Recover each returned HTTP 200 with strict canonical camelCase decoding, `no-store`, and readonly detail. The run also proved real Gradebook CSV/API-to-DOM behavior, Morgan's original FERPA consent/audit and private-role gates, and POST-only Admin queries. The earlier invalid fixture was not a product bug. The canonical DTO repair adds no field aliases and weakens no security boundary. The focused safe Account confirmation, date, and cancel supplement `m31_sysadmin1792131812538881000` is accepted. The checkpoint is 30 verified / 1 active / 1 pending, with no new permanent tests.
-- Accepted M26 Proposals/history as verified. Fresh native attempt `1792133093755384000` passed seven stages with three byte-exact temporary-overlay restorations: two accepted proposals sort by Created in both directions from API to DOM; Star and Watch each complete and restore two PUT 200 round trips; and public Blueprint fork/stewardship API and UI expose their legitimate neutral empty projection. Earlier receipts retain the POST 201 creation, POST 200 acceptance, ordered application, and history evidence. The reused-target retry explicitly records `targetBefore: null` and does not claim a new before/after target proof. Fresh specification and distinct quality reviews accepted the complete evidence. The checkpoint is now 29 verified / 2 active / 1 pending, with no new permanent tests.
-- Accepted two bounded shared-source repairs while retaining the current 28 verified / 3 active / 1 pending checkpoint. Scores now derives its narrow essentials from the shared field model in both score collections: Coursework is 12rem at priority 0 and Score is 5rem at priority 1. Fresh specification and distinct quality reviews, TypeScript, lint, and formatting passed; the native 393px/root-20 and desktop proof remains open. M30 recovery now reads canonical `delivery.published_question_id` through the matching private Rust field and sole consumer; nullable `source_object_record_id` provenance is aligned at that same boundary. SQL, API contracts, grants, and authorization did not change. Formatting, Rust check, and fresh specification and distinct quality reviews passed; rebuilt-native Recover 200 proof remains open. Focused current M31 Student, Sysadmin, and Pool owner/viewer runs passed, while final combined M31 review and the privacy-safe positive five-Student statistics cohort proof remain pending. All evidence is ignored temporary proof; no permanent tests were added.
-- Accepted M19 My Pools, M21 Starred, and M22 Watched as verified: the Phase C active-Sysadmin evidence recorded Morgan's authenticated session, denial of all four private collection routes, Elena's 200 and Morgan's 404 on the same Starred and Watched URIs, and public Library 200. My Pools correctly uses the public search architecture, so route denial supplies its role proof. Fresh specification and distinct quality reviews accepted the combined evidence. The checkpoint is 28 verified / 3 active / 1 pending; M30 remains active after its later recovery stage failed. Accepted source repairs cover camelCase recovery input/output, dense Compact action/touch behavior, Account editor/viewer date and focus handling, lazy single-controller Pool loading, and residual manual eyebrow removal. A canonical fresh restart cleaned up the fixed project; preserved host evidence remains available and disposable native fixtures must be recreated for the remaining M26, M29, and M30 work. No permanent tests were added.
-- Repaired the M30 recovery Select boundary to read the API's camelCase DTO; source formatting/check and fresh specification and distinct quality reviews passed. Native API rebuild and browser proof remain pending. M31's Student Course landing query now uses the retention-active predicate rather than teaching lifecycle; schema style and fresh reviews passed, and the fresh base will carry it with M26's timestamp repair. M32's independent source architecture reviews passed, while its ten-capture visual review retained dense Course wrapping, the Account deactivation form, narrow Actions reachability/affordance, and an actual Discipline-guard capture for owner diagnosis. A meaningful Pool description remains task context pending evidence of duplication. The checkpoint remains 25 verified / 6 active / 1 pending, with no new permanent tests.
-- Repaired the pre-production Proposal creation timestamp contract after native M26 creation reached its database check: the create function now uses transaction time for `created_at`, matching the table's transaction-time `updated_at` default and preserving `updated_at >= created_at`. Fresh specification, distinct quality, and schema-style checks passed. The current Live Demo cannot replay an initial-schema change in place; after Phase C browser work and artifact copies complete, the documented canonical refresh replaces only disposable native fixtures. M26 remains active until that fresh-base HTTP/browser proof passes. M31 remains active while its Student owner proof gains two focused temporary refinements for a nonmatching-to-matching own-Course query and a retained unaffected row during partial-error recovery. No permanent tests were added.
-- Accepted M28 Pickers/Pool members as verified. Canonical Phase C recovery and heading-sort-across-paging attempts `1792126008765106000` and `1792126606160498000` passed with all three registered overlays restored; fresh runtime specification and distinct quality review accepted the evidence. The checkpoint is now 25 verified / 6 active / 1 pending. The existing Sysadmin privacy test received only a selector migration for shared Compact ID text; its privacy and audit assertions are unchanged, and native Sysadmin verification remains M30 work. Evidence remains ignored in `tests/_temp/`; no permanent tests were added.
+### Fixes and Maintenance
+
+- Removed unused collection facades, reorder/controls/style artifacts, picker/query code, dead helpers
+  and result-cursor client routes; consolidated numbered sizing while retaining live provider/facet/
+  native cursors. Focused checks and bounded source SPEC/QUALITY passed. Requested decoder and
+  Instructor workflow splits passed. The lifecycle split passed with canonical CLI imports, the M19
+  TEMP contract, pyflakes, and eight one-time hygiene checks. One-time cleanup retired the 631-line
+  fixture producer and six production-file plumbing paths while retaining real backfill. Six fresh
+  growth-audit passes completed.
+- Simplified shared local sources across 38 consumers, removing 23 manufactured Resources while
+  retaining real loading, error and refresh behavior. Corrected fresh SPEC and distinct QUALITY passed; ROOT
+  accepted the bounded cleanup. Evidence: `tests/_temp/datasheet/growth_cleanup/local_source_evidence.md`.
+- Consolidated DataSheet evidence documentation after corrected fresh SPEC and distinct QUALITY;
+  retained original failed review receipts and all 37 requirements. Aligned current architecture
+  guides with implemented four-mode owners, numbered paging, reactive complete sources and accepted
+  thumbnail publication. Final architecture documentation SPEC/QUALITY and paging-scope SPEC/QUALITY
+  passed. Published-preview source repair passed separate SPEC/QUALITY and focused
+  TypeScript/lint/format checks. Startup handle 1595 exited 0 and produced Demo `https://localhost:8351`;
+  subsequent current-client spatial captures and acceptance passed. Integrated
+  journey reconciliation and current native recovery passed.
+- Repaired retained-work retry: retrying one document remounts that iframe; whole-History retry evicts
+  its exact router query cache key. Both actual retry paths passed, preserving unaffected native
+  question/response DOM, rows, score, query and mode through HTTP 503-to-200 recovery.
+- Corrected shared Search CSS containment after paired runtime diagnosis; C16 modes, save, navigation
+  guards and real 412 recovery passed. Browse wide/narrow four-mode layouts passed without overflow.
+- Fixed shared Compact reorder controls to keep titles readable at fine and coarse sizes, and made
+  deleted-file test discovery check existence before reading. Maintained Student screenshots now
+  verify state without requiring the responsive-hidden Status column and navigate global Coursework
+  with composite Course:Assessment IDs. The canonical fast check passed (9,413 pytest); actual phone
+  Add/Remove/reorder/save/reload and Student capture7 passed.
+- Added redacted failure-only StudentStart/presentation SQLx diagnostics, corrected generated-graph
+  image CORP and clarified the API image contract. Tightened modular UI product guidance and TEMP
+  discovery policy without adding permanent tests or new completion gates.
+- Consolidated 39 DataSheet reports into the status ledger, consumer inventory and spatial baseline.
+  Folded unique behavior/evidence/limitations from 36 reports, removed superseded dispatch chronology
+  and repaired incoming links. Inventory counts, unique measurements and all 37 requirements remain.
+- Closed the modular UI plan after current fast/full checks, connected and visual acceptance, and
+  independent reviews passed. Retired one-time proof executables and configuration while retaining
+  the useful receipts, captures and final-gate results.
+
+## 2026-10-16
+
+### Additions and New Features
+
+- Added a shared DataSheetTable for Compact and wrapping List with independent temporary column settings.
+- Clarified that Search and Browse share SearchBlock and DataSheetBlock while preserving their distinct goals and layouts, and that source capture preserves rendered Question proportions without raster enlargement.
+- Finalized the seven shared collection definitions and ASCII hierarchy, interaction ownership, and square thumbnail crop rules: preserve aspect ratio, center horizontal crops, top-align vertical crops, and capture at sufficient source resolution.
+- Added a private Question Thumbnail Renderer to Compose using the existing local lifecycle, Chromium health readiness, and private networking without published ports, volumes, or credentials.
+- Extracted shared collection rendering and presentation state from RecordList into the named DataSheet components.
+
+### Behavior or Interface Changes
+
+- Refined Search/Browse guidance and shared collection ownership, including PageFrame layout, search entry, empty states, column behavior, and meaningful unsaved-change confirmation.
+- Completed earlier modular UI behavior and interface work across RecordList modes, sorting, filtering, selection, responsive columns, editor guards, pickers, proposals, administration, and student workflows. The earlier completed-plan namespace retains its historical receipts.
+- Corrected bulk Published Question metadata authorization at its SQL owner boundary and simplified shared Compact sort/filter controls while preserving the existing authorization and query contracts.
+- Reduced the permanent modular UI test burden under the temporary-first policy; retained bounded acceptance evidence and historical validation separately from current gates.
+
+### Fixes and Maintenance
+
+- Corrected source-catalog parsing of multiple foreign keys in one `ALTER TABLE` statement and regenerated schema documentation and the catalog snapshot, including `ple_private.question_revision_thumbnail` and four previously omitted foreign keys.
+- Restored keyboard focus after shared DataSheet column reordering by refocusing the moved column's enabled move control.
+- Narrowed the shared container build context to the API and thumbnail renderer's required inputs.
+- Corrected Library Watch pagination counts, page offsets, and deterministic result ordering.
+- Added the shared search-session count guard for numbered pages, including BlueprintWatch.
+- Enforced the shared u32 page-number limit in Blueprint history SQL and capped proposal pages at 100.
+- Recovered retained-work pagination races by preserving active request intent across retry and refresh.
+- Scoped Blueprint view hydration to referenced fixed Question revisions after the confirmed M22 assembly failure.
+- Repaired redacted PostgreSQL diagnostics to preserve nested Rust causes and fixed browser-callback local-global linting; fresh specification and quality reviews and 20 one-time helper checks passed. Corrected Human Guidance, active-report, and archive links also passed their separate reviews.
+- Historical local verification after the M22 recovery attempt: the six-stage debug build, `./check_codebase.sh`, and full source-bootstrap Python suite passed (9,536 tests). The canonical attempt then failed database initialization with an unknown SQLx cause; later runtime recovery and acceptance are recorded in the current ledger. These are historical results, not current final gates.
 
 ## 2026-10-15
 
@@ -176,11 +261,6 @@
 - Clarified that Search and Browse share RecordList's column filters, sorting, display modes,
   and record actions. Search uses full-width results with more visible columns; Browse adds a
   compact classification sidebar, leaving narrower results with fewer visible columns.
-  RecordList adapts its visible columns to available space. Search adds keyword search above
-  RecordList, and sorting alone does not initiate an unfiltered search.
-  Renamed the shared filter guidance heading and updated its specification link. All three
-  focused formatting/link checks passed; a broader selection also found two existing broken
-  links to `publication.rs` in archived Human Guidance audits.
 - Recorded that RecordList column visibility and arrangement last only for the current view
   and reset to defaults when reopened. The focused Human Guidance formatting check passed.
 - Made responsive column hiding, temporary column configurations, whole-result column sorting,
@@ -197,6 +277,8 @@
 
 ### Fixes and Maintenance
 
+- Renamed the active 37-milestone plan to `modular_ui_architecture_completion_plan.md`, updated its active links, and clarified that M19 runs as a separate process using the
+  repository-root npm manifests.
 - Repaired bulk Published Question metadata saves at their SQL owner boundary: the private
   `SECURITY DEFINER` function and its grants now use `ple_private_owner`, while the public wrapper
   keeps `ple_api_owner`. Each locked target must belong to the active Instructor before any batch

@@ -11,11 +11,11 @@ import {
   type PendingRosterConfirmation,
 } from "./roster_confirmation_dialog";
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
-import type { RecordContent } from "../components/record_list/record_list";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createLocalCompleteSearch } from "../features/search/local_complete_search_state";
+import { PageFrame } from "../components/page_frame/page_frame";
+import type { RecordContent } from "../components/data_sheet/record_content";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../components/search_block/local_complete_search_state";
 import type { CourseRosterEntry } from "../api/course_roster";
 import { type CourseInstanceRouteId, parseCourseInstanceId } from "../navigation/public_route";
 import { rosterFields, rosterStateLabel } from "./administration_collection_fields";
@@ -41,7 +41,12 @@ function CourseRosterCoursePage(props: {
 
   // A keyed Course child owns the cache, query, dialogs, and FERPA drafts.
   const rosterSearch = createLocalCompleteSearch(
-    { resource: roster, refetchSource: refetch, rows: (value) => value },
+    {
+      rows: roster,
+      loading: () => roster.loading,
+      error: (): unknown => roster.error,
+      refetchSource: refetch,
+    },
     {
       fields: rosterFields,
       rowId: (entry) => entry.rosterId,

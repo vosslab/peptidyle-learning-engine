@@ -165,6 +165,9 @@ DECLARE
     policy ple_data.assessment_policy_snapshot%ROWTYPE;
     values_json jsonb; entries_json jsonb := '[]'::jsonb; entry_json jsonb;
     source_pool_id text;
+    match_pass integer; retained_entry_id uuid;
+    retained_entry_ids uuid[] := ARRAY[]::uuid[];
+    entry_identity_map jsonb := '{}'::jsonb;
 BEGIN
     SELECT * INTO source FROM ple_api.load_assessment_blueprint_update(
         p_course_instance_id, p_assessment_id);
@@ -207,15 +210,62 @@ BEGIN
             OR (proposed.value ->> 'kind' = 'question_pool' AND
                 proposed.value ->> 'questionPoolId' IS NULL)
     ) OR (SELECT count(*) FROM jsonb_array_elements(p_member -> 'entries')) <>
-         (SELECT count(DISTINCT value ->> 'assessmentEntryId')
+         (SELECT count(DISTINCT lower(value ->> 'assessmentEntryId'))
             FROM jsonb_array_elements(p_member -> 'entries')) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint update requires fresh Entry identities';
     END IF;
+    -- ASVS 2.2.2, 15.4.2: reconcile validated source occurrences while the
+    -- destination lock is held. Reserve unchanged occurrences before matching
+    -- points/order edits, consuming each Available destination Entry once.
+    FOR match_pass IN 1..2 LOOP
+        FOR entry_json IN SELECT value FROM jsonb_array_elements(p_member -> 'entries') LOOP
+            IF entry_identity_map ? (entry_json ->> 'assessmentEntryId') THEN CONTINUE; END IF;
+            SELECT entry.assessment_entry_id INTO retained_entry_id
+              FROM ple_data.assessment_entry AS entry
+              LEFT JOIN ple_data.assessment_entry_question AS question
+                ON question.assessment_entry_id = entry.assessment_entry_id
+              LEFT JOIN ple_data.assessment_entry_pool AS pool_entry
+                ON pool_entry.assessment_entry_id = entry.assessment_entry_id
+             WHERE entry.assessment_id = assessment_row.assessment_id
+               AND entry.availability = 'available'
+               AND NOT (entry.assessment_entry_id = ANY (retained_entry_ids))
+               AND entry.entry_kind::text = entry_json ->> 'kind'
+               AND entry.availability::text = entry_json ->> 'availability'
+               AND entry.scoring_rule::text = entry_json ->> 'scoringRule'
+               AND entry.question_attempt_limit IS NOT DISTINCT FROM
+                   NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer
+               AND entry.question_attempt_time_limit_seconds IS NOT DISTINCT FROM
+                   NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer
+               AND entry.question_attempt_grace_seconds IS NOT DISTINCT FROM
+                   NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
+               AND CASE WHEN entry.entry_kind = 'fixed_question' THEN
+                   question.published_question_id = entry_json ->> 'questionId'
+                   AND question.question_revision_number = (entry_json ->> 'revisionNumber')::integer
+                   AND (match_pass = 2 OR question.points_possible =
+                       (entry_json ->> 'pointsPossible')::numeric)
+               ELSE
+                   pool_entry.question_pool_id = entry_json ->> 'questionPoolId'
+                   AND pool_entry.selection_count = (entry_json ->> 'selectionCount')::integer
+                   AND (match_pass = 2 OR pool_entry.points_per_item =
+                       (entry_json ->> 'pointsPerItem')::numeric)
+               END
+             ORDER BY entry.authored_position, entry.assessment_entry_id
+             LIMIT 1;
+            IF FOUND THEN
+                retained_entry_ids := array_append(retained_entry_ids, retained_entry_id);
+                entry_identity_map := entry_identity_map || jsonb_build_object(
+                    entry_json ->> 'assessmentEntryId', retained_entry_id::text);
+            END IF;
+        END LOOP;
+    END LOOP;
     values_json := (p_member -> 'values') - 'assessment_type' || jsonb_build_object(
         'available_at', policy.available_at, 'due_at', policy.due_at,
         'closes_at', policy.closes_at);
     FOR entry_json IN SELECT value FROM jsonb_array_elements(p_member -> 'entries') LOOP
-        IF entry_json ->> 'kind' = 'question_pool' THEN
+        IF entry_identity_map ? (entry_json ->> 'assessmentEntryId') THEN
+            entry_json := entry_json || jsonb_build_object('assessmentEntryId',
+                entry_identity_map ->> (entry_json ->> 'assessmentEntryId'));
+        ELSIF entry_json ->> 'kind' = 'question_pool' THEN
             source_pool_id := entry_json ->> 'questionPoolId';
             IF NOT EXISTS (SELECT 1 FROM ple_data.question_pool AS pool
                            WHERE pool.question_pool_id = source_pool_id) THEN

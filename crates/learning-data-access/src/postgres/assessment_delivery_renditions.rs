@@ -1,6 +1,6 @@
 //! Current Question Image Asset renditions and Assessment presentation commit payloads.
 
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::{Postgres, Row, Transaction, postgres::PgRow};
 
 use super::super::connection::map_sqlx_error;
 use crate::StoreError;
@@ -93,39 +93,43 @@ pub(in crate::postgres) async fn current_ready_question_image_renditions(
         .fetch_all(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;
-    rows.into_iter()
-        .map(|row| {
-            let question_image_asset_id = row
-                .try_get::<String, _>("question_image_asset_id")
-                .map_err(map_sqlx_error)?;
-            Ok(ReadyQuestionImageRendition {
-                source_relative_name: row
-                    .try_get("source_relative_name")
-                    .map_err(map_sqlx_error)?,
-                question_image_asset_id: uuid::Uuid::parse_str(&question_image_asset_id)
-                    .map(question_model::QuestionImageAssetId::from_uuid)
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Question Image Asset ID is invalid".to_string())
-                    })?,
-                question_image_checksum: row
-                    .try_get("question_image_checksum")
-                    .map_err(map_sqlx_error)?,
-                rendition_checksum: row.try_get("rendition_checksum").map_err(map_sqlx_error)?,
-                intrinsic_width: u32::try_from(
-                    row.try_get::<i32, _>("intrinsic_width")
-                        .map_err(map_sqlx_error)?,
-                )
-                .map_err(|_| {
-                    StoreError::InvalidRecord("Question Image Asset width is invalid".to_string())
-                })?,
-                intrinsic_height: u32::try_from(
-                    row.try_get::<i32, _>("intrinsic_height")
-                        .map_err(map_sqlx_error)?,
-                )
-                .map_err(|_| {
-                    StoreError::InvalidRecord("Question Image Asset height is invalid".to_string())
-                })?,
-            })
-        })
+    rows.iter()
+        .map(decode_ready_question_image_rendition)
         .collect()
+}
+
+pub(in crate::postgres) fn decode_ready_question_image_rendition(
+    row: &PgRow,
+) -> Result<ReadyQuestionImageRendition, StoreError> {
+    let question_image_asset_id = row
+        .try_get::<String, _>("question_image_asset_id")
+        .map_err(map_sqlx_error)?;
+    Ok(ReadyQuestionImageRendition {
+        source_relative_name: row
+            .try_get("source_relative_name")
+            .map_err(map_sqlx_error)?,
+        question_image_asset_id: uuid::Uuid::parse_str(&question_image_asset_id)
+            .map(question_model::QuestionImageAssetId::from_uuid)
+            .map_err(|_| {
+                StoreError::InvalidRecord("Question Image Asset ID is invalid".to_string())
+            })?,
+        question_image_checksum: row
+            .try_get("question_image_checksum")
+            .map_err(map_sqlx_error)?,
+        rendition_checksum: row.try_get("rendition_checksum").map_err(map_sqlx_error)?,
+        intrinsic_width: u32::try_from(
+            row.try_get::<i32, _>("intrinsic_width")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| {
+            StoreError::InvalidRecord("Question Image Asset width is invalid".to_string())
+        })?,
+        intrinsic_height: u32::try_from(
+            row.try_get::<i32, _>("intrinsic_height")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| {
+            StoreError::InvalidRecord("Question Image Asset height is invalid".to_string())
+        })?,
+    })
 }

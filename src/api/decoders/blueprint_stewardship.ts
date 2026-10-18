@@ -6,13 +6,15 @@ import {
   decodeNonemptyString,
   decodeNonnegativeInteger,
   decodeRecord,
+  decodeSafeInteger,
   decodeStringEnum,
+  decodeUuid,
 } from "../decoder";
 import type {
   BlueprintStarProjection,
   BlueprintStarredInstructor,
   BlueprintWatchProjection,
-  BlueprintWatchEvent,
+  BlueprintWatchPage,
 } from "../blueprint_stewardship";
 import { blueprintEditNumber } from "./blueprint_course";
 import { decodeBoundedArray, field, requireOnlyFields } from "./shared";
@@ -62,30 +64,73 @@ export function decodeBlueprintWatch(value: unknown, path = "response"): Bluepri
   return { watching: decodeBoolean(field(record, "watching", path), `${path}.watching`) };
 }
 
-export function decodeBlueprintWatchEvents(
-  value: unknown,
-  path = "response",
-): readonly BlueprintWatchEvent[] {
+export function decodeBlueprintWatchEvents(value: unknown, path = "response"): BlueprintWatchPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["events"]);
-  return decodeBoundedArray(field(record, "events", path), `${path}.events`, 100, (value, path) => {
-    const event = decodeRecord(value, path);
-    requireOnlyFields(event, path, ["kind", "occurredAt"]);
-    const occurredAt = decodeNonnegativeInteger(
-      field(event, "occurredAt", path),
-      `${path}.occurredAt`,
-    );
-    if (Number.isNaN(new Date(occurredAt).getTime()))
-      throw new DecodeError(`${path}.occurredAt`, "a valid millisecond timestamp");
-    return {
-      kind: decodeStringEnum(field(event, "kind", path), `${path}.kind`, [
-        "revision",
-        "archived",
-        "restored",
-      ]),
-      occurredAt,
-    };
-  });
+  requireOnlyFields(record, path, [
+    "items",
+    "pageNumber",
+    "pageSize",
+    "totalCount",
+    "eventKindFacets",
+  ]);
+  const pageNumber = decodeNonnegativeInteger(
+    field(record, "pageNumber", path),
+    `${path}.pageNumber`,
+  );
+  const pageSize = decodeNonnegativeInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeSafeInteger(field(record, "totalCount", path), `${path}.totalCount`);
+  if (pageNumber < 1) throw new DecodeError(`${path}.pageNumber`, "a positive page number");
+  if (pageSize < 1 || pageSize > 100)
+    throw new DecodeError(`${path}.pageSize`, "a page size from 1 through 100");
+  if (totalCount < 0) throw new DecodeError(`${path}.totalCount`, "a nonnegative result count");
+  const items = decodeBoundedArray(
+    field(record, "items", path),
+    `${path}.items`,
+    100,
+    (value, path) => {
+      const event = decodeRecord(value, path);
+      requireOnlyFields(event, path, ["eventId", "kind", "occurredAt"]);
+      const occurredAt = decodeNonnegativeInteger(
+        field(event, "occurredAt", path),
+        `${path}.occurredAt`,
+      );
+      if (Number.isNaN(new Date(occurredAt).getTime()))
+        throw new DecodeError(`${path}.occurredAt`, "a valid millisecond timestamp");
+      return {
+        eventId: decodeUuid(field(event, "eventId", path), `${path}.eventId`),
+        kind: decodeStringEnum(field(event, "kind", path), `${path}.kind`, [
+          "revision",
+          "archived",
+          "restored",
+        ]),
+        occurredAt,
+      };
+    },
+  );
+  if (
+    items.length > pageSize ||
+    (totalCount === 0 && pageNumber !== 1) ||
+    (totalCount > 0 && (items.length === 0 || pageNumber > Math.ceil(totalCount / pageSize)))
+  ) {
+    throw new DecodeError(path, "a consistent numbered Blueprint Watch page");
+  }
+  const facetKinds = ["revision", "archived", "restored"] as const;
+  const eventKindFacets = decodeBoundedArray(
+    field(record, "eventKindFacets", path),
+    `${path}.eventKindFacets`,
+    facetKinds.length,
+    (value, facetPath) => {
+      const facet = decodeRecord(value, facetPath);
+      requireOnlyFields(facet, facetPath, ["value", "count"]);
+      return {
+        value: decodeStringEnum(field(facet, "value", facetPath), `${facetPath}.value`, facetKinds),
+        count: decodeNonnegativeInteger(field(facet, "count", facetPath), `${facetPath}.count`),
+      };
+    },
+  );
+  if (new Set(eventKindFacets.map((facet) => facet.value)).size !== eventKindFacets.length)
+    throw new DecodeError(`${path}.eventKindFacets`, "unique event kinds");
+  return { items, pageNumber, pageSize, totalCount, eventKindFacets };
 }
 
 export function decodeBlueprintPromotion(

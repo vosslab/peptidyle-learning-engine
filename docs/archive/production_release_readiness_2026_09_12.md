@@ -228,7 +228,7 @@ integration repair, not a reason to rebuild Course Appearance.
 At audit time, `src/pages/course_grade_settings_page.tsx` attempted to load grade scheme and
 totals through [response.ts](../../src/api/http_client/response.ts).
 The `/api/courses/.../grade-scheme` and `/gradebook-totals` handlers are not present in the current
-server composition. [teaching_operations.ts](../../src/api/http_client/teaching_operations.ts)
+server composition. `src/api/http_client/teaching_operations.ts`
 also names teaching-management requests without current matching server handlers.
 The Ribbon correctly withholds these capabilities today.
 

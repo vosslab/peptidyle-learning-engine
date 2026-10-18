@@ -14,23 +14,23 @@ import { assessmentPointValueDraft } from "../../assessment_point_value";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { createHttpApiClient } from "../../api/http_client";
 import { createQuestionLibraryRepository } from "../../api/question_library_repository";
+import type { LibrarySearchRow } from "../../pages/library_page_model";
 import { type QuestionPickerSource, type QuestionPickerSourceRepository } from "../question_picker";
 import {
   appendPickedPool,
+  MAX_REUSABLE_ENTRIES,
   removeReusableEntry,
   updateReusableDefaults,
   updateReusableEntryScoring,
   updateReusablePoolSelectionCount,
   updateReusableText,
 } from "./blueprint_course_model";
-import {
-  AssessmentContentPicker,
-  type AssessmentContentPickerSelection,
-} from "../assessment_content_picker";
+import type { AssessmentContentPickerSelection } from "../assessment_content_picker";
+import { AssessmentEditor } from "../assessment_content_picker/assessment_editor";
 import { BlueprintAssessmentFeedbackFields } from "./blueprint_assessment_feedback_fields";
-import { RecordSequence } from "../../components/record_list/record_sequence";
-import type { RecordContent } from "../../components/record_list/record_list";
-import { reorderedRecordListRows } from "../../components/record_list/record_list_reorder";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import { reorderedRecordListRows } from "../../components/data_sheet/record_reorder";
+import { type QuestionNativePreview } from "../../components/question_native_preview";
 import type { RecognitionTitleMaps } from "../../api/recognition_titles";
 import { recognitionTitlesResource } from "../recognition_titles_load";
 import {
@@ -40,6 +40,8 @@ import {
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
+  readonly questionPreviews: ReadonlyMap<string, QuestionNativePreview>;
+  readonly onRememberQuestionPreviews: (questions: ReadonlyArray<QuestionNativePreview>) => void;
   readonly blueprintClient?: BlueprintCourseClient;
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
@@ -63,14 +65,14 @@ export function BlueprintAssessmentContentEditor(
   props: BlueprintAssessmentContentEditorProps,
 ): JSX.Element {
   const [editingTask, setEditingTask] = createSignal<"questions" | "properties">("questions");
-  const [contentPickerOpen, setContentPickerOpen] = createSignal(false);
   const [pointDrafts, setPointDrafts] = createSignal<Readonly<Record<string, string>>>({});
   const [timeLimit, setTimeLimit] = createSignal(
     assessmentDurationOverrideMinutesDraft(
       props.content.defaults.assessment_attempt_time_limit_seconds,
     ),
   );
-  // Draft entries can repeat the same published identity, so list keys stay UI-local and travel with moves.
+  // Draft entries can repeat the same published identity, so list keys stay UI-local and travel
+  // with moves.
   type EntryInput = BlueprintAssessmentContentInput["entries"][number];
   type EntryRecord = { readonly entry: EntryInput; readonly index: number; readonly id: string };
   let nextEntryIdentity = 0;
@@ -85,8 +87,8 @@ export function BlueprintAssessmentContentEditor(
     }
     return entries.map((entry, index) => ({ entry, index, id: entryIdentities[index]! }));
   });
-  const assessmentContentRepository = createQuestionLibraryRepository(createHttpApiClient());
-  let contentPickerTrigger: HTMLButtonElement | undefined;
+  const apiClient = createHttpApiClient();
+  const assessmentContentRepository = createQuestionLibraryRepository(apiClient);
   let editor: HTMLElement | undefined;
   onCleanup(() => props.onInvalidDraftChange?.(false));
 
@@ -169,14 +171,46 @@ export function BlueprintAssessmentContentEditor(
     changeScoring(record, { points: value });
   }
 
-  function removeEntry(record: EntryRecord): void {
+  function removeEntry(entryId: string): void {
+    if (!props.editable) return;
+    // ASVS 2.2.1: retained controls resolve occurrence identity in the current authored draft.
+    const current = entryRecords();
+    const record = current.find((candidate) => candidate.id === entryId);
+    if (record === undefined) return;
     changeEntries(
       removeReusableEntry(props.content, record.index),
       "Entry removed. Add another question or save the revised content.",
-      entryRecords()
-        .filter((candidate) => candidate.id !== record.id)
-        .map((candidate) => candidate.id),
+      current.filter((candidate) => candidate.id !== record.id).map((candidate) => candidate.id),
     );
+  }
+
+  function moveEntry(sourceId: string, destinationId: string): void {
+    if (!props.editable) return;
+    // ASVS 2.2.1: resolve explicit identities against the complete current draft.
+    const current = entryRecords();
+    const sourceIndex = current.findIndex((record) => record.id === sourceId);
+    const destinationIndex = current.findIndex((record) => record.id === destinationId);
+    if (sourceIndex < 0 || destinationIndex < 0 || sourceIndex === destinationIndex) return;
+    const records = reorderedRecordListRows(current, sourceIndex, destinationIndex);
+    changeEntries(
+      { ...props.content, entries: records.map((record) => record.entry) },
+      "Question order updated. Review the next entry or save the Blueprint Assessment.",
+      records.map((record) => record.id),
+    );
+  }
+
+  function included(row: LibrarySearchRow): boolean {
+    return props.content.entries.some((entry) => {
+      if (row.kind === "pool")
+        return entry.kind === "pool" && entry.question_pool_id === row.displayId;
+      return (
+        entry.kind === "fixed" &&
+        entry.published_question_revision_tuple.publishedQuestionId ===
+          row.publishedQuestionRevisionTuple.publishedQuestionId &&
+        entry.published_question_revision_tuple.revisionNumber ===
+          row.publishedQuestionRevisionTuple.revisionNumber
+      );
+    });
   }
 
   function validNumber(input: HTMLInputElement): boolean {
@@ -256,6 +290,7 @@ export function BlueprintAssessmentContentEditor(
   function confirmFixedQuestions(
     selection: Extract<AssessmentContentPickerSelection, { kind: "questions" }>,
   ): void {
+    props.onRememberQuestionPreviews(selection.questions);
     rememberTitles({
       questions: new Map(
         selection.questions.map((question) => [
@@ -298,7 +333,10 @@ export function BlueprintAssessmentContentEditor(
   }
 
   function confirmAssessmentContent(selection: AssessmentContentPickerSelection): void {
-    setContentPickerOpen(false);
+    // ASVS 2.2.1: retain the domain entry bound before appending to the local draft.
+    const additionalCount = selection.kind === "pool" ? 1 : selection.questions.length;
+    if (!props.editable || props.content.entries.length + additionalCount > MAX_REUSABLE_ENTRIES)
+      return;
     if (selection.kind === "pool") {
       confirmQuestionPool(selection);
       return;
@@ -378,105 +416,88 @@ export function BlueprintAssessmentContentEditor(
               <p role="status">{recognition.status()}</p>
             </Show>
           </div>
-          <Show when={props.editable}>
-            <div class="blueprint-course-inline-actions">
-              <button
-                type="button"
-                onClick={(event) => {
-                  contentPickerTrigger = event.currentTarget;
-                  setContentPickerOpen(true);
-                }}
-              >
-                Add Assessment content
-              </button>
-            </div>
-          </Show>
         </div>
-        <Show
-          when={props.content.entries.length > 0}
-          fallback={
-            <p class="blueprint-course-empty-copy">
-              Choose published questions to create the first reusable entry.
-            </p>
+        <AssessmentEditor
+          entries={entryRecords()}
+          entryId={(record) => record.id}
+          entryKind={(record) =>
+            record.entry.kind === "fixed" ? "Published Question" : "Question Pool"
           }
-        >
-          <RecordSequence
-            rows={entryRecords()}
-            content={(record): RecordContent =>
-              blueprintAssessmentEntryContent(
-                record.entry,
-                recognition.titles(),
-                props.editable ? (): void => removeEntry(record) : undefined,
-              )
-            }
-            renderBody={(record) => {
-              const current = record();
-              const entry = current.entry;
-              const index = current.index;
-              return (
-                <>
-                  <Show when={entry.kind === "pool"}>
-                    <label class="blueprint-course-small-field">
-                      Draw each Assessment Attempt
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        value={entry.kind === "pool" ? entry.selection_count : 1}
-                        disabled={!props.editable}
-                        onInput={(event) => {
-                          if (!validNumber(event.currentTarget)) {
-                            props.onChange(
-                              props.content,
-                              "Use a positive whole number for the Pool selection count.",
-                            );
-                            return;
-                          }
-                          const selectionCount = Number(event.currentTarget.value);
-                          changeEntries(
-                            updateReusablePoolSelectionCount(props.content, index, selectionCount),
-                            "Question Pool selection count updated. The server validates it against current Pool membership.",
+          disabled={!props.editable}
+          onMove={moveEntry}
+          removeCommand={(record) => ({
+            label: "Remove",
+            disabled:
+              !props.editable || !entryRecords().some((current) => current.id === record.id),
+            run: () => removeEntry(record.id),
+          })}
+          content={(record): RecordContent =>
+            blueprintAssessmentEntryContent(
+              record.entry,
+              recognition.titles(),
+              props.questionPreviews,
+            )
+          }
+          renderBody={(record) => {
+            const entryId = record().id;
+            const poolEntry = (): Extract<EntryInput, { kind: "pool" }> | undefined => {
+              const entry = record().entry;
+              return entry.kind === "pool" ? entry : undefined;
+            };
+            return (
+              <>
+                <Show when={poolEntry() !== undefined}>
+                  <label class="blueprint-course-small-field">
+                    Draw each Assessment Attempt
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={poolEntry()?.selection_count ?? 1}
+                      disabled={!props.editable}
+                      onInput={(event) => {
+                        // ASVS 2.2.1: resolve the retained body's identity in the current draft.
+                        const current = entryRecords().find(
+                          (candidate) => candidate.id === entryId,
+                        );
+                        if (!props.editable || current?.entry.kind !== "pool") return;
+                        if (!validNumber(event.currentTarget)) {
+                          props.onChange(
+                            props.content,
+                            "Use a positive whole number for the Pool selection count.",
                           );
-                        }}
-                      />
-                    </label>
-                  </Show>
-                  <Show when={entry.kind === "pool" ? entry : undefined}>
-                    {(poolEntry) => (
-                      <a class="quiet-action" href={`/library/${poolEntry().question_pool_id}`}>
-                        Open ordinary Pool
-                      </a>
-                    )}
-                  </Show>
-                </>
-              );
-            }}
-            recordId={(record) => record.id}
-            reorder={{
-              onMove: (sourceIndex, destinationIndex) => {
-                const records = reorderedRecordListRows(
-                  entryRecords(),
-                  sourceIndex,
-                  destinationIndex,
-                );
-                changeEntries(
-                  {
-                    ...props.content,
-                    entries: records.map((record) => record.entry),
-                  },
-                  "Question order updated. Review the next entry or save the Blueprint Assessment.",
-                  records.map((record) => record.id),
-                );
-              },
-              recordLabel: (record) =>
-                blueprintAssessmentEntryLabel(record.entry, recognition.titles()),
-              isDisabled: () => !props.editable,
-            }}
-            state={{ kind: "ready" }}
-            ariaLabel="Ordered Blueprint Assessment entries"
-            emptyState={{ title: "No Blueprint Assessment entries are selected." }}
-          />
-        </Show>
+                          return;
+                        }
+                        const selectionCount = Number(event.currentTarget.value);
+                        changeEntries(
+                          updateReusablePoolSelectionCount(
+                            props.content,
+                            current.index,
+                            selectionCount,
+                          ),
+                          "Question Pool selection count updated. The server validates it against current Pool membership.",
+                        );
+                      }}
+                    />
+                  </label>
+                </Show>
+                <Show when={poolEntry()}>
+                  {(poolEntry) => (
+                    <a class="quiet-action" href={`/library/${poolEntry().question_pool_id}`}>
+                      Open ordinary Pool
+                    </a>
+                  )}
+                </Show>
+              </>
+            );
+          }}
+          repository={assessmentContentRepository}
+          classificationClient={apiClient}
+          included={included}
+          duplicateAllowed={() => true}
+          addDisabled={() => props.content.entries.length >= MAX_REUSABLE_ENTRIES}
+          onAdd={confirmAssessmentContent}
+        />
       </section>
 
       <fieldset disabled={!props.editable} hidden={editingTask() !== "properties"}>
@@ -676,16 +697,6 @@ export function BlueprintAssessmentContentEditor(
           onChange={props.onChange}
         />
       </div>
-
-      <Show when={contentPickerOpen()}>
-        <AssessmentContentPicker
-          repository={assessmentContentRepository}
-          trigger={contentPickerTrigger}
-          maximumQuestionSelection={1000}
-          onConfirm={confirmAssessmentContent}
-          onCancel={() => setContentPickerOpen(false)}
-        />
-      </Show>
     </section>
   );
 }

@@ -8,15 +8,13 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveryAssessmentChoice, RecoveryBrowse,
-    RecoverySummary, StoreError,
+    ArchivedStudentWorkRecoveryStore, NumberedPageRequest, PageNumber, PageSize, RecoveredAttempt,
+    RecoveryAssessmentChoice, RecoveryBrowse, RecoverySummary, StoreError,
     postgres::{PostgresArchivedStudentWorkRecoveryStore, PostgresSessionStore},
 };
 use question_model::{AssessmentAttemptId, AssessmentId, CourseInstanceId, UserRole};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::{str::FromStr, sync::Arc};
 
 #[derive(Clone)]
@@ -50,12 +48,11 @@ pub fn archived_student_work_recovery_router(
 )]
 enum Input {
     Select {
-        #[serde(deserialize_with = "required_nullable_cursor")]
-        cursor: Option<String>,
+        page_number: Option<u32>,
         search: String,
         assessment_ids: Vec<AssessmentId>,
         sort: String,
-        page_size: u16,
+        page_size: Option<u16>,
     },
     Recover {
         #[serde(rename = "assessmentAttemptId")]
@@ -63,11 +60,6 @@ enum Input {
     },
 }
 
-fn required_nullable_cursor<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Option<String>, D::Error> {
-    Option::<String>::deserialize(deserializer)
-}
 #[derive(Serialize)]
 #[serde(
     tag = "action",
@@ -79,8 +71,9 @@ enum Output {
         course_instance_id: CourseInstanceId,
         attempts: Vec<RecoverySummary>,
         assessment_choices: Vec<RecoveryAssessmentChoice>,
-        #[serde(rename = "nextCursor")]
-        next_cursor: Option<String>,
+        page_number: PageNumber,
+        page_size: PageSize,
+        total_count: u64,
     },
     Recover {
         attempt: Box<RecoveredAttempt>,
@@ -120,7 +113,7 @@ async fn recover(
     };
     let result = match input {
         Input::Select {
-            cursor,
+            page_number,
             search,
             mut assessment_ids,
             sort,
@@ -133,27 +126,16 @@ async fn recover(
                 || search.chars().any(char::is_control)
                 || assessment_ids.len() > 100
                 || !matches!(sort.as_str(), "attemptAscending" | "attemptDescending")
-                || !matches!(page_size, 50 | 100)
             {
                 return error(StatusCode::BAD_REQUEST, "Recovery selection query invalid");
             }
-            let fingerprint = match recovery_query_fingerprint(
-                &course,
-                &search,
-                &assessment_ids,
-                &sort,
-                page_size,
-            ) {
+            let page_number = match PageNumber::new(page_number.unwrap_or(1)) {
                 Ok(value) => value,
-                Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE, "Recovery unavailable"),
+                Err(_) => return error(StatusCode::BAD_REQUEST, "Recovery page invalid"),
             };
-            let after = match cursor
-                .as_deref()
-                .map(|c| decode_cursor(c, &fingerprint))
-                .transpose()
-            {
-                Ok(a) => a,
-                Err(_) => return error(StatusCode::BAD_REQUEST, "Recovery cursor invalid"),
+            let page_size = match PageSize::new(page_size.unwrap_or(50)) {
+                Ok(value) => value,
+                Err(_) => return error(StatusCode::BAD_REQUEST, "Recovery page invalid"),
             };
             state
                 .recovery
@@ -164,28 +146,23 @@ async fn recover(
                         search,
                         assessment_ids,
                         sort,
-                        after,
-                        page_size,
+                        page: NumberedPageRequest {
+                            page_number,
+                            page_size,
+                        },
                     },
                 )
                 .await
-                .and_then(|mut page| {
-                    let next_cursor = if page.attempts.len() > usize::from(page_size) {
-                        page.attempts.truncate(usize::from(page_size));
-                        page.attempts
-                            .last()
-                            .map(|last| encode_cursor(&fingerprint, &last.assessment_attempt_id))
-                            .transpose()
-                            .map_err(|_| StoreError::Unavailable("Recovery cursor".into()))?
-                    } else {
-                        None
-                    };
-                    Ok(Output::Select {
+                .map(|page| {
+                    let numbered = page.attempts;
+                    Output::Select {
                         course_instance_id: course,
-                        attempts: page.attempts,
+                        attempts: numbered.items,
                         assessment_choices: page.assessment_choices,
-                        next_cursor,
-                    })
+                        page_number: numbered.page_number,
+                        page_size: numbered.page_size,
+                        total_count: numbered.total_count,
+                    }
                 })
         }
         Input::Recover {
@@ -208,51 +185,6 @@ async fn recover(
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct RecoveryCursor {
-    version: u8,
-    fingerprint: String,
-    after: AssessmentAttemptId,
-}
-
-fn recovery_query_fingerprint(
-    course: &CourseInstanceId,
-    search: &str,
-    assessment_ids: &[AssessmentId],
-    sort: &str,
-    page_size: u16,
-) -> Result<String, serde_json::Error> {
-    let encoded = serde_json::to_vec(&(course, search, assessment_ids, sort, page_size))?;
-    Ok(URL_SAFE_NO_PAD.encode(Sha256::digest(encoded)))
-}
-
-fn encode_cursor(
-    fingerprint: &str,
-    after: &AssessmentAttemptId,
-) -> Result<String, serde_json::Error> {
-    let cursor = RecoveryCursor {
-        version: 1,
-        fingerprint: fingerprint.to_owned(),
-        after: *after,
-    };
-    Ok(URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor)?))
-}
-
-fn decode_cursor(cursor: &str, fingerprint: &str) -> Result<AssessmentAttemptId, ()> {
-    if cursor.len() > 512 {
-        return Err(());
-    }
-    let bytes = URL_SAFE_NO_PAD.decode(cursor).map_err(|_| ())?;
-    if URL_SAFE_NO_PAD.encode(&bytes) != cursor {
-        return Err(());
-    }
-    let value: RecoveryCursor = serde_json::from_slice(&bytes).map_err(|_| ())?;
-    if value.version != 1 || value.fingerprint != fingerprint {
-        return Err(());
-    }
-    Ok(value.after)
-}
 fn concealed() -> Response {
     error(StatusCode::NOT_FOUND, "Retained Work not found")
 }

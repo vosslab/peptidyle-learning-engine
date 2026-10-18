@@ -203,7 +203,6 @@ BEGIN
     END IF;
     IF p_source_blueprint_revision_number IS NULL OR p_fork_blueprint_revision_number IS NULL
        OR p_source_blueprint_edit_number IS NULL OR p_fork_blueprint_edit_number IS NULL
-       OR v_origin.parent_blueprint_revision_number <> p_source_blueprint_revision_number
        OR v_source.current_blueprint_revision_number <> p_source_blueprint_revision_number
        OR v_fork.current_blueprint_revision_number <> p_fork_blueprint_revision_number
        OR v_source.blueprint_edit_number <> p_source_blueprint_edit_number

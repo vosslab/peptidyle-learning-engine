@@ -1,10 +1,7 @@
 //! PostgreSQL persistence for Sysadmin Instructor Account management.
 
 use async_trait::async_trait;
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use question_model::{AccountId, AccountTimeZone, Timestamp};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -20,21 +17,6 @@ use crate::{
 #[derive(Clone)]
 pub struct PostgresInstructorAccountStore {
     pool: Pool,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct AccountCursor {
-    query_fingerprint: String,
-    state: Option<InstructorAccountState>,
-    sort: InstructorAccountSort,
-    page_size: i32,
-    account_id: AccountId,
-}
-
-fn query_fingerprint(query: Option<&str>) -> String {
-    let digest = Sha256::digest(query.unwrap_or("").as_bytes());
-    URL_SAFE_NO_PAD.encode(digest)
 }
 
 impl PostgresInstructorAccountStore {
@@ -78,33 +60,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         browse: InstructorAccountBrowse,
     ) -> Result<InstructorAccountList, StoreError> {
         let query = normalize_find_query(browse.query.as_deref())?;
-        let page_size = normalize_page_size(browse.page_size)?;
         let state = browse.state.map(state_name);
-        let after_account_id = browse
-            .cursor
-            .as_deref()
-            .map(|cursor| {
-                if cursor.len() > 4096 {
-                    return Err(invalid("Instructor Account cursor"));
-                }
-                let bytes = URL_SAFE_NO_PAD
-                    .decode(cursor)
-                    .map_err(|_| invalid("Instructor Account cursor"))?;
-                if URL_SAFE_NO_PAD.encode(&bytes) != cursor {
-                    return Err(invalid("Instructor Account cursor"));
-                }
-                let position: AccountCursor = serde_json::from_slice(&bytes)
-                    .map_err(|_| invalid("Instructor Account cursor"))?;
-                if position.query_fingerprint != query_fingerprint(query.as_deref())
-                    || position.state != browse.state
-                    || position.sort != browse.sort
-                    || Some(position.page_size) != page_size
-                {
-                    return Err(invalid("Instructor Account cursor"));
-                }
-                Ok(position.account_id.as_string())
-            })
-            .transpose()?;
         let sort = match browse.sort {
             InstructorAccountSort::IdAscending => "idAscending",
             InstructorAccountSort::IdDescending => "idDescending",
@@ -113,48 +69,45 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         let rows = sqlx::query(
             "SELECT account_id, state, provided_avatar_id, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
-             AS last_successful_sign_in_millis \
+             AS last_successful_sign_in_millis, total_count, page_number \
              FROM ple_api.list_instructor_account_avatar_summaries($1, $2, $3, $4, $5)",
         )
         .bind(query.as_deref())
         .bind(state)
-        .bind(after_account_id)
-        .bind(page_size)
+        .bind(i64::from(browse.page.page_number.get()))
+        .bind(i32::from(browse.page.page_size.get()))
         .bind(sort)
         .fetch_all(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let mut records = rows
-            .iter()
-            .map(decode_summary)
-            .collect::<Result<Vec<_>, _>>()?;
-        let next_cursor = match page_size {
-            Some(limit) => {
-                let limit =
-                    usize::try_from(limit).map_err(|_| invalid("Instructor Account list"))?;
-                if records.len() > limit {
-                    records.truncate(limit);
-                    records
-                        .last()
-                        .map(|account| AccountCursor {
-                            query_fingerprint: query_fingerprint(query.as_deref()),
-                            state: browse.state,
-                            sort: browse.sort,
-                            page_size: limit as i32,
-                            account_id: account.id.clone(),
-                        })
-                        .map(|cursor| {
-                            serde_json::to_vec(&cursor)
-                                .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
-                                .map_err(|_| invalid("Instructor Account cursor"))
-                        })
-                        .transpose()?
-                } else {
-                    None
-                }
+        let first = rows
+            .first()
+            .ok_or_else(|| invalid("Instructor Account page"))?;
+        let total_count = u64::try_from(
+            first
+                .try_get::<i64, _>("total_count")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Instructor Account result count"))?;
+        let page_number = crate::PageNumber::new(
+            u32::try_from(
+                first
+                    .try_get::<i64, _>("page_number")
+                    .map_err(map_sqlx_error)?,
+            )
+            .map_err(|_| invalid("Instructor Account page number"))?,
+        )
+        .map_err(|_| invalid("Instructor Account page number"))?;
+        let mut records = Vec::with_capacity(rows.len());
+        for row in &rows {
+            if row
+                .try_get::<Option<String>, _>("account_id")
+                .map_err(map_sqlx_error)?
+                .is_some()
+            {
+                records.push(decode_summary(row)?);
             }
-            None => None,
-        };
+        }
         let choice_rows = sqlx::query(
             "SELECT state, matching_count FROM ple_api.instructor_account_state_choices($1)",
         )
@@ -198,9 +151,11 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
                 })?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(InstructorAccountList {
-            accounts: records,
+            items: records,
+            page_number,
+            page_size: browse.page.page_size,
+            total_count,
             display_time_zone,
-            next_cursor,
             state_choices,
         })
     }
@@ -318,8 +273,9 @@ async fn summary_for_account(
         "SELECT account_id, state, provided_avatar_id, \
          (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
          AS last_successful_sign_in_millis \
-         FROM ple_api.list_instructor_account_avatar_summaries() \
-         WHERE account_id = $1",
+         FROM ple_api.list_instructor_account_avatar_summaries(\
+             $1, NULL, 1, 100, 'idAscending'\
+         ) WHERE account_id = $1",
     )
     .bind(account_id)
     .fetch_optional(&mut **tx)
@@ -333,13 +289,6 @@ fn state_name(state: InstructorAccountState) -> &'static str {
         InstructorAccountState::Active => "active",
         InstructorAccountState::Deactivated => "deactivated",
         InstructorAccountState::Closed => "closed",
-    }
-}
-
-fn normalize_page_size(page_size: Option<i32>) -> Result<Option<i32>, StoreError> {
-    match page_size {
-        None | Some(50 | 100 | 250) => Ok(page_size),
-        Some(_) => Err(invalid("Instructor Account list")),
     }
 }
 

@@ -10,7 +10,7 @@ import { StudentAllCourseworkPage } from "./student_course_landing_page";
 import { useApplicationApi } from "../api/application_api";
 import { BlueprintPromotion } from "../features/blueprint_course/blueprint_promotion";
 import { SysadminCourseCreation } from "../components/sysadmin_course_creation_form";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 
 /** Resolves the persistent Peptidyle home link to the signed-in role's dashboard. */
 export function RoleHomeResolutionPage(): JSX.Element {

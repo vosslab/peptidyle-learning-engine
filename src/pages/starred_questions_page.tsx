@@ -3,15 +3,15 @@
 import { createSignal, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
-import { PageFrame } from "../components/page_frame";
+import { PageFrame } from "../components/page_frame/page_frame";
 import type {
   RecordField,
   RecordListQuery,
   RecordSort,
-} from "../components/record_list/record_fields";
-import { SearchBlock } from "../features/search/search_block";
-import { SearchControls } from "../features/search/search_controls";
-import { createSearchState } from "../features/search/search_state";
+} from "../components/data_sheet/record_fields";
+import { SearchBlock } from "../components/search_block/search_block";
+import { SearchControls } from "../components/search_block/search_controls";
+import { createSearchState } from "../components/search_block/search_state";
 import type { LibraryFacetField } from "../../generated/api/LibraryFacetField";
 import type { StarredQuestionSort } from "../api/question_star";
 import { libraryRecordQuery } from "./library_record_filters";
@@ -84,6 +84,11 @@ export function StarredQuestionsPage(): JSX.Element {
         const next = typeof change === "function" ? change(current) : change;
         return next === undefined ? undefined : { ...current, ...next };
       }),
+    sort: async (change) =>
+      searchState.sort((current) => {
+        const next = typeof change === "function" ? change(current) : change;
+        return next === undefined ? undefined : { ...current, ...next };
+      }),
     replacementRevision: searchState.replacementRevision,
     repository,
     classificationClient: runtime.client,
@@ -104,7 +109,7 @@ export function StarredQuestionsPage(): JSX.Element {
           (entry) => entry.sort.key === sort.key && entry.sort.direction === sort.direction,
         );
         if (selected !== undefined)
-          void searchState.apply((current) => ({ ...current, starredSort: selected.value }));
+          void searchState.sort((current) => ({ ...current, starredSort: selected.value }));
       },
       choices: [
         { label: "Recently published", sort: { key: "published", direction: "descending" } },

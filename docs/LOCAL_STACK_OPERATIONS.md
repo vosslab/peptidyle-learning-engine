@@ -65,12 +65,13 @@ always authoritative.
 | `identity-secret-init` | Copies two host capabilities into an API-only volume                   | Networkless, one-shot              |
 | `database-migrator`    | Applies schema and checks the API database login before startup        | Profile-only, no host port         |
 | `webwork-renderer`     | Private stateless PG/PGML render and grade engine                      | No host port                       |
+| `question-thumbnail-renderer` | Private Playwright capture and WebP encoding for WebWork previews | No host port; `renderer_private` only |
 
 All published ports bind to `127.0.0.1`. The API is the sole PLE application
-process in the supported local topology. The renderer has no SQL database,
+API process in the supported local topology. Both renderers have no SQL database,
 course, roster, volume, or browser path; PLE remains the educational-record
 authority. Start and `python3 local_stack.py doctor` refuse a second running
-copy of postgres, MinIO, the renderer, api, worker, publisher, or gateway
+copy of postgres, MinIO, either renderer, api, worker, publisher, or gateway
 across the default `containers` project and `ple-live-demo-browser`.
 
 The four buckets are `public-assets`, `private-content`, `student-records`,
@@ -198,10 +199,12 @@ Question Renderer Version before mutating the selected target. It then:
    service logins;
 4. starts MinIO and idempotently creates its declared buckets;
 5. starts, probes, and attests the private renderer;
-6. starts API initializers, builds API and gateway images, and starts API and
+6. builds and starts the private Question Thumbnail Renderer, then waits for
+   its HTTP/Chromium health check;
+7. starts API initializers, builds API and gateway images, and starts API and
    gateway;
-7. waits for API semantic health; and
-8. runs complete Live Demo provisioning.
+8. waits for API semantic health; and
+9. runs complete Live Demo provisioning.
 
 The API receives its one bounded runtime database URL. Migration children receive
 administrator authority only for their bounded startup calls. Raw passwords and
@@ -221,6 +224,13 @@ local stack does not run WebWork2 or MariaDB. Provider credentials, renderer
 configuration, Answer Keys, Question Grading Input, Question Source bytes, and
 upstream identifiers remain server-side. Provider fields in records are metadata/provenance and do not
 authorize a course, Student, or object.
+
+The PLE-owned thumbnail helper uses the same private network so it can request
+packaged embed assets through the API's constrained renderer-asset proxy during
+capture. Its `/health` endpoint starts Chromium and reports whether it is
+connected without calling the API. The API waits for this health check at
+startup; asset requests happen only during capture, so there is no startup
+dependency cycle. The helper has no host port, volumes, or credentials.
 
 ## Health and inspection
 

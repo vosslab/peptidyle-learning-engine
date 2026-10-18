@@ -1,0 +1,41 @@
+/* Independent editor collections retain their order when space requires stacking. */
+.assessment-editor-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--ple-layout-gap, 1rem);
+}
+
+.assessment-editor-panels > section {
+  min-inline-size: 0;
+}
+
+.assessment-editor-contents-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ple-compact-gap, 0.35rem) var(--ple-layout-gap, 1rem);
+  margin-block-end: var(--ple-section-gap, 0.75rem);
+}
+
+.assessment-editor-contents-heading > h2 {
+  margin: 0;
+}
+
+.assessment-editor-contents-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ple-compact-gap, 0.35rem);
+}
+
+.assessment-editor-contents-tools > .assessment-editor-note {
+  margin: 0;
+}
+
+@media (max-width: 70rem) {
+  .assessment-editor-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

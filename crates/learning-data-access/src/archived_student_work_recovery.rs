@@ -6,7 +6,7 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{NumberedPage, NumberedPageRequest, PageSize, SessionTokenHash, StoreError};
 
 /// Minimized retained selection; roster labels are Course-local and may be absent.
 #[derive(Debug, Serialize)]
@@ -29,8 +29,7 @@ pub struct RecoveryBrowse {
     pub search: String,
     pub assessment_ids: Vec<question_model::AssessmentId>,
     pub sort: String,
-    pub after: Option<AssessmentAttemptId>,
-    pub page_size: u16,
+    pub page: NumberedPageRequest,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,7 +42,7 @@ pub struct RecoveryAssessmentChoice {
 
 #[derive(Debug)]
 pub struct RecoverySelectionPage {
-    pub attempts: Vec<RecoverySummary>,
+    pub attempts: NumberedPage<RecoverySummary, PageSize>,
     pub assessment_choices: Vec<RecoveryAssessmentChoice>,
 }
 

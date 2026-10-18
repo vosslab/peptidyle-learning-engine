@@ -8,12 +8,8 @@ import type { ContentClassificationClient } from "../api/content_classification"
 import type { QuestionPickerEligibility } from "../features/question_picker/question_picker_model";
 import type { PublishedQuestionId } from "../../generated/api/PublishedQuestionId";
 import type { PublishedQuestionRevisionTuple } from "../../generated/api/PublishedQuestionRevisionTuple";
-import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
-import type {
-  QuestionPickerSelection,
-  QuestionPickerSourceRepository,
-} from "../features/question_picker/question_picker_model";
+import type { QuestionPickerSelection } from "../features/question_picker/question_picker_model";
 
 export interface QuestionPoolStartingQuestion {
   readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
@@ -225,31 +221,4 @@ export async function questionPoolMemberTuples(
     throw new QuestionPoolSelectionError("A Question may appear only once in this Pool.");
   }
   return [...fixed, ...additional];
-}
-
-/** Source-bound Pool discovery has the same authoritative eligibility on every request. */
-export function questionPoolSourcePickerRepository(
-  library: QuestionLibraryBrowseRepository,
-  eligibility: QuestionPickerEligibility,
-): QuestionPickerSourceRepository {
-  return {
-    async search(request): Promise<unknown> {
-      if (request.source.kind !== "library" && request.source.kind !== "sharedLibrary") {
-        throw new Error("Choose the Question Library source for this Pool.");
-      }
-      return await library.search(
-        {
-          ...request.query,
-          kind: "questions",
-          questions: "all",
-          discipline_uuids: [eligibility.disciplineUuid],
-          subject_uuids: [eligibility.subjectUuid],
-          questionTypes: [eligibility.questionType],
-          backends: [eligibility.backend],
-        },
-        request.cursor,
-        request.pageSize,
-      );
-    },
-  };
 }

@@ -11,11 +11,20 @@ import { labeledQuestionRecognition } from "../features/recognition_label";
 import { recognitionTitlesResource } from "../features/recognition_titles_load";
 import { ApiRequestError } from "../api/http_client/error";
 import { createDisplayDateTimeFormatter } from "../format_datetime";
-import { RecordDetailList } from "./record_list/record_detail_list";
-import { type RecordContent, type RecordFact } from "./record_list/record_list";
-import type { RecordField, RecordListQuery, RecordSort } from "./record_list/record_fields";
-import { SearchBlock } from "../features/search/search_block";
-import { createSearchState } from "../features/search/search_state";
+import type { RecordContent, RecordFact } from "./data_sheet/record_content";
+import type { RecordField, RecordListQuery, RecordSort } from "./data_sheet/record_fields";
+import { SearchBlock } from "./search_block/search_block";
+import { SearchControls } from "./search_block/search_controls";
+import { createLocalCompleteSearch } from "./search_block/local_complete_search_state";
+import {
+  compareRecoveredQuestionRecords,
+  recoveredQuestionRecordContent,
+  recoveredQuestionRecordFields,
+  recoveredQuestionRecordKeyword,
+  type RecoveredQuestionRecord,
+} from "./recovered_question_record_fields";
+import { createSearchState } from "./search_block/search_state";
+import type { SearchPageRequest } from "./search_block/search_session";
 import { formatAssessmentActivity } from "./student_assessment_presentation";
 
 function formatRecoveryInstant(
@@ -68,6 +77,74 @@ function Evidence(props: { readonly label: string; readonly text: string | null 
   );
 }
 
+/** One selected Attempt's retained evidence; the recovery radio remains a separate operation. */
+function RecoveredQuestions(props: {
+  readonly attempt: RecoveredAttempt;
+  readonly questionTitles: ReadonlyMap<string, string>;
+}): JSX.Element {
+  // ASVS 14.3.3: retain authorized evidence only in this short-lived component's memory.
+  const questions = (): ReadonlyArray<RecoveredQuestionRecord> =>
+    props.attempt.questions.map((question) => ({
+      ...question,
+      questionTitle: labeledQuestionRecognition(
+        props.questionTitles.get(question.publishedQuestionRevisionTuple.publishedQuestionId),
+        question.publishedQuestionRevisionTuple.publishedQuestionId,
+        question.publishedQuestionRevisionTuple.revisionNumber,
+      ).title,
+    }));
+  const questionSearch = createLocalCompleteSearch(
+    { rows: questions },
+    {
+      fields: recoveredQuestionRecordFields,
+      rowId: (question) => question.issuedPosition.toString(),
+      keyword: recoveredQuestionRecordKeyword,
+      compare: compareRecoveredQuestionRecords,
+      content: recoveredQuestionRecordContent,
+    },
+  );
+  return (
+    <SearchBlock
+      layout="above"
+      controls={
+        <SearchControls
+          state={questionSearch.state}
+          textLabel="Search recovered Question evidence"
+        />
+      }
+      state={questionSearch.state}
+      collection={{
+        ariaLabel: "Recovered Question evidence",
+        initialMode: "cards",
+        fields: recoveredQuestionRecordFields,
+        query: questionSearch.query,
+        emptyState: { title: "No recovered Question evidence matches your search." },
+        renderBody: (question) => (
+          <div>
+            <Evidence label="Delivery and exact Revision" text={question().deliveryText} />
+            <Evidence label="Pool selection" text={question().poolText} />
+            <Evidence label="Question Attempt" text={question().attemptText} />
+            <Evidence label="Presentation" text={question().presentationText} />
+            <Evidence label="Reproduction evidence" text={question().reproductionText} />
+            <Evidence
+              label="Retained backend document (inert text)"
+              text={question().backendDocumentText}
+            />
+            <Evidence label="Saved response" text={question().savedResponseText} />
+            <Evidence label="Finalized response" text={question().finalizedResponseText} />
+            <Evidence label="Retained grading outcome" text={question().gradingText} />
+            <Show when={question().unavailableEvidence.length > 0}>
+              <p>Unavailable evidence:</p>
+              <ul>
+                <For each={question().unavailableEvidence}>{(item) => <li>{item}</li>}</For>
+              </ul>
+            </Show>
+          </div>
+        ),
+      }}
+    />
+  );
+}
+
 export function archivedAttemptVisibleFacts(
   attempt: RecoverySummary,
   formatDateTime: ReturnType<typeof createDisplayDateTimeFormatter>,
@@ -109,9 +186,6 @@ export function CourseStudentWorkRecovery(props: {
   const formatDateTime = createDisplayDateTimeFormatter(props.displayTimeZone);
   const [opened, setOpened] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
-  const [assessmentChoices, setAssessmentChoices] = createSignal<
-    RecoverySelection["assessmentChoices"]
-  >([]);
   const [selected, setSelected] = createSignal("");
   const [selectedSummary, setSelectedSummary] = createSignal<RecoverySummary>();
   const [evidence, setEvidence] = createSignal<RecoveredAttempt>();
@@ -165,16 +239,24 @@ export function CourseStudentWorkRecovery(props: {
       id: "started",
       label: "Started",
       value: (attempt) => attempt.startedAt,
+      render: (attempt) =>
+        formatRecoveryInstant(attempt.startedAt, formatDateTime, "No retained start time"),
       defaultColumn: { priority: 4, width: "13rem" },
     },
     {
       id: "submitted",
       label: "Submitted",
       value: (attempt) => attempt.submittedAt,
+      render: (attempt) =>
+        formatRecoveryInstant(attempt.submittedAt, formatDateTime, "No retained submission time"),
       defaultColumn: { priority: 5, width: "13rem" },
     },
   ];
-  const searchState = createSearchState<RecoveryQuery, RecoveryAttempt, undefined>(
+  const searchState = createSearchState<
+    RecoveryQuery,
+    RecoveryAttempt,
+    RecoverySelection["assessmentChoices"]
+  >(
     {
       initialQuery: { search: "", assessmentIds: [], sort: "attemptAscending" },
       maximumPageSize: 100,
@@ -184,18 +266,42 @@ export function CourseStudentWorkRecovery(props: {
       setText: (query, text) => ({ ...query, search: text }),
       rowId: (attempt) => attempt.assessmentAttemptId,
       content: attemptContent,
-      fetchPage: async (query, cursor, pageSize) => {
+      appliedFilters: (query) =>
+        query.assessmentIds.map((assessmentId) => ({
+          id: `assessment:${assessmentId}`,
+          label: `Assessment: ${
+            assessmentChoices().find((choice) => choice.key === assessmentId)?.label ?? assessmentId
+          }`,
+          clear: (current: RecoveryQuery): RecoveryQuery => ({
+            ...current,
+            assessmentIds: current.assessmentIds.filter((id) => id !== assessmentId),
+          }),
+        })),
+      fetchPage: async (query, requestPage: SearchPageRequest) => {
+        if (requestPage.pageSize !== 50 && requestPage.pageSize !== 100) {
+          throw new Error("Recovery supports page sizes 50 and 100");
+        }
         const result = await props.client.selectArchivedStudentWork(props.courseInstanceId, {
           ...query,
-          cursor,
-          pageSize: pageSize === 250 ? 100 : pageSize,
+          pageNumber: requestPage.pageNumber,
+          pageSize: requestPage.pageSize,
         });
-        setAssessmentChoices(result.assessmentChoices);
-        return { items: result.attempts, nextCursor: result.nextCursor, filterCounts: undefined };
+        if (result.pageSize !== requestPage.pageSize) {
+          throw new Error("Recovery returned a different page size than requested");
+        }
+        return {
+          items: result.attempts,
+          pageNumber: result.pageNumber,
+          pageSize: requestPage.pageSize,
+          totalCount: result.totalCount,
+          filterCounts: result.assessmentChoices,
+        };
       },
     },
     {},
   );
+  const assessmentChoices = (): RecoverySelection["assessmentChoices"] =>
+    searchState.state().filterCounts ?? [];
   const recordQuery: RecordListQuery<RecoverySortKey, RecoveryFilterKey> = {
     kind: "paged",
     sort: {
@@ -206,7 +312,7 @@ export function CourseStudentWorkRecovery(props: {
         };
       },
       onChange: (value) =>
-        void searchState.apply((current) => ({
+        void searchState.sort((current) => ({
           ...current,
           sort: value.direction === "ascending" ? "attemptAscending" : "attemptDescending",
         })),
@@ -253,7 +359,6 @@ export function CourseStudentWorkRecovery(props: {
     setBusy(false);
     setSelected("");
     setSelectedSummary(undefined);
-    setAssessmentChoices([]);
     setEvidence(undefined);
     setMessage("");
   }
@@ -339,9 +444,13 @@ export function CourseStudentWorkRecovery(props: {
             layout="above"
             state={searchState}
             controls={
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
+              <SearchControls
+                state={searchState}
+                textLabel="Assessment title"
+                maxlength={200}
+                disabled={busy}
+                onSubmit={() => {
+                  if (busy()) return;
                   const value = searchState.typedText().trim();
                   if (value.length > 200 || /\p{Cc}/u.test(value)) {
                     setMessage("Enter an Assessment title within 200 characters.");
@@ -350,22 +459,7 @@ export function CourseStudentWorkRecovery(props: {
                   setMessage("");
                   void searchState.submit();
                 }}
-              >
-                <label for="recovery-assessment-search">
-                  Assessment title
-                  <input
-                    id="recovery-assessment-search"
-                    type="search"
-                    value={searchState.typedText()}
-                    onInput={(event) => searchState.setTypedText(event.currentTarget.value)}
-                    maxlength={200}
-                    disabled={busy()}
-                  />
-                </label>
-                <button type="submit" disabled={busy()}>
-                  Find retained Attempts
-                </button>
-              </form>
+              />
             }
             collection={{
               ariaLabel: "Retained Assessment Attempts",
@@ -376,8 +470,9 @@ export function CourseStudentWorkRecovery(props: {
               selection: () => ({
                 kind: "radio",
                 selectedIds: selectedAttemptIds,
+                disabled: () => busy(),
                 onChange: (attempt, isSelected): void => {
-                  if (!isSelected) return;
+                  if (busy() || !isSelected) return;
                   setSelected(attempt.assessmentAttemptId);
                   setSelectedSummary(attempt);
                   setEvidence(undefined);
@@ -437,54 +532,9 @@ export function CourseStudentWorkRecovery(props: {
                 <Show when={recognition.status()}>
                   <p role="status">{recognition.status()}</p>
                 </Show>
-                <RecordDetailList
-                  ariaLabel="Recovered Question evidence"
-                  emptyState={{ title: "No recovered Question evidence is available." }}
-                  recordId={(question) => question.issuedPosition.toString()}
-                  rows={attempt().questions}
-                  state={{ kind: "ready" }}
-                  renderRecord={(question) => {
-                    const revision = question.publishedQuestionRevisionTuple;
-                    const line = labeledQuestionRecognition(
-                      recognition.titles().questions.get(revision.publishedQuestionId),
-                      revision.publishedQuestionId,
-                      revision.revisionNumber,
-                    );
-                    return (
-                      <div>
-                        <h4>
-                          Issued Question {question.issuedPosition + 1}: {line.title}
-                        </h4>
-                        <p>{line.identifier}</p>
-                        <Evidence
-                          label="Delivery and exact Revision"
-                          text={question.deliveryText}
-                        />
-                        <Evidence label="Pool selection" text={question.poolText} />
-                        <Evidence label="Question Attempt" text={question.attemptText} />
-                        <Evidence label="Presentation" text={question.presentationText} />
-                        <Evidence label="Reproduction evidence" text={question.reproductionText} />
-                        <Evidence
-                          label="Retained backend document (inert text)"
-                          text={question.backendDocumentText}
-                        />
-                        <Evidence label="Saved response" text={question.savedResponseText} />
-                        <Evidence
-                          label="Finalized response"
-                          text={question.finalizedResponseText}
-                        />
-                        <Evidence label="Retained grading outcome" text={question.gradingText} />
-                        <Show when={question.unavailableEvidence.length > 0}>
-                          <p>Unavailable evidence:</p>
-                          <ul>
-                            <For each={question.unavailableEvidence}>
-                              {(item) => <li>{item}</li>}
-                            </For>
-                          </ul>
-                        </Show>
-                      </div>
-                    );
-                  }}
+                <RecoveredQuestions
+                  attempt={attempt()}
+                  questionTitles={recognition.titles().questions}
                 />
               </section>
             )}

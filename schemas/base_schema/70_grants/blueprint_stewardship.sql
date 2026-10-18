@@ -52,25 +52,25 @@ REVOKE ALL ON FUNCTION ple_data.fan_out_blueprint_course_watch_notifications(tex
     ple_data.read_current_blueprint_course_star(text),
     ple_data.read_current_blueprint_course_starred_instructors(text),
     ple_data.read_current_blueprint_course_watch(text),
-    ple_data.read_current_blueprint_course_watch_events(text, integer),
+    ple_data.read_current_blueprint_course_watch_events(text, text, text[], boolean, bigint, bigint),
     ple_data.reject_blueprint_course_watch_notification_change() FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_data.read_current_blueprint_course_star(text),
     ple_data.read_current_blueprint_course_starred_instructors(text),
     ple_data.read_current_blueprint_course_watch(text),
-    ple_data.read_current_blueprint_course_watch_events(text, integer) TO ple_api_owner;
+    ple_data.read_current_blueprint_course_watch_events(text, text, text[], boolean, bigint, bigint) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 
 REVOKE ALL ON FUNCTION ple_api.read_current_blueprint_course_star(text),
     ple_api.read_current_blueprint_course_starred_instructors(text),
     ple_api.read_current_blueprint_course_watch(text),
-    ple_api.read_current_blueprint_course_watch_events(text, integer) FROM PUBLIC;
+    ple_api.read_current_blueprint_course_watch_events(text, text, text[], boolean, bigint, bigint) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ple_api.read_current_blueprint_course_star(text),
     ple_api.read_current_blueprint_course_starred_instructors(text),
     ple_api.read_current_blueprint_course_watch(text),
-    ple_api.read_current_blueprint_course_watch_events(text, integer) TO ple_app;
+    ple_api.read_current_blueprint_course_watch_events(text, text, text[], boolean, bigint, bigint) TO ple_app;
 
 REVOKE ALL ON FUNCTION ple_api.set_current_blueprint_course_star(text, boolean),
     ple_api.set_current_blueprint_course_watch(text, boolean) FROM PUBLIC;

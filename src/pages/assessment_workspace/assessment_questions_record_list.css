@@ -1,21 +1,5 @@
-/* Assessment Question Editor RecordList presentation. */
-
-.assessment-workspace-questions .record-sequence__item {
-  padding: var(--ple-space-3);
-  border-radius: var(--ple-radius-control);
-  background: color-mix(in srgb, var(--ple-surface-soft) 52%, transparent);
-}
-
-.assessment-workspace-questions .record-sequence__item[data-record-id] {
-  margin-block: var(--ple-space-1);
-}
+/* Assessment Question Editor controlled reorder controls. */
 
 .assessment-workspace-questions .record-controlled-reorder-actions .quiet-action {
-  min-block-size: var(--ple-control-min-height);
-  padding: 0.2rem 0.42rem;
   font-size: 0.86rem;
-}
-
-.assessment-workspace-questions .record-sequence__item:has(.assessment-pool-fork) {
-  border-inline-start: 0.3rem solid var(--ple-accent-strong);
 }

@@ -3,20 +3,20 @@
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionType } from "../../../generated/api/QuestionType";
-import type { RecordContent } from "../../components/record_list/record_list";
-import type { SearchDefinition, SearchPage } from "../search/search_session";
+import { questionNativePreview } from "../../components/question_native_preview";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import type {
+  SearchDefinition,
+  SearchPage,
+  SearchPageRequest,
+} from "../../components/search_block/search_session";
 import type { QuestionDetailsPromptView } from "../../../generated/api/QuestionDetailsPromptView";
 import type { QuestionResponsePreview } from "../../../generated/api/QuestionResponsePreview";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import { validateCanonicalQuestionIdSyntax } from "../../question_id";
-import type { BlueprintCourseClient } from "../../api/blueprint_course";
-import type { BlueprintAssessmentSource } from "../../../generated/api/BlueprintAssessmentSource";
-import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
-import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-  NO_QUESTION_LIBRARY_FACET_TRUNCATION,
-  decodeQuestionLibraryBrowsePage,
+  decodeLibrarySearchPage,
   normalizeQuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryBrowsePage,
@@ -44,12 +44,6 @@ export type QuestionPickerSource =
       readonly kind: "retainedAssessment";
       readonly label: string;
       readonly retainedAssessment: RetainedAssessmentId;
-    }
-  | {
-      readonly kind: "blueprintCourseAssessment";
-      /** Exact immutable Blueprint Revision provenance for this reusable content. */
-      readonly source: BlueprintAssessmentSource;
-      readonly label: string;
     };
 
 export type QuestionPickerSelectionMode = "none" | "one" | "many";
@@ -110,12 +104,13 @@ export interface QuestionPickerSelection {
 /** Shared discovery page sizes. The picker forwards the same choice the Library uses. */
 export type QuestionPickerPageSize = 50 | 100 | 250;
 
+const SUPPORTED_POOL_MEMBER_LICENSES = ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"] as const;
+
 export interface QuestionPickerSearchRequest {
   readonly source: QuestionPickerSource;
   readonly query: QuestionLibraryBrowseQuery;
-  readonly cursor: string | null;
-  /** Omitted requests use the Library default of 50. */
-  readonly pageSize?: QuestionPickerPageSize;
+  readonly page: SearchPageRequest;
+  readonly eligibility?: QuestionPickerEligibility;
 }
 
 /**
@@ -177,11 +172,6 @@ function rowsWithCanonicalUniqueQuestionIds(
   return unique;
 }
 
-/** Picker choices create new reusable work, unlike historical Library reads. */
-function isCurrentProductionPickerRow(row: QuestionLibraryBrowseRow): boolean {
-  return row.questionFormat !== "imathas";
-}
-
 /** Builds the public, ordered selection while retaining only D1-safe row metadata. */
 export function questionPickerSelection(
   mode: QuestionPickerSelectionMode,
@@ -227,29 +217,6 @@ export function toggleQuestionPickerSelection(
   ]);
 }
 
-/** Reorders the current tray without changing its public question membership. */
-export function moveQuestionPickerSelection(
-  mode: QuestionPickerSelectionMode,
-  maximumSelection: number,
-  selection: QuestionPickerSelection,
-  index: number,
-  direction: -1 | 1,
-): QuestionPickerSelection {
-  const nextIndex = index + direction;
-  if (index < 0 || nextIndex < 0 || nextIndex >= selection.questions.length) return selection;
-  const questions = [...selection.questions];
-  const current = questions[index];
-  const adjacent = questions[nextIndex];
-  if (current === undefined || adjacent === undefined) return selection;
-  questions[index] = adjacent;
-  questions[nextIndex] = current;
-  return questionPickerSelection(
-    mode,
-    maximumSelection,
-    questions.map((question) => question.row),
-  );
-}
-
 /** Adapts available Question Library searches for the picker source choices. */
 export function questionLibraryPickerRepository(
   library: QuestionLibraryBrowseRepository,
@@ -260,15 +227,15 @@ export function questionLibraryPickerRepository(
       if (request.source.kind === "library" || request.source.kind === "sharedLibrary") {
         return await library.search(
           { ...request.query, kind: "questions", questions: "all" },
-          request.cursor,
-          request.pageSize,
+          request.page,
+          { excludedQuestionIds: request.eligibility?.excludedQuestionIds },
         );
       }
       if (request.source.kind === "mine") {
         return await myQuestions.search(
           { ...request.query, kind: "questions", questions: "all" },
-          request.cursor,
-          request.pageSize,
+          request.page,
+          { excludedQuestionIds: request.eligibility?.excludedQuestionIds },
         );
       }
       {
@@ -288,156 +255,13 @@ export function questionLibraryPickerSources(
   ];
 }
 
-function reusableQuestionLibraryRow(item: {
-  readonly summary: {
-    readonly questionId: string;
-    readonly publishedQuestionRevisionTuple: QuestionLibraryBrowseRow["publishedQuestionRevisionTuple"];
-    readonly questionFormat: QuestionFormat;
-    readonly metadata: {
-      readonly questionTitle: string;
-      readonly questionDescription: string;
-      readonly questionLicense: "CC0-1.0" | "CC-BY-4.0" | "CC-BY-SA-4.0" | null;
-    };
-    readonly bloom: QuestionLibraryBrowseRow["bloom"];
-    readonly authorship: { readonly authors: ReadonlyArray<{ readonly displayName: string }> };
-    readonly capabilities: ReadonlyArray<string>;
-  };
-  readonly disciplineName: string;
-  readonly disciplineIsRetired: boolean;
-  readonly evidence: QuestionLibraryBrowseRow["evidence"];
-}): QuestionLibraryBrowseRow {
-  const summary = item.summary;
-  return {
-    kind: "question",
-    displayId: summary.questionId,
-    publishedQuestionRevisionTuple: summary.publishedQuestionRevisionTuple,
-    questionTitle: summary.metadata.questionTitle,
-    summary: summary.metadata.questionDescription,
-    bloom: summary.bloom,
-    disciplineName: item.disciplineName,
-    disciplineIsRetired: item.disciplineIsRetired,
-    questionFormat: summary.questionFormat,
-    authors: summary.authorship.authors.map((author) => ({
-      displayName: author.displayName,
-      accountId: null,
-    })),
-    capabilities: summary.capabilities,
-    questionLicense: summary.metadata.questionLicense,
-    evidence: item.evidence,
-  };
-}
-
-function selectedBlueprintAssessment(
-  source: BlueprintAssessmentSource,
-  blueprintRevision: Awaited<ReturnType<BlueprintCourseClient["getBlueprintRevision"]>>,
-): Awaited<
-  ReturnType<BlueprintCourseClient["getBlueprintRevision"]>
->["modules"][number]["assessments"][number] {
-  if (
-    blueprintRevision.blueprintCourseRevisionTuple.blueprintCourseId !==
-      source.blueprint_course_revision_tuple.blueprintCourseId ||
-    blueprintRevision.blueprintCourseRevisionTuple.revisionNumber !==
-      source.blueprint_course_revision_tuple.revisionNumber
-  ) {
-    throw new Error(
-      "The selected Blueprint Revision did not resolve. Choose an Assessment from the Course's Blueprint Revision.",
-    );
-  }
-  for (const module of blueprintRevision.modules) {
-    const assessment = module.assessments.find(
-      (item) => item.blueprint_assessment_id === source.blueprint_assessment_id,
-    );
-    if (assessment !== undefined) return assessment;
-  }
-  throw new Error(
-    "The selected Blueprint Assessment is not available in this exact Blueprint Revision.",
-  );
-}
-
-function contentRows(
-  content: BlueprintAssessmentContentView,
-): ReadonlyArray<QuestionLibraryBrowseRow> {
-  return content.entries.flatMap((entry) =>
-    entry.kind === "fixed" ? [reusableQuestionLibraryRow(entry.question.question_library)] : [],
-  );
-}
-
-function sourceRowsMatchQuery(
-  rows: ReadonlyArray<QuestionLibraryBrowseRow>,
-  query: QuestionLibraryBrowseQuery,
-): QuestionLibraryBrowseRow[] {
-  const needle = query.search.trim().toLocaleLowerCase();
-  return needle === ""
-    ? [...rows]
-    : rows.filter((row) =>
-        `${row.questionTitle}\n${row.summary}`.toLocaleLowerCase().includes(needle),
-      );
-}
-
-/** Apply the whole-result picker order before slicing a Blueprint source page. */
-function sortedSourceRows(
-  rows: ReadonlyArray<QuestionLibraryBrowseRow>,
-  sort: QuestionLibraryBrowseQuery["sort"],
-): QuestionLibraryBrowseRow[] {
-  const descending = sort === "titleDescending" || sort === "disciplineDescending";
-  const discipline = sort === "disciplineAscending" || sort === "disciplineDescending";
-  return [...rows].sort((left, right) => {
-    const primary = (discipline ? left.disciplineName : left.questionTitle).localeCompare(
-      discipline ? right.disciplineName : right.questionTitle,
-      "en",
-      { numeric: true, sensitivity: "base" },
-    );
-    if (primary !== 0) return descending ? -primary : primary;
-    return left.displayId.localeCompare(right.displayId, "en", { numeric: true });
-  });
-}
-
-/** Connects Blueprint Assessment fixed Questions to the shared picker definition. */
-export function blueprintCourseQuestionPickerRepository(
-  client: BlueprintCourseClient,
-): QuestionPickerSourceRepository {
-  return {
-    async search(request): Promise<unknown> {
-      if (request.source.kind !== "blueprintCourseAssessment") {
-        throw new Error("Choose a Blueprint Course source for this picker composition.");
-      }
-      const cursor = request.cursor === null ? 0 : Number(request.cursor);
-      if (!Number.isSafeInteger(cursor) || cursor < 0) {
-        throw new Error("Use the picker continuation supplied by this source.");
-      }
-      const pageSize = request.pageSize ?? 50;
-      const source = request.source.source;
-      const revision = await client.getBlueprintRevision(
-        source.blueprint_course_revision_tuple.blueprintCourseId,
-        source.blueprint_course_revision_tuple.revisionNumber,
-      );
-      const matched = sortedSourceRows(
-        sourceRowsMatchQuery(
-          contentRows(selectedBlueprintAssessment(source, revision).content),
-          request.query,
-        ),
-        request.query.sort,
-      );
-      const items = matched.slice(cursor, cursor + pageSize);
-      const nextOffset = cursor + items.length;
-      return {
-        items,
-        aggregates: [],
-        nextCursor: nextOffset < matched.length ? String(nextOffset) : null,
-        facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
-      };
-    },
-  };
-}
-
-const SUPPORTED_POOL_MEMBER_LICENSES = new Set(["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"]);
-
 function questionPickerContent(
   row: QuestionLibraryBrowseRow,
   onInspect: (row: QuestionLibraryBrowseRow) => void,
 ): RecordContent {
   return {
     title: row.questionTitle,
+    preview: questionNativePreview(row),
     description: row.summary,
     details: [
       { kind: "questionId", questionTitle: row.questionTitle, displayId: row.displayId },
@@ -451,22 +275,62 @@ function questionPickerContent(
   };
 }
 
-function pickerQuery(
-  query: QuestionPickerQuery,
-  eligibility: QuestionPickerEligibility | undefined,
-): QuestionPickerQuery {
+function pickerQuery(query: QuestionPickerQuery): QuestionPickerQuery {
   const normalized = normalizeQuestionLibraryBrowseQuery({
     ...query.libraryQuery,
     kind: "questions",
     questions: "all",
-    discipline_uuids: eligibility
-      ? [eligibility.disciplineUuid]
-      : query.libraryQuery.discipline_uuids,
-    subject_uuids: eligibility ? [eligibility.subjectUuid] : query.libraryQuery.subject_uuids,
-    questionTypes: eligibility ? [eligibility.questionType] : query.libraryQuery.questionTypes,
-    backends: eligibility ? [eligibility.backend] : query.libraryQuery.backends,
   });
   return { source: query.source, libraryQuery: normalized };
+}
+
+function constrainedPickerLibraryQuery(
+  query: QuestionLibraryBrowseQuery,
+  eligibility: QuestionPickerEligibility | undefined,
+): QuestionLibraryBrowseQuery {
+  const intersect = (selected: ReadonlyArray<string>, allowed: ReadonlyArray<string>): string[] =>
+    selected.length === 0 ? [...allowed] : selected.filter((value) => allowed.includes(value));
+  const backends = eligibility ? [eligibility.backend] : ["ple", "webwork"];
+  return {
+    ...query,
+    discipline_uuids: eligibility
+      ? intersect(query.discipline_uuids, [eligibility.disciplineUuid])
+      : query.discipline_uuids,
+    subject_uuids: eligibility
+      ? intersect(query.subject_uuids, [eligibility.subjectUuid])
+      : query.subject_uuids,
+    questionTypes: eligibility
+      ? intersect(query.questionTypes, [eligibility.questionType])
+      : query.questionTypes,
+    backends: intersect(query.backends, backends),
+    questionLicenses: eligibility
+      ? intersect(query.questionLicenses, SUPPORTED_POOL_MEMBER_LICENSES)
+      : query.questionLicenses,
+  };
+}
+
+function pickerQueryMatchesEligibility(
+  query: QuestionPickerQuery,
+  eligibility: QuestionPickerEligibility | undefined,
+): boolean {
+  const hasMatch = (selected: ReadonlyArray<string>, allowed: ReadonlyArray<string>): boolean =>
+    selected.length === 0 || selected.some((value) => allowed.includes(value));
+  return (
+    hasMatch(
+      query.libraryQuery.backends,
+      eligibility ? [eligibility.backend] : ["ple", "webwork"],
+    ) &&
+    (eligibility === undefined ||
+      (hasMatch(query.libraryQuery.discipline_uuids, [eligibility.disciplineUuid]) &&
+        hasMatch(query.libraryQuery.subject_uuids, [eligibility.subjectUuid]) &&
+        hasMatch(query.libraryQuery.questionTypes, [eligibility.questionType]) &&
+        (query.libraryQuery.questionLicenses.length === 0 ||
+          query.libraryQuery.questionLicenses.some((license) =>
+            SUPPORTED_POOL_MEMBER_LICENSES.includes(
+              license as (typeof SUPPORTED_POOL_MEMBER_LICENSES)[number],
+            ),
+          ))))
+  );
 }
 
 /**
@@ -483,14 +347,14 @@ export function questionPickerSearchDefinition(
   QuestionLibraryBrowseRow,
   QuestionLibraryBrowsePage["aggregates"]
 > {
-  const initialQuery = pickerQuery(
-    { source: initialSource, libraryQuery: EMPTY_QUESTION_LIBRARY_BROWSE_QUERY },
-    eligibility,
-  );
+  const initialQuery = pickerQuery({
+    source: initialSource,
+    libraryQuery: EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  });
   return {
     initialQuery,
-    cleanup: (query) => pickerQuery(query, eligibility),
-    isEligible: () => true,
+    cleanup: (query) => pickerQuery(query),
+    isEligible: (query) => pickerQueryMatchesEligibility(query, eligibility),
     getText: (query) => query.libraryQuery.search,
     setText: (query, search) => ({
       ...query,
@@ -500,24 +364,26 @@ export function questionPickerSearchDefinition(
     content: (row) => questionPickerContent(row, onInspect),
     fetchPage: async (
       query,
-      cursor,
-      pageSize,
+      page,
     ): Promise<SearchPage<QuestionLibraryBrowseRow, QuestionLibraryBrowsePage["aggregates"]>> => {
       const raw = await repository.search({
         source: query.source,
-        query: query.libraryQuery,
-        cursor,
-        pageSize,
+        query: constrainedPickerLibraryQuery(query.libraryQuery, eligibility),
+        page,
+        eligibility,
       });
-      const page = decodeQuestionLibraryBrowsePage(raw);
-      const items = rowsWithCanonicalUniqueQuestionIds(page.items).filter(
-        (row) =>
-          isCurrentProductionPickerRow(row) &&
-          (eligibility === undefined ||
-            SUPPORTED_POOL_MEMBER_LICENSES.has(row.questionLicense ?? "")) &&
-          !eligibility?.excludedQuestionIds?.includes(row.displayId),
-      );
-      return { items, nextCursor: page.nextCursor, filterCounts: page.aggregates };
+      const result = decodeLibrarySearchPage(raw);
+      const items = result.items.map((row) => {
+        if (row.kind !== "question") throw new Error("Question picker result contained a Pool");
+        return row;
+      });
+      return {
+        items,
+        pageNumber: result.pageNumber,
+        pageSize: result.pageSize,
+        totalCount: result.totalCount,
+        filterCounts: result.aggregates,
+      };
     },
     selection: { maximum: MAX_QUESTION_PICKER_SELECTION_CAP },
   };

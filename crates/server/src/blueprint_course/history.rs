@@ -6,24 +6,21 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use browser_api_contract::blueprint_course::{
     BlueprintHistoryAvailabilityFacets, BlueprintHistoryPageView,
 };
 use learning_data_access::{
     BlueprintHistoryKind, BlueprintHistoryQuery, BlueprintHistorySort, BlueprintHistoryStore,
-    Cursor, PageRequest, PageSize, SessionTokenHash,
+    NumberedPageRequest, PageNumber, PageSize,
 };
-use question_model::BlueprintCourseId;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use serde::Deserialize;
 
 use super::{
     BlueprintCourseRouteState, instructor_session_hash, parse_blueprint_course_id, route_error,
-    store_error_response, unavailable,
+    store_error_response,
 };
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum HistoryKind {
     #[default]
@@ -40,7 +37,7 @@ impl HistoryKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum HistorySort {
     #[default]
@@ -59,7 +56,7 @@ impl HistorySort {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum HistoryDirection {
     Ascending,
@@ -79,17 +76,8 @@ pub(super) struct HistoryQuery {
     #[serde(default)]
     direction: HistoryDirection,
     availability: Option<String>,
+    page_number: Option<u32>,
     page_size: Option<u16>,
-    cursor: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct HistoryCursor {
-    version: u8,
-    query_fingerprint: String,
-    page_size: u16,
-    after: String,
 }
 
 pub(super) async fn list_history(
@@ -114,12 +102,10 @@ pub(super) async fn list_history(
         Some(value) => value,
         None => return invalid_page(),
     };
-    let fingerprint = query_fingerprint(&blueprint_course_id, &query, &search, session);
-    let page = match page_request(&query, &fingerprint) {
+    let page = match page_request(&query) {
         Some(value) => value,
         None => return invalid_page(),
     };
-    let size = page.size.get();
     match state
         .blueprints
         .list_blueprint_history(
@@ -131,26 +117,19 @@ pub(super) async fn list_history(
         )
         .await
     {
-        Ok(result) => {
-            let next_cursor = match result.page.next_cursor {
-                Some(after) => match encode_cursor(&fingerprint, size, after) {
-                    Some(value) => Some(value),
-                    None => return unavailable(),
+        Ok(result) => crate::auth::no_store(
+            Json(BlueprintHistoryPageView {
+                items: result.page.items,
+                page_number: result.page.page_number.get(),
+                page_size: result.page.page_size.get(),
+                total_count: result.page.total_count,
+                availability_facets: BlueprintHistoryAvailabilityFacets {
+                    public_count: result.public_count,
+                    archived_count: result.archived_count,
                 },
-                None => None,
-            };
-            crate::auth::no_store(
-                Json(BlueprintHistoryPageView {
-                    items: result.page.items,
-                    next_cursor,
-                    availability_facets: BlueprintHistoryAvailabilityFacets {
-                        public_count: result.public_count,
-                        archived_count: result.archived_count,
-                    },
-                })
-                .into_response(),
-            )
-        }
+            })
+            .into_response(),
+        ),
         Err(error) => store_error_response(error),
     }
 }
@@ -191,59 +170,11 @@ fn clean_query(query: &HistoryQuery) -> Option<BlueprintHistoryQuery> {
     })
 }
 
-fn query_fingerprint(
-    blueprint_course_id: &BlueprintCourseId,
-    query: &HistoryQuery,
-    search: &BlueprintHistoryQuery,
-    session: SessionTokenHash,
-) -> String {
-    let value = serde_json::to_vec(&(
-        blueprint_course_id,
-        query.kind,
-        query.sort,
-        query.direction,
-        &search.text,
-        &search.availability,
-        session.to_string(),
-    ))
-    .expect("Blueprint history query serializes");
-    URL_SAFE_NO_PAD.encode(Sha256::digest(value))
-}
-
-fn page_request(query: &HistoryQuery, fingerprint: &str) -> Option<PageRequest> {
+fn page_request(query: &HistoryQuery) -> Option<NumberedPageRequest> {
     let size = PageSize::new(query.page_size.unwrap_or(50)).ok()?;
-    let after = match query.cursor.as_ref() {
-        Some(token) => {
-            if token.len() > 8192 {
-                return None;
-            }
-            let bytes = URL_SAFE_NO_PAD.decode(token).ok()?;
-            let cursor: HistoryCursor = serde_json::from_slice(&bytes).ok()?;
-            if cursor.version != 2
-                || cursor.query_fingerprint != fingerprint
-                || cursor.page_size != size.get()
-            {
-                return None;
-            }
-            let (key, sequence): (String, i64) = serde_json::from_str(&cursor.after).ok()?;
-            if key.chars().count() > 500 || sequence <= 0 {
-                return None;
-            }
-            Some(Cursor::parse(cursor.after).ok()?)
-        }
-        None => None,
-    };
-    Some(PageRequest { after, size })
-}
-
-fn encode_cursor(fingerprint: &str, page_size: u16, after: Cursor) -> Option<String> {
-    let cursor = HistoryCursor {
-        version: 2,
-        query_fingerprint: fingerprint.to_owned(),
-        page_size,
-        after: after.as_str().to_owned(),
-    };
-    serde_json::to_vec(&cursor)
-        .ok()
-        .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
+    let page_number = PageNumber::new(query.page_number.unwrap_or(1)).ok()?;
+    Some(NumberedPageRequest {
+        page_number,
+        page_size: size,
+    })
 }

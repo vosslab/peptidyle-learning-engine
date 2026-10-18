@@ -52,9 +52,9 @@ const instructorAccountPageSizes: ReadonlyArray<number> = [50, 100];
 function instructorAccountBrowseBody(browse: InstructorAccountBrowse): {
   readonly query: string;
   readonly state: InstructorAccountBrowse["state"];
+  readonly pageNumber: number;
   readonly pageSize: InstructorAccountBrowse["pageSize"];
   readonly sort: InstructorAccountBrowse["sort"];
-  readonly cursor: InstructorAccountBrowse["cursor"];
 } {
   const trimmed = browse.query.trim();
   if ([...trimmed].length > 320 || /[\p{Cc}]/u.test(trimmed)) {
@@ -63,18 +63,18 @@ function instructorAccountBrowseBody(browse: InstructorAccountBrowse): {
   if (!instructorAccountPageSizes.includes(browse.pageSize)) {
     throw new ApiProtocolError("Instructor Account list is invalid");
   }
+  if (!Number.isSafeInteger(browse.pageNumber) || browse.pageNumber < 1) {
+    throw new ApiProtocolError("Instructor Account page number is invalid");
+  }
   if (browse.sort !== "idAscending" && browse.sort !== "idDescending") {
     throw new ApiProtocolError("Instructor Account sort is invalid");
-  }
-  if (browse.cursor !== null && browse.cursor.length > 4096) {
-    throw new ApiProtocolError("Instructor Account list is invalid");
   }
   return {
     query: trimmed,
     state: browse.state,
+    pageNumber: browse.pageNumber,
     pageSize: browse.pageSize,
     sort: browse.sort,
-    cursor: browse.cursor,
   };
 }
 

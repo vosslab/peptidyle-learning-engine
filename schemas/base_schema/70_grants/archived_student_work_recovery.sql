@@ -24,7 +24,7 @@ REVOKE ALL ON FUNCTION ple_api.read_archived_assessment_attempt_for_recovery(tex
 
 GRANT EXECUTE ON FUNCTION ple_api.read_archived_assessment_attempt_for_recovery(text, uuid) TO ple_app;
 
-REVOKE ALL ON FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(text, uuid, integer, text, text[], text), ple_api.archived_attempt_assessment_choices(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(bigint, integer, text, text, text[], text), ple_api.archived_attempt_assessment_choices(text, text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(text, uuid, integer, text, text[], text), ple_api.archived_attempt_assessment_choices(text, text) TO ple_app;
+GRANT EXECUTE ON FUNCTION ple_api.select_archived_assessment_attempts_for_recovery(bigint, integer, text, text, text[], text), ple_api.archived_attempt_assessment_choices(text, text) TO ple_app;
 

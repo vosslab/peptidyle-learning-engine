@@ -6,7 +6,7 @@ import type { BlueprintChangeProposalAcceptedView } from "../../generated/api/Bl
 import type { BlueprintChangeProposalCreateRequest } from "../../generated/api/BlueprintChangeProposalCreateRequest";
 import type { BlueprintChangeProposalDetailView } from "../../generated/api/BlueprintChangeProposalDetailView";
 import type { BlueprintChangeProposalPageView } from "../../generated/api/BlueprintChangeProposalPageView";
-import type { RecordFilterChoices } from "../components/record_list/record_fields";
+import type { RecordFilterChoices } from "../components/data_sheet/record_fields";
 
 export type BlueprintProposalListQuery = {
   readonly text: string;
@@ -27,14 +27,14 @@ export interface BlueprintChangeProposalClient {
   ) => Promise<BlueprintChangeProposalDetailView>;
   readonly listBlueprintChangeProposalsForTarget: (
     targetBlueprintCourseId: BlueprintCourseId,
-    cursor?: string,
-    pageSize?: number,
-    query?: BlueprintProposalListQuery,
+    query: BlueprintProposalListQuery,
+    pageNumber: number,
+    pageSize: number,
   ) => Promise<BlueprintChangeProposalPageView>;
   readonly listMyBlueprintChangeProposals: (
-    cursor?: string,
-    pageSize?: number,
-    query?: BlueprintProposalListQuery,
+    query: BlueprintProposalListQuery,
+    pageNumber: number,
+    pageSize: number,
   ) => Promise<BlueprintChangeProposalPageView>;
   readonly getBlueprintChangeProposal: (
     proposalId: string,

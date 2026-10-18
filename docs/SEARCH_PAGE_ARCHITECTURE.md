@@ -1,14 +1,18 @@
 # Shared search page architecture
 
-This guide describes the implemented composition for searchable collections.
+This guide records the implemented shared boundary for searchable collections. SearchResults
+composes DataSheetControls and DataSheetBlock; Compact, List, Cards, and Visual Boxes share
+record content and interaction owners. Final integrated gates remain in the active plan.
 
 Product behavior comes from [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) and
 [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md).
-[modular_ui_completion_ledger.md](active_plans/audits/modular_ui_completion_ledger.md) is the sole
-authority for milestone status, proof, and remaining acceptance.
-[modular_ui_completion_plan.md](archive/modular_ui_completion_plan.md) retains
-historical decisions and gates. The ledger records current native acceptance and canonical gates;
-source descriptions here explain ownership.
+[modular_ui_architecture_completion_plan.md](active_plans/active/modular_ui_architecture_completion_plan.md) and its
+[current status report](active_plans/reports/datasheet_collection_status.md) are the current
+authorities for milestone status, proof, and remaining acceptance. The earlier
+[modular_ui_completion_plan.md](archive/modular_ui_completion_plan.md) and
+[modular_ui_completion_ledger.md](active_plans/audits/modular_ui_completion_ledger.md) preserve
+historical acceptance of the earlier 32 milestones.
+Source descriptions here explain ownership.
 
 ## Owners and composition
 
@@ -16,10 +20,20 @@ source descriptions here explain ownership.
 | --- | --- |
 | Page or dialog | Owns authentication, route values, domain criteria, authorized source, actions, selection workflows, and editors. Supplies the query definition or complete-source adapter and the record fields. |
 | `PageFrame` | Supplies route content width, an optional actions area, and the content stack. Ribbon and breadcrumbs identify the page; `PageFrame` has no heading props or heading markup. Dialogs remain page-owned. |
-| `SearchBlock` | Places supplied controls `above` or `beside` one required `SearchResults` collection. Layout comes from the consumer, independent of request state. Embedded pickers can use it without `PageFrame`. |
-| `SearchResults` | Mounts `RecordList` even for an initial empty search. Maps loading and error states to the collection and shows page controls after activation. |
-| `RecordList` | Renders fields, row content and actions, selection controls, and Compact, List, and Visual boxes presentations. It owns temporary mode, column visibility, order, and resize settings. A mode change does not fetch another result set. |
-| Query owner | Applies text, filters, and sort to the whole authorized matching collection before paging. It supplies column filter choices and sort bindings to `RecordList`. |
+| `SearchBlock` | Places supplied criteria and controls `above` or `beside` one required collection. It composes page-supplied criteria and controls with the required `SearchResults` collection. |
+| `SearchResults` | Mounts `DataSheetBlock` and `DataSheetControls` even for an initial empty search. Maps loading and error states to the collection and shows numbered page controls after activation. |
+| `DataSheetBlock` | Owns all four modes and shared sorting, filtering, selection, and record actions. Uses `DataSheetTable` for Compact/List and `RecordItem` in every mode. |
+| `DataSheetTable` | Owns the Compact/List table presentation, column configuration, and interactions: resize, show/hide, rearrange, responsive hiding, and independent temporary widths, visibility, and order for each table mode. Contains `HeaderRow` and `RecordItem` instances. |
+| `HeaderRow` | Presents headings within `DataSheetTable`; forwards sort/filter input to `DataSheetBlock` and column input to `DataSheetTable`, without an independent controller. |
+| `DataSheetControls` | Supplies surrounding modes, query controls, pagination, counts, and optional bulk UI through shared state/callbacks. Delegates collection behavior to `DataSheetBlock` and column mechanics to `DataSheetTable`. |
+| Page/domain query owner | Owns collection scope, criteria, query execution, creation, and domain commands. Remote sorting and filtering apply to the full matching collection before paging. |
+
+The collection has Compact, List, Cards, and Visual Boxes. Compact and List use DataSheetTable
+with independent page-instance column settings; Cards are text-oriented and Visual Boxes are
+image-oriented. DataSheetTable and HeaderRow implement the shared tabular boundary.
+Mode changes preserve query, ordering, page, and selected identities without a query request. Query and
+filter changes clear selection; sorting preserves it. Selection remains distinct from editor
+membership and single-choice selection. See the active plan for the complete behavior contract.
 
 `RecordField` declares a stable ID, label, value, and optional sort and filter keys. Its
 `defaultColumn` declares priority, width, and initial visibility. One identity field supplies
@@ -28,10 +42,10 @@ supports column sorting, filters, resize, visibility, and order. Sort and filter
 available in the other presentations too. The approved plan uses an approximate 20 px desktop
 row target for compact Library results; it is an inspection target, not a fixed assertion.
 
-`RecordListQuery.kind` is `paged` when rows are one page of a larger result set. Use
-`local-complete` only when the rows passed to `RecordList` already are the complete displayed
+Current `RecordListQuery.kind` is `paged` when rows are one page of a larger result set. Use
+`local-complete` only when the rows passed to `DataSheetBlock` already are the complete displayed
 collection. The query owner, including the local complete adapter below, applies collection-wide
-operations before handing a page to a `paged` RecordList. A page must not sort or filter only the
+operations before handing a page to a `paged` DataSheetBlock. A page must not sort or filter only the
 visible server page.
 
 ## Two request paths
@@ -41,11 +55,11 @@ visible server page.
 Use a focused `SearchDefinition` with `createSearchState` for server-owned paging. The definition
 owns the query shape, initial query, cleanup, eligibility, text mapping, API request, row ID,
 record content, applied chips, and selection maximum. Its `fetchPage` returns
-items, the next cursor, and counts for that exact query. Decode API data at the transport
-boundary. `question_library_search_definition.ts` and
+items, the resolved page number and size, total count, and facet counts for that exact query.
+Decode API data at the transport boundary. `question_library_search_definition.ts` and
 `blueprint_course_search_definition.ts` are examples.
 
-`SearchSession` is framework-neutral and owns one cursor sequence, request ordering, page size,
+`SearchSession` is framework-neutral and owns one numbered page, request ordering, page size,
 selection by stable row ID, retry, and reset. An eligible replacement query starts at page one
 and clears old rows, counts, and selection. An ineligible query stays in the initial state.
 Paging and refresh retain the visible verified page while loading; errors retain that page and
@@ -58,41 +72,49 @@ filter, sort, or chip change. `open(query)` handles an automatic route or host s
 `clear()` returns to the definition's initial query and runs it only when eligible. A page's
 `beforeQueryChange` hook may protect content-owned work before a query replacement.
 
-### Existing complete resource
+### Existing complete source
 
-Use `createLocalCompleteSearch` when a page already has one complete, authorized
-`createResource` result. The adapter in `local_complete_search_state.ts` uses
+Use `createLocalCompleteSearch` when a page already has one complete, authorized reactive
+collection. Pass a `rows` accessor; `undefined` means undelivered and an empty array means a
+delivered empty collection. Supply optional `loading`, `error`, and `refetchSource` callbacks
+when the source has that lifecycle. A synchronous derived collection needs only `rows`.
+The adapter in `local_complete_search_state.ts` uses
 `local_complete_search.ts` to match keywords, apply OR within each field and AND across fields,
 sort with a stable ID tie-break, derive whole-result facet choices, and then take a page. It
 exposes the same `SearchStateController` and a `paged` `RecordListQuery`. The caller supplies
 fields, stable ID, keyword text, content, and any fixed domain scope or special comparator.
 
 The adapter projects source loading and error over the session's retained rows and counts.
-Retry refetches a failed source; a session request failure retries through the session. The
-first successful source load opens the initial query. Later successful reloads refresh the
+Retry refetches a failed source when `refetchSource` is supplied; otherwise it retries through
+the session. The first delivered source opens the initial query. Later source updates refresh the
 current query, remove selected IDs missing from the full authorized source, and step back when
-a deletion leaves the last page empty. Query, filter, sort, and page changes use the cached
-resource; a mutation or explicit refresh refetches the existing source. Consumers such as My
+a deletion leaves the last page empty. Query, filter, sort, and page changes use the current
+source; explicit refresh calls `refetchSource` when supplied, otherwise it refreshes the session.
+The page owns mutation-driven source updates or refetches. Consumers such as My
 Drafts and Course collections keep their own data lifecycle and domain actions.
 
 ## SearchBlock and controls
 
-`SearchBlock` requires `layout`, supplied controls, a state controller, and a collection with
+Current `SearchBlock` requires `layout`, supplied controls, a state controller, and a collection with
 an accessible label, empty state, fields, and query binding. The collection may also supply an
 initial empty state, row body, selection, and a disabled state for a content action. The block
-has no alternate results slot. `SearchControls` renders keyword submission, Clear all, applied
-chips, and content controls. `RecordList` owns every sort control and invokes the supplied query
-binding; the query owner applies whole-result sorting. A page with another local text field
-can use `onSubmit` to compose it into one query; `hasDraft` and `onClear` concern that control's
+has no alternate results slot. SearchResults composes DataSheetControls and the required
+DataSheetBlock within SearchBlock. `SearchControls` renders keyword
+submission, Clear all, applied chips, and content controls. DataSheetControls invokes
+DataSheetBlock's shared sorting/filtering state and callbacks; DataSheetTable owns column mechanics
+and contains HeaderRow. The query owner applies whole-result sorting/filtering before pagination:
+PostgreSQL `WHERE` and `ORDER BY` for database-backed collections, equivalent shared processing for
+complete local sources. A page with another local text field can use `onSubmit` to compose it into
+one query; `hasDraft` and `onClear` concern that control's
 local draft only.
 
 Question Library Search uses controls above a full-width collection. Browse places its
 classification navigator beside the same collection and stacks it above results at narrow
 widths. My Questions uses the same Library component with a predefined authorship scope and
 loads on entry. The Library definition requires a keyword or filter for an ordinary Search
-request; the empty initial RecordList stays mounted with its fields and controls. A predefined
-collection scope can load automatically. Browse and My Questions use the same RecordList field
-model and result actions as Search.
+request; the empty initial DataSheetBlock stays mounted with its fields and controls. A predefined
+collection scope can load automatically. In current code, Browse and My Questions use the same
+RecordField model and result actions as Search.
 
 The Library API owns complete-result matching, facets, deterministic sort, and global paging
 for mixed Question and Pool rows. `LibrarySearchRow` carries the object kind; page actions and
@@ -113,14 +135,15 @@ query transition ask those editors before removing their work.
 
 ## Adding a consumer
 
-1. Decide whether the API owns a cursor-paged query or the page already holds the complete
+1. Decide whether the API owns a numbered-page query or the page already holds the complete
    authorized source. Reuse the corresponding request path above.
 2. Supply stable record IDs, semantic fields, record content and actions, query-wide sort and
    filter bindings, and an accurate accessible label. Keep domain scope and authorization at
    the page/API boundary.
 3. Mount `SearchControls` and `SearchBlock` with an explicit `above` or `beside` layout. Let
-   `SearchResults` keep the initial RecordList and page controls in one place.
-4. Keep dialogs, workflows, and dirty checks with their owning page or editor. Protect only
+   `SearchResults` keep the initial DataSheetBlock and page controls in one place.
+4. Keep dialogs, workflows, and dirty checks with their owning page or editor. Search snapshots
+   stay unchanged after cross-tab edits until a new query or explicit refresh. Protect only
    meaningful unsaved work before an operation removes it.
 5. Verify the actual consumer through its owner checks and browser or rendered evidence as
    needed. Put one-time proof in `tests/_temp/`; retain a permanent test only when its stable

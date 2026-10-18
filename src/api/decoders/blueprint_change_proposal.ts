@@ -14,6 +14,7 @@ import {
   DecodeError,
   decodeBoolean,
   decodeDictionary,
+  decodeNonnegativeInteger,
   decodeNullable,
   decodeRecord,
   decodeStringEnum,
@@ -26,7 +27,7 @@ import {
 import { blueprintEditNumber, blueprintCourseRevisionTuple, text } from "./blueprint_course";
 import { decodeCourseClassification } from "./course_classification";
 import { THEME_VALUES } from "../../../generated/api/Theme";
-import { decodeCursorPage, decodeTimestamp, field, requireOnlyFields } from "./shared";
+import { decodeBoundedArray, decodeTimestamp, field, requireOnlyFields } from "./shared";
 
 function names(value: unknown, path: string): { shortName: string; longName: string } {
   const record = decodeRecord(value, path);
@@ -392,8 +393,33 @@ export function decodeBlueprintChangeProposalPageView(
   value: unknown,
   path = "response",
 ): BlueprintChangeProposalPageView {
-  const page = decodeCursorPage(value, path, summary);
-  return { items: [...page.items], nextCursor: page.nextCursor };
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["items", "pageNumber", "pageSize", "totalCount"]);
+  const pageNumber = decodeNonnegativeInteger(
+    field(record, "pageNumber", path),
+    `${path}.pageNumber`,
+  );
+  const pageSize = decodeNonnegativeInteger(field(record, "pageSize", path), `${path}.pageSize`);
+  const totalCount = decodeNonnegativeInteger(
+    field(record, "totalCount", path),
+    `${path}.totalCount`,
+  );
+  if (
+    pageNumber < 1 ||
+    pageSize < 1 ||
+    pageSize > 100 ||
+    pageNumber > Math.max(1, Math.ceil(totalCount / pageSize))
+  )
+    throw new DecodeError(path, "valid numbered page metadata");
+  const items = decodeBoundedArray(
+    field(record, "items", path),
+    `${path}.items`,
+    pageSize,
+    summary,
+  );
+  if (items.length > totalCount)
+    throw new DecodeError(`${path}.items`, "no more entries than totalCount");
+  return { items: [...items], pageNumber, pageSize, totalCount };
 }
 
 export function decodeBlueprintChangeProposalDetailView(

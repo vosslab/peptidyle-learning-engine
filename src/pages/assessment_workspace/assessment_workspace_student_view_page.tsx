@@ -20,7 +20,7 @@ import { useApplicationApi } from "../../api/application_api";
 import { ApiRequestError, AssessmentConflictError } from "../../api/http_client";
 import { OpaqueWebworkPreviewFrame } from "../../components/opaque_webwork_preview_frame";
 import { createDisplayDateTimeFormatter } from "../../format_datetime";
-import { PageFrame } from "../../components/page_frame";
+import { PageFrame } from "../../components/page_frame/page_frame";
 import {
   QuestionPresentationRenderer,
   type QuestionImageUrlResolver,

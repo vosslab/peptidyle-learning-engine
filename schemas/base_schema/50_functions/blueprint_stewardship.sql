@@ -150,8 +150,8 @@ BEGIN
     SELECT availability INTO previous_availability
       FROM ple_data.blueprint_metadata_event
      WHERE blueprint_course_id = NEW.blueprint_course_id
-       AND blueprint_metadata_event_id < NEW.blueprint_metadata_event_id
-     ORDER BY blueprint_metadata_event_id DESC LIMIT 1;
+       AND blueprint_edit_number < NEW.blueprint_edit_number
+     ORDER BY blueprint_edit_number DESC LIMIT 1;
     event_kind := CASE
         WHEN previous_availability = 'public' AND NEW.availability = 'archived' THEN 'archived'
         WHEN previous_availability = 'archived' AND NEW.availability = 'public' THEN 'restored'
@@ -309,16 +309,28 @@ END
 $$;
 
 CREATE FUNCTION ple_data.read_current_blueprint_course_watch_events(
-    p_blueprint_course_id_number text, p_limit integer
-) RETURNS TABLE (event_kind text, occurred_at_millis bigint)
+    p_blueprint_course_id_number text, p_search text, p_event_kinds text[],
+    p_ascending boolean, p_page_number bigint, p_page_size bigint
+) RETURNS TABLE (
+    notification_id uuid, event_kind text, occurred_at_millis bigint,
+    total_count bigint, resolved_page_number bigint,
+    revision_count bigint, archived_count bigint, restored_count bigint
+)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE actor_id text;
+DECLARE
+    actor_id text;
 BEGIN
     actor_id := ple_api.current_session_account_id();
     IF p_blueprint_course_id_number IS NULL
-       
-       OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 100
+       OR p_search IS NULL OR char_length(p_search) > 120
+       OR p_search ~ '[[:cntrl:]]'
+       OR p_event_kinds IS NULL OR array_position(p_event_kinds, NULL) IS NOT NULL
+       OR NOT p_event_kinds <@ ARRAY['revision', 'archived', 'restored']::text[]
+       OR p_ascending IS NULL
+       OR p_page_number IS NULL OR p_page_number < 1
+       OR p_page_number > 4294967295
+       OR p_page_size IS NULL OR p_page_size NOT BETWEEN 1 AND 100
        OR actor_id IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -331,13 +343,71 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Blueprint Course Watch events require a Public or Archived Blueprint Course';
     END IF;
-    RETURN QUERY SELECT notification.event_kind::text,
-        (EXTRACT(EPOCH FROM notification.occurred_at) * 1000)::bigint
-      FROM ple_private.blueprint_course_watch_notification AS notification
-     WHERE notification.recipient_account_id = actor_id
-       AND notification.blueprint_course_id = p_blueprint_course_id_number
-     ORDER BY notification.occurred_at DESC, notification.notification_id DESC
-     LIMIT p_limit;
+    p_search := lower(btrim(p_search));
+    -- ASVS 1.2.4/8.2.2: scope precedes literal label filtering. These recipient
+    -- rows survive Unwatch; no current Watch, actor, or source identity is read.
+    -- Facets, selected-kind count, and page all use this statement's snapshot.
+    RETURN QUERY
+    WITH keyword_matches AS MATERIALIZED (
+        SELECT notification.notification_id, notification.event_kind,
+               notification.occurred_at
+          FROM ple_private.blueprint_course_watch_notification AS notification
+         WHERE notification.recipient_account_id = actor_id
+           AND notification.blueprint_course_id = p_blueprint_course_id_number
+           AND (p_search = '' OR strpos(lower(CASE notification.event_kind
+               WHEN 'revision' THEN 'New Blueprint Revision'
+               WHEN 'archived' THEN 'Blueprint archived'
+               WHEN 'restored' THEN 'Blueprint restored'
+           END), p_search) > 0)
+    ),
+    facets AS (
+        SELECT count(*) FILTER (WHERE keyword_matches.event_kind = 'revision') AS revision_count,
+               count(*) FILTER (WHERE keyword_matches.event_kind = 'archived') AS archived_count,
+               count(*) FILTER (WHERE keyword_matches.event_kind = 'restored') AS restored_count
+          FROM keyword_matches
+    ),
+    matched AS MATERIALIZED (
+        SELECT keyword_matches.*
+          FROM keyword_matches
+         WHERE cardinality(p_event_kinds) = 0
+            OR keyword_matches.event_kind::text = ANY(p_event_kinds)
+    ),
+    counts AS (
+        SELECT count(*)::bigint AS total_count FROM matched
+    ),
+    resolved AS (
+        SELECT counts.total_count,
+               LEAST(
+                   p_page_number,
+                   GREATEST(
+                       1::bigint,
+                       ceil(counts.total_count::numeric / p_page_size)::bigint
+                   )
+               ) AS resolved_page_number
+          FROM counts
+    )
+    SELECT page.notification_id,
+           page.event_kind::text AS event_kind,
+           (EXTRACT(EPOCH FROM page.occurred_at) * 1000)::bigint AS occurred_at_millis,
+           resolved.total_count,
+           resolved.resolved_page_number,
+           facets.revision_count, facets.archived_count, facets.restored_count
+      FROM resolved
+      CROSS JOIN facets
+      LEFT JOIN LATERAL (
+          SELECT matched.notification_id, matched.event_kind, matched.occurred_at
+            FROM matched
+           ORDER BY CASE WHEN p_ascending THEN matched.occurred_at END ASC,
+                    CASE WHEN p_ascending THEN matched.notification_id END ASC,
+                    CASE WHEN NOT p_ascending THEN matched.occurred_at END DESC,
+                    CASE WHEN NOT p_ascending THEN matched.notification_id END DESC
+           OFFSET ((resolved.resolved_page_number - 1) * p_page_size)
+           LIMIT p_page_size
+      ) AS page ON true
+     ORDER BY CASE WHEN p_ascending THEN page.occurred_at END ASC,
+              CASE WHEN p_ascending THEN page.notification_id END ASC,
+              CASE WHEN NOT p_ascending THEN page.occurred_at END DESC,
+              CASE WHEN NOT p_ascending THEN page.notification_id END DESC;
 END
 $$;
 
@@ -389,12 +459,18 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 $$;
 
 CREATE FUNCTION ple_api.read_current_blueprint_course_watch_events(
-    p_blueprint_course_id text, p_limit integer
-) RETURNS TABLE (event_kind text, occurred_at_millis bigint)
+    p_blueprint_course_id text, p_search text, p_event_kinds text[],
+    p_ascending boolean, p_page_number bigint, p_page_size bigint
+) RETURNS TABLE (
+    notification_id uuid, event_kind text, occurred_at_millis bigint,
+    total_count bigint, resolved_page_number bigint,
+    revision_count bigint, archived_count bigint, restored_count bigint
+)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.read_current_blueprint_course_watch_events(
-        (SELECT blueprint_course_id FROM ple_data.blueprint_course WHERE blueprint_course_id = $1), $2
+        (SELECT blueprint_course_id FROM ple_data.blueprint_course WHERE blueprint_course_id = $1),
+        $2, $3, $4, $5, $6
     )
 $$;
 

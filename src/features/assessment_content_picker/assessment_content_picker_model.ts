@@ -1,3 +1,4 @@
+import type { QuestionNativePreview } from "../../components/question_native_preview";
 import type { PublishedQuestionRevisionTuple } from "../../../generated/api/PublishedQuestionRevisionTuple";
 import type { QuestionPoolEditNumber } from "../../../generated/api/QuestionPoolEditNumber";
 import type { QuestionPoolId } from "../../../generated/api/QuestionPoolId";
@@ -8,6 +9,7 @@ export type AssessmentContentPickerSelection =
       readonly kind: "questions";
       readonly questions: ReadonlyArray<{
         readonly title: string;
+        readonly nativePrompt: QuestionNativePreview["nativePrompt"];
         readonly publishedQuestionRevisionTuple: PublishedQuestionRevisionTuple;
       }>;
     }
@@ -46,6 +48,7 @@ export function assessmentContentPickerSelection(
     )
     .map((row) => ({
       title: row.questionTitle,
+      nativePrompt: row.nativePrompt,
       publishedQuestionRevisionTuple: row.publishedQuestionRevisionTuple,
     }));
   return questions.length === 0 ? undefined : { kind: "questions", questions };

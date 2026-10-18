@@ -18,6 +18,7 @@ export const COURSE_TITLE = "Biochemistry";
 // The imported catalog determines the representative released Assessment.
 export let ASSIGNMENT_TITLE = "";
 let assignmentId = "";
+let assignmentCourseId = "";
 // Card links and the overview entry button use the imported Assessment Type label.
 export let ASSESSMENT_TYPE_LABEL = "Unit Review Assignment";
 
@@ -38,9 +39,12 @@ export function courseCard(page: Page, title: string = COURSE_TITLE): Locator {
 
 export function assignmentCard(page: Page, title: string = ASSIGNMENT_TITLE): Locator {
   const row = courseworkRow(page, title);
-  return title === ASSIGNMENT_TITLE && assignmentId !== ""
-    ? row.and(page.locator(`[data-record-id="${assignmentId}"]`))
-    : row;
+  if (title !== ASSIGNMENT_TITLE || assignmentId === "") return row;
+  const recordId =
+    new URL(page.url()).pathname === "/student"
+      ? `${assignmentCourseId}:${assignmentId}`
+      : assignmentId;
+  return row.and(page.locator(`[data-record-id="${recordId}"]`));
 }
 
 export function courseworkRow(page: Page, title: string = ASSIGNMENT_TITLE): Locator {
@@ -170,6 +174,9 @@ async function rememberDemoAssessment(page: Page, landingValue: Promise<unknown>
   if (selected === undefined) throw new Error("The released Live Demo Assessment is unavailable.");
   ASSIGNMENT_TITLE = selected.title;
   assignmentId = selected.id;
+  const courseId = /^\/student\/courses\/([^/]+)$/u.exec(new URL(page.url()).pathname)?.[1];
+  if (courseId === undefined) throw new Error("The selected Student Course has no Course ID.");
+  assignmentCourseId = decodeURIComponent(courseId);
   ASSESSMENT_TYPE_LABEL = assessmentTypePresentation(selected.assessmentType).label;
   ASSESSMENT_ENTRY_BUTTON = new RegExp(`^(Start|Resume) ${ASSESSMENT_TYPE_LABEL}$`, "u");
   await page
@@ -217,14 +224,26 @@ export async function searchNativeMcLibraryQuestion(page: Page): Promise<Questio
     .getByLabel("Search Question Library", { exact: true })
     .fill(summary.metadata.questionTitle);
   await page.getByLabel("Search Question Library", { exact: true }).press("Enter");
-  const membership = page.getByRole("combobox", { name: "Question membership", exact: true });
-  await membership.selectOption("all");
-  await page
-    .locator("[data-record-id]")
-    .filter({ has: page.getByText(summary.metadata.questionTitle, { exact: true }) })
-    .filter({ has: page.getByRole("link", { name: "Open", exact: true }) })
-    .first()
-    .waitFor();
+  const searchFilters = page.locator("details.library-search-filters");
+  const openedSearchFilters = !(await searchFilters.evaluate(
+    (element) => (element as HTMLDetailsElement).open,
+  ));
+  if (openedSearchFilters) await searchFilters.locator(":scope > summary").click();
+  try {
+    const membership = page.getByRole("combobox", {
+      name: "Question membership",
+      exact: true,
+    });
+    await membership.selectOption("all");
+    await page
+      .locator("[data-record-id]")
+      .filter({ has: page.getByText(summary.metadata.questionTitle, { exact: true }) })
+      .filter({ has: page.getByRole("link", { name: "Open", exact: true }) })
+      .first()
+      .waitFor();
+  } finally {
+    if (openedSearchFilters) await searchFilters.locator(":scope > summary").click();
+  }
   return summary;
 }
 
@@ -266,7 +285,33 @@ export async function openInstructorLibraryBrowse(page: Page): Promise<void> {
     .getByRole("link", { name: "Browse Question Library", exact: true })
     .click();
   await page.getByRole("main", { name: "Browse Question Library", exact: true }).waitFor();
-  await page.getByRole("region", { name: "Discipline", exact: true }).waitFor();
+  const discipline = page.getByRole("region", { name: "Discipline", exact: true });
+  await discipline.waitFor();
+  await discipline.getByRole("button", { name: /^Biology\s+[1-9][0-9]*$/u }).waitFor();
+}
+
+/** Narrows Browse results to Multiple choice Questions through the shared Record filters. */
+export async function filterBrowseToMultipleChoice(page: Page): Promise<void> {
+  const options = page.locator("details.data-sheet-controls__options");
+  const openedOptions = !(await options.evaluate(
+    (element) => (element as HTMLDetailsElement).open,
+  ));
+  if (openedOptions) await options.locator(":scope > summary").click();
+
+  const disclosure = page.locator("details.record-filters__disclosure");
+  const openedFilters = !(await disclosure.evaluate(
+    (element) => (element as HTMLDetailsElement).open,
+  ));
+  if (openedFilters) await disclosure.locator(":scope > summary").click();
+
+  const filters = page.getByRole("group", { name: "Record filters", exact: true });
+  await filters.getByRole("button", { name: /^Filter Question Type/u }).click();
+  const dialog = page.getByRole("dialog", { name: "Filter Question Type", exact: true });
+  await dialog.getByRole("checkbox", { name: /^multipleChoice(?:\s+\d+)?$/u }).check();
+  await dialog.getByRole("button", { name: "Close filter", exact: true }).click();
+
+  if (openedFilters) await disclosure.locator(":scope > summary").click();
+  if (openedOptions) await options.locator(":scope > summary").click();
 }
 
 export async function enterSysadmin(page: Page): Promise<void> {
