@@ -93,7 +93,7 @@ both embedded and external images. Avoid silently accepting content the converte
 [question_stewardship.sql](../../../schemas/base_schema/50_functions/question_stewardship.sql)
 limits `list_current_starred_questions()` to 250 records and returns only a truncation flag. The
 [store contract](../../../crates/learning-data-access/src/question_star.rs) has no continuation token;
-[starred_questions_page.tsx](../../../src/pages/starred_questions_page.tsx) only tells the user more
+[starred_questions_page.tsx](../../../src/pages/question_library/starred_questions_page.tsx) only tells the user more
 records exist. With 251 Stars, an older Star cannot be reached through this collection.
 
 Fix the store/API contract with keyset pagination on the existing `starred_at` and Question-ID order,
@@ -222,7 +222,7 @@ unused author-account fields/indexes solely for a speculative future feature.
 ### R2 Remove inherited legacy-duration repair state through a coherent contract
 
 [assessment_duration.ts](../../../src/assessment_duration.ts),
-[assessment_template_settings_model.ts](../../../src/pages/assessment_template_settings_model.ts), and
+[assessment_template_settings_model.ts](../../../src/pages/assessment_templates/assessment_template_settings_model.ts), and
 the [policy editor](../../../src/pages/assessment_workspace/assessment_workspace_policies_page.tsx)
 retain `legacyTimeLimitSeconds` and block unrelated saves until a non-minute duration is replaced.
 This machinery predates the baseline; the changed presentation test explicitly reinforces the

@@ -68,7 +68,7 @@ concurrency checks, and membership constraints. Do not make shared fields imply 
   of independently paged lists.
 - Rust and browser decoders discriminate the result kind.
 - Both use the shared search presentation and one Library detail URL, with authorized kind
-  resolution in [library_object_detail_page.tsx](../../../src/pages/library_object_detail_page.tsx).
+  resolution in [library_object_detail_page.tsx](../../../src/pages/question_library/library_object_detail_page.tsx).
 - Assessment selection preserves exact Question Revisions and Pool import identifiers/Edit Numbers.
 - Kind-specific details remain necessary: a Published Question has immutable source Revisions;
   a Pool has current membership and an Edit Number, with selection delegated to PLE.

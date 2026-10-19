@@ -1328,7 +1328,7 @@ Canonical retry 13 (session 13086, terminal 1) is recorded at
 
 ### Sysadmin source-scope drift review (2026-10-06)
 
-The reviewed Course inspection path-[Sysadmin UI](../../../src/pages/sysadmin_course_inspection_page.tsx),
+The reviewed Course inspection path-[Sysadmin UI](../../../src/pages/administration/sysadmin_course_inspection_page.tsx),
 [support capability](../../../crates/server/src/support_capability.rs), and
 [Course operations SQL](../../../schemas/base_schema/50_functions/course_operations.sql)-uses
 confirmation and an audited single-record lookup consistent with Human Guidance lines 279-289 and

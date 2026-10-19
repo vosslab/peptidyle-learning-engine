@@ -1,9 +1,9 @@
 // scenarios_student.ts - Student course, invitation, delivery, and denial survey.
 // Selector contract: shared Course and Assessment actions live in visible_workflows.ts:47; Student
 // Course page identity comes from the Ribbon and breadcrumbs;
-// other Student headings and controls are owned by src/pages/student_courses_page.tsx:29,
-// src/pages/student_course_invitation_page.tsx:42, src/pages/assessment_overview_page.tsx,
-// src/pages/assessment_attempt_page.tsx, and src/pages/assessment_attempt_summary_page.tsx.
+// other Student headings and controls are owned by src/pages/student_coursework/student_courses_page.tsx:29,
+// src/pages/student_coursework/student_course_invitation_page.tsx:42, src/pages/assessment_overview/assessment_overview_page.tsx,
+// src/pages/assessment_attempt/assessment_attempt_page.tsx, and src/pages/assessment_attempt/assessment_attempt_summary_page.tsx.
 
 import type { Locator } from "playwright";
 

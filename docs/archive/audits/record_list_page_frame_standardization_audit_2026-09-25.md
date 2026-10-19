@@ -72,9 +72,9 @@ row class, row style, or general-purpose row renderer. Avoid accumulating page-n
 
 **P2: retain decision status at every supported width.**
 
-[student_course_progress_page.tsx](../../../src/pages/student_course_progress_page.tsx),
+[student_course_progress_page.tsx](../../../src/pages/student_coursework/student_course_progress_page.tsx),
 lines 68-79, marks score and completion status as `high` priority.
-[student_course_attempt_history_page.tsx](../../../src/pages/student_course_attempt_history_page.tsx),
+[student_course_attempt_history_page.tsx](../../../src/pages/student_coursework/student_course_attempt_history_page.tsx),
 lines 76-89, does the same for scores and "Score not released".
 [record_list.css](../../../src/components/data_sheet/data_sheet.css), lines 88-96, hides that
 priority entirely below 32rem.
@@ -103,10 +103,10 @@ lines 9-14, changes shared rows into individually bordered, rounded boxes withou
 Chromium measures an 8 px radius and a 0 px gap between adjacent boxes. Screenshots confirm the
 touching corners and doubled divider. This directly reproduces the reported visual concern.
 
-[student_course_progress_page.css](../../../src/pages/student_course_progress_page.css),
+[student_course_progress_page.css](../../../src/pages/student_coursework/student_course_progress_page.css),
 lines 26-31, separately changes padding, border, and background. Its `--ple-radius-md` token is not
 defined in the current CSS; the rendered radius is 0 px.
-[course_instance_page.css](../../../src/pages/course_instance_page.css), lines 180-184,
+[course_instance_page.css](../../../src/pages/course/course_instance_page.css), lines 180-184,
 adds a 6.5rem minimum row height and accent border to descendant lists.
 
 **Recommendation:** use one compact, flat scan treatment with shared title/metadata styles, consistent
@@ -172,7 +172,7 @@ the content region only `min-inline-size: 0`; children have no shared stack or g
 
 Twenty-four of 62 PageFrame uses supply `contentClass`. Those classes are not all mistakes: editors
 need internal composition. The gap is the lack of an ordinary shared content layout. For example,
-[student_courses_page.tsx](../../../src/pages/student_courses_page.tsx), lines 61-71, places a
+[student_courses_page.tsx](../../../src/pages/student_coursework/student_courses_page.tsx), lines 61-71, places a
 Course invitations link immediately before RecordList in default block flow.
 
 **Recommendation:** let PageFrame provide the standard vertical content stack, and provide a small

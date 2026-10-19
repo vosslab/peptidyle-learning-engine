@@ -1,5 +1,5 @@
 // scenarios_public.ts - signed-out and session-recovery screenshot states.
-// Selector contract: sign-in and renewal headings are owned by src/pages/sign_in_page.tsx:92 and
+// Selector contract: sign-in and renewal headings are owned by src/pages/authentication/sign_in_page.tsx:92 and
 // src/app.tsx:101; seeded identity actions are shared through visible_workflows.ts:16.
 
 import { viewportCoverage, type ScenarioDefinition } from "./scenario_types";

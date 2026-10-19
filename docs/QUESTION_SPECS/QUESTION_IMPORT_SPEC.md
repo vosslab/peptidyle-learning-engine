@@ -84,7 +84,7 @@ The ordinary private Draft API currently supports Native JSON, WebWork PG,
 and PGML. The API stores the selected Backend, format, source, and registered PG path as the Draft
 binding. First publication returns a Question ID; the importer obtains its exact Revision before
 using it elsewhere. See [Draft creation](../../crates/server/src/authoring/create.rs) and
-[the creation page](../../src/pages/question_drafts_page.tsx). The former creation client test was
+[the creation page](../../src/pages/question_drafts/question_drafts_page.tsx). The former creation client test was
 retired during test pruning and is historical evidence rather than current coverage.
 
 The current content-loading tools call Draft storage and the shared Question publisher with

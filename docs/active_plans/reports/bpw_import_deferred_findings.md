@@ -82,8 +82,8 @@ not choose that role.
 
 - [composition_live_demo.rs](../../../crates/server/src/composition_live_demo.rs#L24) supplies
   `Elena Rivera` as the Live Demo display name.
-- [sign_in_page.tsx](../../../src/pages/sign_in_page.tsx#L350) renders that display name in the
-  role button; [live_demo_auth_model.ts](../../../src/pages/live_demo_auth_model.ts#L15) also
+- [sign_in_page.tsx](../../../src/pages/authentication/sign_in_page.tsx#L350) renders that display name in the
+  role button; [live_demo_auth_model.ts](../../../src/pages/authentication/live_demo_auth_model.ts#L15) also
   describes Rivera's seeded Account.
 - [prepublication_context.sql](../../../schemas/installation_data/prepublication_context.sql#L130)
   seeds the Account name as `Elena Martinez`.

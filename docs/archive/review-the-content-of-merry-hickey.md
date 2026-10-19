@@ -554,12 +554,12 @@ work package has no remaining implementation criteria.
 
 | WP    | Page                                                                                                                                                   | Pattern proved                                                     |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| WP-E1 | [question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx)                                                                         | Simple scan list, one variant                                      |
-| WP-E2 | [gradebook_page.tsx](../../src/pages/gradebook_page.tsx)                                                                                     | Dense table, `fullWidth`, many columns                             |
+| WP-E1 | [question_drafts_page.tsx](../../src/pages/question_drafts/question_drafts_page.tsx)                                                                         | Simple scan list, one variant                                      |
+| WP-E2 | [gradebook_page.tsx](../../src/pages/course/gradebook_page.tsx)                                                                                     | Dense table, `fullWidth`, many columns                             |
 | WP-E3 | `src/pages/library_browse_rows.tsx` (historical path; retired)                                                                           | Two variants plus windowing                                        |
 | WP-E4 | [assessment_workspace_questions_view.tsx](../../src/pages/assessment_workspace/assessment_workspace_questions_view.tsx) | Reorder by keyboard and drag                                       |
-| WP-E5 | [course_instance_page.tsx](../../src/pages/course_instance_page.tsx)                                                                         | Dense rows, per-row actions, theme accent                          |
-| WP-E6 | [student_course_landing_page.tsx](../../src/pages/student_course_landing_page.tsx)                                                           | Student list, phone layout keeps action next to identity           |
+| WP-E5 | [course_instance_page.tsx](../../src/pages/course/course_instance_page.tsx)                                                                         | Dense rows, per-row actions, theme accent                          |
+| WP-E6 | [student_course_landing_page.tsx](../../src/pages/student_coursework/student_course_landing_page.tsx)                                                           | Student list, phone layout keeps action next to identity           |
 | WP-E7 | [provided_avatar_picker.tsx](../../src/features/profile_avatar/provided_avatar_picker.tsx)                                 | Same records, two genuinely different shapes: `gallery` and `list` |
 
 - Why WP-E7 is worth a seventh lane: the other six all prove a denser or roomier row. The avatar
@@ -571,11 +571,11 @@ work package has no remaining implementation criteria.
   The core is expected to change during this milestone -- finding its weak spots is the point -- but
   a core change is handed to WS-CORE and applied once, never edited in two lanes.
 - Acceptance criteria, specific rows: drop `assessmentId` from
-  [gradebook_page.tsx](../../src/pages/gradebook_page.tsx):43-64;
+  [gradebook_page.tsx](../../src/pages/course/gradebook_page.tsx):43-64;
   drop the raw `Assessment {id}` line and the per-row time zone from
-  [course_instance_page.tsx](../../src/pages/course_instance_page.tsx):355-360;
+  [course_instance_page.tsx](../../src/pages/course/course_instance_page.tsx):355-360;
   in
-  [question_drafts_page.tsx](../../src/pages/question_drafts_page.tsx):221-261
+  [question_drafts_page.tsx](../../src/pages/question_drafts/question_drafts_page.tsx):221-261
   show the title once, drop the `Private draft` badge the page already implies, shorten
   `Draft Question Edit Number 7` to `Edit 7`, and add a short content preview.
 - Evidence or review, when useful: `tests/_temp/row_height_probe.mjs` reports assessment row height,
@@ -592,7 +592,7 @@ work package has no remaining implementation criteria.
   because a page heading is the same few slots everywhere and needs no per-page judgment. The date
   sweep is also full: 16 call sites, mechanical, and it fixes a real bug -- the hardcoded UTC
   formatter at
-  [course_instance_page.tsx](../../src/pages/course_instance_page.tsx):50-53.
+  [course_instance_page.tsx](../../src/pages/course/course_instance_page.tsx):50-53.
   Dates use the selected display zone; only Profile names that zone.
 - Obvious follow-ons: in each page's **own** stylesheet, move spacing onto the 7-step scale. These
   packages do not edit `src/style.css`; instead each reports the names of rules and tokens its pages

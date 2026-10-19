@@ -28,6 +28,9 @@
 - Moved Blueprint discovery and Question Library workflows into their feature owners. The four
   Library page compositions own PageFrame and route identity; APIs and route behavior remain
   unchanged. Updated current architecture links.
+- Grouped 75 browser page files by area, recovered their imports, and consolidated duplicate
+  Question Type, positive-integer, and Bloom DTO decoders. Fresh SPEC, QUALITY, integration, and
+  9,427-check fast acceptance passed; route behavior is preserved.
 - Canonical fast checks pass after the ownership moves (9,427 tests plus Rust, TypeScript, lint,
   and formatting). Maintained Blueprint and Library runtime captures pass across eleven local
   screenshots; no screenshot artifact was published.

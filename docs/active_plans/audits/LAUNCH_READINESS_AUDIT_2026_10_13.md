@@ -139,7 +139,7 @@ the remaining reviewed content and ordinary publication.
   CSV/TSV encoder, and browser download controls exist in
   [live_gradebook.rs](../../../crates/server/src/live_gradebook.rs),
   [export.rs](../../../crates/server/src/live_gradebook/export.rs), and
-  [gradebook_page.tsx](../../../src/pages/gradebook_page.tsx). Both browser download controls produced
+  [gradebook_page.tsx](../../../src/pages/course/gradebook_page.tsx). Both browser download controls produced
   valid, nonempty grade files in the one-time check below.
 - The retained [human_guidance_implementation_checklist.md](human_guidance_implementation_checklist.md)
   labels much evidence stale/pending and cites removed tests. Historical checklist status is not

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AssessmentAttemptResponseState } from "../src/pages/assessment_attempt_response_state.ts";
+import { AssessmentAttemptResponseState } from "../src/pages/assessment_attempt/assessment_attempt_response_state.ts";
 
 test("a delayed Question validation cannot make another Question response saveable", () => {
   const state = new AssessmentAttemptResponseState();

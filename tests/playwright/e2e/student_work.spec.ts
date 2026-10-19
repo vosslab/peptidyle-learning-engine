@@ -1,6 +1,6 @@
 // Focused real-stack Student answer preservation and answer-withheld review.
 // Selector contracts (visible authoring, navigation, controls, and completed review):
-// src/pages/question_drafts_page.tsx:252
+// src/pages/question_drafts/question_drafts_page.tsx:252
 // src/features/ple_question_json_authoring/question_json_metadata_fields.tsx:49
 // src/features/ple_question_json_authoring/question_json_editor_workspace.tsx:104
 // src/features/ple_question_json_authoring/question_json_fill_in_editor.tsx:62
@@ -11,10 +11,10 @@
 // src/components/student_assessment_attempt_navigation.tsx:135
 // src/components/question_response_controls/backend_owned_document.tsx:311
 // src/components/question_response_controls/short_text.tsx:39
-// src/pages/assessment_attempt_page.tsx:734
-// src/pages/assessment_attempt_finish.ts:9
-// src/pages/assessment_attempt_summary_page.tsx:135
-// src/pages/assessment_attempt_summary_page.tsx:164
+// src/pages/assessment_attempt/assessment_attempt_page.tsx:734
+// src/pages/assessment_attempt/assessment_attempt_finish.ts:9
+// src/pages/assessment_attempt/assessment_attempt_summary_page.tsx:135
+// src/pages/assessment_attempt/assessment_attempt_summary_page.tsx:164
 
 import { expect, test, type FrameLocator, type Page, type Route } from "@playwright/test";
 

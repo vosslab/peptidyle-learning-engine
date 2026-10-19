@@ -108,7 +108,7 @@ layer; afterward, forward-only SQLx migrations belong in
 | [crates/adapters/](../crates/adapters/) | PLE, WeBWorK, and iMathAS Question Backend adapters. |
 | [assets/qpm_wasm/source.json](../assets/qpm_wasm/source.json) | Vendored QPM browser wrapper, WASM, license, and artifact provenance. |
 | [devel/vendor_qpm_wasm.py](../devel/vendor_qpm_wasm.py) | Refreshes QPM's browser runtime, types, license, and provenance from a separate checkout; excludes upstream demos. |
-| [src/pages/question_import_screen.tsx](../src/pages/question_import_screen.tsx) | Lazy QPM loading, local conversion, per-question image checks, and sequential Draft results. |
+| [src/pages/question_drafts/question_import_screen.tsx](../src/pages/question_drafts/question_import_screen.tsx) | Lazy QPM loading, local conversion, per-question image checks, and sequential Draft results. |
 | [crates/objects/](../crates/objects/) | Object-address, checksum, image, and object-store ownership. |
 | [crates/wasm/](../crates/wasm/) | Answer-free Rust-to-browser WebAssembly facade. |
 | [crates/export/](../crates/export/) | PDF and DOCX export models and writers. |
@@ -121,7 +121,7 @@ transaction lives in
 [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs),
 and the matching base-schema boundary is
 [assessment_blueprint_updates.sql](../schemas/base_schema/50_functions/assessment_blueprint_updates.sql). Its lazy
-Course summary lives in [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx)
+Course summary lives in [course_blueprint_update_review.tsx](../src/pages/course/course_blueprint_update_review.tsx)
 and lists adopted Assessment correspondences only. It introduces no persisted offer, receipt,
 comparison baseline, new update table, or whole-Course lifecycle module.
 
@@ -164,13 +164,20 @@ src/
 |  +- ple_question_json_authoring/ Native PLE Question JSON editor
 |  `- profile_avatar/           Provided avatar and profile-image UI
 +- pages/
+|  +- administration/           Instructor account and Sysadmin administration pages
+|  +- assessment_attempt/       Student Assessment Attempt and submitted summary pages
+|  +- assessment_overview/      Student Assessment list and start/resume pages
+|  +- assessment_templates/     Instructor Assessment Template pages and editors
 |  +- assessment_workspace/     Assessment edit, release, and Unrelease UI
-|  +- blueprint_course_route_page.tsx, blueprint_course_detail_route_page.tsx,
-|  |  blueprint_course_search_page.tsx
-|  |                             Blueprint PageFrame and route identity composition
-|  +- library_route_page.tsx, my_questions_page.tsx, my_pools_page.tsx
-|  |                             Library PageFrame and route identity composition
-|  `- assignment_access/        Unused leftover helper; not Student Coursework UI
+|  +- authentication/           Sign-in and Live Demo authentication pages
+|  +- blueprint_course/         Blueprint route, detail, search, and live pages
+|  +- course/                   Course list, instance, appearance, roster, and gradebook pages
+|  +- profile/                  Instructor and account Profile pages
+|  +- question_drafts/          Draft authoring and import pages
+|  +- question_library/         Library routes, Watch notifications, Question and Pool detail, and starred pages
+|  +- student_coursework/       Student Course, grade, progress, invitation, and history pages
+|  +- assignment_access/        Unused leftover helper; not Student Coursework UI
+|  `- <other root files>        Route compositions and cross-cutting page entry points
 +- ribbon/                      Capability-aware navigation catalog and rendering
 +- styles/                      Browser-wide styles and local font declarations
 +- wasm/                        Browser bridge modules
@@ -179,7 +186,7 @@ src/
 ```
 
 The Course-level adopted-Assessment summary is
-[course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx); it links to the
+[course_blueprint_update_review.tsx](../src/pages/course/course_blueprint_update_review.tsx); it links to the
 existing detail review presentation,
 [assessment_blueprint_update_review.tsx](../src/pages/assessment_workspace/assessment_blueprint_update_review.tsx);
 the existing Question Editor owns its Review, Apply, and Cancel controls. The browser uses the
@@ -206,11 +213,13 @@ QuestionPoolAvailableQuestions. The Question picker keeps its Question-only sour
 policy in [src/features/question_picker/](../src/features/question_picker/). The mixed Assessment
 content picker is owned by
 [assessment_editor.tsx](../src/features/assessment_content_picker/assessment_editor.tsx).
-[library_object_detail_page.tsx](../src/pages/library_object_detail_page.tsx) resolves
+[library_object_detail_page.tsx](../src/pages/question_library/library_object_detail_page.tsx) resolves
 `/library/{id}` before mounting Question or Pool detail.
 
-[src/api/decoders/](../src/api/decoders/) is the runtime DTO boundary. Generated declarations in
-`generated/api/` are derivative; modify their Rust source and regenerate rather
+[src/api/decoders/](../src/api/decoders/) is the runtime DTO boundary. Shared decoders for canonical
+Question types, positive integers, and Bloom classifications own those primitive rules; DTO
+decoders compose them with object-specific shape checks. Generated declarations in `generated/api/`
+are derivative; modify their Rust source and regenerate rather
 than editing them. Public-ID JSON fields are `id`. Question Pools use sibling
 `questionPoolId` and `questionPoolEditNumber` (or snake_case
 `question_pool_id` / `question_pool_edit_number` on Blueprint stored content).

@@ -28,7 +28,7 @@ as do Question list items ([HG:600-603](../../HUMAN_GUIDANCE.md#L600-L603)).
   ([`library_page_model.ts:189-301`](../../../src/features/question_library/library_query.ts#L189-L301)).
 - **Static:** Blueprint results do the same
   ([`blueprint_course_search_result.ts:35-45`](../../../src/features/blueprint_course/blueprint_course_search_result.ts#L35-L45),
-  [`blueprint_course_search_page.tsx:273-310`](../../../src/pages/blueprint_course_search_page.tsx#L273-L310)),
+  [`blueprint_course_search_page.tsx:273-310`](../../../src/pages/blueprint_course/blueprint_course_search_page.tsx#L273-L310)),
   and persist a snapshot in `history.state` for reload/Back
   ([`blueprint_course_search_return_state.ts:56-118`](../../../src/features/blueprint_course/blueprint_course_search_return_state.ts#L56-L118)).
 - **Test:** Current tests protect that restoration:
@@ -48,7 +48,7 @@ most recent edit ([HG:532-534](../../HUMAN_GUIDANCE.md#L532-L534)). The current 
 and cursor logic provide only `name`, `adoptions`, and `students`:
 
 - [`blueprint_course.ts:40-42`](../../../src/api/blueprint_course.ts#L40-L42)
-- [`blueprint_course_search_page.tsx:412-422`](../../../src/pages/blueprint_course_search_page.tsx#L412-L422)
+- [`blueprint_course_search_page.tsx:412-422`](../../../src/pages/blueprint_course/blueprint_course_search_page.tsx#L412-L422)
 - [`blueprint_operations.sql:494-503`](../../../schemas/base_schema/50_functions/blueprint_operations.sql#L494-L503)
   and [`598-612`](../../../schemas/base_schema/50_functions/blueprint_operations.sql#L598-L612)
 - [`search.rs:149-168`](../../../crates/learning-data-access/src/postgres/blueprint_course/search.rs#L149-L168)
@@ -85,7 +85,7 @@ empty search page may leave directly ([HG:342-346](../../HUMAN_GUIDANCE.md#L342-
 
 - **Static:** Neither search page installs `UnsavedChangesGuard`; Public Blueprint cleanup only
   cancels requests and frames
-  ([`blueprint_course_search_page.tsx:312-334`](../../../src/pages/blueprint_course_search_page.tsx#L312-L334)).
+  ([`blueprint_course_search_page.tsx:312-334`](../../../src/pages/blueprint_course/blueprint_course_search_page.tsx#L312-L334)).
 - **Static:** `UnsavedChangesGuard` has route and unload interception, but this audit found no
   search-page use ([`unsaved_changes_guard.tsx:33-145`](../../../src/components/unsaved_changes_guard.tsx#L33-L145)).
 
@@ -123,7 +123,7 @@ model requirement.
 
 - **Static:** Public Blueprint search has text, promoted, hierarchy, cross-discipline, and Tag
   filters. Its submitted search/filter/sort summary remains visible
-  ([`blueprint_course_search_page.tsx:343-422`](../../../src/pages/blueprint_course_search_page.tsx#L343-L422)).
+  ([`blueprint_course_search_page.tsx:343-422`](../../../src/pages/blueprint_course/blueprint_course_search_page.tsx#L343-L422)).
 - **Static:** Question Library uses one query state for ordinary-word search, filters, sorting,
   and bulk work ([`library_page.tsx:108-161`](../../../src/features/question_library/library_workspace.tsx#L108-L161)).
 - **Static:** No search-scoped hover-preview implementation was found. The Question Open action

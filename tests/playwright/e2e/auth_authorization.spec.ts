@@ -1,8 +1,8 @@
 // UI-first seeded-session and authorization-boundary proof against the used-Course baseline.
 //
 // Selector contract:
-// - src/pages/sign_in_page.tsx owns seeded-demo entry.
-// - src/pages/course_list_page.tsx owns role-scoped populated and empty Course Instance states.
+// - src/pages/authentication/sign_in_page.tsx owns seeded-demo entry.
+// - src/pages/course/course_list_page.tsx owns role-scoped populated and empty Course Instance states.
 // - src/route_access_boundary.tsx owns User Role denial before a protected route reads data.
 // - src/application_shell.tsx owns the named main region, current breadcrumb, and skip-link focus.
 

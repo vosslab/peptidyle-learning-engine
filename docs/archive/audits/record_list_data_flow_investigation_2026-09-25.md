@@ -75,7 +75,7 @@ with current query/return state; no account preference, arbitrary numeric input 
   [store](../../../crates/learning-data-access/src/postgres/blueprint_course/search.rs), and
   [SQL](../../../schemas/base_schema/50_functions/blueprint_operations.sql):467-569 own filtered
   name/ID pages. [My Blueprint workspace](../../../src/features/blueprint_course/blueprint_courses_workspace.tsx):94-165
-  applies the partial local comparator. [Public Search](../../../src/pages/blueprint_course_search_page.tsx):135-205
+  applies the partial local comparator. [Public Search](../../../src/pages/blueprint_course/blueprint_course_search_page.tsx):135-205
   replays earlier pages during restoration.
 - [Assessment picker SQL](../../../schemas/base_schema/50_functions/assessment_operations.sql):72-113,
   [store](../../../crates/learning-data-access/src/postgres/assessment_release.rs):187-216 and

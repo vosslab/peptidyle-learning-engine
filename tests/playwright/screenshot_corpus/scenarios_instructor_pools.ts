@@ -1,6 +1,6 @@
 // Instructor reusable Question Pool review capture.
 // Selector contract: the Question Library Ribbon task is in ribbon_catalog.ts; the create action
-// is owned by src/pages/library_page.tsx:204; the initial picker dialog and review action are
+// is owned by src/features/question_library/library_workspace.tsx:204; the initial picker dialog and review action are
 // owned by src/components/question_pool_create_dialog.tsx:386-390; review regions and search
 // labels are owned there at lines 463-480, while available results and Add/Included actions are
 // owned by src/components/question_pool_available_questions.tsx:65-113.

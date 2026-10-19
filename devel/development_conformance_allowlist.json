@@ -1,7 +1,7 @@
 {
   "source_name_exceptions": [
     {
-      "path": "src/pages/library_page.css.d.ts",
+      "path": "src/features/question_library/library_workspace.css.d.ts",
       "owner_document": "docs/NAMING_CONVENTIONS.md",
       "owner_section": "## Language matrix",
       "reason": "TypeScript emits this CSS-module declaration name; it is a compiler-owned boundary."

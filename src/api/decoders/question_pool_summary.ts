@@ -6,7 +6,6 @@ import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolMetadata } from "../../../generated/api/QuestionPoolMetadata";
-import type { QuestionType } from "../../../generated/api/QuestionType";
 import {
   DecodeError,
   decodeArray,
@@ -24,19 +23,7 @@ import {
   decodeBloomClassificationView,
 } from "./bloom_classification";
 import { decodeAccountId, decodeQuestionId, field, requireOnlyFields } from "./shared";
-
-function decodePoolQuestionType(value: unknown, path: string): QuestionType {
-  return decodeStringEnum(value, path, [
-    "multipleChoice",
-    "multipleAnswer",
-    "fillInBlank",
-    "multipleFillInBlank",
-    "numeric",
-    "matching",
-    "ordering",
-    "hotspot",
-  ] as const);
-}
+import { decodeQuestionType } from "./question_response_format";
 
 function decodePoolBackend(value: unknown, path: string): QuestionBackend {
   return decodeStringEnum(value, path, ["ple", "webwork", "imathas"] as const);
@@ -164,10 +151,7 @@ export function decodeQuestionPoolLibrarySummary(
       field(record, "ownerAccountId", path),
       `${path}.ownerAccountId`,
     ),
-    questionType: decodePoolQuestionType(
-      field(record, "questionType", path),
-      `${path}.questionType`,
-    ),
+    questionType: decodeQuestionType(field(record, "questionType", path), `${path}.questionType`),
     backend: decodePoolBackend(field(record, "backend", path), `${path}.backend`),
     license: decodePoolLicense(field(record, "license", path), `${path}.license`),
     questionPoolEditNumber: decodePositiveInteger(
@@ -187,4 +171,4 @@ export function decodeQuestionPoolLibrarySummary(
   };
 }
 
-export { decodePoolBackend, decodePoolLicense, decodePoolQuestionType };
+export { decodePoolBackend, decodePoolLicense };

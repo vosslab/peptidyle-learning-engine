@@ -50,7 +50,7 @@ HTTP rejection or request failure preserves earlier successes and permits later 
 automatic retry. Readable formats come from QPM's registry. New readers and broader HTML rendering
 remain separate work.
 
-**Owner.** [Import screen](../src/pages/question_import_screen.tsx),
+**Owner.** [Import screen](../src/pages/question_drafts/question_import_screen.tsx),
 [Native JSON specification](QUESTION_SPECS/NATIVE_JSON_SPEC.md), and
 [converter handoff](QUESTION_SPECS/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md).
 
@@ -1242,7 +1242,7 @@ meaning for Due Soon; it is a product convention, not a pedagogical threshold.
 **Consequence.** The window includes deadlines at the evaluation instant and
 excludes deadlines at or beyond seven days from that instant.
 
-**Owner.** [student_coursework_presentation.ts](../src/pages/student_coursework_presentation.ts)
+**Owner.** [student_coursework_presentation.ts](../src/pages/student_coursework/student_coursework_presentation.ts)
 and the Instructor Assessments Due Soon API.
 
 ### Student Tier 2 groups follow Tier 1 purposes

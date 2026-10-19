@@ -1,6 +1,6 @@
 // scenarios_sysadmin.ts - Sysadmin home and Instructor Account lifecycle states.
 // Selector contract: role navigation is shared through visible_workflows.ts; Sysadmin surfaces are
-// owned by src/pages/role_home_pages.tsx and src/pages/instructor_accounts_page.tsx.
+// owned by src/pages/role_home_pages.tsx and src/pages/administration/instructor_accounts_page.tsx.
 
 import type { Locator, Page } from "playwright";
 

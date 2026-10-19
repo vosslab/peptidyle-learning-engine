@@ -38,7 +38,7 @@ this lock behavior; it does not create a Pool order policy.
 
 | M09 behavior | Current source evidence |
 | --- | --- |
-| Owner/Sysadmin editor visibility | [`question_pool_detail.tsx`](../../../../src/pages/question_pool_detail.tsx#L103) gates the editor; the server repeats the Owner/Sysadmin check in [`question_pool_library.rs`](../../../../crates/server/src/question_pool_library.rs#L172). |
+| Owner/Sysadmin editor visibility | [`question_pool_detail.tsx`](../../../../src/pages/question_library/question_pool_detail.tsx#L103) gates the editor; the server repeats the Owner/Sysadmin check in [`question_pool_library.rs`](../../../../crates/server/src/question_pool_library.rs#L172). |
 | Complete exact tuple-set draft, Add/Remove/Save, failure retention, and reload protection | [`question_pool_members_editor.tsx`](../../../../src/components/question_pool_members_editor.tsx#L50) and [`question_pool_members_model.ts`](../../../../src/components/question_pool_members_model.ts#L48). |
 | Add eligibility and complete closed request/receipt | The editor resolves current member tuples and Pool eligibility; [`question_pool_members.ts`](../../../../src/api/decoders/question_pool_members.ts#L18) enforces a bounded nonempty set with one Revision per Question and decodes the Edit Number receipt. |
 | Type, Backend, classification, license, owner, and Edit Number safeguards | The server route and protected save function retain request, permission, tuple, classification/license, and CAS checks; the Postgres store calls the accepted `ple_api` wrapper in [`question_pool_library.rs`](../../../../crates/learning-data-access/src/postgres/question_pool_library.rs#L59). |

@@ -34,7 +34,7 @@ Draft API and browser creation page support Native JSON, WebWork PG, and PGML. T
 handoff remains deferred; authoring support does not establish it.
 
 Evidence: [create.rs](../../../../crates/server/src/authoring/create.rs),
-[question_drafts_page.tsx](../../../../src/pages/question_drafts_page.tsx),
+[question_drafts_page.tsx](../../../../src/pages/question_drafts/question_drafts_page.tsx),
 `test_question_draft_creation.mjs`, and
 `test_draft_source_client.mjs`.
 

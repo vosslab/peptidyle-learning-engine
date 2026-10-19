@@ -25,6 +25,8 @@ Assessment Type names `regular_assignment`, `practice_question_assignment`, and
 | [crates/objects/](../crates/objects/) | Typed object identity, integrity, validation, and storage backends |
 | [crates/browser-api-contract/](../crates/browser-api-contract/) | Rust declarations used to generate browser-facing TypeScript contracts |
 | [src/](../src/) | SolidJS shell, strict decoders, role-specific pages, and answer-safe interaction |
+| [src/pages/](../src/pages/) | Route and page composition grouped by administration, assessment, authentication, Blueprint, Course, Profile, Question, and Student Coursework areas |
+| [src/features/question_library/](../src/features/question_library/) | Shared Question Library behavior, including the Question statistics panel |
 | [src/appearance/](../src/appearance/) | One `AppearanceOwner` resolves Themes and display mode, then applies them to `<html>` |
 | [local_stack_control/](../local_stack_control/) | Disposable-stack lifecycle and connected acceptance orchestration |
 

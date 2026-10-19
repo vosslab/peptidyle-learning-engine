@@ -24,7 +24,7 @@ assessment for these specific requirements.
 The theme mutation in
 [course_appearance.rs](../../../crates/server/src/course_appearance.rs) returns
 `CourseAppearanceView { theme, banner: None }` on success. The page in
-[course_appearance_page.tsx](../../../src/pages/course_appearance_page.tsx) replaces its complete
+[course_appearance_page.tsx](../../../src/pages/course/course_appearance_page.tsx) replaces its complete
 cached appearance with that response. Saving a theme after a banner therefore hides the saved
 banner until reload, although the Banner record remains stored. Both the Plan and Legacy auditors
 independently found this violation of independent saves.

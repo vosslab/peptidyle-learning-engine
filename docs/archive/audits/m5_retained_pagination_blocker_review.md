@@ -21,7 +21,7 @@ cleanup.
 - Historical `src/pages/course_assignments_page.tsx` rendered
   only `runtime.queries.assignments(courseId)` items. It has no cursor state or
   visible next-page control.
-- [GradebookPage](../../../src/pages/gradebook_page.tsx) loads one summary page
+- [GradebookPage](../../../src/pages/course/gradebook_page.tsx) loads one summary page
   with `loadGradebookPage` and renders only `page.items`. Its cursor control is
   limited to an already opened Assignment Attempt history, not the gradebook summary.
 - The active M5 integration record already identifies the first-page retained

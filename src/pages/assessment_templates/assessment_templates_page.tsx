@@ -1,0 +1,485 @@
+// assessment_templates_page.tsx - Instructor-owned reusable Assessment settings.
+
+import { For, Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
+
+import type { AssessmentTemplate } from "../../../generated/api/AssessmentTemplate";
+import type { AssessmentType } from "../../../generated/api/AssessmentType";
+import type {
+  AssessmentTemplateClient,
+  AssessmentTemplateResponse,
+} from "../../api/assessment_template";
+import { useApplicationApi } from "../../api/application_api";
+import { ApiRequestError } from "../../api/http_client/error";
+import { UnsavedChangesGuard, trackEditorSave } from "../../components/unsaved_changes_guard";
+import { PageFrame } from "../../components/page_frame/page_frame";
+import type { RecordContent } from "../../components/data_sheet/record_content";
+import { SearchBlock } from "../../components/search_block/search_block";
+import { SearchControls } from "../../components/search_block/search_controls";
+import { createLocalCompleteSearch } from "../../components/search_block/local_complete_search_state";
+import { ASSESSMENT_TYPE_OPTIONS, isAssessmentType } from "../../assessment_type_presentation";
+import { AssessmentTemplateSettingsEditor } from "./assessment_template_settings_editor";
+import { assessmentTemplateSearchFields } from "./assessment_templates_search_fields";
+import {
+  assessmentTemplateDraft,
+  assessmentTemplateNameError,
+  assessmentTemplateSettings,
+  assessmentTypeHasOneAttempt,
+  type AssessmentTemplateDraft,
+  type AssessmentTemplateDraftPatch,
+} from "./assessment_template_settings_model";
+import "./assessment_templates_page.css";
+
+export interface AssessmentTemplatesSurfaceProps {
+  readonly client: AssessmentTemplateClient;
+}
+
+function replaceTemplate(
+  templates: ReadonlyArray<AssessmentTemplate>,
+  replacement: AssessmentTemplate,
+): ReadonlyArray<AssessmentTemplate> {
+  const index = templates.findIndex((template) => template.id === replacement.id);
+  if (index < 0) return [replacement, ...templates];
+  return templates.map((template) => (template.id === replacement.id ? replacement : template));
+}
+
+function isConflict(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.status === 409;
+}
+
+export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProps): JSX.Element {
+  const [templates, { mutate: setTemplates, refetch: refetchTemplates }] = createResource(() =>
+    props.client.listAssessmentTemplates(),
+  );
+  const [selected, setSelected] = createSignal<AssessmentTemplateResponse>();
+  const [draft, setDraft] = createSignal<AssessmentTemplateDraft>();
+  const [detailBusy, setDetailBusy] = createSignal(false);
+  const [replacementRequested, setReplacementRequested] = createSignal(false);
+  const [conflict, setConflict] = createSignal(false);
+  const [status, setStatus] = createSignal("");
+  const [statusIsError, setStatusIsError] = createSignal(false);
+  const [createName, setCreateName] = createSignal("");
+  const [createType, setCreateType] = createSignal<AssessmentType>("regular_assignment");
+  const [creating, setCreating] = createSignal(false);
+  const [createDisclosure, setCreateDisclosure] = createSignal<boolean>();
+  let pendingReplacement: (() => void) | undefined;
+  let replacementTrigger: HTMLElement | undefined;
+  const dirty = (): boolean => {
+    const response = selected();
+    const currentDraft = draft();
+    return (
+      response !== undefined &&
+      currentDraft !== undefined &&
+      JSON.stringify(currentDraft) !== JSON.stringify(assessmentTemplateDraft(response.template))
+    );
+  };
+
+  const isCreateExpanded = createMemo(
+    () => createDisclosure() ?? (templates.state === "ready" && templates()?.length === 0),
+  );
+
+  const templateRecordContent = (template: AssessmentTemplate): RecordContent => ({
+    title: template.name,
+    details: [{ kind: "assessmentType", value: template.assessmentType }],
+    actions: [
+      {
+        id: "edit-template",
+        kind: "command",
+        label: "Edit",
+        pressed: selected()?.template.id === template.id,
+        disabled: detailBusy() || creating(),
+        onClick: (): void => openTemplate(template),
+      },
+    ],
+  });
+
+  const templateSearch = createLocalCompleteSearch(
+    {
+      rows: templates,
+      loading: () => templates.loading,
+      error: (): unknown => templates.error,
+      refetchSource: refetchTemplates,
+    },
+    {
+      fields: assessmentTemplateSearchFields,
+      rowId: (template) => template.id,
+      keyword: (template) => template.name,
+      content: templateRecordContent,
+    },
+  );
+
+  function openResponse(response: AssessmentTemplateResponse): void {
+    setSelected(response);
+    setDraft(assessmentTemplateDraft(response.template));
+    setConflict(false);
+  }
+
+  function requestReplacement(action: () => void): void {
+    if (!dirty() && trackedSave.inFlightSave() === undefined) {
+      action();
+      return;
+    }
+    replacementTrigger =
+      document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    pendingReplacement = action;
+    setReplacementRequested(true);
+  }
+
+  function continueReplacement(): void {
+    const action = pendingReplacement;
+    pendingReplacement = undefined;
+    action?.();
+  }
+
+  function clearReplacementRequest(): void {
+    setReplacementRequested(false);
+    queueMicrotask(() => {
+      if (!detailBusy() && !creating()) replacementTrigger?.focus();
+    });
+  }
+
+  function openTemplate(template: AssessmentTemplate): void {
+    if (template.id === selected()?.template.id || detailBusy() || creating()) return;
+    requestReplacement(() => void loadTemplate(template));
+  }
+
+  async function loadTemplate(template: AssessmentTemplate): Promise<void> {
+    setDetailBusy(true);
+    setStatus("");
+    try {
+      openResponse(await props.client.getAssessmentTemplate(template.id));
+    } catch {
+      setStatusIsError(true);
+      setStatus("This Template could not be loaded. Choose it again to retry.");
+    } finally {
+      setDetailBusy(false);
+    }
+  }
+
+  function createTemplate(): void {
+    const nameError = assessmentTemplateNameError(createName());
+    if (nameError !== undefined) {
+      setStatusIsError(true);
+      setStatus(nameError);
+      return;
+    }
+    if (detailBusy() || creating()) return;
+    requestReplacement(() => void performCreateTemplate());
+  }
+
+  async function performCreateTemplate(): Promise<void> {
+    setCreating(true);
+    setStatus("");
+    try {
+      const response = await props.client.createAssessmentTemplate({
+        name: createName(),
+        assessmentType: createType(),
+      });
+      setTemplates((current) => replaceTemplate(current ?? [], response.template));
+      void refetchTemplates();
+      setCreateName("");
+      setCreateDisclosure(false);
+      openResponse(response);
+      setStatusIsError(false);
+      setStatus("Template created with the canonical settings for its Assessment Type.");
+    } catch {
+      setStatusIsError(true);
+      setStatus("The Template could not be created. Review its name and try again.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function patchDraft(patch: AssessmentTemplateDraftPatch): void {
+    setDraft((current) => (current === undefined ? current : { ...current, ...patch }));
+    setStatus("");
+  }
+
+  async function saveTemplate(): Promise<boolean> {
+    const response = selected();
+    const currentDraft = draft();
+    if (response === undefined || currentDraft === undefined) return false;
+    const nameError = assessmentTemplateNameError(currentDraft.name);
+    const settingsResult = assessmentTemplateSettings(currentDraft);
+    const error = nameError ?? settingsResult.error;
+    if (error !== undefined || settingsResult.settings === undefined) {
+      setStatusIsError(true);
+      setStatus(error ?? "Review the Template settings.");
+      return false;
+    }
+    setDetailBusy(true);
+    setStatus("");
+    try {
+      const saved = await props.client.saveAssessmentTemplate(
+        response.template.id,
+        {
+          name: currentDraft.name,
+          assessmentType: currentDraft.assessmentType,
+          settings: settingsResult.settings,
+        },
+        response.template.assessmentTemplateEditNumber,
+      );
+      setTemplates((current) => replaceTemplate(current ?? [], saved.template));
+      void refetchTemplates();
+      openResponse(saved);
+      setStatusIsError(false);
+      setStatus("Template saved.");
+      return true;
+    } catch (error: unknown) {
+      setStatusIsError(true);
+      if (isConflict(error)) {
+        setConflict(true);
+        setStatus(
+          "This Template changed elsewhere. Reload the latest version while keeping your typed changes, or use the server version.",
+        );
+      } else {
+        setStatus("The Template was not saved. Your changes remain here; try again.");
+      }
+      return false;
+    } finally {
+      setDetailBusy(false);
+    }
+  }
+  const trackedSave = trackEditorSave(saveTemplate);
+
+  async function reloadAfterConflict(keepDraft: boolean): Promise<void> {
+    const response = selected();
+    if (response === undefined) return;
+    setDetailBusy(true);
+    try {
+      const latest = await props.client.getAssessmentTemplate(response.template.id);
+      setSelected(latest);
+      setTemplates((current) => replaceTemplate(current ?? [], latest.template));
+      void refetchTemplates();
+      if (!keepDraft) {
+        setDraft(assessmentTemplateDraft(latest.template));
+      }
+      setConflict(false);
+      setStatusIsError(false);
+      setStatus(
+        keepDraft
+          ? "Latest version loaded. Your typed changes remain and can now be saved again."
+          : "Latest server version loaded. Your previous typed changes were cleared.",
+      );
+    } catch {
+      setStatusIsError(true);
+      setStatus("The latest Template could not be loaded. Your typed changes remain here.");
+    } finally {
+      setDetailBusy(false);
+    }
+  }
+
+  return (
+    <PageFrame
+      // Template editor controls inside the shared stack.
+      contentClass="assessment-templates"
+      routeSurface="assessmentTemplates"
+    >
+      <Show when={status() !== ""}>
+        <p
+          class="assessment-template-status"
+          role={statusIsError() ? "alert" : "status"}
+          aria-live="polite"
+        >
+          {status()}
+        </p>
+      </Show>
+
+      <div class="assessment-templates-layout">
+        <aside class="assessment-template-overview" aria-label="Templates">
+          <SearchBlock
+            layout="above"
+            controls={<SearchControls state={templateSearch.state} textLabel="Search Templates" />}
+            state={templateSearch.state}
+            collection={{
+              ariaLabel: "My Assessment Templates",
+              ...templateSearch.collection,
+              get emptyState() {
+                return {
+                  title:
+                    templateSearch.state.query().text.length > 0 ||
+                    templateSearch.state.query().filters.size > 0
+                      ? "No Templates match these filters"
+                      : "No Templates yet",
+                };
+              },
+            }}
+          />
+
+          <button
+            class="quiet-action assessment-template-create-disclosure"
+            type="button"
+            aria-expanded={isCreateExpanded()}
+            aria-controls="create-assessment-template"
+            disabled={creating() || detailBusy()}
+            onClick={() => setCreateDisclosure(!isCreateExpanded())}
+          >
+            <span aria-hidden="true">{isCreateExpanded() ? "\u25be" : "\u25b8"}</span>
+            Create a Template
+          </button>
+          <form
+            id="create-assessment-template"
+            class="assessment-template-create"
+            hidden={!isCreateExpanded()}
+            aria-busy={creating()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              createTemplate();
+            }}
+          >
+            <label class="assessment-template-field">
+              Template name
+              <input
+                maxlength="200"
+                value={createName()}
+                disabled={creating() || detailBusy()}
+                onInput={(event) => setCreateName(event.currentTarget.value)}
+              />
+            </label>
+            <label class="assessment-template-field">
+              Assessment Type
+              <select
+                value={createType()}
+                disabled={creating() || detailBusy()}
+                onChange={(event) => {
+                  if (isAssessmentType(event.currentTarget.value)) {
+                    setCreateType(event.currentTarget.value);
+                  }
+                }}
+              >
+                <For each={ASSESSMENT_TYPE_OPTIONS}>
+                  {(option) => <option value={option.value}>{option.label}</option>}
+                </For>
+              </select>
+            </label>
+            <button class="primary-action" type="submit" disabled={creating() || detailBusy()}>
+              {creating() ? "Creating Template..." : "Create Template"}
+            </button>
+          </form>
+        </aside>
+
+        <section class="assessment-template-editor" aria-labelledby="template-editor-heading">
+          <Show
+            when={draft()}
+            fallback={
+              <div class="empty-state assessment-template-editor-empty">
+                <h2 id="template-editor-heading">Choose a Template</h2>
+              </div>
+            }
+          >
+            {(currentDraft) => (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void trackedSave.save();
+                }}
+              >
+                <header class="assessment-template-editor-header">
+                  <div>
+                    <h2 id="template-editor-heading">Edit Template</h2>
+                  </div>
+                  <button
+                    class="primary-action"
+                    type="submit"
+                    disabled={detailBusy() || creating()}
+                  >
+                    {detailBusy() ? "Working..." : "Save Template"}
+                  </button>
+                </header>
+                <div class="assessment-template-identity">
+                  <label class="assessment-template-field">
+                    Template name
+                    <input
+                      maxlength="200"
+                      value={currentDraft().name}
+                      disabled={detailBusy() || creating()}
+                      onInput={(event) => patchDraft({ name: event.currentTarget.value })}
+                    />
+                  </label>
+                  <label class="assessment-template-field">
+                    Assessment Type
+                    <select
+                      value={currentDraft().assessmentType}
+                      disabled={detailBusy() || creating()}
+                      onChange={(event) => {
+                        if (isAssessmentType(event.currentTarget.value)) {
+                          const assessmentType = event.currentTarget.value;
+                          patchDraft({
+                            assessmentType,
+                            ...(assessmentTypeHasOneAttempt(assessmentType)
+                              ? { attemptLimit: "1" }
+                              : {}),
+                          });
+                        }
+                      }}
+                    >
+                      <For each={ASSESSMENT_TYPE_OPTIONS}>
+                        {(option) => <option value={option.value}>{option.label}</option>}
+                      </For>
+                    </select>
+                    <small>
+                      Quiz and Exam use one Assessment Attempt. Other settings stay unchanged.
+                    </small>
+                  </label>
+                </div>
+                <AssessmentTemplateSettingsEditor
+                  draft={currentDraft()}
+                  disabled={detailBusy() || creating()}
+                  onPatch={patchDraft}
+                />
+                <div class="assessment-template-actions">
+                  <button
+                    class="primary-action"
+                    type="submit"
+                    disabled={detailBusy() || creating()}
+                  >
+                    {detailBusy() ? "Working..." : "Save Template"}
+                  </button>
+                  <Show when={conflict()}>
+                    <button
+                      type="button"
+                      disabled={detailBusy()}
+                      onClick={() => void reloadAfterConflict(true)}
+                    >
+                      Reload latest and keep my changes
+                    </button>
+                    <button
+                      type="button"
+                      disabled={detailBusy()}
+                      onClick={() => void reloadAfterConflict(false)}
+                    >
+                      Use latest server version
+                    </button>
+                  </Show>
+                </div>
+              </form>
+            )}
+          </Show>
+        </section>
+      </div>
+      <UnsavedChangesGuard
+        dirty={dirty}
+        save={trackedSave.save}
+        inFlightSave={trackedSave.inFlightSave}
+        manualLeave={{
+          requested: replacementRequested,
+          clearRequest: clearReplacementRequest,
+          continue: continueReplacement,
+        }}
+        copy={{
+          heading: "Save Template changes?",
+          description: "Your changes to this Assessment Template have not been saved.",
+          saveActionLabel: "Save and continue",
+          savingActionLabel: "Saving Template...",
+          saveFailureMessage:
+            "Template changes were not saved. Resolve the page error, then try again or stay here.",
+        }}
+      />
+    </PageFrame>
+  );
+}
+
+/** Production route consumes only the app-owned same-origin client. */
+export function AssessmentTemplatesPage(): JSX.Element {
+  const applicationApi = useApplicationApi();
+  return <AssessmentTemplatesSurface client={applicationApi.client} />;
+}

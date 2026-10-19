@@ -3,7 +3,6 @@
 import type { PublishedQuestionSharedMetadata } from "../../../generated/api/PublishedQuestionSharedMetadata";
 import type { BloomCognitiveProcess } from "../../../generated/api/BloomCognitiveProcess";
 import type { BloomKnowledgeDimension } from "../../../generated/api/BloomKnowledgeDimension";
-import type { QuestionType } from "../../../generated/api/QuestionType";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type {
   QuestionBulkMetadataUpdateResult,
@@ -13,40 +12,16 @@ import {
   DecodeError,
   decodeArray,
   decodeNullable,
+  decodePositiveInteger,
   decodeRecord,
-  decodeSafeInteger,
+  decodeStringEnum,
   decodeUuid,
 } from "../decoder";
 import { decodeQuestionId, field, requireOnlyFields } from "./shared";
 import { BLOOM_COGNITIVE_PROCESSES, BLOOM_KNOWLEDGE_DIMENSIONS } from "./bloom_classification";
+import { decodeQuestionType } from "./question_response_format";
 
 const MAX_SHARED_METADATA_TEXT_CODE_POINTS = 120;
-const QUESTION_TYPES: ReadonlyArray<QuestionType> = [
-  "multipleChoice",
-  "multipleAnswer",
-  "fillInBlank",
-  "multipleFillInBlank",
-  "numeric",
-  "matching",
-  "ordering",
-  "hotspot",
-];
-
-function decodeQuestionType(value: unknown, path: string): QuestionType {
-  if (typeof value === "string" && QUESTION_TYPES.includes(value as QuestionType))
-    return value as QuestionType;
-  throw new DecodeError(path, "a supported Question Type");
-}
-
-function decodeBloomValue<T extends string>(
-  value: unknown,
-  path: string,
-  allowed: ReadonlyArray<T>,
-): T {
-  if (typeof value !== "string" || !allowed.includes(value as T))
-    throw new DecodeError(path, "a supported Bloom value");
-  return value as T;
-}
 function decodeClassificationUuid(value: unknown, path: string): string {
   const uuid = decodeUuid(value, path);
   if (uuid !== uuid.toLowerCase()) throw new DecodeError(path, "a canonical lowercase UUID");
@@ -57,12 +32,6 @@ function hasControlCharacter(value: string): boolean {
     const codePoint = character.codePointAt(0) ?? 0;
     return codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f);
   });
-}
-
-function decodePositiveSafeInteger(value: unknown, path: string): number {
-  const decoded = decodeSafeInteger(value, path);
-  if (decoded < 1) throw new DecodeError(path, "a positive safe integer");
-  return decoded;
 }
 
 function decodeSearchText(value: unknown, path: string, maximum: number): string {
@@ -109,7 +78,7 @@ function decodeSharedMetadata(value: unknown, path: string): PublishedQuestionSh
   ]);
   return {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    metadataEditNumber: decodePositiveSafeInteger(
+    metadataEditNumber: decodePositiveInteger(
       field(record, "metadataEditNumber", path),
       `${path}.metadataEditNumber`,
     ),
@@ -147,13 +116,13 @@ function decodeSharedMetadata(value: unknown, path: string): PublishedQuestionSh
       field(record, "bloomCognitiveProcess", path),
       `${path}.bloomCognitiveProcess`,
       (item, itemPath) =>
-        decodeBloomValue<BloomCognitiveProcess>(item, itemPath, BLOOM_COGNITIVE_PROCESSES),
+        decodeStringEnum<BloomCognitiveProcess>(item, itemPath, BLOOM_COGNITIVE_PROCESSES),
     ),
     bloomKnowledgeDimension: decodeNullable(
       field(record, "bloomKnowledgeDimension", path),
       `${path}.bloomKnowledgeDimension`,
       (item, itemPath) =>
-        decodeBloomValue<BloomKnowledgeDimension>(item, itemPath, BLOOM_KNOWLEDGE_DIMENSIONS),
+        decodeStringEnum<BloomKnowledgeDimension>(item, itemPath, BLOOM_KNOWLEDGE_DIMENSIONS),
     ),
   };
 }
@@ -185,7 +154,7 @@ function decodeUpdateResult(value: unknown, path: string): QuestionBulkMetadataU
   requireOnlyFields(record, path, ["questionId", "metadataEditNumber"]);
   return {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    metadataEditNumber: decodePositiveSafeInteger(
+    metadataEditNumber: decodePositiveInteger(
       field(record, "metadataEditNumber", path),
       `${path}.metadataEditNumber`,
     ),
@@ -228,7 +197,7 @@ export function validateQuestionBulkMetadataRequest(
     ]);
     const selected: QuestionBulkMetadataUpdateRequest["selection"][number] = {
       questionId: decodeQuestionId(field(item, "questionId", itemPath), `${itemPath}.questionId`),
-      metadataEditNumber: decodePositiveSafeInteger(
+      metadataEditNumber: decodePositiveInteger(
         field(item, "metadataEditNumber", itemPath),
         `${itemPath}.metadataEditNumber`,
       ),

@@ -16,6 +16,9 @@ Archival preserves findings and deferrals; it does not certify every historical 
 
 ## Completed plans
 
+- [PAGE_AND_DECODER_CONSOLIDATION.md](PAGE_AND_DECODER_CONSOLIDATION.md): grouped 75 page files
+  into focused directories, recovered moved-module imports, and consolidated duplicate DTO decoder
+  rules. Fresh SPEC, QUALITY, integration, full fast, and documentation checks passed.
 - [FRONTEND_OWNERSHIP_CLEANUP_PLAN.md](FRONTEND_OWNERSHIP_CLEANUP_PLAN.md): shared DataSheet naming,
   Blueprint and Library feature ownership, and route-owned PageFrames are accepted. SPEC and QUALITY
   reviews, 9,427 canonical fast checks, and maintained Blueprint/Library runtime captures pass. The

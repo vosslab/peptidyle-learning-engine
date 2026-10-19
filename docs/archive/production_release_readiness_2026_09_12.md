@@ -165,9 +165,9 @@ grades. Until that exists, use a real disposable Student journey for content acc
       and a daylight-saving boundary before timed/deadline-sensitive classroom use.
 - [ ] Review blocked-start messages so a Student knows when to return or what action to take.
 
-Evidence: [student_course_landing_page.tsx](../../src/pages/student_course_landing_page.tsx)
+Evidence: [student_course_landing_page.tsx](../../src/pages/student_coursework/student_course_landing_page.tsx)
 shows Assignment title and progress but no deadlines.
-[assessment_overview_page.tsx](../../src/pages/assessment_overview_page.tsx) displays Question
+[assessment_overview_page.tsx](../../src/pages/assessment_overview/assessment_overview_page.tsx) displays Question
 count, points, time limit, and generic start-decision messages. Its current
 [assessment_attempt_issuance.ts](../../src/api/assessment_attempt_issuance.ts) access type does
 not carry due/available/closing timestamps. These omissions are not proof that server deadline
@@ -212,7 +212,7 @@ unfinished Job's internal bounded requeue before any result exists.
 
 [course_appearance.rs](../../crates/server/src/course_appearance.rs) returns a successful
 theme write as an aggregate appearance view with `banner: None`.
-[course_appearance_page.tsx](../../src/pages/course_appearance_page.tsx) replaces cached
+[course_appearance_page.tsx](../../src/pages/course/course_appearance_page.tsx) replaces cached
 appearance with that response. The UI can therefore make an existing banner disappear until
 reload even though the theme operation did not delete its stored banner.
 
@@ -246,8 +246,8 @@ and replace misleading retry-to-nowhere states with an accurate unavailable dest
 
 Archive/restore handlers exist in [question_library.rs](../../crates/server/src/question_library.rs)
 and [blueprint_course.rs](../../crates/server/src/blueprint_course.rs), but the inspected
-[question_detail_page.tsx](../../src/pages/question_detail_page.tsx) and
-[blueprint_course_workspace.tsx](../../src/features/blueprint_course/blueprint_course_workspace.tsx)
+[question_detail_page.tsx](../../src/pages/question_library/question_detail_page.tsx) and
+[blueprint_course_workspace.tsx](../../src/features/blueprint_course/blueprint_courses_workspace.tsx)
 do not expose equivalent archive/restore actions. The
 [authoring.rs](../../crates/server/src/authoring.rs) publication-revision handler likewise
 does not by itself establish a discoverable browser revision workflow.

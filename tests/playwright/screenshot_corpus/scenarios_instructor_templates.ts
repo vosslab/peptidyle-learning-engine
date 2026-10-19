@@ -1,6 +1,6 @@
 // Instructor Assessment Template creation capture with a selected editable Template.
 // Selector contract: Ribbon navigation is owned by visible_workflows.ts; the create form and
-// focused editor headings are owned by src/pages/assessment_templates_page.tsx.
+// focused editor headings are owned by src/pages/assessment_templates/assessment_templates_page.tsx.
 
 import type { ScenarioRuntime } from "./runtime";
 import { catalogScreenshotFilename } from "./filenames";

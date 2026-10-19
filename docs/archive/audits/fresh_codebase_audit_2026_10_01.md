@@ -129,8 +129,8 @@ be preserved as the local pattern. No browser execution is claimed.
 
 ### F7 Medium: ordinary navigation still contains internal UUIDs
 
-The [Review Attempt link](../../../src/pages/assessment_overview_page.tsx) and Attempt navigation
-place the Attempt UUID in browser paths. The [Watch inbox](../../../src/pages/library_watch_notifications_page.tsx)
+The [Review Attempt link](../../../src/pages/assessment_overview/assessment_overview_page.tsx) and Attempt navigation
+place the Attempt UUID in browser paths. The [Watch inbox](../../../src/pages/question_library/library_watch_notifications_page.tsx)
 puts an activity UUID after `#library-activity-`. Blueprint search also creates a UUID return-state
 token in visible query URLs. Fragments and query strings are visible and copyable, just like paths.
 These are browser navigation, so they do not meet the user's clarified rule. Hidden API UUIDs

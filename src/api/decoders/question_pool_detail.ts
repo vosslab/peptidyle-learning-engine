@@ -14,6 +14,7 @@ import {
 } from "../decoder";
 import { decodeQuestionSearchResult, decodeQuestionStatistics } from "./question_library";
 import { decodeBloomClassificationView } from "./bloom_classification";
+import { decodeQuestionType } from "./question_response_format";
 import {
   decodeBoundedArray,
   decodeAccountId,
@@ -25,7 +26,6 @@ import {
 import {
   decodePoolBackend,
   decodePoolLicense,
-  decodePoolQuestionType,
   decodeQuestionPoolMetadata,
 } from "./question_pool_summary";
 
@@ -112,10 +112,7 @@ export function decodeQuestionPoolView(value: unknown, path = "response"): Quest
       field(record, "canEditMetadata", path),
       `${path}.canEditMetadata`,
     ),
-    questionType: decodePoolQuestionType(
-      field(record, "questionType", path),
-      `${path}.questionType`,
-    ),
+    questionType: decodeQuestionType(field(record, "questionType", path), `${path}.questionType`),
     backend: decodePoolBackend(field(record, "backend", path), `${path}.backend`),
     license: decodePoolLicense(field(record, "license", path), `${path}.license`),
     questionPoolEditNumber: decodePositiveInteger(

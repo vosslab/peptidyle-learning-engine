@@ -3,8 +3,8 @@
 Archived 2026-10-11 as superseded implementation planning. My Questions and Starred now have
 their ordinary pages and data-access paths; the September 29 receipts in
 [CHANGELOG-2026-09r.md](../CHANGELOG-2026-09r.md) record both destinations. Current owners are
-[my_questions_page.tsx](../../src/pages/my_questions_page.tsx) and
-[starred_questions_page.tsx](../../src/pages/starred_questions_page.tsx). The historical
+[my_questions_page.tsx](../../src/pages/question_library/my_questions_page.tsx) and
+[starred_questions_page.tsx](../../src/pages/question_library/starred_questions_page.tsx). The historical
 missing-destination and red-baseline descriptions below are not current work requirements.
 
 ## Context

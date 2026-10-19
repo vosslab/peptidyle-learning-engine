@@ -144,7 +144,7 @@ course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter re
 - Acceptance: distinguish saved or answered progress from grading progress using Student language.
   Verify the summary against the actual recorded state; use grading counts where results are relevant.
 - Receipt (2026-09-16): `student_assessment_landing.sql`
-  and [student_course_landing_page.tsx](../../../src/pages/student_course_landing_page.tsx) now
+  and [student_course_landing_page.tsx](../../../src/pages/student_coursework/student_course_landing_page.tsx) now
   carry an answer-free saved-response count and render active Coursework as `N of M responses
 saved`; completed Coursework retains its existing grading and disclosed-score branch. Accepted
   source review, focused Cargo, strict TypeScript, and 1280/390 component-browser gates passed.

@@ -5,8 +5,8 @@ import { createEffect, Show, type JSX } from "solid-js";
 
 import { useSessionBootstrap } from "../auth/session_context";
 import { userRoleHomePath } from "../route_contract";
-import { CourseListPage } from "./course_list_page";
-import { StudentAllCourseworkPage } from "./student_course_landing_page";
+import { CourseListPage } from "./course/course_list_page";
+import { StudentAllCourseworkPage } from "./student_coursework/student_course_landing_page";
 import { useApplicationApi } from "../api/application_api";
 import { BlueprintPromotion } from "../features/blueprint_course/blueprint_promotion";
 import { SysadminCourseCreation } from "../components/sysadmin_course_creation_form";

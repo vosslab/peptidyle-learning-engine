@@ -186,7 +186,7 @@ const CAPABILITY_DECLARATIONS = {
       handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
     },
     evidence: [
-      "src/pages/student_course_landing_page.tsx::StudentCourseLandingPage",
+      "src/pages/student_coursework/student_course_landing_page.tsx::StudentCourseLandingPage",
       "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
     ],
   },
@@ -198,7 +198,7 @@ const CAPABILITY_DECLARATIONS = {
       handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
     },
     evidence: [
-      "src/pages/student_course_grades_page.tsx::StudentScoresPage",
+      "src/pages/student_coursework/student_course_grades_page.tsx::StudentScoresPage",
       "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
     ],
   },
@@ -211,7 +211,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
-      "src/api/application_api.tsx::ApiClient.searchLibraryObjects",
+      "src/api/client.ts::ApiClient.searchLibraryObjects",
     ],
   },
   productAssessments: {
@@ -224,7 +224,7 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [
       "crates/server/src/assessment_release.rs::assessment_release_router",
       "src/api/http_client/assessment_release.ts::createLiveAssessmentReleaseClient",
-      "src/pages/assessments_due_soon_page.tsx::AssessmentsDueSoonPage",
+      "src/pages/student_coursework/assessments_due_soon_page.tsx::AssessmentsDueSoonPage",
     ],
   },
   assessments: {
@@ -248,7 +248,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/live_student_course_landing.rs::list_course_response_stats",
-      "src/pages/student_course_response_stats_page.tsx::StudentResponseStatsPage",
+      "src/pages/student_coursework/student_course_response_stats_page.tsx::StudentResponseStatsPage",
     ],
   },
   activeAttempt: {
@@ -337,8 +337,8 @@ const CAPABILITY_DECLARATIONS = {
         "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "src/pages/student_course_landing_page.tsx::StudentDueSoonPage",
-      "src/pages/student_coursework_presentation.ts::isInStudentDueSoonWindow",
+      "src/pages/student_coursework/student_course_landing_page.tsx::StudentDueSoonPage",
+      "src/pages/student_coursework/student_coursework_presentation.ts::isInStudentDueSoonWindow",
     ],
   },
   completedCoursework: {
@@ -350,8 +350,8 @@ const CAPABILITY_DECLARATIONS = {
         "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "src/pages/student_course_landing_page.tsx::StudentCompletedPage",
-      "src/pages/student_coursework_presentation.ts::hasSubmittedStudentAttempt",
+      "src/pages/student_coursework/student_course_landing_page.tsx::StudentCompletedPage",
+      "src/pages/student_coursework/student_coursework_presentation.ts::hasSubmittedStudentAttempt",
     ],
   },
   studentScores: {
@@ -363,7 +363,7 @@ const CAPABILITY_DECLARATIONS = {
         "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "src/pages/student_course_grades_page.tsx::StudentScoresPage",
+      "src/pages/student_coursework/student_course_grades_page.tsx::StudentScoresPage",
       "src/api/http_client/live_student_course_landing.ts::createLiveStudentCourseLandingClient",
     ],
   },
@@ -376,7 +376,7 @@ const CAPABILITY_DECLARATIONS = {
         "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
     },
     evidence: [
-      "src/pages/student_course_attempt_history_page.tsx::StudentAttemptHistoryPage",
+      "src/pages/student_coursework/student_course_attempt_history_page.tsx::StudentAttemptHistoryPage",
       "src/api/http_client/student_course_attempt_history.ts::createStudentAttemptHistoryClient",
     ],
   },
@@ -413,7 +413,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/blueprint_course.rs::blueprint_course_router",
-      "src/api/application_api.tsx::ApiClient.listBlueprintCourses",
+      "src/api/blueprint_course.ts::BlueprintCourseClient.listBlueprintCourses",
     ],
   },
   myActiveCourses: {
@@ -426,7 +426,7 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [
       "crates/server/src/course_instance.rs::course_instance_router",
       "src/api/http_client/course_instance.ts::createCourseInstanceClient",
-      "src/pages/course_list_page.tsx::CourseListPage",
+      "src/pages/course/course_list_page.tsx::CourseListPage",
     ],
   },
   myInactiveCourses: {
@@ -439,7 +439,7 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [
       "crates/server/src/course_instance.rs::course_instance_router",
       "src/api/http_client/course_instance.ts::createCourseInstanceClient",
-      "src/pages/course_list_page.tsx::InactiveCourseListPage",
+      "src/pages/course/course_list_page.tsx::InactiveCourseListPage",
     ],
   },
   searchPublicBlueprintCourses: {
@@ -469,7 +469,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
-      "src/pages/my_questions_page.tsx::MyQuestionsPage",
+      "src/pages/question_library/my_questions_page.tsx::MyQuestionsPage",
     ],
   },
   myPools: {
@@ -481,7 +481,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
-      "src/pages/my_pools_page.tsx::MyPoolsPage",
+      "src/pages/question_library/my_pools_page.tsx::MyPoolsPage",
     ],
   },
   myDraftQuestions: {
@@ -493,7 +493,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/authoring.rs::authoring_router",
-      "src/pages/question_drafts_page.tsx::QuestionDraftsPage",
+      "src/pages/question_drafts/question_drafts_page.tsx::QuestionDraftsPage",
     ],
   },
   starred: {
@@ -505,7 +505,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/question_stewardship.rs::question_stewardship_router",
-      "src/pages/starred_questions_page.tsx::StarredQuestionsPage",
+      "src/pages/question_library/starred_questions_page.tsx::StarredQuestionsPage",
     ],
   },
   watched: {
@@ -517,7 +517,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/library_watch_notification.rs::library_watch_notification_router",
-      "src/pages/library_watch_notifications_page.tsx::LibraryWatchNotificationsPage",
+      "src/pages/question_library/library_watch_notifications_page.tsx::LibraryWatchNotificationsPage",
     ],
   },
   searchQuestionLibrary: {
@@ -529,7 +529,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
-      "src/api/application_api.tsx::ApiClient.searchLibraryObjects",
+      "src/api/client.ts::ApiClient.searchLibraryObjects",
     ],
   },
   browseQuestionLibrary: {
@@ -541,7 +541,7 @@ const CAPABILITY_DECLARATIONS = {
     },
     evidence: [
       "crates/server/src/question_library.rs::question_library_router",
-      "src/api/application_api.tsx::ApiClient.searchLibraryObjects",
+      "src/api/client.ts::ApiClient.searchLibraryObjects",
     ],
   },
   assessmentsDueSoon: {
@@ -554,7 +554,7 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [
       "crates/server/src/assessment_release.rs::assessment_release_router",
       "src/api/http_client/assessment_release.ts::createLiveAssessmentReleaseClient",
-      "src/pages/assessments_due_soon_page.tsx::AssessmentsDueSoonPage",
+      "src/pages/student_coursework/assessments_due_soon_page.tsx::AssessmentsDueSoonPage",
     ],
   },
   assessmentTemplates: {
@@ -567,7 +567,7 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [
       "crates/server/src/assessment_template.rs::assessment_template_router",
       "src/api/http_client/assessment_template.ts::createAssessmentTemplateClient",
-      "src/pages/assessment_templates_page.tsx::AssessmentTemplatesPage",
+      "src/pages/assessment_templates/assessment_templates_page.tsx::AssessmentTemplatesPage",
     ],
   },
   assessmentOverview: {
@@ -646,7 +646,7 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/response.ts::uploadCourseBanner",
       "src/api/http_client/response.ts::setCourseBanner",
       "src/api/http_client/response.ts::removeCourseBanner",
-      "src/pages/course_appearance_page.tsx::CourseAppearancePage",
+      "src/pages/course/course_appearance_page.tsx::CourseAppearancePage",
       "crates/server/src/course_appearance.rs::course_appearance_router",
       "crates/learning-data-access/src/course_theme.rs::CourseThemeStore",
       "crates/learning-data-access/src/course_banner.rs::CourseBannerStore",

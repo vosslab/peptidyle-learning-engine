@@ -55,7 +55,7 @@ different preservation behavior depending on its Question Backend.
 
 **Cause:** [ple_bridge.js](../../../src/public/ple_bridge.js), lines 214-230, captures the form on
 form submission or an explicit parent capture request. It does not report ordinary input edits.
-[assessment_attempt_page.tsx](../../../src/pages/assessment_attempt_page.tsx), lines 280-285,
+[assessment_attempt_page.tsx](../../../src/pages/assessment_attempt/assessment_attempt_page.tsx), lines 280-285,
 navigates using only the already captured parent response. The backend capture runs for whole-Attempt
 submission, but not this transition. This is particularly relevant to the canonical Genetics PGML
 content, which uses the backend-document path.
@@ -77,7 +77,7 @@ dialog. Returning shows no selected answer and no saved response.
 The same failure correctly prevents Question-to-Question navigation, retaining the local answer.
 The defect is the missing protection across the surrounding application navigation.
 
-**Cause:** [assessment_attempt_page.tsx](../../../src/pages/assessment_attempt_page.tsx), lines
+**Cause:** [assessment_attempt_page.tsx](../../../src/pages/assessment_attempt/assessment_attempt_page.tsx), lines
 258-268 and 440-462, keeps failed input in component state but has no route-leave or browser-unload
 protection. Cleanup cancels the pending save timer. The existing Instructor editor protection in
 [unsaved_changes_guard.tsx](../../../src/components/unsaved_changes_guard.tsx) demonstrates that
@@ -123,7 +123,7 @@ This Attempt was not submitted: Failed to fetch
 Retrying Submit recovered the submitted review. No duplicate submission or lost accepted work was
 observed. The defect is false certainty at the moment a Student needs proof of completion.
 
-**Cause:** [assessment_attempt_page.tsx](../../../src/pages/assessment_attempt_page.tsx), lines
+**Cause:** [assessment_attempt_page.tsx](../../../src/pages/assessment_attempt/assessment_attempt_page.tsx), lines
 336-347, treats an unknown transport outcome as proof of non-submission. The server already handles
 an already-submitted Attempt in [submission.rs](../../../crates/server/src/assessment_delivery/submission.rs),
 lines 192-195.
@@ -148,7 +148,7 @@ the observed omission concerns the native review.
 
 **Cause:** [assessment_attempt_history.ts](../../../src/api/assessment_attempt_history.ts), lines
 14-27, provides response and feedback fields but no original Question presentation. The view in
-[assessment_attempt_summary_page.tsx](../../../src/pages/assessment_attempt_summary_page.tsx),
+[assessment_attempt_summary_page.tsx](../../../src/pages/assessment_attempt/assessment_attempt_summary_page.tsx),
 lines 87-153, renders those fields under numbered headings.
 
 **Required outcome:** give the Student enough of the exact issued Question to interpret their

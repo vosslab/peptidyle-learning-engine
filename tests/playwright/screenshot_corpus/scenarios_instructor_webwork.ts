@@ -1,5 +1,5 @@
 // Instructor WeBWorK generated-example capture through the published Question Library.
-// Selector contract: the Browse controls and result rows are owned by library_page.tsx; the
+// Selector contract: the Browse controls and result rows are owned by library_workspace.tsx; the
 // generated-example iframe is owned by question_detail_page.tsx and its document by WeBWorK.
 
 import type { Page } from "playwright";

@@ -1,7 +1,7 @@
 // Instructor workflow implementations for the screenshot corpus.
 // Selector contract: shared Course actions live in visible_workflows.ts:32; primary headings are
-// owned by src/pages/course_list_page.tsx:149, src/pages/library_page.tsx:163,
-// src/pages/question_drafts_page.tsx:102, assessment_workspace_create_page.tsx, and the focused
+// owned by src/pages/course/course_list_page.tsx:149, src/features/question_library/library_workspace.tsx:163,
+// src/pages/question_drafts/question_drafts_page.tsx:102, assessment_workspace_create_page.tsx, and the focused
 // Assessment workspace pages.
 // Saved Draft and publication-review states are owned by
 // src/features/ple_question_json_authoring/question_json_editor_page.tsx:908.
