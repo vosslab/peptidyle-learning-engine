@@ -12,6 +12,8 @@
 
 ### Fixes and Maintenance
 
+- Regenerated the owned browser Question-ID contract in the Rust gate before `cargo tsgen`, so
+  fast checks recover when the disposable `generated/` directory is absent.
 - Kept validated Library collection responses typed through shared projection, removing duplicate
   page decoding; consolidated Draft list and delete operations in the renamed Draft API client.
 - Clarified that every Blueprint Course is Public to Instructors, while Active and Archived

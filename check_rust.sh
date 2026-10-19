@@ -67,8 +67,10 @@ run_step() {
 	"$@"
 }
 
-run_step "Browser Question-ID syntax contract" bash -lc \
-	'source source_me.sh && python3 devel/generate_question_id_contract.py --check'
+run_step "Browser Question-ID contract generation and validation" bash -lc \
+	'source source_me.sh &&
+	 python3 devel/generate_question_id_contract.py &&
+	 python3 devel/generate_question_id_contract.py --check'
 run_step "Rust-owned TypeScript contracts" cargo tsgen
 run_step "Rust formatting" cargo fmt --all -- --check
 run_step "Default-feature workspace check" cargo check --workspace --locked
