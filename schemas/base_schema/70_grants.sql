@@ -78,3 +78,4 @@ RESET ROLE;
 \ir 70_grants/corrections.sql
 \ir 70_grants/unrelease.sql
 \ir 70_grants/api_compatibility.sql
+\ir 70_grants/bloom_classification.sql

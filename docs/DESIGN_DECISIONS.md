@@ -2013,7 +2013,7 @@ for implementation differences.
 
 **Decision.** PLE assigns metadata where the value follows from existing content, and publication
 requires the remaining mandatory fields. Question Type is non-NULL and remains author-declared
-or imported. Bloom may be NULL awaiting initial AI assignment, which remains deferred. No time
+or imported. Bloom may be NULL if optional post-publication JEV assignment has not completed. No time
 limit is enforced; the proposed 24-hour deadline was withdrawn. Explicitly optional fields remain
 optional. [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_SPECS/QUESTION_LIBRARY_METADATA_SPEC.md) lists the distinctions.
 

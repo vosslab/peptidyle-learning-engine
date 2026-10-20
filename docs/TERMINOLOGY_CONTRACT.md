@@ -349,14 +349,15 @@ Student-record deletion.
 Pools. It
 describes the cognitive work needed for full credit, rather than **Question
 Difficulty**. A Pool's classification describes its intended cognitive work as
-a whole. Bloom Classification may be blank at Library entry; initial AI assignment
-is deferred and does not block publication. Pending values have no enforced time limit.
+a whole. JEV assigns initial Question values after publication without blocking it.
+Bloom Classification may remain blank indefinitely if assignment does not complete.
 Question Type and other required publication fields remain non-NULL. The owning Instructor may correct either dimension
 without a new Revision.
 Bloom is ordinary editable metadata on the complete Question record or current Pool record,
 like Title. A correction uses the ordinary record save and concurrency checks and preserves the
 Question Revision Number. The owning Instructor or a Sysadmin may correct it. A Pool uses its
-own values, independently of its members' values.
+own stored values. Pool creation and membership edits calculate each dimension from the
+mode of its members' values. A Pool fork inherits its parent's Bloom metadata until membership changes.
 Teaching interpretation belongs in [BLOOM_TAXONOMY_GUIDE.md](BLOOM_TAXONOMY_GUIDE.md).
 
 **Hints**, **Question Feedback**, and **Worked Solutions** are optional

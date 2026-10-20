@@ -221,7 +221,10 @@ async fn save_question_pool_members(
         .save_question_pool_members(viewer.session_hash, save)
         .await
     {
-        Ok(receipt) => crate::auth::no_store(Json(receipt).into_response()),
+        Ok(receipt) => {
+            crate::bloom::queue_pool_bloom_calculation(&current.question_pool_id);
+            crate::auth::no_store(Json(receipt).into_response())
+        }
         Err(error) => members_store_error(error),
     }
 }

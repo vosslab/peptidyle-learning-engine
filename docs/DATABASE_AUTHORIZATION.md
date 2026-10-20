@@ -144,3 +144,11 @@ separation, trusted-function configuration, non-enumerating foreign-record
 failures, equal co-Instructor access, scoped Sysadmin support, whole-Attempt
 submission, Unrelease closure, and retention fences. Connected PostgreSQL
 exercises remain distinct from catalog-only or mocked evidence.
+
+### Automatic Bloom metadata
+
+The API process calls `ple_api.bloom_classification_candidate` and
+`ple_api.save_bloom_classification` through its existing `ple_app` capability. These fixed
+procedures serve the publication queue and have no browser route or raw-table grants. They read
+exact Question source bindings or Pool member modes, then save Bloom through metadata Edit Number
+checks. Pool saves also check the membership Edit Number. They expose no account or Student data.

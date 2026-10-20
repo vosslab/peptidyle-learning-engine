@@ -27,8 +27,8 @@ Authority: [Human Guidance](../HUMAN_GUIDANCE.md#published-question-specificatio
   optional support content does not make the Student workflow incomplete.
 
 A Draft can be saved without a Question Type. Publication requires a supported Question Type
-and the other required fields. Bloom dimensions may be absent while their deferred initial AI
-assignment is pending; no time limit is specified.
+and the other required fields. JEV assigns both Bloom dimensions after publication. They may remain absent if
+assignment does not complete; no time limit is specified.
 
 ## Publish a new Question
 

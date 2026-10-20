@@ -114,3 +114,6 @@ pub(crate) mod webwork_document_route;
 mod webwork_preview_document;
 /// Least-privilege worker process lifecycle with no browser or HTTP listener.
 pub mod worker;
+
+/// Automatic initial Bloom metadata assignment.
+pub mod bloom;

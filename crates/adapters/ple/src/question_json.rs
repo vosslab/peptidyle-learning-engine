@@ -126,6 +126,26 @@ impl CompiledPleQuestionJson {
 }
 
 impl PleQuestionJsonDocument {
+    /// Answer-bearing classification evidence. Keep browser behavior and feedback out of the task.
+    pub fn bloom_evidence(&self) -> Result<serde_json::Value, serde_json::Error> {
+        let source = serde_json::to_value(self)?;
+        let mut response = source["response"].clone();
+        fn remove_feedback(value: &mut serde_json::Value) {
+            match value {
+                serde_json::Value::Object(fields) => {
+                    fields.remove("feedback");
+                    for value in fields.values_mut() {
+                        remove_feedback(value);
+                    }
+                }
+                serde_json::Value::Array(values) => values.iter_mut().for_each(remove_feedback),
+                _ => {}
+            }
+        }
+        remove_feedback(&mut response);
+        Ok(serde_json::json!({"prompt":source["prompt"], "response":response}))
+    }
+
     /// Parses and validates one complete answer-bearing JSON source.
     ///
     /// # Errors

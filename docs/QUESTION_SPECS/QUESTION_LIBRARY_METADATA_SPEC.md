@@ -51,8 +51,8 @@ belong to [QUESTION_IMPORT_SPEC.md](QUESTION_IMPORT_SPEC.md) and
 | Question Type | Required closed Type; never NULL | Question Revision record | Common member Type | Native JSON source supplies Type; other Backends use editable classification |
 | Question Backend | Required closed Backend; never NULL | Question Revision record | Common member Backend | Selected execution system; not inferred from rendered controls |
 | License | Required supported license | Question Revision record | Calculated from exact members | Preserve original member licenses; reject incompatible combinations |
-| Bloom Cognitive Process | Optional until assigned; one of six values when present | Question Revision record | Classification of Pool as a whole | Ordinary in-place metadata edit |
-| Bloom Knowledge Dimension | Optional until assigned; one of four values when present | Question Revision record | Classification of Pool as a whole | Independent meaning; ordinary metadata edit |
+| Bloom Cognitive Process | Optional until assigned; one of six values when present | Question Revision record | Mode of member values; fork inherits parent | Ordinary in-place metadata edit |
+| Bloom Knowledge Dimension | Optional until assigned; one of four values when present | Question Revision record | Mode of member values; fork inherits parent | Independent meaning; ordinary metadata edit |
 | Hint | Optional support text; NULL when absent | Question Revision record | Pool's own support text | Question changes create Revision; Pool support remains Pool state |
 | Question Feedback | Optional support text; NULL when absent | Question Revision record | Pool's own support text | Timing decision deferred; do not infer timing from presence |
 | Worked Solution | Optional support text; NULL when absent | Question Revision record | Pool's own support text | Separate disclosure from Hint and answer key |
@@ -112,7 +112,7 @@ not make language a required Instructor input.
 
 - [QUESTION_AUTHORSHIP_AND_OWNERSHIP_SPEC.md](QUESTION_AUTHORSHIP_AND_OWNERSHIP_SPEC.md): authority and attribution.
 - [QUESTION_CLASSIFICATION_SPEC.md](QUESTION_CLASSIFICATION_SPEC.md): hierarchy and vocabulary.
-- [QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_BLOOM_CLASSIFICATION_SPEC.md): values, pending assignment, corrections.
+- [QUESTION_BLOOM_CLASSIFICATION_SPEC.md](QUESTION_BLOOM_CLASSIFICATION_SPEC.md): values, automatic assignment, corrections.
 - [QUESTION_POOL_SPEC.md](QUESTION_POOL_SPEC.md): compatible member licenses.
 - [QUESTION_TYPE_SPEC.md](QUESTION_TYPE_SPEC.md): Type meanings and declaration.
 - [FERPA_DATA_POLICY.md](../FERPA_DATA_POLICY.md): statistics privacy and retention.

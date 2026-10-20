@@ -8,6 +8,45 @@
 > September 29 entries are archived in [CHANGELOG-2026-09r.md](CHANGELOG-2026-09r.md).
 > September 28 entries are archived in [CHANGELOG-2026-09s.md](CHANGELOG-2026-09s.md).
 
+## 2026-10-20
+
+### Fixes and Maintenance
+
+- Completed six independent Bloom review passes and a pruning assessment of its new tests.
+  Corrected stale deferral and Pool metadata documentation, clarified the Pool queue hook and
+  public data contracts, and made the answer-control evidence assertion effective.
+- Retained three focused Rust tests and the existing-baseline SQL oracle for distinct contract
+  and persistence protection; no new tests or test infrastructure were added.
+- Fresh `launchers/run_fast_checks.sh` passed Rust, TypeScript, and 9432 Python checks. The earlier
+  full PostgreSQL acceptance remains valid for unchanged SQL; it was not rerun for this cleanup.
+
+## 2026-10-19
+
+### Additions and New Features
+
+- Added optional JEV Bloom assignment after Question publication in the API's bounded in-memory
+  queue, reusing BPW's version 2 rubric and existing Native JSON and WeBWorK evidence boundaries.
+  Both dimensions save atomically through the existing metadata Edit Number.
+- Calculate each Pool Bloom dimension from its members' mode on creation and membership edits.
+  Ignore NULL values and break ties in taxonomy order. Forks retain inherited Bloom metadata.
+
+### Behavior or Interface Changes
+
+- Publication remains independent of classification. Missing credentials, service failures, full
+  queues, or restart may leave Bloom blank. There are no pending flags, periodic sweeps, new job
+  tables, or worker coordination. Instructors continue to edit ordinary Bloom metadata.
+- Added optional server-side JEV key configuration and removed the Bloom deferral from current
+  guidance. Existing Question revision metadata inheritance is preserved.
+
+### Developer Tests and Notes
+
+- Live JEV checks on two Native genetics Questions returned valid mapped pairs in 222-262 ms.
+  These are small implementation probes, not a service-capacity or accuracy guarantee.
+- Added focused evidence/response tests and a connected PostgreSQL check for atomic Question saves,
+  Pool modes, NULLs, ties, and stale metadata/membership results.
+- Passed `launchers/all_test.sh`, including Rust and TypeScript gates, 9431 Python tests, and the
+  disposable PostgreSQL authority and persistence checks.
+
 ## 2026-10-18
 
 ### Fixes and Maintenance

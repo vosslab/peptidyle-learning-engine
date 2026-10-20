@@ -63,7 +63,8 @@ and does not advance the Pool Edit Number.
 
 A Pool has its own Title, Description, Topic, Subtopic, Tags, Bloom Knowledge Dimension, Bloom
 Cognitive Process, and optional PLE-managed Hints, Question Feedback, and Worked Solutions.
-These describe the Pool, rather than aggregate its members' fields. Discipline, Subject,
+Bloom defaults to the independent modal values of its members' two dimensions; the other fields
+describe the Pool itself. Discipline, Subject,
 Question Type, and Backend are the common member values. PLE calculates the license.
 
 Text search and Topic, Subtopic, Tag, and Bloom filters match the Pool's own text and metadata.
@@ -72,7 +73,8 @@ are in [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_LIBRARY_METADATA_SPEC.md).
 Store calculated Pool metadata on the Pool. Keep these values up to date when the Pool is created or
 saved. Search reads the stored values. A periodic backend cron job for recalculating Pool metadata is
 deferred.
-Optional Question Feedback timing and initial AI Bloom assignment remain deferred.
+Pool Bloom is recalculated on membership edits, without JEV calls. A fork retains its inherited
+Bloom until membership changes. Optional Question Feedback timing remains deferred.
 
 ## License
 

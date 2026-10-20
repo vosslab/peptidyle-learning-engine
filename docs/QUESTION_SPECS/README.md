@@ -119,7 +119,7 @@ retains the reasons and strength of decisions already made.
 
 Explicit deferrals remain in force: Instructor bulk editing, optional feedback timing, evaluating
 previously submitted Native JSON responses again after an answer-key or grading-rule correction,
-initial AI/Bloom assignment, future reconsideration of NC/ND Questions, later Backends, and
+future reconsideration of NC/ND Questions, later Backends, and
 undefined Sysadmin work.
 Missing code for settled behavior belongs in the implementation gap report, not the decision queue.
 These files specify intended behavior and concrete contracts; passing documentation checks does

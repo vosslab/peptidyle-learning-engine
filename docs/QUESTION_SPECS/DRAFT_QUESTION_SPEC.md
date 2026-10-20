@@ -41,7 +41,7 @@ This specification follows [Human Guidance](../HUMAN_GUIDANCE.md#draft-question-
 
 Question Publication Validation requires Discipline, Subject, and every other required Question
 Library metadata field. In particular, Question Type and other required values cannot be absent.
-Bloom classification may remain absent while its deferred initial assignment has not run; this is
+Bloom classification may remain absent if optional post-publication assignment has not completed; this is
 not permission to omit required publication metadata.
 
 ## Preview and testing

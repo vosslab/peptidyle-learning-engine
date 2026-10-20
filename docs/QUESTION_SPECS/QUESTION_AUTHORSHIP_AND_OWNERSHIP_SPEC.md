@@ -45,7 +45,7 @@ It can be used in any number of Assessments. See [QUESTION_POOL_SPEC.md](QUESTIO
 
 Search-metadata editing does not grant permission to replace another Instructor's Question
 source. Neil expects Instructors to do the bare minimum of metadata writing, so PLE should assign
-metadata automatically where possible. Initial AI Bloom assignment remains deferred. That work
+metadata automatically where possible. JEV assigns initial Question Bloom after publication. That work
 does not establish an additional editor role. Instructor bulk editing remains deferred; its
 existing API does not establish editing rights for other Instructors.
 

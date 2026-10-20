@@ -267,3 +267,6 @@ pub use sysadmin_totp::{
 
 #[cfg(feature = "postgres")]
 pub type Pool = sqlx::postgres::PgPool;
+
+mod bloom;
+pub use bloom::{BloomCandidate, BloomSource, PostgresBloomStore};

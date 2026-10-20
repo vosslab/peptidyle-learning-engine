@@ -133,7 +133,7 @@ export function decodeQuestionSummary(
       strict,
     ),
     publishedAt: decodeTimestamp(field(record, "publishedAt", path), `${path}.publishedAt`),
-    // Bloom Classification is blank until the deferred AI daemon assigns it.
+    // Bloom Classification can remain blank when automatic assignment does not complete.
     bloom: decodeNullable(
       field(record, "bloom", path),
       `${path}.bloom`,

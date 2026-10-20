@@ -37,13 +37,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Evaluating previously submitted Native JSON responses again after an answer-key or grading-rule correction is deferred for now.
 - When implemented, a new evaluation replaces the previous grading result rather than keeping old results. Changing the answer key or grading rule back runs grading again.
 - The decision about when optional Question Feedback is shown is deferred until I better understand how feedback is used in PLE.
-- all automated daemon backends are deferred until final server location
-- all automated AI/LLM backends are deferred until final server location
-- AI-backed Bloom classification is desired but deferred until a later release.
-- Initial Bloom Classification is deferred with the AI backend.
+- Automated daemon and AI/LLM backends other than JEV Bloom classification remain deferred.
 - Bloom Classification does not block publication or Question Library entry.
-- Any AI backend is desired but deferred and low priority for the current PLE.
-- No specific AI backend is selected.
+- JEV is the selected AI backend for initial Published Question Bloom classification.
 - iMathAS is a desired Question Backend deferred until a later release.
 - H5P is a desired Question Backend deferred until a later release.
 - Future H5P use is limited to Weekly Assignments, Bonus Assignments, and Practice Question
@@ -1646,11 +1642,15 @@ PageFrame
   Knowledge Dimension.
 - The two Bloom dimensions are independent and together determine the object's Bloom Classification.
 - Bloom Classification supports Question Library search and Assessment item sorting.
-- A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
-- Bloom Classification starts blank for new content awaiting AI assignment. A Pool fork copies
-  the parent Pool's existing Bloom fields along with its other Pool metadata.
+- A Question Pool's Bloom Classification is calculated from the modal Cognitive Process and Knowledge
+  Dimension of its Published Questions, independently for each dimension.
+- Recalculate a Question Pool's Bloom Classification when its membership changes.
+- A Pool fork copies the parent's existing Bloom fields along with its other Pool metadata.
+- Bloom Classification starts blank for new Published Questions awaiting JEV assignment.
 - Bloom Classification may be NULL while awaiting AI assignment. Do not enforce a time limit.
-- AI assigns the initial Bloom Classification using a daemon after publication.
+- Classify Published Questions with JEV after publication through a short server-side queue.
+- Publication is independent of classification. Bloom may remain blank if JEV is unavailable or a
+  queued request is lost; periodic retries are unnecessary.
 - The owning **Instructor** can correct either Bloom dimension without creating a new Published Question
   Revision.
 - Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.

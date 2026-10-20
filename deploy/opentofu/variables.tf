@@ -202,3 +202,9 @@ variable "waf_rate_limit" {
   type    = number
   default = 2000
 }
+
+variable "enable_jev" {
+  description = "Inject PLE_JEV_API_KEY from the API secret for optional post-publication Bloom classification."
+  type        = bool
+  default     = false
+}

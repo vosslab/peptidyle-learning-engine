@@ -151,7 +151,7 @@ locals {
   smtp_secret_keys         = ["PLE_SMTP_RELAY", "PLE_SMTP_PORT", "PLE_SMTP_TLS_MODE", "PLE_SMTP_USERNAME", "PLE_SMTP_FROM", "PLE_PUBLIC_APP_BASE_URL"]
   webwork_secret_keys      = ["PLE_WEBWORK_RENDERER_BASE_URL", "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS", "PLE_WEBWORK_MAX_RESPONSE_BYTES", "PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_RENDERER_VERSION"]
   api_secrets = [
-    for key in concat(local.api_required_secret_keys, var.enable_smtp ? local.smtp_secret_keys : [], var.enable_webwork ? local.webwork_secret_keys : []) :
+    for key in concat(local.api_required_secret_keys, var.enable_smtp ? local.smtp_secret_keys : [], var.enable_webwork ? local.webwork_secret_keys : [], var.enable_jev ? ["PLE_JEV_API_KEY"] : []) :
     { name = key, valueFrom = "${var.api_application_secrets_arn}:${key}::" }
   ]
   fast_path_secrets = [

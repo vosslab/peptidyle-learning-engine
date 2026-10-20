@@ -256,11 +256,11 @@ complete BPW collections and bundled Genetics PGML through ordinary HTTP
 publication. One-time importer assembly checks protect the conversion boundary;
 real stack acceptance separately proves publication, adoption, and Student Work.
 
-Automated initial Bloom Classification is deferred. The current PLE runtime
-does not compose an AI provider. Publication still reaches the provider-neutral
-preparation boundary and fails before writes because SQL and data access retain
-the prepared-receipt contract. That cutover remains separate work; ordinary
-non-publication server composition requires no AI configuration.
+The API queues optional JEV Bloom classification after successful Question publication. Configure
+`PLE_JEV_API_KEY` or `PLE_JEV_API_KEY_FILE` on the server to enable it. Publication does not wait
+for classification and needs no AI configuration. Pools use the modal values of their members,
+recalculated on membership edits; forks keep inherited values. The in-memory queue is best-effort
+and has no periodic recovery. See the [Bloom specification](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md).
 
 Browser scenarios remain separate from the permanent fast lane and should be
 rerun when a material change affects their declared boundary.

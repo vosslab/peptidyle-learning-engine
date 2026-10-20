@@ -34,7 +34,7 @@ source, title, description, classification, license, author/provenance, tags as 
 and assets. Native JSON's authored `response.kind`
 declares the Question Type; it must map to one supported non-NULL Type. A typed interchange reader
 may map a known source interaction to that Type. Publication rejects a missing or unsupported Type.
-Bloom values may remain NULL while deferred AI assignment is pending, with no limit. Import bypasses
+Bloom values may remain NULL if post-publication JEV assignment does not complete, with no limit. Import bypasses
 none of the owner, license, source, asset, backend, or publication checks.
 
 All imported Questions follow the same Draft and publication workflow. Backend source handling

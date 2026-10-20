@@ -239,6 +239,7 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
         }
         match state.pools.create_question_pool(session, input).await {
             Ok(created) => {
+                crate::bloom::queue_pool_bloom_calculation(&created.question_pool_id);
                 return crate::auth::no_store(
                     (
                         StatusCode::CREATED,

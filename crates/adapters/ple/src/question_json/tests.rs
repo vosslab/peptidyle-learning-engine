@@ -191,3 +191,20 @@ fn matching_ordering_and_blank_labels_are_authored_html() {
         assert!(!response.contains("\"markdown\""));
     }
 }
+
+#[test]
+fn bloom_evidence_retains_task_and_answer_mapping_without_teaching_feedback() {
+    let source = document(
+        "Which <em>base</em>?",
+        json!([
+            {"id":"a", "text":"Adenine", "feedback":"This is correct"},
+            {"id":"b", "text":"Guanine"}
+        ]),
+    );
+    let evidence = source.bloom_evidence().unwrap();
+    assert_eq!(evidence["response"]["correctChoice"], "a");
+    assert_eq!(evidence["response"]["choices"][0]["text"], "Adenine");
+    assert_eq!(evidence["prompt"], "Which <em>base</em>?");
+    assert!(evidence.get("questionHint").is_none());
+    assert!(evidence["response"]["choices"][0].get("feedback").is_none());
+}

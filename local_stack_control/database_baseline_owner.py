@@ -303,6 +303,11 @@ def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathl
 		runner, security_argv, migrator_environment, repository_root, "database baseline security catalog",
 		private_values + (admin_password, migrator_password, service_urls[0]), security_sql,
 	)
+	bloom_sql = (repository_root / "tests/e2e/bloom_classification_oracle.sql").read_text(encoding="utf-8")
+	_require_command(
+		runner, bootstrap_argv, admin_environment, repository_root, "connected Bloom classification",
+		private_values + (admin_password, migrator_password, service_urls[0]), bloom_sql,
+	)
 	owned_snapshot = local_stack_control.disposable_stack_cleanup.require_current_resource_capability(
 		runner, disposable
 	)

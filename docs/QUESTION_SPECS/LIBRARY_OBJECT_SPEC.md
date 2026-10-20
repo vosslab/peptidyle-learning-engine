@@ -39,7 +39,7 @@ randomization belongs to the Question, including its Native JSON setting, not to
 
 Library Objects have a canonical Question ID, an owner, Title, Description, required Discipline and
 Subject, optional Topic/Subtopic and Tags, a required license, and their own discovery metadata.
-Bloom may be absent while initial AI assignment is deferred. The authoritative field table is in
+Bloom may be absent if optional post-publication classification has not completed. The authoritative field table is in
 [QUESTION_LIBRARY_METADATA_SPEC.md](QUESTION_LIBRARY_METADATA_SPEC.md).
 
 Library Objects participate in Search, Browse, filtering, and sorting. Instructor bulk metadata

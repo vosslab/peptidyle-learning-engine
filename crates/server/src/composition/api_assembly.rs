@@ -35,7 +35,7 @@ use crate::auth::{
 use super::{composition_live_demo, environment};
 
 /// Builds the current route surface from explicit environment configuration.
-pub async fn production_router_from_env() -> Result<Router> {
+pub async fn production_router_from_env() -> Result<(Router, Option<crate::bloom::BloomTask>)> {
     let database_url = environment::required_env("DATABASE_URL")?;
     let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
     {
@@ -102,6 +102,11 @@ pub async fn production_router_from_env() -> Result<Router> {
     let question_library_objects = environment::question_library_object_store_from_env().await?;
     let webwork_adapter = environment::webwork_adapter_from_env()?;
     let webwork_asset_proxy = environment::webwork_asset_proxy_from_env()?;
+    let bloom_task = crate::bloom::start(
+        learning_data_access::postgres::PostgresBloomStore::new(pool.clone()),
+        question_library_objects.clone(),
+        Arc::clone(&webwork_adapter),
+    );
     let question_id_issuer = environment::question_id_issuer();
     let thumbnail_capture = environment::question_thumbnail_capture_from_env()?;
     let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone());
@@ -376,10 +381,13 @@ pub async fn production_router_from_env() -> Result<Router> {
                 .map_err(anyhow::Error::msg)?,
             ),
         );
-    Ok(crate::http_security::apply_api_security_headers(
-        router.layer(axum::middleware::from_fn_with_state(
-            browser_boundary,
-            crate::auth::production_cookie_boundary,
+    Ok((
+        crate::http_security::apply_api_security_headers(router.layer(
+            axum::middleware::from_fn_with_state(
+                browser_boundary,
+                crate::auth::production_cookie_boundary,
+            ),
         )),
+        bloom_task,
     ))
 }

@@ -22,7 +22,7 @@ export const BLOOM_KNOWLEDGE_DIMENSIONS = [
   "Metacognitive Knowledge",
 ] as const satisfies ReadonlyArray<BloomKnowledgeDimension>;
 
-/** Guide meanings for the work a Question requires. AI assignment stays deferred. */
+/** Guide meanings for the work a Question requires. */
 export const BLOOM_COGNITIVE_PROCESS_MEANINGS = {
   Remember: "Retrieve relevant knowledge",
   Understand: "Construct meaning from presented or recalled knowledge",

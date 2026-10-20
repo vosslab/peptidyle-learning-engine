@@ -47,8 +47,10 @@ For example, Analyze and Conceptual Knowledge determine the classification commo
 "analyze conceptual knowledge." PLE stores the two enum values. Their ordered pair determines the
 combined label and one position in the 4 by 6 Bloom Classification Matrix.
 
-For a Question Pool, classify the intended cognitive work of the Pool as a whole. Do not use the
-highest classification of a member Question or copy a member classification without that judgment.
+For a Question Pool, PLE calculates the modal Cognitive Process and Knowledge Dimension of its
+Published Questions independently, and recalculates when membership changes. Ignore NULL member
+values for each dimension; ties use the enum order above. With no classified values, that dimension
+stays NULL. An Instructor can correct this default when teaching context calls for another value.
 
 The phrases inside CELT's three-dimensional chart are example learning objectives. They illustrate
 what a task in a matrix position might look like. Many different learning objectives and Questions
@@ -181,11 +183,10 @@ learning.
 
 ## AI assignment and correction
 
-Initial AI assignment is deferred under [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#deferred-product-behavior).
-A Published Question or Pool may enter the Library with no Bloom Classification; missing values
-do not block publication or discovery, and no assignment deadline is enforced. When available,
-both dimensions describe that object's
-own intended cognitive work rather than being inherited from Pool members.
+JEV assigns both dimensions to Published Questions after publication through a short API-server
+queue. A Published Question or Pool may enter the Library without Bloom; missing values never
+block publication or discovery. Service failures or restart may leave classifications blank.
+Pools use member modes rather than JEV requests.
 
 An Instructor can later edit either value when teaching context or expert judgment supports a
 different pair. The correction targets the same exact Question Revision or Question Pool. It
@@ -193,8 +194,8 @@ changes classification metadata while retaining the other value and without crea
 immutable Question Revision or changing Question content, Pool member pins, or Question Reason
 for Edit history.
 
-This guide defines classification meaning. Future AI assignment timing and implementation
-remain deferred; this document does not authorize publication gates or background processing.
+This guide defines classification meaning. The [Bloom specification](QUESTION_SPECS/QUESTION_BLOOM_CLASSIFICATION_SPEC.md)
+describes the optional publication-triggered assignment.
 
 ## Search and reporting
 
@@ -244,7 +245,7 @@ color does not represent correctness, Question Difficulty, point value, or maste
 ## Review checklist
 
 - [ ] Missing Bloom Classification does not block Question or Pool publication or Library discovery.
-- [ ] Initial AI classification remains deferred until HG brings it into scope.
+- [ ] Initial Question classification uses JEV after publication without delaying publication.
 - [ ] The completed classification has one Cognitive Process value.
 - [ ] The completed classification has one Knowledge Dimension value.
 - [ ] The combined classification and matrix position are derived from that ordered pair.

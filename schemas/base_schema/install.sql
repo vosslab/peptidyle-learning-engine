@@ -122,5 +122,6 @@
 \ir 50_functions/corrections.sql
 \ir 50_functions/unrelease.sql
 \ir 50_functions/api_compatibility.sql
+\ir 50_functions/bloom_classification.sql
 \ir 60_policies.sql
 \ir 70_grants.sql

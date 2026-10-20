@@ -261,6 +261,9 @@ where
             let outcome = self
                 .publish_inner(session_token_hash, command, stored_at, &response, deadline)
                 .await;
+            if let Ok(revision) = &outcome {
+                crate::bloom::question_published(revision);
+            }
             let _ = response.send(outcome);
         });
         result.await.map_err(|_| {
@@ -475,6 +478,9 @@ where
             let outcome = self
                 .publish_inner(session_token_hash, command, stored_at, &response, deadline)
                 .await;
+            if let Ok(revision) = &outcome {
+                crate::bloom::question_published(revision);
+            }
             let _ = response.send(outcome);
         });
         result.await.map_err(|_| {
