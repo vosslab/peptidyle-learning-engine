@@ -8,6 +8,13 @@
 > September 29 entries are archived in [CHANGELOG-2026-09r.md](CHANGELOG-2026-09r.md).
 > September 28 entries are archived in [CHANGELOG-2026-09s.md](CHANGELOG-2026-09s.md).
 
+## 2026-10-25
+
+### Fixes and Maintenance
+
+- Recorded the created project administration Gmail address and its service-login purpose in
+  [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
+
 ## 2026-10-20
 
 ### Fixes and Maintenance

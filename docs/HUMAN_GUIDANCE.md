@@ -23,6 +23,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Sections should contain less than 25 bulleted items; split a larger section with subheadings.
   `devel/markdown_section_sizes.py -i docs/HUMAN_GUIDANCE.md -m 25` lists any that grew past it.
 
+## Project administration email
+
+- I created `peptidyle.admin@gmail.com` to coordinate logins for the project's external services.
+
 ## Deferred product behavior
 
 - Items in this section remain desired product behavior but are not current implementation
