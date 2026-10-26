@@ -42,15 +42,9 @@ Use `tests/_temp/` while the case for permanent coverage is unclear.
 ## Temporary verification
 
 Use the ignored `tests/_temp/` subtree for temporary tests, reproductions, exploratory checks, and
-one-time implementation proof. `tests/conftest.py` excludes this subtree from ordinary pytest
-collection. Run a pytest-suitable temporary check explicitly by naming its file and keeping the
-permanent test configuration out of its collection, for example:
-
-```bash
-source source_me.sh && python3 -m pytest --confcutdir=tests/_temp tests/_temp/path/test_case.py
-```
-
-Run other temporary checks from `tests/_temp/` explicitly with their appropriate tool.
+one-time implementation proof. Pytest-suitable temporary tests named `test_*.py` participate in the
+normal `pytest tests/` run while work is active; `tests/conftest.py` does not exclude this subtree.
+Run heavier temporary checks from `tests/_temp/` explicitly with their appropriate tool.
 
 Before completing the plan, review every plan-specific check in `tests/_temp/`. Promote a check
 when its behavior earns permanent protection and remove the rest. Plan closeout is the cleanup
@@ -59,13 +53,13 @@ mechanism; `tests/_temp/` is a workspace, not a permanent test tier.
 ## Test lanes
 
 - `tests/test_*.py` contains permanent, fast pytest unit and integration tests.
-- `tests/_temp/` contains ignored, temporary verification, excluded from ordinary pytest collection.
-  Run pytest-suitable checks explicitly; run other checks with their native tool.
+- `tests/_temp/` contains ignored, temporary verification. Pytest collects suitable `test_*.py`
+  files; heavier checks run explicitly.
 - `tests/e2e/` contains permanent non-browser whole-system tests run explicitly.
 - `tests/playwright/` contains permanent browser tests run with Playwright.
 - `tests/test_*.mjs` contains permanent Node tests when a repository uses that lane.
 
-Pytest excludes `tests/e2e/`, `tests/playwright/`, and `tests/_temp/` through `tests/conftest.py`. See
+Pytest excludes only `tests/e2e/` and `tests/playwright/` through `tests/conftest.py`. See
 [E2E_TESTS.md](E2E_TESTS.md) for permanent whole-system tests and
 [PYTEST_AUTHORING_GUIDE.md](PYTEST_AUTHORING_GUIDE.md) for pytest construction.
 

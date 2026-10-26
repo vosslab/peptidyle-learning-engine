@@ -11,25 +11,20 @@ downstream consumers), so dependency floors are set as high as practical and ref
 toward newest, not kept low and wide. State the policy, not a frozen version, so this doc
 never goes stale against a sync run.
 
-- Policy: pin every dependency `>={latest}`, with floors raised as high as practical at each
+- Policy: give every dependency an open-ended minimum of `>={latest}`, with floors raised as high as practical at each
   template refresh. The policy is the rule; do not hardcode a major version here.
 - Rationale: an application carries no compatibility burden for nonexistent library users.
   High floors only buy newer bug fixes and diagnostics (better AI-assisted coding) at zero
   cost. A published library does the opposite and keeps floors low and wide.
-- Pin shape: use `>=` always. Add a `<` upper bound ONLY for a confirmed incompatibility,
-  never as a default. Live example: typescript-eslint caps the TypeScript it supports
-  (currently `<6.1.0`); if TypeScript outruns typescript-eslint, a temporary `<` cap waits
-  for the matching typescript-eslint release rather than breaking lint.
-- Refresh command: `devel/sync_typescript_package_pins.py` rewrites every pin to `>={latest}`
+- Requirement shape: use `>=` without upper bounds. Follow the latest-version policy in
+  `docs/REPO_STYLE.md`; repair incompatibilities against current releases.
+- Refresh command: `devel/sync_typescript_package_pins.py` rewrites every minimum to `>={latest}`
   from the npm registry. It is a refresh HELPER, not a dependency solver: it writes `>=`
   uniformly and never emits `<` caps, compound ranges, non-`latest` dist-tags, or
   `workspace:*`, and it leaves private/E404 and consumer-extra packages untouched.
-- Manual `<` exception: the tool rewrites a hand-placed `<` cap back to `>={latest}` on its
-  next run, so a necessary cap is a MANUAL exception re-applied after each sync. Teaching the
-  tool to preserve caps is separate follow-up.
 - `allowScripts` keys are version-pinned (`name@version`): after a sync that bumps esbuild or
-  fsevents, re-apply the matching `allowScripts` entry by hand in `noexist/package.json`, the
-  same class of manual exception as a `<` cap. Without it, esbuild's postinstall binary gate
+  fsevents, re-apply the matching `allowScripts` entry by hand in `noexist/package.json`, an
+  execution permission for that resolved package, not a dependency version constraint. Without it, esbuild's postinstall binary gate
   returns and fresh `npm install` runs will miss the platform binary.
 - Lockfile: the committed `package-lock.json` is a snapshot regenerated forward on each
   refresh, so installs move to the newest resolved set. It records the current resolution and
@@ -417,7 +412,7 @@ Alias rules:
   mirrors a real tool command: the optional `pdf` alias (`node tools/html_to_pdf.mjs`) is
   present in several repos and is a fine thin mirror of a real tool.
 - Repo-specific domain scripts are acceptable additions when they mirror a real tool, e.g.
-  `virtual-lab-protocol-simulation`'s `layout:*` and `*:png` scripts (`node tools/...`). They
+  `virtual-lab-protocol-simulation`'s layout and image-export scripts (`node tools/...`). They
   are optional per-repo extras, not part of the canonical alias set.
 - Keep a small mirror set. Do not gut all npm scripts unless the repo is
   intentionally non-idiomatic TypeScript; a TypeScript developer expects some
@@ -466,7 +461,7 @@ Consumer repos often add thin domain-specific commands beyond the shared front
 doors. Examples in the current corpus include:
 
 - `layout:*` scripts for layout metrics and diffs
-- `protocol:png` and `scene:png` for image export helpers
+- `protocol:*` and `scene:*` for image export helpers; final named screenshots use WebP at quality 90
 - `pdf` as a thin wrapper around `node tools/html_to_pdf.mjs`
 - a `dev` command for watch-mode builds in some browser-game repos
 
@@ -545,7 +540,8 @@ This is the canonical floor, not a ceiling. Per-repo additions (`src/*.ts` modul
 * YAML favorite, readable, editable
 * CSV spreadsheet input and output
 * JSON good for larger structured data
-* PNG images, graphics, figures, pixel data
+* WebP at quality 90 for final named screenshots; follow the screenshot policy in `docs/REPO_STYLE.md`.
+* Choose other image and scientific pixel-data formats for the artifact's requirements.
 
 ## GENERAL STYLE
 

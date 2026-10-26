@@ -2,7 +2,7 @@
 
 Snapshot: 2026-10-02 01:08:58 UTC. 397 paths.
 
-[Consolidated findings](fresh_codebase_audit_2026_10_01.md) | [All paths and hashes](fresh_codebase_audit_2026_10_01_coverage.csv)
+[Consolidated findings](fresh_codebase_audit_2026_10_01.md) | `fresh_codebase_audit_2026_10_01_coverage.csv`
 
 Good means preserve the inspected design; bad marks a concrete concern; refine marks a bounded
 improvement; neutral includes reference material and explicitly deferred scope. Findings overlap

@@ -18,10 +18,9 @@ test policy.
 - `tests/playwright/` contains permanent browser-driven tests. Website and TypeScript repositories
   also receive `PLAYWRIGHT_TEST_STYLE.md` and `PLAYWRIGHT_USAGE.md`.
 
-Both permanent E2E subtrees run outside pytest. `tests/conftest.py` excludes `e2e`, `playwright`,
-and the ignored `tests/_temp/` subtree from ordinary pytest collection. Run pytest-suitable temporary
-checks by naming their files with a temporary-specific pytest invocation that does not load the
-permanent test configuration; run other temporary checks explicitly with their native tool.
+Both permanent E2E subtrees run outside pytest. `tests/conftest.py` excludes only `e2e` and
+`playwright`. Pytest-suitable `test_*.py` files in `tests/_temp/` remain available to normal pytest
+collection; heavier temporary checks run explicitly.
 
 ## Permanent E2E checklist
 
@@ -50,6 +49,8 @@ verification when the check only proves the current implementation or rollout.
 - Name shell runners `tests/e2e/e2e_<name>.sh`.
 - Name Python runners `tests/e2e/e2e_<name>.py`.
 - Make each runner self-contained with clear pass, failure, and diagnostic output.
+- Add `tests/e2e/run_all.sh` when a repository has several permanent runners worth executing
+  together.
 
 TypeScript repositories enforce these names through `tests/test_test_naming_conventions.py`.
 
@@ -58,10 +59,11 @@ TypeScript repositories enforce these names through `tests/test_test_naming_conv
 ```bash
 bash tests/e2e/e2e_<name>.sh
 source source_me.sh && python3 tests/e2e/e2e_<name>.py
+bash tests/e2e/run_all.sh
 ```
 
-Use the repository's aggregate or Playwright runner when the named behavior belongs to that lane.
-Run temporary non-pytest checks from `tests/_temp/` explicitly with their native tool.
+Use the repository's Playwright runner for browser tests. Run temporary non-pytest checks from
+`tests/_temp/` explicitly with their native tool.
 
 ## Design failures
 

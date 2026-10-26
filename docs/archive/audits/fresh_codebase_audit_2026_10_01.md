@@ -270,7 +270,7 @@ global maintenance commands are not defects merely because their documented scop
 ## Coverage and limits
 
 All 2,654 captured paths have one assessment and a recorded review depth in the
-[complete CSV ledger](fresh_codebase_audit_2026_10_01_coverage.csv). It includes snapshot and final
+`fresh_codebase_audit_2026_10_01_coverage.csv`. It includes snapshot and final
 source hashes. The final comparison found no drift in those inputs before this audit's Changelog
 receipt. Audit outputs and that receipt are the only repository edits made by this review.
 

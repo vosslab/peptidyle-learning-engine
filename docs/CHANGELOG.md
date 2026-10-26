@@ -20,6 +20,10 @@
 - Recorded QPM Question export as blocked for now and paper generation as the responsibility of
   the dedicated external exam repository. CSV/TSV grades and Blueprint JSON exchange remain.
 
+### Fixes and Maintenance
+
+- Synchronized shared style guides, tests, and repository support files from the starter template.
+
 ### Removals and Deprecations
 
 - Removed the local Genetics and Chapter 1 pilot content copies and their container packaging.
