@@ -1,5 +1,6 @@
 //! PostgreSQL reads for reusable published Question Pools.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
@@ -12,7 +13,7 @@ use question_model::{
     SaveQuestionPoolMembersRequest, SaveQuestionPoolMetadataRequest, SavedQuestionPoolMembers,
     SavedQuestionPoolMetadata,
 };
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{PublishedQuestionPool, QuestionPoolLibraryStore, SessionTokenHash, StoreError};
@@ -26,32 +27,6 @@ impl PostgresQuestionPoolLibraryStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -62,7 +37,8 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         request: SaveQuestionPoolMembersRequest,
     ) -> Result<SavedQuestionPoolMembers, StoreError> {
         validate_member_replacement(&request)?;
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let question_ids = request
             .members
             .iter()
@@ -116,7 +92,8 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         if request.expected_metadata_edit_number.get() > i64::MAX as u64 {
             return Err(invalid("Question Pool metadata Edit Number is invalid"));
         }
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query(
             "SELECT question_pool_id, question_pool_metadata_edit_number \
              FROM ple_api.replace_question_pool_metadata($1, $2, $3, $4, $5, $6, $7, $8, $9)",
@@ -165,7 +142,8 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         session_token_hash: SessionTokenHash,
         question_pool_id: &QuestionPoolId,
     ) -> Result<CurrentQuestionPoolMetadata, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query("SELECT * FROM ple_api.read_current_question_pool_metadata($1)")
             .bind(question_pool_id.as_str())
             .fetch_optional(&mut *transaction)
@@ -185,7 +163,8 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         session_token_hash: SessionTokenHash,
         question_pool_id: &QuestionPoolId,
     ) -> Result<PublishedQuestionPool, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.read_current_published_question_pool($1)")
             .bind(question_pool_id.as_str())
             .fetch_all(&mut *transaction)
@@ -204,7 +183,8 @@ impl PostgresQuestionPoolLibraryStore {
         session_token_hash: SessionTokenHash,
         question_pool_id: &QuestionPoolId,
     ) -> Result<(u64, u64, QuestionUsageTotals), StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query(
             "SELECT pool_issued_count, pool_issued_contributor_floor, issued_count, blank_count, answered_count, \
                     correct_count, partial_count, incorrect_count, issued_contributor_floor, \

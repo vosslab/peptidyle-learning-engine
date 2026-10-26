@@ -6,6 +6,7 @@ mod mixed;
 mod search;
 mod thumbnail;
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     AccountId, BloomClassificationView, BloomCognitiveProcess, BloomKnowledgeDimension,
@@ -16,7 +17,7 @@ use question_model::{
     QuestionRevisionUsageStatistics, QuestionType, QuestionUsageTotals, QuestionUseDetails,
     QuestionUseSummary, SourceObjectChecksum, Tag, Timestamp,
 };
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::Pool;
 use super::connection::map_sqlx_error;
@@ -36,32 +37,6 @@ impl PostgresQuestionLibraryStore {
     /// Binds the attested API pool to Question Library reads.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
     }
 }
 
@@ -98,9 +73,8 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<PublishedQuestionLibraryEntry>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, d.is_retired AS discipline_is_retired, st.name AS subtopic_name \
              FROM ple_api.list_question_library_entries() q \
@@ -127,9 +101,8 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         session_token_hash: SessionTokenHash,
         question_id: &PublishedQuestionId,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query(
             "SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, d.is_retired AS discipline_is_retired, st.name AS subtopic_name \
              FROM ple_api.load_question_library_lineage($1) q \
@@ -159,9 +132,8 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         session_token_hash: SessionTokenHash,
         published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // This projection resolves an existing immutable pin. Unlike ordinary
         // library discovery, its result intentionally remains available after
         // the Question lineage is archived.
@@ -214,9 +186,8 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             return Err(invalid("Published Question shared metadata selection"));
         }
 
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4: bind the complete ID array; no identifier or value is
         // interpolated into the SQL statement.
         let rows = sqlx::query(
@@ -290,9 +261,8 @@ impl PostgresQuestionLibraryStore {
         if question_ids.is_empty() {
             return Ok(Vec::new());
         }
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let ids = question_ids
             .iter()
             .map(PublishedQuestionId::as_str)
@@ -328,9 +298,8 @@ impl PostgresQuestionLibraryStore {
         session_token_hash: SessionTokenHash,
         question_id: &PublishedQuestionId,
     ) -> Result<Vec<QuestionRevisionUsageStatistics>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT revision_number, issued_count, blank_count, answered_count, \
                     correct_count, partial_count, incorrect_count, issued_contributor_floor, \
@@ -361,9 +330,8 @@ impl PostgresQuestionLibraryStore {
         session_token_hash: SessionTokenHash,
         publication: &PublishedQuestionRevisionTuple,
     ) -> Result<QuestionUseDetails, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4, 8.2.2: bind the validated exact Revision tuple; the SQL
         // boundary derives each visible Course from the installed session.
         let rows = sqlx::query(
@@ -439,9 +407,8 @@ impl PostgresQuestionLibraryStore {
         target_availability: &str,
         archive_confirmation_title: Option<&str>,
     ) -> Result<PublishedQuestionAvailability, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row =
             sqlx::query("SELECT * FROM ple_api.set_question_availability($1, $2, $3, $4, $5)")
                 .bind(question_id.as_str())

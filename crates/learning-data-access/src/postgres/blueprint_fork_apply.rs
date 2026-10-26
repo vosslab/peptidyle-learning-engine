@@ -1,5 +1,6 @@
 //! Atomic selective Blueprint fork saves from trusted exact current trees.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use question_model::blueprint_course::apply_blueprint_fork;
 use question_model::{
     BlueprintAssessmentId, BlueprintModuleId, RenameBlueprintCourseInput, RequestChecksum,
@@ -30,9 +31,7 @@ impl PostgresBlueprintCourseStore {
         digest.update(b"ple:blueprint-fork-apply:");
         digest.update(encoded_request);
         let checksum = RequestChecksum::from_bytes(digest.finalize().into());
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // ASVS 8.2.2, 8.3.1, 2.3.3: lock and authorize both sides, then
         // validate all four current preconditions before ordinary Save replay.
         let rows = sqlx::query(

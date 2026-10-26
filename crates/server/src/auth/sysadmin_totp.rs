@@ -14,10 +14,7 @@ use axum::{
     Json, Router,
     body::to_bytes,
     extract::{FromRequestParts, Path, Request, State},
-    http::{
-        HeaderMap, HeaderValue, StatusCode,
-        header::{COOKIE, SET_COOKIE},
-    },
+    http::{HeaderValue, StatusCode, header::SET_COOKIE},
     response::{IntoResponse, Response},
     routing::post,
 };
@@ -154,7 +151,7 @@ where
 {
     let (mut parts, body) = request.into_parts();
     let Some(binding) =
-        presented_pending_mfa_token(joined_cookie_header(&parts.headers).as_deref())
+        presented_pending_mfa_token(crate::auth::joined_cookie_header(&parts.headers).as_deref())
     else {
         return completion_denied(state.config, true);
     };
@@ -341,15 +338,6 @@ fn hotp(seed: &[u8], counter: i64) -> [u8; TOTP_DIGITS as usize] {
         divisor /= 10;
     }
     output
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }
 
 fn completion_denied(config: SessionConfig, clear_pending: bool) -> Response {

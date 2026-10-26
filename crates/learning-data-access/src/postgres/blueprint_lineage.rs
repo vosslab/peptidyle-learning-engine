@@ -1,5 +1,6 @@
 //! PostgreSQL adapter for the Blueprint fork transaction.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     BlueprintAssessmentId, BlueprintAvailability, BlueprintCourseId, BlueprintCourseRevisionTuple,
@@ -35,32 +36,6 @@ impl PostgresBlueprintLineageStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        session: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let resolved = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(session.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if resolved.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -74,7 +49,9 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
             StoreError::Forbidden => StoreError::NotFound,
             other => other,
         };
-        let mut transaction = self.begin(session).await.map_err(concealed)?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session)
+            .await
+            .map_err(concealed)?;
         // ASVS 1.2.4, 8.2.2/3: bound source; trusted reader filters children and fields.
         let rows = sqlx::query(LIST_KNOWN_BLUEPRINT_FORKS_SQL)
             .bind(source_blueprint_course_id.as_string())
@@ -134,10 +111,12 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         left: BlueprintCourseId,
         right: BlueprintCourseId,
     ) -> Result<BlueprintComparisonSources, StoreError> {
-        let mut transaction = self.begin(session).await.map_err(|error| match error {
-            StoreError::Forbidden => StoreError::NotFound,
-            other => other,
-        })?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session)
+            .await
+            .map_err(|error| match error {
+                StoreError::Forbidden => StoreError::NotFound,
+                other => other,
+            })?;
         // ASVS 1.2.4, 8.2.2, 8.3.1/2: bound arguments and one trusted reader.
         let rows = sqlx::query(
             "SELECT * FROM ple_api.load_blueprint_comparison_sources($1, $2) ORDER BY source_position",
@@ -212,7 +191,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         source: BlueprintForkSource,
         request_checksum: RequestChecksum,
     ) -> Result<ForkBlueprintCourseReceipt, StoreError> {
-        let mut transaction = self.begin(session).await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let actor = current_actor(&mut transaction).await?;
         let source_revision_number = i64::try_from(
             source

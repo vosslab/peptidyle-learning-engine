@@ -1,9 +1,10 @@
 //! PostgreSQL implementation of the Question Pool search-metadata command.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{QuestionPoolId, QuestionPoolMetadataEditNumber};
 use serde_json::{Map, Value, json};
-use sqlx::{Postgres, Row, Transaction, types::Json};
+use sqlx::{Row, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
@@ -21,32 +22,6 @@ impl PostgresBulkQuestionPoolSearchMetadataStore {
     /// Binds the attested API pool to the closed Pool search-metadata procedure.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
     }
 }
 
@@ -80,7 +55,7 @@ impl BulkQuestionPoolSearchMetadataStore for PostgresBulkQuestionPoolSearchMetad
         if let Some(value) = input.patch.subtopic_uuid {
             patch.insert("subtopicUuid".to_owned(), json!(value));
         }
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT question_pool_id, question_pool_metadata_edit_number \
              FROM ple_api.bulk_replace_question_pool_search_metadata($1, $2)",

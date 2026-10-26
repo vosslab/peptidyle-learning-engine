@@ -1,9 +1,10 @@
 //! PostgreSQL adapter for the public Question Image Asset redirect boundary.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use objects::Sha256Checksum;
 use question_model::{ObjectId, PublishedQuestionRevisionTuple, QuestionImageAssetId};
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
@@ -21,32 +22,6 @@ impl PostgresQuestionImageDeliveryStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -57,7 +32,7 @@ impl QuestionImageDeliveryStore for PostgresQuestionImageDeliveryStore {
         published_question_revision_tuple: PublishedQuestionRevisionTuple,
         question_image_asset_id: QuestionImageAssetId,
     ) -> Result<QuestionImageDeliveryResolution, StoreError> {
-        let mut transaction = self.begin(token).await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query(
             "SELECT public_object_id, rendition_checksum, delivery_state \
              FROM ple_api.resolve_question_image($1, $2, $3)",

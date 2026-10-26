@@ -1,5 +1,6 @@
 //! Session-installed PostgreSQL Student time configuration adapter.
 use super::{Pool, connection::map_sqlx_error};
+use crate::postgres::connection::begin_authenticated_transaction;
 use crate::{AssessmentStudentTimeAccommodationStore, SessionTokenHash, StoreError};
 use async_trait::async_trait;
 use question_model::{
@@ -57,25 +58,7 @@ impl AssessmentStudentTimeAccommodationStore for PostgresAssessmentStudentTimeAc
             }
             Some(_) => return Err(invalid()),
         };
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, token).await?;
         // ASVS 1.2.4, 8.3.1: bound values; the database resolves and authorizes
         // Course + Assessment + active roster Student, then serializes with start.
         let row = sqlx::query("SELECT * FROM ple_api.student_assessment_time_configuration($1, $2, $3, $4, $5, $6::double precision::text::numeric)")

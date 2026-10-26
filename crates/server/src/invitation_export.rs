@@ -5,7 +5,7 @@ use std::{str::FromStr, sync::Arc};
 use axum::{
     Router,
     extract::{Path, State},
-    http::{HeaderMap, HeaderValue, StatusCode, header::COOKIE},
+    http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -82,7 +82,7 @@ async fn instructor(
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {
@@ -93,15 +93,6 @@ async fn instructor(
             "Invitation export authentication unavailable",
         ))),
     }
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }
 
 fn store_error(error_value: StoreError) -> Response {

@@ -5,7 +5,7 @@ use std::{str::FromStr, sync::Arc};
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Path, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -230,7 +230,7 @@ async fn required_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {
@@ -241,15 +241,6 @@ async fn required_session_hash(
             "Course Roster authentication unavailable",
         ))),
     }
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }
 
 fn store_error_response(error: StoreError) -> Response {

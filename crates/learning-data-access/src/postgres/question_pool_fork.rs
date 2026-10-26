@@ -1,8 +1,9 @@
 //! PostgreSQL implementation of explicit reusable Question Pool forks.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::QuestionPoolId;
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{
     Pool, connection::map_sqlx_error, question_pool_creation::map_create_question_pool_error,
@@ -23,32 +24,6 @@ impl PostgresQuestionPoolForkStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
-    }
 }
 
 #[async_trait]
@@ -59,8 +34,7 @@ impl QuestionPoolForkStore for PostgresQuestionPoolForkStore {
         question_pool_id: QuestionPoolId,
         source_question_pool_id: QuestionPoolId,
     ) -> Result<CreatedQuestionPool, CreateQuestionPoolError> {
-        let mut tx = self
-            .begin(session_token_hash)
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash)
             .await
             .map_err(CreateQuestionPoolError::Store)?;
         let row = sqlx::query(

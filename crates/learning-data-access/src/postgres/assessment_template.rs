@@ -1,11 +1,12 @@
 //! PostgreSQL persistence for private Instructor-owned Assessment Templates.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
     AssessmentTemplateSettings, AssessmentType, CourseInstanceId,
 };
-use sqlx::{Postgres, Row, Transaction, types::Json};
+use sqlx::{Row, types::Json};
 
 use super::{
     Pool,
@@ -28,32 +29,6 @@ impl PostgresAssessmentTemplateStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -62,7 +37,8 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<AssessmentTemplate>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4 and 8.2.2: the fixed procedure derives ownership from
         // the installed session; no browser identity can select another owner.
         let rows = sqlx::query(
@@ -85,7 +61,8 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         session_token_hash: SessionTokenHash,
         id: AssessmentTemplateId,
     ) -> Result<AssessmentTemplate, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4 and 8.2.2: the private UUID is a bound locator only;
         // session-derived ownership remains the database authorization rule.
         let row = sqlx::query(
@@ -112,7 +89,8 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
             ));
         }
         validate_settings(template.assessment_type, &template.settings)?;
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4, 2.2.2, and 8.3.1: all values are native bound
         // parameters and the procedure derives the active Instructor owner.
         let row = sqlx::query(
@@ -143,7 +121,8 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
                 "Assessment Template Edit Number exceeds PostgreSQL bigint".to_owned(),
             )
         })?;
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4, 2.3.3, and 8.2.2: the one fully bound procedure locks,
         // authorizes, compares, and replaces the complete aggregate atomically.
         let row = sqlx::query(
@@ -170,7 +149,8 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         course_instance_id: CourseInstanceId,
         input: CreateAssessmentFromTemplateInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4, 2.3.3, and 8.2.2: the one bound procedure authorizes
         // both source Template and destination Course before copying by value.
         let assessment_id = sqlx::query_scalar::<_, String>(

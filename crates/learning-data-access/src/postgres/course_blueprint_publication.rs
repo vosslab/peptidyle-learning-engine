@@ -1,5 +1,6 @@
 //! PostgreSQL Course Instance to Blueprint Course publication.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintAssessmentId, BlueprintCourseId, BlueprintCourseRevisionTuple,
@@ -53,10 +54,8 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         input.validate().map_err(|error| {
             StoreError::InvalidRecord(format!("Course Blueprint request is invalid: {error}"))
         })?;
-        let mut transaction = self
-            .blueprints
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.blueprints.pool, session).await?;
         let actor = super::blueprint_course::current_actor(&mut transaction).await?;
 
         // ASVS 2.3.3: a retry resolves before any fresh child identity is

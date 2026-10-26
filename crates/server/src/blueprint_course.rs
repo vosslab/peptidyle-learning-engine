@@ -8,10 +8,7 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::{
-        HeaderMap, StatusCode,
-        header::{COOKIE, IF_MATCH},
-    },
+    http::{HeaderMap, StatusCode, header::IF_MATCH},
     response::{IntoResponse, Response},
     routing::{get, post, put},
 };
@@ -609,7 +606,7 @@ pub(super) async fn instructor_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {
@@ -630,7 +627,7 @@ async fn instructor_or_sysadmin_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {
@@ -648,12 +645,4 @@ async fn instructor_or_sysadmin_session_hash(
             "Blueprint Course authentication unavailable",
         ))),
     }
-}
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }

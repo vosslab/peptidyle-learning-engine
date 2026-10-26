@@ -1,11 +1,12 @@
 //! PostgreSQL persistence for one exact Published Question metadata replacement.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     PublishedQuestionRevisionTuple, QuestionRevisionNumber, SaveQuestionMetadataRequest,
     SavedQuestionMetadata, validate_question_description, validate_question_title,
 };
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{QuestionMetadataStore, SessionTokenHash, StoreError};
@@ -20,32 +21,6 @@ impl PostgresQuestionMetadataStore {
     /// Binds the attested API pool to the trusted Question metadata procedure.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
     }
 }
 
@@ -81,7 +56,7 @@ impl QuestionMetadataStore for PostgresQuestionMetadataStore {
         request: SaveQuestionMetadataRequest,
     ) -> Result<SavedQuestionMetadata, StoreError> {
         validate_request(&request)?;
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let revision_number = i32::try_from(
             request
                 .published_question_revision_tuple

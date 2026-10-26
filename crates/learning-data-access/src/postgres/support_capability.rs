@@ -1,8 +1,9 @@
 //! PostgreSQL Store for confirmed Sysadmin Student-data access.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{CourseInstanceId, Timestamp};
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
@@ -18,33 +19,6 @@ pub struct PostgresSysadminStudentDataStore {
 impl PostgresSysadminStudentDataStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        if sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?
-        .is_none()
-        {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
     }
 }
 
@@ -69,7 +43,7 @@ impl SysadminStudentDataStore for PostgresSysadminStudentDataStore {
             ));
         }
 
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query(
             "SELECT course_instance_id, student_account_id, roster_id, roster_name, state, event_id, occurred_at_millis FROM ple_api.read_sysadmin_student_roster_record($1, $2, $3)",
         )

@@ -1,5 +1,6 @@
 //! Current Question and Pool titles for Instructor recognition.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use std::collections::{BTreeMap, BTreeSet};
 
 use question_model::{PublishedQuestionId, QuestionPoolId};
@@ -22,9 +23,7 @@ impl PostgresBlueprintCourseStore {
         if questions.is_empty() && pools.is_empty() {
             return Err(invalid("recognition title selection"));
         }
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // ASVS 1.2.4: bind the complete ID arrays. Missing lineages stay omitted.
         let rows = sqlx::query(
             "SELECT record_kind, public_id, title \

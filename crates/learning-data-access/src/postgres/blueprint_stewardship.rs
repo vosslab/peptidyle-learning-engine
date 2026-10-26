@@ -1,5 +1,6 @@
 //! PostgreSQL implementation of the self-only Blueprint Course stewardship boundary.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{BlueprintCourseId, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
@@ -24,32 +25,6 @@ impl PostgresBlueprintStewardshipStore {
     /// Binds the attested application pool to the closed stewardship procedures.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
     }
 
     async fn read_star_in(
@@ -126,7 +101,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
         session_token_hash: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
     ) -> Result<BlueprintCourseStarProjection, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let projection = Self::read_star_in(&mut tx, blueprint_course_id).await?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(projection)
@@ -138,7 +113,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
         blueprint_course_id: BlueprintCourseId,
         starred: bool,
     ) -> Result<BlueprintCourseStarProjection, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         sqlx::query("SELECT ple_api.set_current_blueprint_course_star($1, $2)")
             .bind(blueprint_course_id.as_string())
             .bind(starred)
@@ -155,7 +130,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
         session_token_hash: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
     ) -> Result<Vec<BlueprintCourseStarredInstructor>, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let instructors = Self::read_starred_instructors_in(&mut tx, blueprint_course_id).await?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(instructors)
@@ -166,7 +141,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
         session_token_hash: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
     ) -> Result<BlueprintCourseWatchProjection, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let projection = Self::read_watch_in(&mut tx, blueprint_course_id).await?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(projection)
@@ -178,7 +153,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
         blueprint_course_id: BlueprintCourseId,
         watching: bool,
     ) -> Result<BlueprintCourseWatchProjection, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         sqlx::query("SELECT ple_api.set_current_blueprint_course_watch($1, $2)")
             .bind(blueprint_course_id.as_string())
             .bind(watching)
@@ -196,7 +171,7 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
         blueprint_course_id: BlueprintCourseId,
         query: BlueprintCourseWatchEventsQuery,
     ) -> Result<BlueprintCourseWatchEventsPage, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let event_kinds: Vec<&str> = query
             .event_kinds
             .iter()

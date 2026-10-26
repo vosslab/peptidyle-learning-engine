@@ -1,5 +1,6 @@
 //! Derived source review and one retained Assessment's explicit reusable-content update.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use question_model::{
     AssessmentId, BlueprintCourseId, BlueprintCourseRevisionTuple, BlueprintRevisionNumber,
     CourseInstanceId,
@@ -36,7 +37,7 @@ pub(super) async fn review_course(
     token: SessionTokenHash,
     course_instance_id: CourseInstanceId,
 ) -> Result<CourseBlueprintUpdateReview, StoreError> {
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     // ASVS 8.3.1, 15.4.2-15.4.3: the authorized reader locks parent -> Course
     // -> adopted Assessments, holding one Revision and membership through both reads.
     let source = sqlx::query("SELECT * FROM ple_api.load_course_blueprint_update($1, NULL)")
@@ -110,7 +111,7 @@ pub(super) async fn review(
     course_instance_id: CourseInstanceId,
     assessment_id: AssessmentId,
 ) -> Result<AssessmentBlueprintUpdateReview, StoreError> {
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     let source = load_source(&mut tx, &course_instance_id, &assessment_id).await?;
     let assessment = load_workspace(&mut tx, &course_instance_id, &assessment_id).await?;
     let proposed = source.member.as_ref().map(public_content);
@@ -130,7 +131,7 @@ pub(super) async fn apply(
     assessment_id: AssessmentId,
     input: ApplyAssessmentBlueprintUpdateInput,
 ) -> Result<LiveAssessmentWorkspace, StoreError> {
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     // ASVS 8.3.1, 15.4.2: the procedure reauthorizes and holds parent,
     // Course and Assessment locks before either qualified precondition is tested.
     let source = load_source(&mut tx, &course_instance_id, &assessment_id).await?;

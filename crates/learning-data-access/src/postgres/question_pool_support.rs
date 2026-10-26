@@ -1,8 +1,9 @@
 //! PostgreSQL read and replacement for one Question Pool's optional support texts.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{QuestionPoolId, QuestionPoolMetadataEditNumber};
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
@@ -19,32 +20,6 @@ impl PostgresQuestionPoolSupportStore {
     /// Binds the attested API pool to the closed Pool support procedures.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
     }
 }
 
@@ -84,7 +59,7 @@ impl QuestionPoolSupportStore for PostgresQuestionPoolSupportStore {
         session_token_hash: SessionTokenHash,
         question_pool_id: QuestionPoolId,
     ) -> Result<QuestionPoolPleManagedSupport, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query(
             "SELECT question_pool_id, question_pool_metadata_edit_number, hint, general_feedback, \
              worked_solution FROM ple_api.read_question_pool_ple_managed_support($1)",
@@ -108,7 +83,7 @@ impl QuestionPoolSupportStore for PostgresQuestionPoolSupportStore {
         support: QuestionPoolPleManagedSupport,
     ) -> Result<QuestionPoolPleManagedSupport, StoreError> {
         support.validate()?;
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // The procedure updates ple_data.question_pool only.
         let row = sqlx::query(
             "SELECT question_pool_id, question_pool_metadata_edit_number, hint, general_feedback, \

@@ -1,5 +1,6 @@
 //! Typed, session-authorized facet enumeration without Question source reads.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use question_model::{
     LibraryFacetChoice, LibrarySearchKind, PublishedQuestionFilter, PublishedQuestionId,
 };
@@ -21,9 +22,7 @@ impl PostgresQuestionLibraryStore {
             return Err(invalid("Question Library choice page size"));
         }
         let search = &request.search;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // ASVS 1.2.4: every selector, search string, and continuation key is bound.
         let rows = sqlx::query(
             "SELECT * FROM ple_api.question_library_facet_choices(\

@@ -1,5 +1,6 @@
 //! PostgreSQL persistence for the private Authoring Workspace boundary.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
@@ -7,7 +8,7 @@ use question_model::{
     QuestionBackend, QuestionFormat, QuestionLicense, QuestionMetadata, QuestionRevisionNumber,
     QuestionType, Tag, Timestamp, WorkspaceId,
 };
-use sqlx::{Postgres, Row, Transaction, types::Json};
+use sqlx::{Row, types::Json};
 use uuid::Uuid;
 
 use super::Pool;
@@ -31,32 +32,6 @@ impl PostgresAuthoringDraftStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -66,9 +41,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         session_token_hash: SessionTokenHash,
         proposed_workspace_id: Uuid,
     ) -> Result<WorkspaceId, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let workspace_id: Uuid =
             sqlx::query_scalar("SELECT ple_api.ensure_own_authoring_workspace($1)")
                 .bind(proposed_workspace_id)
@@ -83,9 +57,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<AuthoringDraftSummary>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.list_authoring_drafts()")
             .fetch_all(&mut *transaction)
             .await
@@ -113,9 +86,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         let question_format = question_format_wire(input.question_format)?;
         let address = encode_address(&input.source_record)?;
         let size = postgres_size(input.source_record.size_bytes)?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let draft_question_uuid: Uuid = sqlx::query_scalar(
             "SELECT ple_api.create_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
         )
@@ -152,9 +124,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         session_token_hash: SessionTokenHash,
         draft_question_uuid: DraftQuestionUuid,
     ) -> Result<AuthoringDraft, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_authoring_draft($1)")
             .bind(draft_question_uuid.as_uuid())
             .fetch_optional(&mut *transaction)
@@ -180,9 +151,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         validate_workspace_question_source_object_record(current.workspace, &input.source_record)?;
         let address = encode_address(&input.source_record)?;
         let size = postgres_size(input.source_record.size_bytes)?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         sqlx::query("SELECT ple_api.save_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9)")
             .bind(input.draft_question_uuid.as_uuid())
             .bind(input.expected_edit_number.as_postgres_bigint())
@@ -231,9 +201,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         input: SaveAuthoringDraftGeneralFeedbackInput,
         question_type_update: Option<Option<QuestionType>>,
     ) -> Result<AuthoringDraft, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let (replace_question_type, question_type) =
             question_type_update_args(question_type_update)?;
         sqlx::query(
@@ -278,9 +247,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         session_token_hash: SessionTokenHash,
         input: DeleteAuthoringDraftInput,
     ) -> Result<(), StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         sqlx::query("SELECT ple_api.delete_draft_question($1, $2)")
             .bind(input.draft_question_uuid.as_uuid())
             .bind(input.expected_edit_number.as_postgres_bigint())

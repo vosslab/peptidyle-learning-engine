@@ -1,5 +1,6 @@
 //! Exact image retention after server-owned support disclosure.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use question_model::AssessmentAttemptId;
 
 use super::{assessment_delivery::PostgresLiveAssessmentDeliveryStore, connection::map_sqlx_error};
@@ -16,7 +17,7 @@ pub(super) async fn register(
     }
     // One history response has one retention transaction: a later item error
     // rolls back earlier grants instead of authorizing an unreturned response.
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     for item in disclosed {
         let position = i32::try_from(item.position)
             .ok()

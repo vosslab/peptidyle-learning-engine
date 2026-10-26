@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
     body::to_bytes,
     extract::{Path, Request, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -243,7 +243,7 @@ async fn instructor_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {
@@ -256,15 +256,6 @@ async fn instructor_session_hash(
             "Question Pool stewardship authentication unavailable",
         ))),
     }
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }
 
 fn has_json_content_type(headers: &HeaderMap) -> bool {

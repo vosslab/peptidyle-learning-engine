@@ -1,5 +1,6 @@
 //! Typed PostgreSQL binding for bounded Question Library discovery.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use question_model::{
     LibrarySearchKind, PublishedQuestionFilter, PublishedQuestionId, QuestionBackend,
     QuestionLicense, QuestionType,
@@ -21,9 +22,7 @@ impl PostgresQuestionLibraryStore {
         request: QuestionLibrarySearchRequest,
     ) -> Result<QuestionLibrarySearchPage, StoreError> {
         validate_request(&request)?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // ASVS 1.2.4: every predicate and numbered-page component stays a typed bind.
         let rows = sqlx::query(
             "SELECT * FROM ple_api.search_question_library_entries(\

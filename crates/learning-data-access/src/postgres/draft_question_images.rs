@@ -1,9 +1,10 @@
 //! Parameterized narrow private Draft raster operations.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{ObjectId, QuestionImageAssetId, Timestamp};
-use sqlx::{Postgres, Row, Transaction, types::Json};
+use sqlx::{Row, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
@@ -20,33 +21,6 @@ impl PostgresDraftQuestionImageStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        if sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?
-        .is_none()
-        {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
-    }
 }
 
 #[async_trait]
@@ -60,7 +34,7 @@ impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
         let address = serde_json::to_value(&input.source_record.address).map_err(|_| {
             StoreError::InvalidRecord("Draft image address cannot be encoded".into())
         })?;
-        let mut tx = self.begin(session_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_hash).await?;
         // ASVS 1.2.4, 8.2.2, 15.4.2: parameters and transactional owner/CAS recheck.
         sqlx::query(
             "SELECT ple_api.register_draft_question_image($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
@@ -95,7 +69,7 @@ impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
         session_hash: SessionTokenHash,
         draft_question_uuid: crate::DraftQuestionUuid,
     ) -> Result<Vec<OwnedDraftQuestionImage>, StoreError> {
-        let mut tx = self.begin(session_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.load_named_draft_question_images($1)")
             .bind(draft_question_uuid.as_uuid())
             .fetch_all(&mut *tx)
@@ -115,7 +89,7 @@ impl DraftQuestionImageStore for PostgresDraftQuestionImageStore {
         draft_question_uuid: crate::DraftQuestionUuid,
         question_image_asset_id: QuestionImageAssetId,
     ) -> Result<OwnedDraftQuestionImage, StoreError> {
-        let mut tx = self.begin(session_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_hash).await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_draft_question_image($1,$2)")
             .bind(draft_question_uuid.as_uuid())
             .bind(question_image_asset_id.as_uuid())

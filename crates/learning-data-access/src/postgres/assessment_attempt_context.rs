@@ -1,5 +1,6 @@
 //! PostgreSQL adapter for the minimal Student Assessment Attempt route context.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use std::str::FromStr;
 
 use question_model::{
@@ -17,7 +18,7 @@ impl PostgresLiveAssessmentDeliveryStore {
         token: SessionTokenHash,
         assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptContext, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query(
             "SELECT assessment_attempt_id, assessment_attempt_number, \
                     course_instance_id, course_short_name, course_long_name, course_theme, \

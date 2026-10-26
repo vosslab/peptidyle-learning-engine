@@ -5,11 +5,48 @@ use std::time::Duration;
 
 use sqlx::postgres::{PgConnectOptions, PgConnection, PgPool, PgPoolOptions, PgSslMode};
 use sqlx::types::Json;
-use sqlx::{Executor, Row};
+use sqlx::{Executor, Postgres, Row, Transaction};
 
 use question_model::{AccountId, AssessmentId, CourseInstanceId};
 
-use crate::StoreError;
+use crate::{SessionTokenHash, StoreError};
+
+/// Opens an ordinary application transaction under the originating session.
+pub(super) async fn begin_authenticated_transaction(
+    pool: &PgPool,
+    token: SessionTokenHash,
+) -> Result<Transaction<'_, Postgres>, StoreError> {
+    let mut transaction = pool.begin().await.map_err(map_sqlx_error)?;
+    install_application_session(&mut transaction, token).await?;
+    Ok(transaction)
+}
+
+/// Installs session authority after the caller sets any transaction isolation.
+pub(super) async fn install_application_session(
+    transaction: &mut Transaction<'_, Postgres>,
+    token: SessionTokenHash,
+) -> Result<(), StoreError> {
+    // ASVS 1.2.4 and 8.3.3: bind the originating session; roles stay transaction-local.
+    sqlx::query("SET LOCAL ROLE ple_auth")
+        .execute(&mut **transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+    let session = sqlx::query(
+        "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
+    )
+    .bind(token.to_string())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(map_sqlx_error)?;
+    if session.is_none() {
+        return Err(StoreError::Forbidden);
+    }
+    sqlx::query("SET LOCAL ROLE ple_app")
+        .execute(&mut **transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+    Ok(())
+}
 
 #[path = "connection_contract.rs"]
 mod connection_contract;

@@ -1,5 +1,6 @@
 //! PostgreSQL persistence for the Assessment Workspace and release boundary.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     AccountTimeZone, AssessmentAuthoredContentField, AssessmentEditNumber, AssessmentId,
@@ -74,7 +75,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         &self,
         token: SessionTokenHash,
     ) -> Result<DueSoonAssessments, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         // ASVS 1.2.4: the function accepts no caller-controlled identifiers;
         // it derives both the Account and Course authority from this transaction's session.
         let display_time_zone =
@@ -133,7 +134,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         token: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Vec<CourseAssessmentSummary>, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let context = schedule_context(&mut tx, &course_instance_id).await?;
         // ASVS 1.2.3 and 8.2.2: bind the public Course ID and let the
         // session-authorized database function enforce the exact Course owner.
@@ -188,7 +189,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course_instance_id: CourseInstanceId,
         input: CreateLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         // The database owns public Assessment-ID minting. This canonical
         // placeholder passes the domain check and is replaced by the
         // assessment INSERT trigger with a reserved public ID.
@@ -217,7 +218,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course_instance_id: CourseInstanceId,
         assessment_id: AssessmentId,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let context = schedule_context(&mut tx, &course_instance_id).await?;
         let rows = workspace_rows(&mut tx, &course_instance_id, &assessment_id).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
@@ -233,7 +234,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         input: SaveLiveAssessmentInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         input.validate()?;
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let context = schedule_context(&mut tx, &course_instance_id).await?;
         let due_at_millis = input
             .due_at
@@ -290,7 +291,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         expected_assessment_edit_number: AssessmentEditNumber,
         input: SaveLiveAssessmentInlineInput,
     ) -> Result<CourseAssessmentSummary, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let context = schedule_context(&mut tx, &course_instance_id).await?;
         let due_at_millis = input
             .due_at
@@ -359,7 +360,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         assessment_id: AssessmentId,
         input: SaveBaseAssessmentPolicyInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let context = schedule_context(&mut tx, &course_instance_id).await?;
         let resolve = |value: Option<&LocalDateAndTime>, field| {
             resolve_local_timestamp(value, &context, field)
@@ -391,7 +392,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course_instance_id: CourseInstanceId,
         assessment_id: AssessmentId,
     ) -> Result<AssessmentReleaseValidation, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let rows = sqlx::query(
             "SELECT issue, pool_issues FROM ple_api.validate_assessment_release($1, $2)",
         )
@@ -454,7 +455,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         assessment_id: AssessmentId,
         expected_assessment_edit_number: AssessmentEditNumber,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let _row = sqlx::query("SELECT * FROM ple_api.release_assessment($1, $2, $3)")
             .bind(course_instance_id.as_string())
             .bind(assessment_id.as_string())
@@ -478,7 +479,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course_instance_id: CourseInstanceId,
         assessment_id: AssessmentId,
     ) -> Result<AssessmentUnreleaseImpact, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query("SELECT * FROM ple_api.read_assessment_unrelease_impact($1, $2)")
             .bind(course_instance_id.as_string())
             .bind(assessment_id.as_string())
@@ -499,7 +500,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         expected: AssessmentEditNumber,
         confirmation_title: AssessmentTitle,
     ) -> Result<UnreleasedLiveAssessment, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         // ASVS 1.2.3 and 2.3.1: all caller data is bound, while the
         // SECURITY DEFINER procedure owns authorization, lock ordering,
         // transition, closure deletion, retained anonymous totals, and audit receipt.

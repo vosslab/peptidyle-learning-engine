@@ -1,6 +1,7 @@
 //! Narrow session-authorized promotion persistence, separate from ordinary authoring.
 
 use super::{PostgresBlueprintCourseStore, blueprint_edit_number};
+use crate::postgres::connection::begin_authenticated_transaction;
 use crate::postgres::connection::map_sqlx_error;
 use crate::{BlueprintPromotionStore, SessionTokenHash, StoreError};
 use async_trait::async_trait;
@@ -14,9 +15,7 @@ impl BlueprintPromotionStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         blueprint_course_id: BlueprintCourseId,
     ) -> Result<crate::blueprint_course::StoredBlueprintPromotion, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_promotion($1)")
             .bind(blueprint_course_id.as_string())
             .fetch_optional(&mut *transaction)
@@ -35,9 +34,7 @@ impl BlueprintPromotionStore for PostgresBlueprintCourseStore {
         expected_edit_number: BlueprintEditNumber,
         promoted: bool,
     ) -> Result<crate::blueprint_course::StoredBlueprintPromotion, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // ASVS 1.2.4: the trusted SQL operation receives only bound typed values.
         let row = sqlx::query("SELECT * FROM ple_api.set_blueprint_promotion($1,$2,$3)")
             .bind(blueprint_course_id.as_string())

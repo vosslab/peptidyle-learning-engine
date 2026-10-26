@@ -1,5 +1,6 @@
 //! PostgreSQL persistence for Course Instance creation and initial teaching team.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintCourseRevisionTuple, BlueprintRevisionNumber, CourseDate, CourseInstanceId,
@@ -45,32 +46,6 @@ impl PostgresCourseInstanceStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -85,9 +60,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         classification
             .validate()
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row =
             sqlx::query("SELECT * FROM ple_api.update_course_classification($1,$2,$3,$4,$5,$6,$7)")
                 .bind(id.as_string())
@@ -117,9 +91,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         session_token_hash: SessionTokenHash,
         id: CourseInstanceId,
     ) -> Result<CourseInstanceId, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the procedure resolves an opaque
         // ID only after binding it to the installed active membership.
         let row =
@@ -145,9 +118,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<CourseSummary, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the SECURITY DEFINER procedure binds
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
@@ -173,9 +145,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<CourseInstanceSummary>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT course_instance_id, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, course_edit_number, \
@@ -201,9 +172,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
     ) -> Result<CreatedCourseInstance, StoreError> {
         input.validate()?;
         for attempt in 0..COURSE_CREATION_IDENTITY_ATTEMPTS {
-            let mut transaction = self
-                .begin_authenticated_application_transaction(session_token_hash)
-                .await?;
+            let mut transaction =
+                begin_authenticated_transaction(&self.pool, session_token_hash).await?;
             reject_term_after_active_lifetime(&mut transaction, &input.term).await?;
             let assessments =
                 super::course_blueprint_adoption::creation_assessments(&mut transaction, &input)
@@ -307,9 +277,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         course_instance_id: CourseInstanceId,
         instructor: AccountId,
     ) -> Result<(), StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // The SQL command verifies the caller's active Instructor membership
         // before adding a peer membership. Neither creator nor assigned
         // Instructor identity establishes this authority.
@@ -329,9 +298,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         session_token_hash: SessionTokenHash,
         id: CourseInstanceId,
     ) -> Result<CourseInstanceView, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query(LOAD_COURSE_INSTANCE_SQL)
             .bind(id.as_string())
             .fetch_optional(&mut *transaction)
@@ -350,9 +318,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<CourseCreationInstructor>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.list_course_creation_instructors()")
             .fetch_all(&mut *transaction)
             .await
@@ -379,9 +346,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         page: NumberedDiscoveryPageRequest,
     ) -> Result<NumberedPage<InstallationCourseInspection, crate::DiscoveryPageSize>, StoreError>
     {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(LIST_INSTALLATION_COURSES_SQL)
             .bind(query)
             .bind(i64::from(page.page_number.get()))
@@ -436,9 +402,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         activity: &[String],
         retention: &[String],
     ) -> Result<Vec<InstallationCourseFacetChoice>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query("SELECT field_name, choice_key, matching_count FROM ple_api.installation_course_facet_choices($1,$2,$3)")
             .bind(query).bind(activity).bind(retention)
             .fetch_all(&mut *transaction).await.map_err(map_sqlx_error)?;
@@ -461,9 +426,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<InstallationCourseInspection, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query(LOAD_INSTALLATION_COURSE_SQL)
             .bind(course_instance_id.as_str())
             .fetch_optional(&mut *transaction)

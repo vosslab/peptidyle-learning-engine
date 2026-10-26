@@ -1798,6 +1798,31 @@ queues, recovery states, audit machinery, or compatibility jobs.
 **Why.** Expiry and retention obligations must complete without a connected browser, while other
 background mechanisms need their own demonstrated product requirement before adding durable state.
 
+### Expired-Attempt scheduling changes require demonstrated failure evidence
+
+**Decision.** Classify the persistent-failure backlog finding as **Hypothetical / Not Actionable**
+and close it without implementation work. Keep the existing expired-Attempt scheduling.
+Cursors, grading queues, retry-state tables, and scheduling redesign are not planned work from
+this finding. Investigate the first demonstrated processing failure at its source.
+
+**Why.** A model of the oldest-100 candidate query showed that 100 persistent failures could
+exclude later work, while 99 would leave only one healthy Attempt advancing per batch. That
+demonstrates a conditional scheduling limit, not a real processing defect or its likelihood.
+This classification means evidence of a real problem is missing; it does not mean a known defect
+is accepted as tolerable (Accepted Risk) or deliberately left unresolved (Won't Fix).
+An incorrect Student answer is normal grading. Temporary infrastructure outages are expected
+operational failures; incorrect grading, lost Student work, application processing errors, and
+failure to recover after service restoration are release-blocking defects even for one Attempt.
+
+**Consequence.** Prioritize correct processing, preserved saved work, and verified recovery.
+Bounded renderer-outage and database-write-failure probes preserved saved responses and allowed
+successful retry, with no valid-Question processing defect reproduced. They do not prove every
+failure mode safe. Revisit scheduling when observed failures or a representative runtime
+reproduction demonstrate that the existing scheduling prevents required progress or recovery.
+This decision does not introduce automatic server shutdown.
+
+**Evidence.** [Authentication consolidation and processing investigation](active_plans/active/authentication_consolidation_and_processing_investigation.md).
+
 ### Retention notification delivery is a separate least-privilege boundary
 
 **Decision.** Retention notices use a provider-neutral delivery boundary that

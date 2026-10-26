@@ -9,7 +9,7 @@ use axum::{
     extract::{Path, Query, State, rejection::QueryRejection},
     http::{
         HeaderMap, StatusCode,
-        header::{CONTENT_DISPOSITION, CONTENT_TYPE, COOKIE, X_CONTENT_TYPE_OPTIONS},
+        header::{CONTENT_DISPOSITION, CONTENT_TYPE, X_CONTENT_TYPE_OPTIONS},
     },
     middleware,
     response::{IntoResponse, Response},
@@ -142,7 +142,7 @@ async fn instructor_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {
@@ -153,15 +153,6 @@ async fn instructor_session_hash(
             "Gradebook authentication unavailable",
         ))),
     }
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }
 
 fn store_error_response(error: StoreError) -> Response {

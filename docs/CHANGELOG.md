@@ -22,6 +22,23 @@
 
 ### Fixes and Maintenance
 
+- Classified the speculative expired-Attempt backlog finding as Hypothetical / Not Actionable
+  and closed it without implementation work. Prioritize the first demonstrated processing failure;
+  new runtime evidence can justify reassessment rather than treating redesign as deferred work.
+- Consolidated 41 PostgreSQL session-installation sites into the connection owner and removed all
+  38 authentication-only forwarding methods. Ordinary callers use the shared transaction opener;
+  the two isolation-setting callers install the session after their transaction settings.
+  Publication timeouts, service roles, session lookup, and domain authorization remain owned locally.
+- Consolidated 29 cookie-header implementations into the auth owner. Sysadmin Student-data access
+  now uses the same strict header conversion, with a focused regression check for repeated headers,
+  duplicate session tokens, and invalid credential-header bytes.
+- Completed the bounded Question-processing probe: renderer timeout and a commit failure scoped to
+  one test Attempt preserved saved answers without partial submission or fabricated scores. After
+  restoration, grading succeeded and duplicate submission changed nothing. Wrong native answers
+  graded zero, and unanswered Questions completed without backend grading results. No processing
+  defect was reproduced; scheduling and iMathAS remain unchanged. The
+  [implementation record](active_plans/active/authentication_consolidation_and_processing_investigation.md)
+  separates these operational-failure checks from normal processing.
 - Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Removals and Deprecations
@@ -34,6 +51,14 @@
 
 ### Developer Tests and Notes
 
+- Authentication consolidation passed the full offline gate (8,949 Python checks plus Rust,
+  TypeScript, and Node gates), the existing real-stack authentication and Sysadmin Student-data
+  journeys, and a temporary PostgreSQL probe for valid/unknown/revoked sessions, pool identity
+  cleanup, and preserved transaction isolation. The temporary processing browser probe also
+  passed; fault injection and temporary source files were removed. Browser startup required
+  macOS sandbox escalation and refresh of the existing local gateway certificate pin.
+- The exclusive database baseline passed. The Live Demo was restarted and reseeded successfully
+  after that gate.
 - Direct discovery found 495 source sets across seven BPW collections, all inside BPW, with no
   missing WeBWorK type metadata. Six former local-only Genetics additions are no longer imported.
   Importer CLI help and 1714 focused Python/documentation checks passed. Retired source links in

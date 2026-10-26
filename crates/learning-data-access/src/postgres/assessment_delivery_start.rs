@@ -3,6 +3,7 @@
 use super::PostgresAssessmentAttemptStore;
 use super::assessment_delivery::PostgresLiveAssessmentDeliveryStore;
 use super::connection::{map_sqlx_error, parse_assessment_id};
+use crate::postgres::connection::begin_authenticated_transaction;
 use crate::{
     AssessmentAttemptStart, PreparedIssuedQuestion, PreparedQuestionPoolSelection,
     SessionTokenHash, StoreError,
@@ -33,7 +34,7 @@ pub(super) async fn start_current_assessment_attempt(
     course_instance_id: CourseInstanceId,
     assessment_id: AssessmentId,
 ) -> Result<crate::AssessmentAttemptStartResult, StoreError> {
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     let decision = sqlx::query(
         "SELECT resumable_assessment_attempt_id, resumable_assessment_attempt_number \
          FROM ple_api.prepare_current_assessment_attempt_start_decision($1, $2)",

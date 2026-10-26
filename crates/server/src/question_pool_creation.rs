@@ -10,7 +10,7 @@ use axum::{
     Json, Router,
     body::to_bytes,
     extract::{Path, Request, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
 };
@@ -265,7 +265,12 @@ async fn instructor_session_hash(
     sessions: &PostgresSessionStore,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
-    match resolve_session(sessions, joined_cookie_header(headers).as_deref()).await {
+    match resolve_session(
+        sessions,
+        crate::auth::joined_cookie_header(headers).as_deref(),
+    )
+    .await
+    {
         Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
@@ -273,15 +278,6 @@ async fn instructor_session_hash(
             "Question Pool authentication is unavailable",
         ))),
     }
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }
 
 fn has_json_content_type(headers: &HeaderMap) -> bool {

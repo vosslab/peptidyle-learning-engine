@@ -1,8 +1,8 @@
 //! Narrow Sysadmin-only lineage promotion, independent of Blueprint Revisions.
 
 use super::{
-    BlueprintCourseRouteState, concealed, expected_edit_number, joined_cookie_header, route_error,
-    store_error_response, unavailable,
+    BlueprintCourseRouteState, concealed, expected_edit_number, route_error, store_error_response,
+    unavailable,
 };
 use crate::auth::{AuthError, resolve_session};
 use axum::{
@@ -29,7 +29,7 @@ async fn sysadmin_session_hash(
     // ASVS 8.2.1/8.3.1: early admission only; SQL repeats active-role authorization.
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {

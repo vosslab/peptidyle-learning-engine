@@ -5,7 +5,7 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     extract::{Request, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -307,7 +307,12 @@ async fn instructor_session_hash(
     sessions: &dyn SessionStore,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
-    match resolve_session(sessions, joined_cookie_header(headers).as_deref()).await {
+    match resolve_session(
+        sessions,
+        crate::auth::joined_cookie_header(headers).as_deref(),
+    )
+    .await
+    {
         Ok(session) if session.record.user_role == UserRole::Instructor => Ok(session.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
@@ -315,15 +320,6 @@ async fn instructor_session_hash(
             "Library Watch inbox unavailable",
         ))),
     }
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }
 
 fn store_error_response(error: StoreError) -> Response {

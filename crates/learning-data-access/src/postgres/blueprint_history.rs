@@ -1,5 +1,6 @@
 //! Parameterized reads of the existing immutable Blueprint history sequences.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use browser_api_contract::blueprint_course::BlueprintHistoryEntryView;
 use question_model::{
@@ -24,9 +25,7 @@ impl BlueprintHistoryStore for PostgresBlueprintCourseStore {
         query: BlueprintHistoryQuery,
         page: NumberedPageRequest,
     ) -> Result<BlueprintHistoryResult, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // ASVS 1.2.4: query, scope, and bounded numbered page are bound values.
         let rows = sqlx::query(
             "SELECT * FROM ple_api.list_blueprint_history($1, $2, $3, $4, $5, $6, $7, $8)",

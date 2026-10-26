@@ -14,10 +14,7 @@ use adapter_webwork::{
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::{
-        HeaderMap, StatusCode,
-        header::{COOKIE, IF_MATCH},
-    },
+    http::{HeaderMap, StatusCode, header::IF_MATCH},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -590,7 +587,7 @@ async fn library_reader_session_hash(
     state: &QuestionLibraryRouteState,
     headers: &HeaderMap,
 ) -> Result<(SessionTokenHash, bool), Box<Response>> {
-    let cookie_header = joined_cookie_header(headers);
+    let cookie_header = crate::auth::joined_cookie_header(headers);
     match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
         Ok(session)
             if matches!(
@@ -609,13 +606,4 @@ async fn library_reader_session_hash(
             "Question Library authentication unavailable",
         ))),
     }
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }

@@ -1,8 +1,9 @@
 //! PostgreSQL persistence for the scalar Course Theme setting.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{CourseInstanceId, Theme};
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{CourseThemeStore, SessionTokenHash, StoreError};
@@ -18,32 +19,6 @@ impl PostgresCourseThemeStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -53,7 +28,8 @@ impl CourseThemeStore for PostgresCourseThemeStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Theme, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.3 and 8.2.2: the database function binds this opaque Course
         // identity to the installed session's active Course Membership.
         let row = sqlx::query("SELECT course_theme FROM ple_api.read_course_theme($1)")
@@ -75,7 +51,8 @@ impl CourseThemeStore for PostgresCourseThemeStore {
         course_instance_id: CourseInstanceId,
         selected_theme: Theme,
     ) -> Result<Theme, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.3 and 8.2.2: Instructor authorization is enforced by the
         // same session-aware database predicate as the update itself.
         let row = sqlx::query("SELECT course_theme FROM ple_api.update_course_theme($1, $2)")

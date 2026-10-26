@@ -1,5 +1,6 @@
 //! Installed-session PostgreSQL reads for the global classification vocabulary.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
@@ -29,7 +30,7 @@ impl PostgresContentClassificationStore {
         id_column: &'static str,
         parent: Option<Uuid>,
     ) -> Result<Vec<ContentClassificationItem>, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         // ASVS 1.2.4: only fixed queries and bound UUID values reach SQL.
         let query = sqlx::query(query);
         let query = if let Some(parent) = parent {
@@ -44,33 +45,6 @@ impl PostgresContentClassificationStore {
             .collect::<Result<Vec<_>, StoreError>>()?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(items)
-    }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        // ASVS 8.3.1: install current database session authority, never caller roles.
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
     }
 
     async fn discipline_for_uuid(
@@ -96,7 +70,7 @@ impl PostgresContentClassificationStore {
         statement: &'static str,
         name: Option<String>,
     ) -> Result<ContentDiscipline, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let query = sqlx::query(statement).bind(discipline_uuid);
         if let Some(name) = name {
             query.bind(name).execute(&mut *tx).await
@@ -118,7 +92,7 @@ impl PostgresContentClassificationStore {
         name: String,
         parent: Uuid,
     ) -> Result<ContentClassificationItem, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let created: Uuid = sqlx::query_scalar(create_sql)
             .bind(name)
             .bind(parent)
@@ -253,7 +227,7 @@ impl ContentClassificationStore for PostgresContentClassificationStore {
         name: String,
         discipline_uuid: Uuid,
     ) -> Result<ContentSubjectCreation, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let created: Uuid = sqlx::query_scalar("SELECT ple_api.create_content_subject($1, $2)")
             .bind(&name)
             .bind(discipline_uuid)
@@ -299,7 +273,7 @@ impl ContentClassificationStore for PostgresContentClassificationStore {
         subject_uuid: Uuid,
         discipline_uuid: Uuid,
     ) -> Result<ContentClassificationItem, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         sqlx::query("SELECT ple_api.add_content_subject_discipline($1, $2)")
             .bind(subject_uuid)
             .bind(discipline_uuid)
@@ -362,7 +336,7 @@ impl ContentDisciplineDiscoveryStore for PostgresContentClassificationStore {
         &self,
         token: SessionTokenHash,
     ) -> Result<Vec<ContentDiscipline>, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let rows = sqlx::query(
             "SELECT content_discipline_id, name, is_retired \
              FROM ple_api.list_content_disciplines_including_retired()",
@@ -386,7 +360,7 @@ impl ContentDisciplineAdministrationStore for PostgresContentClassificationStore
         token: SessionTokenHash,
         name: String,
     ) -> Result<ContentDiscipline, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let discipline_uuid = sqlx::query_scalar("SELECT ple_api.create_content_discipline($1)")
             .bind(name)
             .fetch_one(&mut *tx)
@@ -445,7 +419,7 @@ impl ContentDisciplineRequestStore for PostgresContentClassificationStore {
         token: SessionTokenHash,
         name: String,
     ) -> Result<ContentDisciplineRequest, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         // ASVS 1.2.4: the name is a bound parameter. SQL decides who may request.
         let row = sqlx::query(
             "SELECT content_discipline_request_id, requested_name, requested_by_account_id \
@@ -464,7 +438,7 @@ impl ContentDisciplineRequestStore for PostgresContentClassificationStore {
         &self,
         token: SessionTokenHash,
     ) -> Result<Vec<ContentDisciplineRequest>, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let rows = sqlx::query(
             "SELECT content_discipline_request_id, requested_name, requested_by_account_id \
              FROM ple_api.list_open_content_discipline_requests()",
@@ -485,7 +459,7 @@ impl ContentDisciplineRequestStore for PostgresContentClassificationStore {
         token: SessionTokenHash,
         request_uuid: Uuid,
     ) -> Result<(), StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         sqlx::query("SELECT ple_api.resolve_content_discipline_request($1)")
             .bind(request_uuid)
             .execute(&mut *tx)
@@ -500,7 +474,7 @@ impl ContentDisciplineRequestStore for PostgresContentClassificationStore {
         token: SessionTokenHash,
         request_uuid: Uuid,
     ) -> Result<ContentDiscipline, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         // ASVS 2.3.3: one server operation owns request creation and resolution in one transaction.
         let discipline_uuid: Uuid =
             sqlx::query_scalar("SELECT ple_api.fulfill_content_discipline_request($1)")

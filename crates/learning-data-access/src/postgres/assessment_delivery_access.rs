@@ -1,6 +1,7 @@
 //! Student Assessment Access storage projection.
 
 use super::{assessment_delivery::PostgresLiveAssessmentDeliveryStore, connection::map_sqlx_error};
+use crate::postgres::connection::begin_authenticated_transaction;
 use crate::{LiveAssessmentAccess, LiveAssessmentPreviousAttempt, SessionTokenHash, StoreError};
 use question_model::{AssessmentId, AssessmentType, CourseInstanceId};
 use sqlx::Row;
@@ -11,7 +12,7 @@ pub(super) async fn read(
     course_instance_id: CourseInstanceId,
     assessment_id: AssessmentId,
 ) -> Result<LiveAssessmentAccess, StoreError> {
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     let row = sqlx::query(
         "SELECT start_decision, assessment_title, assessment_type, question_count, points_possible, \
          assessment_attempt_time_limit_seconds AS time_limit_seconds, \

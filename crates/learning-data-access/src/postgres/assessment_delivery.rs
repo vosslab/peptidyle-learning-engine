@@ -1,5 +1,6 @@
 //! PostgreSQL adapter for Student Assessment Access and initial issue.
 use super::{Pool, connection::map_sqlx_error};
+use crate::postgres::connection::begin_authenticated_transaction;
 use crate::{
     IssuedQuestionPresentation, LiveAssessmentAccess, LiveAssessmentAttempt,
     LiveAssessmentDeliveryStore, NativeAssessmentIssuanceBatch, NativePleIssuanceSource,
@@ -39,32 +40,6 @@ impl PostgresLiveAssessmentDeliveryStore {
     /// Binds the attested API pool to Student Assessment Access procedures.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    pub(super) async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
     }
 
     pub(super) async fn optional_active_attempt_id(
@@ -199,7 +174,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         let response = serde_json::to_value(response).map_err(|_| {
             StoreError::InvalidRecord("Student response cannot be serialized".to_string())
         })?;
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query(
             "SELECT assessment_attempt_id, issued_position, response_state, saved_response_revision \
              FROM ple_api.save_student_assessment_attempt_response($1, $2, $3, $4)",
@@ -283,7 +258,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         let duration = i64::try_from(cumulative_display_duration_ms).map_err(|_| {
             StoreError::InvalidRecord("Question display duration is invalid".to_string())
         })?;
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query(
             "SELECT display_duration_ms \
              FROM ple_api.checkpoint_student_question_display_duration($1, $2, $3)",
@@ -317,7 +292,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         let position_u32 = u32::try_from(position).map_err(|_| {
             StoreError::InvalidRecord("Issued Question position is invalid".to_string())
         })?;
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query(
             "SELECT issued_position, student_response, saved_response_revision \
              FROM ple_api.read_student_assessment_attempt_saved_response($1, $2)",
@@ -398,7 +373,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         token: SessionTokenHash,
         assessment_attempt: AssessmentAttemptId,
     ) -> Result<StudentAssessmentAttemptProgress, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let rows = sqlx::query(
             "SELECT assessment_attempt_id, question_count, recommended_position, issued_position, response_state \
              , display_duration_ms \
@@ -464,7 +439,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         if position < 1 {
             return Err(StoreError::NotFound);
         }
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query(
             "SELECT published_question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, \
              question_image_renditions, response_item_bindings \
@@ -491,7 +466,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         if position < 1 {
             return Err(StoreError::NotFound);
         }
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let row = sqlx::query(
             "SELECT backend_document, issued_question_id, assessment_entry_id, issued_position, \
                     published_question_id, revision_number, question_seed::text, generated_parameter_sha256, \
@@ -594,7 +569,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
         let started = self
             .start_current_assessment_attempt(token, course_instance_id, assessment_id)
             .await?;
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let retained_rows = sqlx::query(
             "SELECT assessment_entry_id::text, issued_position, published_question_id, revision_number, question_seed::text, generated_parameter_sha256, presentation_nonce, presentation_checksum, presentation, author_content, question_image_renditions, response_item_bindings \
              FROM ple_api.read_student_assessment_attempt_presentation_evidence_set($1)",
@@ -778,7 +753,7 @@ impl LiveAssessmentDeliveryStore for PostgresLiveAssessmentDeliveryStore {
                 value.response_item_bindings.as_slice(),
             )
         }))?;
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let rows = sqlx::query("SELECT issued_question_id::text, issued_position, presentation_nonce, presentation_checksum, resumed FROM ple_api.commit_student_assessment_attempt_presentation($1, $2)")
             .bind(assessment_attempt_id).bind(&payload)
             .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;

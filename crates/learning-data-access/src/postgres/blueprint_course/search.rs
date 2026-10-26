@@ -1,6 +1,7 @@
 //! Bound classification discovery and stable Blueprint continuation.
 
 use super::{PostgresBlueprintCourseStore, decode_summary, invalid, map_sqlx_error};
+use crate::postgres::connection::begin_authenticated_transaction;
 use crate::{SessionTokenHash, StoreError};
 use sqlx::Row;
 
@@ -20,9 +21,7 @@ impl PostgresBlueprintCourseStore {
         {
             return Err(invalid("Blueprint facet page"));
         }
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let (after_label, after_key) = request
             .after_position
             .as_ref()
@@ -107,9 +106,7 @@ impl PostgresBlueprintCourseStore {
         {
             return Err(invalid("Blueprint discovery page"));
         }
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // The SQL function counts and slices the same complete authorized result.
         let rows = sqlx::query("SELECT * FROM ple_api.list_blueprint_courses($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)")
             .bind(request.include_archived)

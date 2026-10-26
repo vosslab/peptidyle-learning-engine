@@ -1,5 +1,6 @@
 //! Authorized immutable Proposal pins, projected through the canonical exporter.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::blueprint_course::{
     BlueprintForkApplyAssessmentCopy, BlueprintForkApplyAssessmentDestination,
@@ -44,9 +45,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
             BlueprintChangeProposalListScope::Mine => (None, true),
             BlueprintChangeProposalListScope::Target(id) => (Some(id.as_string()), false),
         };
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let row =
             sqlx::query("SELECT * FROM ple_api.blueprint_change_proposal_status_counts($1,$2,$3)")
                 .bind(target)
@@ -73,9 +72,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         ascending: bool,
         status: &str,
     ) -> Result<NumberedPage<BlueprintChangeProposalSummary, crate::PageSize>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let (target, mine) = match scope {
             BlueprintChangeProposalListScope::Mine => (None, true),
             BlueprintChangeProposalListScope::Target(blueprint_assessment_id) => {
@@ -136,9 +133,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         proposal_id: uuid::Uuid,
     ) -> Result<Option<BlueprintChangeProposalReview>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let Some((proposal, [source, target], can_accept)) =
             read_sources_in_transaction(&mut transaction, proposal_id).await?
         else {
@@ -169,9 +164,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         input: CreateBlueprintChangeProposalInput,
     ) -> Result<StoredBlueprintChangeProposal, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // ASVS 1.2.4, 8.2.2, 2.3.3: bind exact pins; SQL authorizes and locks
         // the reviewed target. The caller cannot supply unchecked proposed JSON.
         let proposal_id: uuid::Uuid = sqlx::query_scalar(
@@ -203,9 +196,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         proposal_id: uuid::Uuid,
     ) -> Result<Option<StoredBlueprintChangeProposal>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let proposal = read_in_transaction(&mut transaction, proposal_id).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(proposal)
@@ -216,9 +207,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         input: AcceptBlueprintChangeProposalInput,
     ) -> Result<AcceptedBlueprintChangeProposal, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         // ASVS 1.2.4, 8.2.2, 2.3.3: bind exact target guards and lock before
         // interpreting selection or allocating any persistent Pool children.
         sqlx::query("SELECT ple_api.lock_blueprint_change_proposal_acceptance($1,$2,$3,$4)")
@@ -392,9 +381,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         proposal_id: uuid::Uuid,
     ) -> Result<Option<AcceptedBlueprintChangeProposal>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let accepted = read_accepted_in_transaction(&mut transaction, proposal_id).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(accepted)

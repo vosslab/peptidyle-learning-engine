@@ -1,5 +1,6 @@
 //! PostgreSQL persistence for Blueprint Revisions and lineage metadata.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use std::collections::{BTreeMap, BTreeSet};
 
 use async_trait::async_trait;
@@ -59,38 +60,12 @@ fn decode_pool_backend(value: &str) -> Result<QuestionBackend, StoreError> {
 /// PostgreSQL Store for Blueprint lineages visible to active Instructors.
 #[derive(Clone)]
 pub struct PostgresBlueprintCourseStore {
-    pool: Pool,
+    pub(super) pool: Pool,
 }
 
 impl PostgresBlueprintCourseStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    pub(super) async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
     }
 }
 
@@ -185,9 +160,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         classification
             .validate()
             .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         sqlx::query("SELECT * FROM ple_api.update_blueprint_classification($1,$2,$3,$4,$5,$6,$7)")
             .bind(id.as_string())
             .bind(expected_edit_number.as_i64())
@@ -217,9 +190,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         expected_edit_number: BlueprintEditNumber,
         theme: question_model::Theme,
     ) -> Result<BlueprintMetadataState, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let row = sqlx::query("SELECT * FROM ple_api.update_blueprint_theme($1, $2, $3)")
             .bind(id.as_string())
             .bind(expected_edit_number.as_i64())
@@ -238,9 +209,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         assessment: question_model::BlueprintAssessmentId,
         question_pool_id: QuestionPoolId,
     ) -> Result<crate::StoredBlueprintPoolMembers, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.blueprint_pool_members($1,$2,$3)")
             .bind(id.as_string())
             .bind(assessment.as_uuid())
@@ -338,9 +307,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         id: BlueprintCourseId,
     ) -> Result<StoredBlueprintCourse, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_course($1)")
             .bind(id.as_string())
             .fetch_optional(&mut *transaction)
@@ -360,9 +327,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         blueprint_course_revision_tuple: BlueprintCourseRevisionTuple,
     ) -> Result<StoredBlueprintRevision, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_revision($1, $2)")
             .bind(
                 blueprint_course_revision_tuple
@@ -438,9 +403,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             StoredBlueprintCourseContent::requested_published_question_revision_tuples_from_create(
                 &input,
             );
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let actor = current_actor(&mut transaction).await?;
         validate_published_question_revision_tuples(&mut transaction, requested, None).await?;
         let content = StoredBlueprintCourseContent::from_create(input, &BTreeMap::new())?;
@@ -496,9 +459,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         input: ReplaceBlueprintCourseContentInput,
     ) -> Result<SaveBlueprintCourseReceipt, StoreError> {
         input.validate().map_err(invalid_input)?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let actor = current_actor(&mut transaction).await?;
         // ASVS 2.3.3: hold the parent lock before resolving and materializing
         // additions; Course adoption takes this same lock and checks the head.
@@ -549,9 +510,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .map_err(|_| invalid("Blueprint short name"))?;
         question_model::validate_blueprint_course_title(&input.long_name)
             .map_err(|_| invalid("Blueprint long name"))?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let state = self
             .rename_in_transaction(
                 &mut transaction,
@@ -609,9 +568,7 @@ impl PostgresBlueprintCourseStore {
     ) -> Result<BlueprintMetadataState, StoreError> {
         // ASVS 2.3.1, 2.3.3: the authenticated database transition is the
         // only lifecycle authority; callers can request only typed methods.
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let row = sqlx::query(
             "SELECT * \
              FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",

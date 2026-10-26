@@ -1,5 +1,6 @@
 //! Mixed Library row decoding and authorized object-kind resolution.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use std::num::NonZeroU32;
 
 use question_model::{
@@ -16,9 +17,7 @@ impl PostgresQuestionLibraryStore {
         session: SessionTokenHash,
         public_id: &LibraryObjectId,
     ) -> Result<LibraryObjectKind, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session)
-            .await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, session).await?;
         let row = sqlx::query("SELECT row_kind FROM ple_api.load_library_object_kind($1)")
             .bind(public_id.as_str())
             .fetch_optional(&mut *transaction)

@@ -6,10 +6,7 @@ use axum::{
     Json, Router,
     body::to_bytes,
     extract::{Request, State},
-    http::{
-        HeaderMap, HeaderValue, StatusCode,
-        header::{COOKIE, SET_COOKIE},
-    },
+    http::{HeaderValue, StatusCode, header::SET_COOKIE},
     response::{IntoResponse, Response},
     routing::post,
 };
@@ -195,7 +192,7 @@ where
 {
     let (parts, body) = request.into_parts();
     let Some(binding) =
-        presented_pending_email_token(joined_cookie_header(&parts.headers).as_deref())
+        presented_pending_email_token(crate::auth::joined_cookie_header(&parts.headers).as_deref())
     else {
         return completion_denied(state.config, true);
     };
@@ -293,13 +290,4 @@ fn unavailable() -> Response {
         )
             .into_response(),
     )
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }

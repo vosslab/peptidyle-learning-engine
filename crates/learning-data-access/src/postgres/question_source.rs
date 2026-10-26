@@ -1,5 +1,6 @@
 //! PostgreSQL persistence for Draft Question Source Bindings.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{ObjectId, PublishedQuestionId, Timestamp};
@@ -34,9 +35,8 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
         expected_draft_question_edit_number: crate::DraftQuestionEditNumber,
         workspace: WorkspaceId,
     ) -> Result<DraftQuestionPublicationSource, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4, 2.2.2, 2.3.1, 8.2.1-8.2.3, and 8.3.1: values
         // remain parameters, while PostgreSQL rechecks current Instructor and
         // workspace authority plus the exact Draft Question Edit Number.
@@ -110,9 +110,7 @@ impl PostgresDraftQuestionSourceBindingStore {
         // ASVS 2.3.3/13.2.6: pool acquisition and authentication are bounded before
         // publication can write; the server bounds its locked registration statement.
         tokio::time::timeout(Duration::from_secs(10), async {
-            let mut transaction = self
-                .begin_authenticated_application_transaction(token_hash)
-                .await?;
+            let mut transaction = begin_authenticated_transaction(&self.pool, token_hash).await?;
             sqlx::query("SET LOCAL statement_timeout = '12s'")
                 .execute(&mut *transaction)
                 .await
@@ -121,32 +119,6 @@ impl PostgresDraftQuestionSourceBindingStore {
         })
         .await
         .map_err(|_| StoreError::Unavailable("Publication transaction setup timed out".into()))?
-    }
-
-    async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
     }
 }
 
@@ -161,9 +133,8 @@ impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore
         let question_format = wire_string(&input.question_format, "Question Format")?;
         let question_type = wire_string(&input.question_type, "Question Type")?;
 
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 1.2.4, 2.2.2, 2.3.1, 8.2.1, and 8.3.1: every value is
         // parameterized; the database resolves the authenticated session and
         // authorizes the exact workspace/Draft Question/Edit Number/object relationship in one

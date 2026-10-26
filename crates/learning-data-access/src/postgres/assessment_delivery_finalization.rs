@@ -4,6 +4,7 @@ use super::{
     assessment_delivery::PostgresLiveAssessmentDeliveryStore,
     assessment_delivery_source::reproduction_from_row, connection::map_sqlx_error,
 };
+use crate::postgres::connection::begin_authenticated_transaction;
 use crate::{
     SessionTokenHash, StoreError, StudentAssessmentAttemptFinalization,
     StudentAssessmentAttemptFinalizationBackend, StudentAssessmentAttemptFinalizationEvaluation,
@@ -20,7 +21,7 @@ pub(super) async fn prepare(
     token: SessionTokenHash,
     assessment_attempt: AssessmentAttemptId,
 ) -> Result<StudentAssessmentAttemptFinalizationPreparationOutcome, StoreError> {
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     let rows = sqlx::query(
         "SELECT preparation_state, finalization_kind, \
                 points_earned, points_possible, question_attempt_id, saved_at_millis, \
@@ -92,7 +93,7 @@ pub(super) async fn commit(
             })
             .collect(),
     );
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     let row = sqlx::query(
         "SELECT points_earned, points_possible \
          FROM ple_api.commit_student_assessment_attempt_finalization($1, $2, $3)",

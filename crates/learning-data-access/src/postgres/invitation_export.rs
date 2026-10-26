@@ -1,8 +1,9 @@
 //! PostgreSQL implementation of the protected invitation export boundary.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::CourseInstanceId;
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
@@ -21,32 +22,6 @@ impl PostgresInvitationExportStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -56,9 +31,8 @@ impl InvitationExportStore for PostgresInvitationExportStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<PendingInvitationExport, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // ASVS 4.1.3 and 8.2.1: the trusted procedure verifies the current
         // direct Instructor Course Membership before it returns private data.
         let course_name = sqlx::query_scalar::<_, String>(

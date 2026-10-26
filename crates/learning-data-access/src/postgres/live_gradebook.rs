@@ -1,8 +1,9 @@
 //! PostgreSQL adapter for the focused Course Gradebook read boundary.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{AssessmentAttemptCompletion, AssessmentId, CourseInstanceId};
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::{
     Pool,
@@ -22,33 +23,6 @@ impl PostgresCourseGradebookStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        if sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?
-        .is_none()
-        {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -58,7 +32,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
         token: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<CourseGradebook, StoreError> {
-        let mut transaction = self.begin(token).await?;
+        let mut transaction = begin_authenticated_transaction(&self.pool, token).await?;
         let rows = sqlx::query(
             "SELECT course_instance_id, roster_id, roster_name, assessment_id, assessment_title, \
              assessment_attempt_completion, expired_submitting, \

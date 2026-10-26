@@ -1,8 +1,9 @@
 //! PostgreSQL implementation of the Course Roster lifecycle.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::CourseInstanceId;
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::Pool;
 use super::connection::map_sqlx_error;
@@ -22,32 +23,6 @@ impl PostgresCourseRosterStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -57,9 +32,8 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Vec<CourseRosterEntry>, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows =
             sqlx::query("SELECT roster_id, roster_name, state FROM ple_api.list_course_roster($1)")
                 .bind(course_instance_id.as_string())
@@ -97,9 +71,8 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .iter()
             .map(|entry| entry.roster_name.clone())
             .collect::<Vec<_>>();
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT roster_id, roster_name, state \
              FROM ple_api.import_course_roster($1, $2, $3, $4, $5)",
@@ -125,9 +98,8 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<ClaimedCourseInvitation, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let active_student_membership = sqlx::query_scalar::<_, bool>(
             "SELECT active_student_membership \
              FROM ple_api.claim_course_invitation($1, $2, $3, $4)",
@@ -156,9 +128,8 @@ impl CourseRosterStore for PostgresCourseRosterStore {
                 "Course roster identifier is invalid".to_string(),
             ));
         }
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         sqlx::query("SELECT ple_api.revoke_course_roster_entry($1, $2, $3)")
             .bind(random_uuid()?)
             .bind(course_instance_id.as_string())
@@ -177,9 +148,8 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         roster_id: String,
     ) -> Result<ResetStudentSignupAccess, StoreError> {
         validate_roster_id(&roster_id)?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query(
             "SELECT roster_id, roster_email, course_name \
              FROM ple_api.reset_student_signup_access($1, $2)",
@@ -205,9 +175,8 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         roster_id: String,
     ) -> Result<(), StoreError> {
         validate_roster_id(&roster_id)?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         sqlx::query("SELECT ple_api.restore_student_course_access($1, $2, $3)")
             .bind(random_uuid()?)
             .bind(course_instance_id.as_string())

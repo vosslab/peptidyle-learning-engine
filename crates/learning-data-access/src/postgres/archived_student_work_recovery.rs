@@ -1,12 +1,13 @@
 //! Session-installed protected recovery with no external renderer or grader calls.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     AssessmentAttemptId, CourseInstanceId, CourseRosterId, CourseRosterTuple, PublishedQuestionId,
     PublishedQuestionRevisionTuple, QuestionRevisionNumber,
 };
 use serde::{Serialize, de::DeserializeOwned};
-use sqlx::{Postgres, Row, Transaction, postgres::PgRow};
+use sqlx::{Postgres, Row, postgres::PgRow};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::archived_student_work_recovery::{AttemptFacts, RetainedQuestion, Submission};
@@ -32,29 +33,6 @@ impl PostgresArchivedStudentWorkRecoveryStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(&self, hash: SessionTokenHash) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(hash.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
-    }
 }
 
 #[async_trait]
@@ -65,7 +43,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         course_instance_id: CourseInstanceId,
         browse: RecoveryBrowse,
     ) -> Result<RecoverySelectionPage, StoreError> {
-        let mut tx = self.begin(session).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session).await?;
         let assessment_ids = browse
             .assessment_ids
             .iter()
@@ -143,7 +121,7 @@ impl ArchivedStudentWorkRecoveryStore for PostgresArchivedStudentWorkRecoverySto
         course_instance_id: CourseInstanceId,
         assessment_attempt_id: AssessmentAttemptId,
     ) -> Result<RecoveredAttempt, StoreError> {
-        let mut tx = self.begin(session).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session).await?;
         // Explicit columns exclude internal Student Record UUID and all Account fields.
         let row = sqlx::query(READ_ARCHIVED_ASSESSMENT_ATTEMPT_FOR_RECOVERY_SQL)
             .bind(course_instance_id.as_string())

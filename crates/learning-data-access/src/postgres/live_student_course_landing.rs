@@ -1,12 +1,13 @@
 //! PostgreSQL adapter for the Student Course landing projections.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     AssessmentAttemptCompletion, AssessmentAttemptId, AssessmentId, AssessmentType,
     CourseInstanceId, CourseTerm, PublishedQuestionId, PublishedQuestionRevisionTuple,
     QuestionRevisionNumber, Timestamp,
 };
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 
 use super::Pool;
 use super::connection::map_sqlx_error;
@@ -31,32 +32,6 @@ impl PostgresLiveStudentCourseLandingStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -65,7 +40,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<LiveStudentCourseLandingSummary>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT course_instance_id, course_short_name, course_long_name \
              FROM ple_api.list_live_student_course_landing()",
@@ -85,7 +61,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<LiveStudentCourseInvitationSummary>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT course_instance_id, course_short_name, course_long_name, \
              instructor_display_name, term_starts_on::text AS term_starts_on, \
@@ -108,7 +85,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Vec<LiveStudentAssessmentLandingSummary>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT assessment_id, assessment_title, assessment_type, start_decision, \
              time_limit_seconds, assessment_attempt_limit AS attempt_limit, \
@@ -143,7 +121,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Vec<LiveStudentCourseProgressAssessment>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT assessment_id, assessment_title, assessment_type, \
              assessment_attempt_count, submitted_assessment_attempt_count, \
@@ -172,7 +151,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Option<LiveStudentCourseActiveAttempt>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query_as::<_, (uuid::Uuid, i64, i64)>(
             "SELECT assessment_attempt_id, started_at_millis, latest_activity_at_millis \
              FROM ple_api.read_student_course_active_attempt($1)",
@@ -197,7 +177,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Option<LiveStudentLatestFeedback>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let target = sqlx::query_as::<_, (String, uuid::Uuid)>(
             "SELECT course_instance_id, assessment_attempt_id \
              FROM ple_api.read_student_latest_feedback_attempt()",
@@ -223,7 +204,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         query: StudentAttemptHistoryQuery,
         page: NumberedPageRequest,
     ) -> Result<NumberedPage<LiveStudentAttemptHistoryEntry, crate::PageSize>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let courses = query
             .course_ids
             .iter()
@@ -288,7 +270,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
             .iter()
             .map(CourseInstanceId::as_string)
             .collect::<Vec<_>>();
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT continuation_key, facet_key, facet_label, matching_count \
              FROM ple_api.list_student_attempt_history_facet_choices($1, $2, $3, $4, $5, $6, $7)",
@@ -333,7 +316,8 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         session_token_hash: SessionTokenHash,
         course_instance_id: CourseInstanceId,
     ) -> Result<Vec<LiveStudentCourseResponseQuestionStats>, StoreError> {
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT published_question_id, revision_number, question_title, \
              full_credit_attempt_count, partial_credit_attempt_count, incorrect_attempt_count, \

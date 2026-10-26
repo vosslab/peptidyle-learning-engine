@@ -1,5 +1,6 @@
 //! Selected completed-Attempt history storage projection.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use std::str::FromStr;
 
 use super::{assessment_delivery::PostgresLiveAssessmentDeliveryStore, connection::map_sqlx_error};
@@ -40,7 +41,7 @@ pub(super) async fn read(
     token: SessionTokenHash,
     assessment_attempt: AssessmentAttemptId,
 ) -> Result<StudentAssessmentAttemptHistoryEvidence, StoreError> {
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     // ASVS 8.2.2 and 8.3.1: the parameter is only a public ID; the
     // SECURITY DEFINER reader re-checks exact Student ownership and membership.
     let row = sqlx::query(

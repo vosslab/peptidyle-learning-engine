@@ -1,5 +1,6 @@
 //! PostgreSQL implementation of the authenticated Question Star boundary.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{AccountId, PublishedQuestionId};
 use sqlx::{Postgres, Row, Transaction};
@@ -20,32 +21,6 @@ impl PostgresQuestionStarStore {
     /// Binds the attested API pool to the Star procedures.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
     }
 
     fn projection(row: &sqlx::postgres::PgRow) -> Result<QuestionStarProjection, StoreError> {
@@ -126,7 +101,7 @@ impl QuestionStarStore for PostgresQuestionStarStore {
         session_token_hash: SessionTokenHash,
         question_id: &PublishedQuestionId,
     ) -> Result<QuestionStarProjection, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let projection = Self::read_in(&mut tx, question_id).await?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(projection)
@@ -138,7 +113,7 @@ impl QuestionStarStore for PostgresQuestionStarStore {
         question_id: &PublishedQuestionId,
         starred: bool,
     ) -> Result<QuestionStarProjection, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         // The SQL procedure is the idempotent, database-authorized mutation;
         // the subsequent projection is from the same transaction snapshot.
         sqlx::query("SELECT ple_api.set_current_question_star($1, $2)")

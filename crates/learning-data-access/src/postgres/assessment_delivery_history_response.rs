@@ -5,6 +5,7 @@ use super::{
     assessment_delivery_source::presentation_evidence_from_row,
     connection::map_sqlx_error,
 };
+use crate::postgres::connection::begin_authenticated_transaction;
 use crate::{SessionTokenHash, StoreError, StudentAssessmentAttemptHistoryResponseSource};
 use question_model::{AssessmentAttemptId, StudentResponse};
 use sqlx::Row;
@@ -14,7 +15,7 @@ pub(super) async fn read(
     token: SessionTokenHash,
     assessment_attempt: AssessmentAttemptId,
 ) -> Result<Vec<StudentAssessmentAttemptHistoryResponseSource>, StoreError> {
-    let mut tx = store.begin(token).await?;
+    let mut tx = begin_authenticated_transaction(&store.pool, token).await?;
     // ASVS 8.2.2 and 8.3.1: this completed-history reader repeats exact
     // Student ownership and active membership before returning private inputs.
     let rows = sqlx::query(

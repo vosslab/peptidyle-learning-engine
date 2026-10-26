@@ -1,5 +1,6 @@
 //! PostgreSQL persistence for authenticated Assessment Attempt starts.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{
     AssessmentAttemptId, IssuedQuestionId, PublishedQuestionRevisionTuple, QuestionBackend,
@@ -25,32 +26,6 @@ impl PostgresAssessmentAttemptStore {
     /// Binds the already-attested API pool to Assessment Attempt persistence.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
-    }
-
-    async fn begin_authenticated_application_transaction(
-        &self,
-        token_hash: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token_hash.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
     }
 
     pub(super) async fn start_assessment_attempt_in_transaction(
@@ -114,9 +89,8 @@ impl AssessmentAttemptStore for PostgresAssessmentAttemptStore {
         session_token_hash: SessionTokenHash,
         start: AssessmentAttemptStart,
     ) -> Result<AssessmentAttemptStartResult, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let result = Self::start_assessment_attempt_in_transaction(&mut transaction, start).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)

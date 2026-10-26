@@ -464,7 +464,8 @@ fn session_response(record: &SessionRecord) -> AuthSessionResponse {
     }
 }
 
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
+/// Combines cookie headers without accepting non-text credential bytes (ASVS 2.2.1).
+pub(crate) fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
     let values = headers
         .get_all(COOKIE)
         .iter()
@@ -494,6 +495,27 @@ pub(crate) fn no_store(mut response: Response) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cookie_headers_preserve_one_session_and_reject_ambiguous_or_invalid_credentials() {
+        let mut headers = HeaderMap::new();
+        assert!(joined_cookie_header(&headers).is_none());
+        let token = SessionToken([7; SESSION_TOKEN_BYTES]);
+        let config = SessionConfig::new(
+            SessionLifetime::from_seconds(3_600).expect("positive lifetime"),
+            CookieTransport::FirstPartyHttps,
+        );
+        let cookie = session_cookie(&token, config);
+        let header = HeaderValue::from_str(&format!("{}={}", cookie.name(), cookie.value()))
+            .expect("encoded session cookie");
+        headers.append(COOKIE, header.clone());
+        headers.append(COOKIE, HeaderValue::from_static("theme=contrast"));
+        assert!(presented_token(joined_cookie_header(&headers).as_deref()) == Some(token));
+        headers.append(COOKIE, header);
+        assert!(presented_token(joined_cookie_header(&headers).as_deref()).is_none());
+        headers.insert(COOKIE, HeaderValue::from_bytes(b"theme=\xc3\xa9").unwrap());
+        assert!(joined_cookie_header(&headers).is_none());
+    }
 
     #[test]
     fn cookie_attributes_match_first_party_https() {

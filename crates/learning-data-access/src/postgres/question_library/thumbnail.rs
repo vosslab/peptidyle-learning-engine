@@ -1,5 +1,6 @@
 //! PostgreSQL resolution for one authorized private Question Thumbnail.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{ObjectId, PublishedQuestionRevisionTuple, Timestamp};
 use sqlx::Row;
@@ -15,9 +16,8 @@ impl PostgresQuestionLibraryStore {
         session_token_hash: SessionTokenHash,
         published_question_revision_tuple: &PublishedQuestionRevisionTuple,
     ) -> Result<PublishedQuestionThumbnail, StoreError> {
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query("SELECT * FROM ple_api.resolve_question_thumbnail($1, $2)")
             .bind(
                 published_question_revision_tuple

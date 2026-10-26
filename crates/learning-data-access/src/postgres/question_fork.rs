@@ -1,11 +1,12 @@
 //! PostgreSQL adapter for the server-derived Published Question fork command.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
     ObjectId, PublishedQuestionRevisionTuple, QuestionImageAssetId, Timestamp, WorkspaceId,
 };
-use sqlx::{Postgres, Row, Transaction, types::Json};
+use sqlx::{Row, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
@@ -24,32 +25,6 @@ impl PostgresQuestionForkStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
 }
 
 #[async_trait]
@@ -67,7 +42,8 @@ impl QuestionForkStore for PostgresQuestionForkStore {
                 "Question Fork Revision Number exceeds PostgreSQL integer".to_owned(),
             )
         })?;
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let rows = sqlx::query("SELECT * FROM ple_api.load_question_fork_asset($1, $2)")
             .bind(
                 published_question_revision_tuple
@@ -113,7 +89,8 @@ impl QuestionForkStore for PostgresQuestionForkStore {
             )
         })?;
         let question_images = encode_question_images(&input.question_images)?;
-        let mut transaction = self.begin(session_token_hash).await?;
+        let mut transaction =
+            begin_authenticated_transaction(&self.pool, session_token_hash).await?;
         let row = sqlx::query(
             "SELECT * FROM ple_api.fork_published_question_to_draft(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12\

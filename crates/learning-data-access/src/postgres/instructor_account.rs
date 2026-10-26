@@ -1,5 +1,6 @@
 //! PostgreSQL persistence for Sysadmin Instructor Account management.
 
+use crate::postgres::connection::begin_authenticated_transaction;
 use async_trait::async_trait;
 use question_model::{AccountId, AccountTimeZone, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
@@ -24,32 +25,6 @@ impl PostgresInstructorAccountStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(tx)
-    }
 }
 
 #[async_trait]
@@ -65,7 +40,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
             InstructorAccountSort::IdAscending => "idAscending",
             InstructorAccountSort::IdDescending => "idDescending",
         };
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let rows = sqlx::query(
             "SELECT account_id, state, provided_avatar_id, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
@@ -166,7 +141,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         input: CreateInstructorAccountInput,
     ) -> Result<CreatedInstructorAccount, StoreError> {
         input.validate()?;
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let account_id = sqlx::query_scalar(
             "SELECT account_id \
              FROM ple_api.create_instructor_account($1, $2, $3, $4)",
@@ -202,7 +177,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
         token: SessionTokenHash,
         account_id: AccountId,
     ) -> Result<AuthenticationEmail, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let delivery_email = sqlx::query_scalar::<_, String>(
             "SELECT ple_api.instructor_setup_email_destination($1)",
         )
@@ -245,7 +220,7 @@ impl PostgresInstructorAccountStore {
         state: &'static str,
         reason: Option<String>,
     ) -> Result<InstructorAccountSummary, StoreError> {
-        let mut tx = self.begin(token).await?;
+        let mut tx = begin_authenticated_transaction(&self.pool, token).await?;
         let account_id = sqlx::query_scalar(
             "SELECT account_id \
              FROM ple_api.change_instructor_account_state($1, $2, $3)",

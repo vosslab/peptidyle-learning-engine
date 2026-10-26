@@ -5,7 +5,7 @@ use std::{str::FromStr, sync::Arc};
 use axum::{
     Json, Router,
     extract::{Path, Query, State, rejection::QueryRejection},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -724,7 +724,7 @@ async fn student_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {
@@ -741,15 +741,6 @@ async fn student_session_hash(
 
 fn student_profile_role_is_allowed(role: UserRole) -> bool {
     role == UserRole::Student
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values = headers
-        .get_all(COOKIE)
-        .iter()
-        .map(|value| value.to_str().ok())
-        .collect::<Option<Vec<_>>>()?;
-    (!values.is_empty()).then(|| values.join("; "))
 }
 
 fn store_error_response(error: StoreError) -> Response {

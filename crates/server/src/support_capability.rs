@@ -4,7 +4,7 @@ use crate::auth::{AuthError, resolve_session};
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
 };
@@ -72,7 +72,7 @@ async fn sysadmin_session_hash(
 ) -> Result<SessionTokenHash, Box<Response>> {
     match resolve_session(
         state.sessions.as_ref(),
-        joined_cookie_header(headers).as_deref(),
+        crate::auth::joined_cookie_header(headers).as_deref(),
     )
     .await
     {
@@ -83,21 +83,6 @@ async fn sysadmin_session_hash(
             "Student-data access authentication unavailable",
         ))),
     }
-}
-
-fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
-    let values: Vec<_> = headers.get_all(COOKIE).iter().cloned().collect();
-    if values.is_empty() {
-        return None;
-    }
-    let mut joined = Vec::new();
-    for (index, value) in values.iter().enumerate() {
-        if index > 0 {
-            joined.extend_from_slice(b"; ");
-        }
-        joined.extend_from_slice(value.as_bytes());
-    }
-    String::from_utf8(joined).ok()
 }
 
 fn concealed() -> Response {
