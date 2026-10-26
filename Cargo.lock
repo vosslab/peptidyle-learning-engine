@@ -1219,15 +1219,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "export_crate"
-version = "26.10.0"
-dependencies = [
- "flate2",
- "objects",
- "question_model",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

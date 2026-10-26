@@ -176,6 +176,7 @@ https://:8080 {
 	@public_assets path /public-assets /public-assets/*
 	handle @public_assets {
 		reverse_proxy minio:9000 {
+			header_down Cache-Control "no-store"
 			transport http {
 				network_proxy none
 				versions 1.1

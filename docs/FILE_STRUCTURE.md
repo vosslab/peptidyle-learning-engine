@@ -111,7 +111,6 @@ layer; afterward, forward-only SQLx migrations belong in
 | [src/pages/question_drafts/question_import_screen.tsx](../src/pages/question_drafts/question_import_screen.tsx) | Lazy QPM loading, local conversion, per-question image checks, and sequential Draft results. |
 | [crates/objects/](../crates/objects/) | Object-address, checksum, image, and object-store ownership. |
 | [crates/wasm/](../crates/wasm/) | Answer-free Rust-to-browser WebAssembly facade. |
-| [crates/export/](../crates/export/) | PDF and DOCX export models and writers. |
 | [crates/project-tools/](../crates/project-tools/) | TypeScript generation, database lifecycle commands, Pilot publication, and installation-data tooling. |
 | [crates/acceptance-runtime/](../crates/acceptance-runtime/) | Disposable acceptance database connection handoff. |
 

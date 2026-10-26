@@ -1273,6 +1273,9 @@ PageFrame
 - Every Question stored by PLE has its own internal Question record.
 - Answer-choice randomization belongs to the Question.
 - PLE-native Questions control their own answer-choice randomization.
+- Authorized Question Library and Assessment views provide signed Question Image URLs that expire
+  12 hours after issuance. Reloading an authorized Question obtains a fresh link. Links may be
+  shared until expiration; unsigned image reads and anonymous bucket listing are disabled.
 
 ### Draft Question specifications
 
@@ -1324,7 +1327,9 @@ PageFrame
 - Question importers convert external content into the Question format PLE stores; they are used
   during import.
 - PLE uses `qti-package-maker-rs` as an external library to handle all of its conversion.
-- Export is for selected Questions to use in another LMS.
+- QPM Question export is for selected Questions to use in another LMS; it remains blocked for now.
+- Paper exams use QPM-exported Questions in a dedicated external exam repository, which creates
+  DOCX or PDF files. PLE does not render DOCX or PDF files.
 - Once PLE launches, BiologyProblems.org and PLE are no longer connected. PLE no longer cares
   how BiologyProblems.org changes.
 

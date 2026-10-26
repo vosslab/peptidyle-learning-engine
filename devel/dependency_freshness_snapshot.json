@@ -103,12 +103,6 @@
         "crates/server/Cargo.toml"
       ]
     },
-    "flate2": {
-      "version": "1.1.10",
-      "manifests": [
-        "crates/export/Cargo.toml"
-      ]
-    },
     "futures-core": {
       "version": "0.3.34",
       "manifests": [
@@ -189,7 +183,6 @@
         "crates/adapters/webwork/Cargo.toml",
         "crates/browser-api-contract/Cargo.toml",
         "crates/domain/Cargo.toml",
-        "crates/export/Cargo.toml",
         "crates/grading/Cargo.toml",
         "crates/learning-data-access/Cargo.toml",
         "crates/objects/Cargo.toml",
@@ -207,7 +200,6 @@
         "crates/adapters/webwork/Cargo.toml",
         "crates/browser-api-contract/Cargo.toml",
         "crates/domain/Cargo.toml",
-        "crates/export/Cargo.toml",
         "crates/grading/Cargo.toml",
         "crates/learning-data-access/Cargo.toml",
         "crates/objects/Cargo.toml",

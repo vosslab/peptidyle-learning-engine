@@ -9,7 +9,6 @@ members = [
     "crates/adapters/ple",
     "crates/adapters/webwork",
     "crates/adapters/imathas",
-    "crates/export",
     "crates/wasm",
     "crates/server",
     # Build tooling, not part of the product boundary.

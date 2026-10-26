@@ -143,6 +143,7 @@ impl BucketNames {
 #[derive(Clone)]
 pub struct S3ObjectStore {
     client: Client,
+    signing_client: Option<Client>,
     buckets: BucketNames,
     kms_keys: Option<KmsKeyNames>,
 }
@@ -167,15 +168,29 @@ impl S3ObjectStore {
             .build();
         Self {
             client: Client::from_conf(config),
+            signing_client: self.signing_client.clone(),
             buckets: self.buckets.clone(),
             kms_keys: self.kms_keys.clone(),
         }
+    }
+
+    /// Signs browser URLs for the gateway while retaining internal storage I/O.
+    pub fn with_signing_endpoint(mut self, endpoint: &str) -> Self {
+        self.signing_client = Some(Client::from_conf(
+            self.client
+                .config()
+                .to_builder()
+                .endpoint_url(endpoint)
+                .build(),
+        ));
+        self
     }
 
     /// Builds a store from a crate-owned SDK client and explicit bucket names.
     pub fn new(client: Client, buckets: BucketNames) -> Self {
         Self {
             client,
+            signing_client: None,
             buckets,
             kms_keys: None,
         }
@@ -186,6 +201,7 @@ impl S3ObjectStore {
     pub fn new_kms_encrypted(client: Client, buckets: BucketNames, kms_keys: KmsKeyNames) -> Self {
         Self {
             client,
+            signing_client: None,
             buckets,
             kms_keys: Some(kms_keys),
         }
@@ -408,8 +424,11 @@ impl ObjectStore for S3ObjectStore {
             .expires_in(lifetime)
             .build()
             .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
+        // ASVS 11.2.1: the SDK owns SigV4; the secret key never enters the returned URL.
         let request = self
-            .client
+            .signing_client
+            .as_ref()
+            .unwrap_or(&self.client)
             .get_object()
             .bucket(self.buckets.name(key.storage_area()))
             .key(key.path())
@@ -480,9 +499,8 @@ fn verify_bytes(record: ObjectRecord, bytes: Vec<u8>) -> Result<StoredObject, Ob
 #[cfg(feature = "s3")]
 fn signed_url_lifetime(storage_area: ObjectStorageArea) -> Result<Duration, ObjectStoreError> {
     match storage_area {
-        ObjectStorageArea::PublicAssets | ObjectStorageArea::PrivateContent => {
-            Ok(Duration::from_secs(60 * 60))
-        }
+        ObjectStorageArea::PublicAssets => Ok(Duration::from_secs(12 * 60 * 60)),
+        ObjectStorageArea::PrivateContent => Ok(Duration::from_secs(60 * 60)),
         ObjectStorageArea::StudentRecords => Ok(Duration::from_secs(5 * 60)),
         ObjectStorageArea::TempProcessing => Err(ObjectStoreError::NotSignable),
     }
@@ -533,5 +551,27 @@ fn validate_immutable_publication_tags<'a>(
         _ => Err(ObjectStoreError::Unavailable(
             "public asset does not satisfy the immutable-publication tag contract".into(),
         )),
+    }
+}
+
+#[cfg(all(test, feature = "s3"))]
+mod signing_tests {
+    use super::*;
+
+    #[test]
+    fn published_image_lifetime_does_not_extend_private_deliveries() {
+        assert_eq!(
+            signed_url_lifetime(ObjectStorageArea::PublicAssets).unwrap(),
+            Duration::from_secs(12 * 60 * 60)
+        );
+        assert_eq!(
+            signed_url_lifetime(ObjectStorageArea::PrivateContent).unwrap(),
+            Duration::from_secs(60 * 60)
+        );
+        assert_eq!(
+            signed_url_lifetime(ObjectStorageArea::StudentRecords).unwrap(),
+            Duration::from_secs(5 * 60)
+        );
+        assert!(signed_url_lifetime(ObjectStorageArea::TempProcessing).is_err());
     }
 }

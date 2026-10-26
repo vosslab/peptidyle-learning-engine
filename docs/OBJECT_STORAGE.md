@@ -18,7 +18,7 @@ generic background-work model.
 
 | Domain                        | Object Storage Area | Contents                                                                                                                                                                    | Delivery rule                                                                                                                                                                                                                                                                             |
 | ----------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Published Question Image Renditions | `PublicAssets`      | Only immutable, answer-free Question Image Renditions of Published Questions                                                                                                 | Public delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and Instructor Question Library access or an allowed Assessment access decision for the Student's Coursework. |
+| Published Question Image Renditions | `PublicAssets`      | Only immutable, answer-free Question Image Renditions of Published Questions                                                                                                 | An authorized Question Library or Assessment route supplies a signed URL for the immutable rendition after publication is `Ready`. That signed URL is a shareable read capability for that one image for 12 hours; unsigned reads and anonymous listing are disabled. |
 | Private content               | `PrivateContent`    | Private Draft Question source and Question Image Assets, backend state or grading inputs, and Course Banners                                                               | Never publicly readable. A protected delivery uses its exact server-derived authority. |
 | Student records               | `StudentRecords`    | Student work, protected course-record artifacts, and annotations                                                                                                            | Never public; delivery requires the exact Student, course, or typed support authority for that record.                                                                                                                                                                                    |
 | Temporary processing          | `TempProcessing`    | Conversion workspaces and short-lived course-banner entries                                                                                                                 | Never signable or browser-served.                                                                                                                                                                                                                                                         |
@@ -103,8 +103,8 @@ paths support.
 
 ## Delivery authority
 
-Every delivery selects one server-derived authority. The Object Storage Area and an opaque
-object or delivery ID never supply authority by themselves:
+Every protected delivery selects one server-derived authority. The Object Storage Area and an
+opaque object or delivery ID never supply authority by themselves:
 
 1. Instructor Question Library access delivers safe Question Library
    search and details results and the published Question Image Renditions that they reference.
@@ -117,20 +117,21 @@ object or delivery ID never supply authority by themselves:
    course-record operation includes its exact current course relationship in
    that typed check.
 
-`GET /api/assets/{id}` can return only an already-ready published presentation
-asset after the route proves Instructor Question Library access or the exact
-Assessment access decision. It resolves an opaque registry ID, verifies
-the complete trusted `QuestionImage`/`PublicAssets` record shape, then
-redirects to a configured immutable public URL. It cannot authorize, audit, or
-issue a protected bearer URL, and it returns the same not-found response for
-protected and absent IDs.
+`GET /api/questions/{questionId}/revisions/{revisionNumber}/images/{questionImageAssetId}`
+proves Instructor Question Library access or the exact Assessment access decision, waits for the
+published rendition to be ready, and redirects to its signed URL. The existing S3-compatible SDK
+signs the exact image path for 12 hours from issuance; MinIO verifies the signature and expiration.
+No issued-link records or cleanup jobs are needed. The signing endpoint is the configured
+browser-facing gateway origin; storage I/O continues through the internal MinIO endpoint.
 
-Published Question Image Renditions are not anonymous internet content. Delivering
-one through an approved authority does not grant Question Library search,
-details, or delivery of another asset. Question Library search and details
-require authenticated approved-Instructor access. A Student receives an
-Assessment presentation through an allowed Assessment access decision and does not
-receive Question Library access.
+The signed URL is a bearer capability for that one image and may be shared until it expires.
+Unsigned object reads and anonymous bucket listing are disabled. Reloading an authorized Question
+obtains a fresh signed URL through the same route. Both redirects and gateway image responses use
+`Cache-Control: no-store`; previously downloaded copies cannot be revoked.
+Possession of one URL does not grant Question Library search, details, or another image URL.
+Question Library search and details require authenticated approved-Instructor access. A Student
+receives image URLs through an allowed Assessment access decision and does not receive Question
+Library access.
 
 `POST /api/assets/{id}/delivery` is the separate protected path. It requires a
 same-origin authenticated session, reauthorizes the exact Account, course,
@@ -188,9 +189,10 @@ Future cloud production support must require encryption at rest for every
 object write, verify the provider's returned encryption evidence, and protect
 all four domains and their backups with independently managed keys. PLE does
 not encrypt every published Question Image Rendition again in application code.
-Public objects must be publicly readable after their authorization gate, and a
-blanket application layer would add key-handling risk without supplying an
-access-control property that this public class lacks.
+Published image reads require an unexpired signed URL after their authorization gate.
+The existing SDK and storage service own signing and verification; PLE adds no application-level
+encryption or custom cryptography. The `PublicAssets` bucket name describes published renditions,
+not anonymous access.
 
 Private or Student-specific application payload encryption is a separate
 design decision when a field needs protection from storage administrators or a

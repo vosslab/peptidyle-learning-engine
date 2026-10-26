@@ -375,10 +375,11 @@ pub async fn production_router_from_env() -> Result<(Router, Option<crate::bloom
             crate::question_image_delivery::question_image_delivery_router(
                 Arc::clone(&sessions),
                 question_image_delivery,
-                crate::question_image_delivery::public_asset_base_url(&environment::required_env(
-                    "PLE_PUBLIC_ASSET_BASE_URL",
-                )?)
-                .map_err(anyhow::Error::msg)?,
+                super::object_storage::question_image_object_store_from_env(
+                    &crate::question_image_delivery::public_asset_base_url(&environment::required_env(
+                        "PLE_PUBLIC_ASSET_BASE_URL",
+                    )?).map_err(anyhow::Error::msg)?,
+                )?,
             ),
         );
     Ok((

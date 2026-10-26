@@ -93,3 +93,18 @@ fn required_configuration_value(
         None => bail!("{name} must be set"),
     }
 }
+
+/// Uses the existing public bucket URL only for browser-facing signatures.
+pub(super) fn question_image_object_store_from_env(base_url: &url::Url) -> Result<S3ObjectStore> {
+    let config =
+        s3_compatible_storage_config_from_values(ObjectStoragePrincipal::ApiAndWorker, |name| {
+            std::env::var(name).ok()
+        })?;
+    if base_url.path() != format!("/{}/", config.buckets.public_assets) {
+        bail!("public asset base URL path must name the configured public-assets bucket");
+    }
+    Ok(
+        S3ObjectStore::new(minio_client(&config.endpoint), config.buckets)
+            .with_signing_endpoint(&base_url.origin().ascii_serialization()),
+    )
+}

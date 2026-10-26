@@ -8,6 +8,41 @@
 > September 29 entries are archived in [CHANGELOG-2026-09r.md](CHANGELOG-2026-09r.md).
 > September 28 entries are archived in [CHANGELOG-2026-09s.md](CHANGELOG-2026-09s.md).
 
+## 2026-10-26
+
+### Behavior or Interface Changes
+
+- Published Question Image links now expire 12 hours after issuance. The existing authorization
+  route redirects to SDK-signed URLs; MinIO verifies them without issued-link records. Reloading
+  an authorized Question obtains a fresh URL. Unsigned reads and anonymous listing are disabled.
+- Signing uses the browser-facing gateway address while storage I/O keeps the internal MinIO
+  endpoint. Image redirects and gateway responses use `no-store`. Other asset lifetimes remain.
+- Recorded QPM Question export as blocked for now and paper generation as the responsibility of
+  the dedicated external exam repository. CSV/TSV grades and Blueprint JSON exchange remain.
+
+### Removals and Deprecations
+
+- Removed the disconnected PDF/DOCX export crate, its font, workspace entry, and direct dependency
+  inventory entries. No replacement renderer or paper-export integration was added.
+
+### Developer Tests and Notes
+
+- `cargo check --workspace --offline` passed; Cargo.lock changed only by removing the export crate.
+- Three focused Rust tests, workspace compilation, and Clippy passed. Connected SDK/MinIO checks
+  passed for repeated signed reads, the 12-hour lifetime, expired and tampered links, unsigned
+  reads, bucket listing, and cache headers. The expiry check used a signing time 13 hours earlier.
+- Rebuilt the local application and applied the canonical bucket-policy replacement twice without
+  deleting objects. Chromium verified Instructor and Student image rendering and reloads, anonymous
+  issuance denial, and denial of another Student's image. Temporary checks were removed.
+- MinIO `anonymous set none` retained the earlier `questions/*` read grant. Replacing the entire
+  bucket policy with an empty statement list removed that grant and passed unsigned-read checks.
+- Formatting, Markdown links, and Rust target disk checks passed. The rebuild exceeded the Podman
+  disk budget; pruning unused dangling build images restored compliance without removing data.
+  The full acceptance suite and cloud deployment were not run.
+- Markdown link checks passed. The dependency freshness audit remains blocked by the existing
+  September 14 snapshot age; the snapshot also has pre-existing manifest mismatches. A focused
+  comparison verified that inventory edits only remove the deleted crate's entries.
+
 ## 2026-10-25
 
 ### Fixes and Maintenance

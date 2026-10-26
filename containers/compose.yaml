@@ -251,7 +251,12 @@ services:
         set -e
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
         mc mb --ignore-existing local/public-assets
-        mc anonymous set download local/public-assets
+        # Replace the whole policy: `set none` retains earlier prefix grants.
+        anonymous_policy=$$(mktemp /tmp/image-read-policy.XXXXXX)
+        trap 'rm -f "$$anonymous_policy"' EXIT
+        printf '%s' '{"Version":"2012-10-17","Statement":[]}' >"$$anonymous_policy"
+        mc anonymous set-json "$$anonymous_policy" local/public-assets
+        rm -f "$$anonymous_policy"
         mc mb --ignore-existing local/private-content
         mc mb --ignore-existing local/student-records
         mc mb --ignore-existing local/temp-processing

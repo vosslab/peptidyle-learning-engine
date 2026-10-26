@@ -1,9 +1,8 @@
 //! Authorized redirect route for immutable published Question Image renditions.
 //!
 //! The route is deliberately a metadata boundary: PostgreSQL proves the
-//! current authority and exact ready rendition, then this module derives one
-//! CDN URL from typed identity. It neither reads asset bytes nor creates a
-//! bearer URL.
+//! current authority and exact ready rendition, then storage signs a twelve-hour
+//! image URL from typed identity. No issued-link records are retained.
 
 use std::{sync::Arc, time::Duration};
 
@@ -19,7 +18,7 @@ use learning_data_access::{
     SessionTokenHash, StoreError,
     postgres::{PostgresQuestionImageDeliveryStore, PostgresSessionStore},
 };
-use objects::ObjectAddress;
+use objects::{ObjectAddress, ObjectStore, s3::S3ObjectStore};
 use question_model::{
     PublishedQuestionId, PublishedQuestionRevisionTuple, QuestionImageAssetId,
     QuestionRevisionNumber, UserRole,
@@ -37,7 +36,7 @@ const PENDING_IMAGE_POLL_INTERVAL: Duration = Duration::from_millis(250);
 struct QuestionImageDeliveryRouteState {
     sessions: Arc<PostgresSessionStore>,
     store: PostgresQuestionImageDeliveryStore,
-    public_asset_base_url: Url,
+    objects: S3ObjectStore,
 }
 
 /// Registers the only public-asset GET route. The configured base is
@@ -45,7 +44,7 @@ struct QuestionImageDeliveryRouteState {
 pub fn question_image_delivery_router(
     sessions: Arc<PostgresSessionStore>,
     store: PostgresQuestionImageDeliveryStore,
-    public_asset_base_url: Url,
+    objects: S3ObjectStore,
 ) -> Router {
     Router::new()
         .route(
@@ -55,7 +54,7 @@ pub fn question_image_delivery_router(
         .with_state(QuestionImageDeliveryRouteState {
             sessions,
             store,
-            public_asset_base_url,
+            objects,
         })
 }
 
@@ -111,9 +110,16 @@ async fn get_public_question_image(
         Ok(Err(response)) => return *response,
         Err(_) => return unavailable(),
     };
-    match redirect_response(&state.public_asset_base_url, &rendition) {
-        Ok(response) => response,
-        Err(()) => unavailable(),
+    let address = ObjectAddress::QuestionImage {
+        published_question_revision_tuple: rendition.published_question_revision_tuple,
+        question_image_asset_id: rendition.question_image_asset_id,
+        object_id: rendition.public_object_id,
+    };
+    let now = crate::authoring::now();
+    // ASVS 8.2.2: only the rendition authorized above can receive a bearer URL.
+    match state.objects.signed_url(&address, now).await {
+        Ok(signed) => redirect_response(&signed.url).unwrap_or_else(|()| unavailable()),
+        Err(_) => unavailable(),
     }
 }
 
@@ -203,29 +209,12 @@ async fn asset_session_hash(
     }
 }
 
-fn redirect_response(
-    base_url: &Url,
-    rendition: &ReadyQuestionImageDelivery,
-) -> Result<Response, ()> {
-    let address = ObjectAddress::QuestionImage {
-        published_question_revision_tuple: rendition.published_question_revision_tuple.clone(),
-        question_image_asset_id: rendition.question_image_asset_id,
-        object_id: rendition.public_object_id,
-    };
-    let location = base_url.join(&address.path()).map_err(|_| ())?;
-    let location = HeaderValue::from_str(location.as_str()).map_err(|_| ())?;
-    let etag =
-        HeaderValue::from_str(&format!("\"{}\"", rendition.rendition_checksum)).map_err(|_| ())?;
+fn redirect_response(location: &str) -> Result<Response, ()> {
+    let location = HeaderValue::from_str(location).map_err(|_| ())?;
     let mut response = StatusCode::FOUND.into_response();
     let headers = response.headers_mut();
     headers.insert("location", location);
-    // Immutable identifiers make this redirect safely cacheable, but no
-    // mutable API response or protected asset inherits that exception.
-    headers.insert(
-        "cache-control",
-        HeaderValue::from_static("public, max-age=31536000, immutable"),
-    );
-    headers.insert("etag", etag);
+    headers.insert("cache-control", HeaderValue::from_static("no-store"));
     headers.insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),
@@ -249,4 +238,50 @@ fn cookie(headers: &HeaderMap) -> Option<String> {
         .map(|value| value.to_str().ok())
         .collect::<Option<Vec<_>>>()?;
     (!values.is_empty()).then(|| values.join("; "))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signed_image_redirect_is_not_cached() {
+        let location = "https://example.test/public-assets/questions/image?X-Amz-Signature=example";
+        let response = redirect_response(location).unwrap();
+        assert_eq!(response.status(), StatusCode::FOUND);
+        assert_eq!(response.headers()["location"], location);
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        assert!(!response.headers().contains_key("etag"));
+    }
+
+    #[tokio::test]
+    async fn published_image_links_expire_after_twelve_hours() {
+        use objects::{PutObject, memory::MemoryObjectStore};
+        use question_model::{ObjectId, Timestamp};
+        let store = MemoryObjectStore::default();
+        let now = Timestamp::from_unix_millis(1_700_000_000_000);
+        let address = ObjectAddress::QuestionImage {
+            published_question_revision_tuple: PublishedQuestionRevisionTuple {
+                published_question_id: PublishedQuestionId::from_random_identifier("1234567")
+                    .unwrap(),
+                revision_number: QuestionRevisionNumber::new(1).unwrap(),
+            },
+            question_image_asset_id: QuestionImageAssetId::from_uuid(Uuid::from_u128(1)),
+            object_id: ObjectId::from_uuid(Uuid::from_u128(2)),
+        };
+        store
+            .put(PutObject {
+                address: address.clone(),
+                bytes: vec![1],
+                media_type: "image/png".to_owned(),
+                created_at: now,
+            })
+            .await
+            .unwrap();
+        let signed = store.signed_url(&address, now).await.unwrap();
+        assert_eq!(
+            signed.expires_at.as_unix_millis() - now.as_unix_millis(),
+            12 * 60 * 60 * 1_000
+        );
+    }
 }

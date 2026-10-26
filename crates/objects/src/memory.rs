@@ -93,9 +93,8 @@ impl ObjectStore for MemoryObjectStore {
             }
         }
         let lifetime_millis = match address.storage_area() {
-            ObjectStorageArea::PublicAssets | ObjectStorageArea::PrivateContent => {
-                60_i64 * 60 * 1_000
-            }
+            ObjectStorageArea::PublicAssets => 12_i64 * 60 * 60 * 1_000,
+            ObjectStorageArea::PrivateContent => 60_i64 * 60 * 1_000,
             ObjectStorageArea::StudentRecords => 5_i64 * 60 * 1_000,
             ObjectStorageArea::TempProcessing => return Err(ObjectStoreError::NotSignable),
         };
