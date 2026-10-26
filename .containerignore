@@ -55,9 +55,3 @@ schemas/*
 !schemas/migrations/**
 !schemas/installation_data
 !schemas/installation_data/**
-!content
-content/*
-!content/genetics
-!content/genetics/**
-!content/pilot
-!content/pilot/**

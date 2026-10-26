@@ -131,7 +131,7 @@ source source_me.sh && python3 local_stack.py install-data
 source source_me.sh && python3 local_stack.py install-data --without-live-demo
 ```
 
-The opt-out retains all curriculum, including bundled Genetics PGML, and uses a
+The opt-out retains all imported BPW curriculum, and uses a
 non-login PLE Example Content Instructor. It omits fictional Accounts, Course,
 enrollment, and Student Work on a fresh installation. Add `PLE_BPW_ROOT` and
 `PLE_QPM_CLI` to the selected stack configuration file when adjacent development

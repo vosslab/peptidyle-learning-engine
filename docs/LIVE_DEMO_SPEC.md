@@ -5,8 +5,8 @@
 The Live Demo is ordinary PLE teaching data. A fresh installation imports complete
 Genetics, Biochemistry, Biotechnology, and Biostatistics collections through the
 shared Python importer, then includes the fictional teaching graph by default.
-`local_stack.py install-data --without-live-demo` retains curriculum, including
-bundled Genetics sources, while omitting that graph on a fresh installation.
+`local_stack.py install-data --without-live-demo` retains imported BPW curriculum
+while omitting that graph on a fresh installation.
 
 ## Installation boundary
 

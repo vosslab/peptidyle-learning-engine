@@ -26,10 +26,10 @@ arguments, result files, and progress messages.
 
 The importer discovers Genetics, Biochemistry, Biotechnology, Biostatistics, Molecular Biology,
 Laboratory, and Other Questions from the BPW directory tree. It uses BPW topic descriptions and
-problem-set titles. Existing bundled Genetics sources absent from BPW are ordinary additional
-inputs; their manifest supplies source metadata.
+problem-set titles. BPW owns the task and build pipeline; PLE consumes its outputs directly.
+Subject source files and generated banks stay in BPW.
 All seven collection directories are required; a missing directory stops the import and appears
-in the incomplete result. The package resolves its checkout through Git from its own directory.
+in the incomplete result.
 
 Each associated PG/PGML source is published directly as one WeBWorK Question. It replaces its
 generated static bank. Standalone PG/PGML is also included. Companion type labels and the small

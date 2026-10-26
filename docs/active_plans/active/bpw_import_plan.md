@@ -28,8 +28,8 @@ the authority for content, ordering, and topic names.
   Add no API tokens, roles, impersonation, or new authentication policies.
 - Keep generic Native JSON HTML, CSS, and image binding in PLE's existing receiver and rendering
   path. Add no importer-specific parser or validation layer.
-- Remove the Genetics-specific publisher and its policies. Retain bundled Genetics sources and
-  licensing as ordinary content data.
+- Remove the Genetics-specific publisher and its policies. Read subject content directly from BPW build outputs;
+  BPW owns the task and build pipeline and its source files.
 - Have `local_stack_control` run the same Python importer after readiness, using configured BPW
   and QPM paths. Keep trusted installer people separate. Adopt the full Biochemistry Blueprint
   into the BCHM355 Course Instance while retaining the fictional teaching environment, including

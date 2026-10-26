@@ -15,7 +15,6 @@ is in [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 +- crates/                  Rust workspace: model, services, stores, tools, and adapters
 +- src/                     SolidJS browser application
 +- schemas/                 Canonical PostgreSQL structure and installation data
-+- content/                 Reviewed teaching content, including Pilot Question sources
 +- containers/              Podman Compose definitions and service images
 +- deploy/opentofu/         Future infrastructure design artifacts, not runtime evidence
 +- local_stack_control/     Disposable-stack lifecycle and acceptance helpers
@@ -61,7 +60,7 @@ schemas/
 |  `- 70_grants/                     EXECUTE and table privileges
 +- installation_data/
 |  +- prepublication_context.sql      Temporary publication context
-|  +- bundled_curriculum_context.sql  Bundled publisher Account and workspace
+|  +- bundled_curriculum_context.sql  Import publisher Account and workspace
 |  +- content_vocabulary.sql          Shared Discipline and Subject vocabulary
 |  +- install.sql                     Data-only Live Demo manifest
 |  +- live_demo.sql                   Ordinary teaching graph

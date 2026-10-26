@@ -95,8 +95,6 @@ COPY --from=database-migrator-builder /build/target/release/project-tools /usr/l
 COPY --chown=peptidyle:peptidyle schemas/base_schema /opt/ple/schemas/base_schema
 COPY --chown=peptidyle:peptidyle schemas/installation_data /opt/ple/schemas/installation_data
 COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/migrations /opt/ple/schemas/migrations
-COPY --chown=peptidyle:peptidyle content/genetics /opt/ple/content/genetics
-COPY --chown=peptidyle:peptidyle content/pilot /opt/ple/content/pilot
 HEALTHCHECK NONE
 ENTRYPOINT ["/usr/local/bin/ple-database-tools"]
 

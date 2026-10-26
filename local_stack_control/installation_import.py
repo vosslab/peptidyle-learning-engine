@@ -90,7 +90,7 @@ def provision(
 				json.dumps({"sessionCookie": session["sessionCookie"]}), private_values)
 			local_stack_control.lifecycle_commands.require_command(result, "Curriculum HTTP import", private_values)
 			imported = json.loads((workspace / "result.json").read_text(encoding="utf-8"))
-			local_stack_control.lifecycle_commands.report_step("adopting Biochemistry and preparing representative Student work" if include_live_demo else "finalizing bundled curriculum")
+			local_stack_control.lifecycle_commands.report_step("adopting Biochemistry and preparing representative Student work" if include_live_demo else "finalizing imported curriculum")
 			finalized = installer_phase(target, runner, ["finalize"],
 				json.dumps({"session": session, "importResult": imported}))
 			local_stack_control.lifecycle_commands.require_command(finalized, "Installation finalization", private_values)

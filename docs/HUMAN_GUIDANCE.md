@@ -1330,6 +1330,8 @@ PageFrame
 - QPM Question export is for selected Questions to use in another LMS; it remains blocked for now.
 - Paper exams use QPM-exported Questions in a dedicated external exam repository, which creates
   DOCX or PDF files. PLE does not render DOCX or PDF files.
+- Pull Genetics and other subject content directly from BPW. Its task and build pipeline is
+  sufficient; keep that pipeline and subject source files in BPW rather than replicating them in PLE.
 - Once PLE launches, BiologyProblems.org and PLE are no longer connected. PLE no longer cares
   how BiologyProblems.org changes.
 

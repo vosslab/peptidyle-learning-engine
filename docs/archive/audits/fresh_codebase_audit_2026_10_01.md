@@ -167,8 +167,8 @@ finding. Extra unused EXECUTE grants, if any, are a separate narrow cleanup ques
 
 ### F10 Medium: active Genetics source misstates Angelman causation
 
-Both [matching](../../../content/genetics/pg/topic01/genetic_disorders-matching.pgml) and
-[which-one](../../../content/genetics/pg/topic01/genetic_disorders-which_one.pgml) teach UBE3A
+Both `content/genetics/pg/topic01/genetic_disorders-matching.pgml` and
+`content/genetics/pg/topic01/genetic_disorders-which_one.pgml` teach UBE3A
 duplication as the cause of Angelman syndrome. Maternal UBE3A loss of function is the relevant
 mechanism; see [MedlinePlus Genetics](https://medlineplus.gov/genetics/condition/angelman-syndrome/).
 Correct the canonical Question facts and their upstream owner together where applicable. This is

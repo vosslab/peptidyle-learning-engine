@@ -208,12 +208,6 @@ def parse_args() -> argparse.Namespace:
 
 
 #============================================
-def repo_root() -> pathlib.Path:
-	"""Resolve the checkout containing this package independently of the caller's directory."""
-	return pathlib.Path(__file__).resolve().parent.parent
-
-
-#============================================
 def main() -> None:
 	"""Run one import and write a non-recovery result, including incomplete errors."""
 	args = parse_args()
@@ -221,8 +215,7 @@ def main() -> None:
 		"complete": False, "errors": []}
 	try:
 		api = sign_in(args.api_url, args.ca_file)
-		repo = repo_root()
-		sources, metadata = ple_import.bpw_source.discover(args.bpw_root.resolve(), repo / "content/genetics")
+		sources, metadata = ple_import.bpw_source.discover(args.bpw_root.resolve())
 		untyped = [str(item.path) for item in sources if item.path.suffix != ".txt"
 			and item.question_type is None]
 		if untyped:

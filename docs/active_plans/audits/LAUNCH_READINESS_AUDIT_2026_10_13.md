@@ -116,9 +116,9 @@ completeness.
 Evidence:
 
 - [FALL_2026_PILOT.md](../../FALL_2026_PILOT.md), lines 55-66.
-- [README.md](../../../content/genetics/README.md) and
-  [manifest.yaml](../../../content/genetics/manifest.yaml), active canonical Genetics input.
-- [chapter_1_assessments.yaml](../../../content/pilot/chapter_1_assessments.yaml), eight-question pilot.
+- `content/genetics/README.md` and
+  `content/genetics/manifest.yaml`, active canonical Genetics input.
+- `content/pilot/chapter_1_assessments.yaml`, eight-question pilot.
 - [installation_data.rs](../../../crates/project-tools/src/installation_data.rs), lines 68-98 and
   265-279, publication sequence and fixed Genetics input.
 

@@ -133,8 +133,8 @@ def algorithmic_points(item: SourceSet) -> tuple[str, bool]:
 
 
 #============================================
-def discover(bpw_root: pathlib.Path, bundled_root: pathlib.Path) -> tuple[list, dict]:
-	"""Include all seven BPW collections and bundled sources absent from BPW."""
+def discover(bpw_root: pathlib.Path) -> tuple[list, dict]:
+	"""Read all seven collections directly from the BPW build outputs."""
 	missing = [collection for collection in COLLECTIONS
 		if not (bpw_root / "site_docs" / collection).is_dir()]
 	if missing:
@@ -173,17 +173,4 @@ def discover(bpw_root: pathlib.Path, bundled_root: pathlib.Path) -> tuple[list, 
 					question_type = "multipleChoice"
 				sources.append(SourceSet(collection, topic, pg, source_title(pg),
 					description, question_type))
-	# The existing manifest supplies author metadata, never publication policy.
-	manifest = yaml.safe_load((bundled_root / "manifest.yaml").read_text())
-	by_key = {(item.collection, item.topic, item.path.stem): item for item in sources
-		if item.path.suffix in (".pg", ".pgml")}
-	for row in manifest["parameterized_sources"]:
-		path = bundled_root / row["pg_source"]
-		key = ("genetics", row["topic_slug"], path.stem)
-		if key in by_key:
-			if by_key[key].question_type is None:
-				by_key[key].question_type = row["question_type"]
-			continue
-		sources.append(SourceSet("genetics", row["topic_slug"], path,
-			row["question_title"], row["question_description"], row["question_type"]))
 	return sources, metadata

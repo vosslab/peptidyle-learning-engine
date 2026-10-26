@@ -252,7 +252,7 @@ filesystem boundary. Test that durable contract offline; record the real
 Podman/browser execution separately as one-time evidence.
 
 The miniature Chapter 1 publisher has been retired. The shared loader imports
-complete BPW collections and bundled Genetics PGML through ordinary HTTP
+complete collections directly from BPW build outputs through ordinary HTTP
 publication. One-time importer assembly checks protect the conversion boundary;
 real stack acceptance separately proves publication, adoption, and Student Work.
 

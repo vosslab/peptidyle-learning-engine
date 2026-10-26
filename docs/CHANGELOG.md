@@ -22,11 +22,20 @@
 
 ### Removals and Deprecations
 
+- Removed the local Genetics and Chapter 1 pilot content copies and their container packaging.
+  The BPW importer now reads only BPW build outputs; BPW owns subject sources and its task/build
+  pipeline. Removed the local Genetics merge and its unused repository-root helper.
 - Removed the disconnected PDF/DOCX export crate, its font, workspace entry, and direct dependency
   inventory entries. No replacement renderer or paper-export integration was added.
 
 ### Developer Tests and Notes
 
+- Direct discovery found 495 source sets across seven BPW collections, all inside BPW, with no
+  missing WeBWorK type metadata. Six former local-only Genetics additions are no longer imported.
+  Importer CLI help and 1714 focused Python/documentation checks passed. Retired source links in
+  historical audits now retain their paths as text, including nine old export-crate links.
+  No fresh HTTP import, container rebuild, or full acceptance suite was run; existing database
+  content was not changed.
 - `cargo check --workspace --offline` passed; Cargo.lock changed only by removing the export crate.
 - Three focused Rust tests, workspace compilation, and Clippy passed. Connected SDK/MinIO checks
   passed for repeated signed reads, the 12-hour lifetime, expired and tampered links, unsigned
