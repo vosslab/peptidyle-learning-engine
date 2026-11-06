@@ -1,6 +1,6 @@
 # The Playwright image pins Chromium and its operating-system dependencies to
 # the same release as the helper's locked Playwright client.
-FROM mcr.microsoft.com/playwright:v1.64.1-noble
+FROM mcr.microsoft.com/playwright:v1.65.0-noble
 
 USER root
 RUN apt-get update \

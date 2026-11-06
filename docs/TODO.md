@@ -7,6 +7,18 @@ This list routes genuinely unfinished work. Intended behavior comes from
 [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md); release evidence and sequencing
 are in [ROADMAP.md](ROADMAP.md).
 
+## Deferred lint toolchain evaluation
+
+Deferred by Neil on 2026-11-06; keep the current ESLint setup until this work is resumed.
+
+- [ ] Evaluate Oxlint with type-aware linting as a replacement for ESLint/typescript-eslint.
+      Map the enabled rules and overrides, compare meaningful findings on PLE, and measure
+      dependency count and check time. Preserve valuable checks, including unhandled promises.
+      Replace the current tools only if the comparison supports it; verify whether the change
+      removes the TypeScript 6 compatibility API and minimatch override. Recheck current
+      typescript-eslint support before evaluating alternatives, since its TypeScript 7
+      integration may have advanced. Keep TypeScript 7 for project type checking in the meantime.
+
 ## Question-spec implementation follow-up
 
 The approved 29-milestone Question-spec implementation is complete locally. All 35 scoped

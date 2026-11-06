@@ -8,6 +8,63 @@
 > September 29 entries are archived in [CHANGELOG-2026-09r.md](CHANGELOG-2026-09r.md).
 > September 28 entries are archived in [CHANGELOG-2026-09s.md](CHANGELOG-2026-09s.md).
 
+## 2026-11-06
+
+### Fixes and Maintenance
+
+- Recorded the deferred Oxlint comparison in [ROADMAP.md](ROADMAP.md#deferred-developer-tooling)
+  and [TODO.md](TODO.md#deferred-lint-toolchain-evaluation). Neil chose to defer the evaluation;
+  retain current lint tooling until the work is resumed.
+- Refreshed the npm lockfile forward while retaining current ESLint 10. Added an open-ended
+  `minimatch >=11.0.5` override for GHSA-g3hv-75wg-m249 because current ESLint and
+  typescript-eslint still require vulnerable minimatch 10. Reassess the override when those
+  packages accept patched minimatch releases directly.
+- Removed the unused `@axe-core/playwright` dependency after confirming its browser check was
+  retired. Matched the thumbnail renderer's Playwright image to the locked 1.65.0 client.
+- Adopted Microsoft's supported TypeScript compatibility aliases with open-ended minima:
+  `@typescript/native` resolves the TypeScript 7.0.2 `tsc` executable, while `typescript` resolves
+  the official `@typescript/typescript6` compatibility package and its current 6.0.3 compiler API
+  for typed ESLint. Direct TypeScript 7 installation passes PLE's Solid 1.9.18 type checks but
+  current typescript-eslint explicitly rejects its API. Preserve these alias targets when
+  refreshing their versions; the generic floor-sync helper rewrites aliases to ordinary packages.
+- Recorded the selected portable Gmail credential design in
+  [GMAIL_EMAIL_DELIVERY_BACKEND.md](GMAIL_EMAIL_DELIVERY_BACKEND.md): an encrypted
+  `~/.local/share/ple/gmail-oauth.enc` file, Argon2id key derivation, XChaCha20Poly1305 encryption,
+  and a separate passphrase supplied at mail-sender startup after image builds.
+- Documented memory-only runtime secrets, sender restart unlocking, preservation across demo
+  resets, encrypted backups, and Google reauthorization after passphrase loss. Updated the related
+  operator guidance and required implementation acceptance checks.
+- Recorded the separate-passphrase and macOS/Debian portability preference in
+  [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
+- Synchronized shared style guides, tests, and repository support files from the starter template.
+
+### Developer Tests and Notes
+
+- npm audit reports zero vulnerabilities for both the complete tree and production dependencies.
+  After regenerating ignored API and Question ID contracts, `./check_codebase.sh` passed both
+  TypeScript 7 checks, typed ESLint with the TypeScript 6 API, formatting, and all 23 Node tests
+  after a clean `npm ci`. Verified that the Playwright
+  1.65.0 container image manifest exists; the container and live browser suite were not run.
+- Focused Markdown-link and character-compliance checks passed (63). This is a documentation
+  change; Gmail delivery, encrypted credential tooling, and the protected Podman unlock handoff
+  remain unimplemented and unverified at runtime.
+
+## 2026-11-04
+
+### Fixes and Maintenance
+
+- Updated [GMAIL_EMAIL_DELIVERY_BACKEND.md](GMAIL_EMAIL_DELIVERY_BACKEND.md) with the proposed
+  dedicated Podman mail-sender service: runtime-only credentials, authenticated bounded requests,
+  fixed templates, independent sending limits, and explicit database, API, and host compromise
+  boundaries. Credential storage remains encrypted at rest; its unlock mechanism is undecided.
+- Corrected [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) to identify `peptidyle.admin@gmail.com` as the
+  PLE sender and record the requested credential isolation.
+
+### Developer Tests and Notes
+
+- Focused Markdown-link and character-compliance checks passed (63). This is a documentation
+  change; the mail-sender service and its container-isolation checks remain unimplemented.
+
 ## 2026-10-26
 
 ### Behavior or Interface Changes

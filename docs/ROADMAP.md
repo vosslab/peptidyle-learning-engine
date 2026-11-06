@@ -80,6 +80,13 @@ workflow, Store/Server authorization, user contract, and evidence plan. The
 current candidates and their priority belong in [TODO.md](TODO.md), not in
 schema reservations or compatibility layers.
 
+## Deferred developer tooling
+
+Evaluate Oxlint against the current ESLint/typescript-eslint setup when Neil resumes this work.
+Compare rule coverage, useful findings, dependencies, and check time before choosing a replacement.
+This is deferred maintenance, separate from production readiness. The bounded comparison belongs
+in [TODO.md](TODO.md#deferred-lint-toolchain-evaluation).
+
 ## Evidence and release boundary
 
 Keep fast tests deterministic, offline, and behavior-focused. PostgreSQL,

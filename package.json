@@ -1,6 +1,6 @@
 {
 	"name": "peptidyle-learning-engine",
-	"version": "26.10.0",
+	"version": "26.11.0",
 	"type": "module",
 	"private": true,
 	"scripts": {
@@ -15,27 +15,30 @@
 		"format:write": "npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}' '!assets/author-content-dependencies/**'"
 	},
 	"dependencies": {
-		"@solidjs/router": ">=1.0.0",
+		"@solidjs/router": ">=1.0.1",
 		"dompurify": ">=3.4.17",
-		"solid-js": ">=1.9.17",
-		"temml": ">=0.14.0",
-		"playwright": ">=1.64.1"
+		"playwright": ">=1.65.0",
+		"solid-js": ">=1.9.18",
+		"temml": ">=0.14.0"
 	},
 	"devDependencies": {
-		"@axe-core/playwright": ">=4.14.0",
 		"@eslint/js": ">=10.0.1",
 		"@fortawesome/free-solid-svg-icons": ">=7.3.1",
-		"@playwright/test": ">=1.64.1",
-		"@rdkit/rdkit": ">=2026.9.1",
-		"@types/node": ">=26.6.5",
+		"@playwright/test": ">=1.65.0",
+		"@rdkit/rdkit": ">=2026.9.2",
+		"@types/node": ">=26.6.6",
+		"@typescript/native": "npm:typescript@>=7.0.1",
 		"esbuild": ">=0.28.2",
 		"esbuild-plugin-solid": ">=0.6.0",
-		"eslint": ">=10.13.0",
-		"globals": ">=17.13.0",
+		"eslint": ">=10.14.0",
+		"globals": ">=17.14.0",
 		"prettier": ">=3.9.10",
 		"tsx": ">=4.23.15",
-		"typescript": ">=6.0.3 <7",
-		"typescript-eslint": ">=8.72.0"
+		"typescript": "npm:@typescript/typescript6@>=6.0.2",
+		"typescript-eslint": ">=8.72.1"
+	},
+	"overrides": {
+		"minimatch": ">=11.0.5"
 	},
 	"allowScripts": {
 		"esbuild": true,

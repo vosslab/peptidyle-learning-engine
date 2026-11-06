@@ -23,9 +23,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Sections should contain less than 25 bulleted items; split a larger section with subheadings.
   `devel/markdown_section_sizes.py -i docs/HUMAN_GUIDANCE.md -m 25` lists any that grew past it.
 
-## Project administration email
+## Project email sender
 
-- I created `peptidyle.admin@gmail.com` to coordinate logins for the project's external services.
+- I created `peptidyle.admin@gmail.com` for sending PLE email.
+- I want a dedicated Podman mail-sender container that accepts a specific request format and
+  keeps email credentials isolated if the PLE database is compromised.
+- I want the Gmail authorization in an encrypted file outside the repo, unlocked with a separate
+  passphrase at mail-sender startup. Keep the local demo portable between macOS and Debian.
 
 ## Deferred product behavior
 

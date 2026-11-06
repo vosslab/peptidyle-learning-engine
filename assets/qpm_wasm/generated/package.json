@@ -2,7 +2,7 @@
   "name": "qpm-wasm",
   "type": "module",
   "description": "Typed browser adapter for shared QTI conversion and integrity checks",
-  "version": "26.10.0",
+  "version": "26.11.0",
   "license": "LGPL-3.0-or-later",
   "repository": {
     "type": "git",

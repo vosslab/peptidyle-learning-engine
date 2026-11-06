@@ -2,12 +2,15 @@
 
 ## Status
 
-Proposed specification for an optional Gmail API Email Delivery Backend.
+Proposed specification for an optional Gmail API Email Delivery Backend running in a dedicated
+Podman mail-sender container. The initial integration targets the local Podman installation.
+The selected credential design uses a portable encrypted file and an operator-entered passphrase
+at mail-sender startup, supporting both macOS and Debian without requiring Keychain.
 
 PLE already implements SMTP-backed, browser-bound email-code authentication and
 Instructor setup notices. An external provider configuration and real-inbox
 acceptance remain pending. This document does not claim that the Gmail API
-adapter, its OAuth setup commands, or Gmail connected-delivery acceptance exist
+adapter, mail-sender service, OAuth setup commands, or Gmail connected-delivery acceptance exist
 today. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) remains the product authority,
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns PLE vocabulary, and
 [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) owns Account, Course enrollment,
@@ -51,31 +54,34 @@ Sysadmin account-creation operation.
 ## Architectural boundary
 
 PLE authentication owns the authentication workflow. The Email Delivery Backend only delivers a
-bounded message to an address selected by PLE.
+bounded message to an address selected by PLE. A dedicated mail-sender service owns Google
+authorization, token refresh, message construction, and submission. The PLE API holds no Google
+credential.
 
 ```text
-PLE authentication
-    |
-    | send(message)
-    v
-Email Delivery Backend
-    |
-    +-- Gmail API backend
-    |
-    `-- possible future provider backend
+PostgreSQL <--> PLE API
+                  |
+                  | authenticated, bounded delivery request
+                  v
+             Mail-sender container <--- protected runtime credential
+                  |
+                  | HTTPS
+                  v
+               Gmail API
 ```
 
-The Gmail backend receives a completed delivery request containing the recipient, message kind,
-fixed subject, and bounded message body. It does not decide whether the recipient may authenticate,
-create or validate challenges, create sessions, determine User Roles, inspect Course
-Membership, or authorize Student Work.
+The mail-sender service receives a validated recipient, a supported message kind, and the bounded
+values required by that kind, such as a sign-in code. The service owns the sender, subjects,
+plain-text templates, and configured sign-in URL. It does not decide whether the recipient may
+authenticate, create or validate challenges, create sessions, determine User Roles, inspect Course
+Membership, or authorize Student Work. It has no database connection or database-polled mail queue.
 
 No Gmail-specific concept appears in the Account, authentication-challenge, or session model.
 Provider replacement changes installation configuration and credentials, not product identity.
 
 ## Provider-neutral delivery contract
 
-The server owns one narrow operation equivalent to:
+The server owns a private client for one narrow operation equivalent to:
 
 ```rust
 pub trait EmailDeliveryBackend {
@@ -86,17 +92,23 @@ pub trait EmailDeliveryBackend {
 }
 ```
 
-`EmailDeliveryMessage` is a closed application type. It contains one validated recipient, one
-supported message kind, and server-rendered content. It does not accept an arbitrary provider URL,
-OAuth scope, mail header, HTML body, attachment, or credential.
+`EmailDeliveryMessage` is a closed application type. The initial message kinds cover sign-in codes,
+Instructor setup notices, and explicit operator test messages. Each kind accepts only its required
+typed values. The service rejects unknown kinds, unknown fields, invalid recipients, oversized
+requests, and values outside the selected kind's limits before contacting Google.
+
+Callers supply no arbitrary subject, body, template, sender, link, provider URL, OAuth scope, mail
+header, attachment, or credential. The mail-sender service constructs each message from its own
+fixed template and trusted installation configuration. Its response contains only a bounded receipt
+or failure category, with no credential-reading or general debugging operation.
 
 `EmailDeliveryReceipt` means that the provider accepted the submission. It does not prove inbox
 delivery or successful authentication.
 
-Provider-specific errors remain inside the adapter. The adapter returns bounded operational
-categories such as configuration, credential, quota, recipient, transient, indeterminate, and
-protocol failure. Provider response bodies and OAuth error descriptions never enter browser
-responses or ordinary logs.
+Provider-specific errors remain inside the mail-sender service. The service returns bounded
+operational categories such as configuration, credential, quota, recipient, transient,
+indeterminate, and protocol failure. Provider response bodies and OAuth error descriptions never
+enter browser responses or ordinary logs.
 
 ## Student authentication flow
 
@@ -146,14 +158,16 @@ cannot inject a mail header (ASVS 1.1.1-1.1.2, 1.2.1-1.2.5).
 
 ## Sender account
 
-Each installation using the Gmail backend uses a dedicated Gmail account rather than a deployment
-operator's personal mailbox. For example:
+Each installation using the Gmail backend uses a dedicated Gmail account. The selected sender for
+this project is:
 
 ```text
-peptidyle.auth@gmail.com
+peptidyle.admin@gmail.com
 ```
 
-The exact address is installation configuration, not application logic.
+The exact address is installation configuration. The word `admin` in the address grants no PLE or
+Google Cloud administrative authority. Creating a second administration mailbox is not required
+for sending email.
 
 The dedicated account is used only for PLE operational email. It contains no ordinary personal,
 course, grade, or Student correspondence. The deployment operator enables two-factor
@@ -182,9 +196,9 @@ authorized PLE; Google identity in this installer ceremony is not Student authen
 Google's [Gmail scope list](https://developers.google.com/workspace/gmail/api/auth/scopes).
 
 The resulting OAuth refresh token is an installation credential. PLE uses it to obtain short-lived
-access tokens as required by Google. Access and refresh tokens remain in the trusted backend and
-never enter browser state, application data, or product authorization (ASVS 9.1.1-9.1.3,
-10.5.1-10.5.4).
+access tokens as required by Google. Runtime access and refresh tokens remain inside the
+mail-sender service. They never enter the PLE API, browser state, application data, or product
+authorization (ASVS 9.1.1-9.1.3, 10.5.1-10.5.4).
 
 ## Installation model
 
@@ -203,9 +217,11 @@ The expected installation sequence is:
 8. Authenticate to Google as the dedicated sender account.
 9. Grant the required send permission.
 10. Allow the PLE command to receive and validate the authorization result.
-11. Store the resulting installation credential in the protected PLE secret location.
-12. Send a test message to real university destinations.
-13. Configure the installation to use the Gmail API backend.
+11. Choose a separate local passphrase and encrypt the resulting installation credential outside
+    the repository.
+12. Configure the installation to use the Gmail API backend.
+13. Start the mail-sender and unlock its credential with the local passphrase.
+14. Send a test message to real university destinations.
 
 Google Cloud project administration remains in Google's interfaces. PLE does not reproduce project
 or OAuth-client administration in the Sysadmin web interface.
@@ -244,7 +260,8 @@ Sysadmin Account, but the Sysadmin User Role alone grants no host or Gmail crede
 - validates OAuth state, PKCE, OIDC nonce, issuer, audience, expiry, subject, verified email, and
   granted scopes;
 - verifies the authorized email exactly matches the configured sender;
-- writes the resulting installation credential to the protected credential file;
+- prompts without echo for a separate local passphrase and writes the encrypted installation
+  credential to the protected file;
 - avoids printing tokens or client secrets; and
 - reports successful authorization and the credential destination without exposing secret values.
 
@@ -270,14 +287,18 @@ equivalent to:
 Backend: Gmail API
 Configured: yes
 Credential file: readable
-Sender: peptidyle.auth@gmail.com
-Local credential: valid shape
+Sender: peptidyle.admin@gmail.com
+Local credential: encrypted envelope has valid shape
 ```
+
+Local inspection checks file permissions and the encrypted envelope's shape without decrypting its
+contents. It does not establish that the passphrase, enclosed credential, or Google grant is valid.
 
 `verify` contacts Google, refreshes an access token, and confirms the authorized sender and granted
 scope without sending mail. It distinguishes missing configuration, missing or unreadable files,
 invalid credential format, revoked authorization, sender mismatch, scope mismatch, and unavailable
-Google service.
+Google service. `verify` and `send-test` use the unlocked mail-sender; a locked sender reports that
+operator unlocking is required.
 
 Neither command prints access tokens, refresh tokens, OAuth client secrets, provider response
 bodies, or authentication challenges.
@@ -297,17 +318,16 @@ that institutional spam filtering will deliver the message to the inbox.
 PLE does not need a general platform secret-management system solely to support Gmail.
 
 The Gmail OAuth credential is an installation-owned host secret stored outside the repository and
-ordinary application data. A conventional system deployment may use:
+ordinary application data. The local deployment uses this default on both macOS and Debian:
 
 ```text
-/etc/ple/
-    ple.toml
-    secrets/
-        gmail-oauth.json
+~/.local/share/ple/
+    gmail-oauth.enc
 ```
 
-The exact location is deployment-specific. The existing local deployment may place the credential
-under its controller-owned `.secrets` directory.
+The encrypted file belongs to the deployment operator and persists independently of the disposable
+Live Demo workspace. Demo reset, reseeding, cleanup, and image rebuilding preserve it. Other
+deployments may select another protected location outside the checkout.
 
 The secret directory is owned by the deployment account, is not a symbolic link, and uses mode
 `0700` where supported. The credential is a regular non-symbolic-link file owned by the deployment
@@ -319,12 +339,20 @@ Normal configuration stores only non-secret information and the credential locat
 ```toml
 [email]
 backend = "gmail_api"
-sender = "peptidyle.auth@gmail.com"
-credentials_file = "/etc/ple/secrets/gmail-oauth.json"
+sender = "peptidyle.admin@gmail.com"
+credentials_file = "/run/ple/secrets/gmail-oauth.enc"
 ```
 
-The credential file may contain the OAuth client information, refresh token, and stable Google
-subject required by the backend. Its strict serialized format is owned by the Gmail adapter.
+The example names the sender's private container path. The deployment mounts only the encrypted
+host file there, read-only; it does not mount the operator's home or credential directory.
+
+These settings belong to the mail-sender service, not the PLE API. The PLE API receives only the
+private service endpoint and the deployment-managed caller identity needed to submit messages.
+That identity remains outside PostgreSQL and grants no access to Google tokens.
+
+The encrypted payload contains the OAuth client information, refresh token, and stable Google
+subject required by the service. Its strict serialized format is owned by the Gmail adapter.
+Access tokens remain in memory.
 
 The credential remains outside:
 
@@ -338,40 +366,90 @@ The credential remains outside:
 - normal data exports; and
 - generated runtime manifests.
 
-PLE does not add application-level encryption whose decryption key would be stored beside the
-credential. Exact file ownership, host access controls, and encrypted host storage provide the
-initial boundary. A deployment with a real secret manager may later supply the credential through a
-different storage adapter.
+Persistent credentials and their backups contain ciphertext. Use the maintained RustCrypto
+[Argon2id key-derivation API](https://docs.rs/argon2/latest/argon2/#key-derivation) to derive the
+encryption key from the separate operator passphrase and a random salt. Encrypt with the project's
+existing [XChaCha20Poly1305 library](https://docs.rs/chacha20poly1305/latest/chacha20poly1305/),
+using a fresh random nonce for each write. Authenticated encryption detects modification as well
+as protecting confidentiality (ASVS 11.2.1, 11.3.3-11.3.4).
+
+Use a long, unique passphrase separate from Gmail, operating-system, and PLE Sysadmin passwords. Store
+neither the passphrase nor the derived key beside the encrypted file or in saved configuration,
+arguments, environment variables, logs, or persistent Podman secrets. File permissions and a
+`sudo` prompt control access but do not encrypt copied files or backups. The selected design
+requires no macOS Keychain, GPG installation, or host administrator privileges.
+
+Only the dedicated sender receives runtime unlock material and decrypted OAuth credentials through
+the protected startup handoff. Keep them in process memory, clear transient secret buffers when no
+longer needed, and write no persistent plaintext copy. Verify the handoff and Podman VM storage
+before claiming this boundary is implemented (ASVS 13.3.1-13.3.2, 14.2.1-14.2.7).
 
 ## Container deployment
 
-In the local Podman topology, a one-shot initializer copies the validated host credential into a
-dedicated private runtime volume. Only the API mounts that volume, read-only. The Gmail credential
-must not use a shared secret volume also mounted by the worker.
+The mail-sender image contains code and dependencies. Image builds require no OAuth credential or
+passphrase. After building, the deployment mounts the encrypted file only into the mail-sender
+container and supplies unlock material through a protected runtime handoff. Credentials and
+passphrases stay out of image layers, build contexts, registries, and container environment
+variables. Podman supports
+[runtime secret mounts](https://docs.podman.io/en/latest/markdown/podman-run.1.html#secret-secret-opt-opt);
+using a secret mount does not itself establish encryption of its backing storage. Persistent
+Podman secret storage holds no plaintext Gmail credential, passphrase, or derived key.
 
-The worker, renderer, gateway, database, object store, installation-data tools, and browser receive
-no Gmail credential. The API grants the Gmail adapter outbound TLS access only to Google's fixed
-OAuth, OIDC, and Gmail API endpoints (ASVS 12.3.1-12.3.2, 13.2.1-13.2.6).
+The mail-sender runs as a non-root user with a read-only root filesystem, dropped capabilities,
+and no Podman control socket or broad host-directory mount. The PLE API, workers, renderer,
+gateway, database, object store, installation-data tools, and browser receive no Gmail credential
+or access to its storage. The trusted host authorization command provisions credentials during
+installation and recovery.
+
+Only the PLE API and attended operator tools may submit supported requests over the private,
+authenticated service connection. The sender's endpoint has no public host-port mapping. The
+database does not join the sender's private network or receive its caller identity. Endpoint,
+template, sender, and service-authorization configuration remain outside PostgreSQL. Private
+network placement and strict request parsing complement caller authentication; they do not replace
+it (ASVS 8.3.1, 13.2.1-13.2.2).
+
+The mail-sender receives outbound TLS access only to Google's fixed OAuth, OIDC, and Gmail API
+endpoints. It has no database login or access to PLE object storage. Its independent sending limits
+remain outside database control (ASVS 12.3.1-12.3.2, 13.2.1-13.2.6).
 
 ## Credential lifecycle
 
-The Gmail credential persists across application restarts.
+The encrypted Gmail credential persists across application restarts and disposable demo resets.
 
 ### Initial authorization
 
-The deployment operator authorizes the dedicated sender and PLE writes the protected credential.
+The deployment operator completes Google consent for the dedicated sender, chooses a separate
+local passphrase, and PLE writes the encrypted credential. Google authorization and local
+encryption are separate operations.
+
+### Startup and unlocking
+
+After image builds finish, starting the mail-sender requests the local passphrase through a
+terminal prompt with echo disabled. The sender decrypts and validates the credential in memory
+before becoming ready to send. A cancelled prompt, wrong passphrase, or failed integrity check
+preserves the encrypted file and leaves email delivery unavailable.
+
+The unlock lasts for the sender process's lifetime. Restarting only the PLE API or refreshing the
+browser does not require another unlock while the sender remains running. Stopping or restarting
+the sender loses the unlock; unattended restarts remain locked until the operator supplies the
+passphrase again. Routine startup does not repeat Google consent.
 
 ### Access-token refresh
 
-The Gmail backend obtains short-lived access tokens using the stored refresh token. This is
-ordinary runtime behavior and does not require operator action. Access tokens remain in process
-memory and concurrent sends share one bounded refresh operation.
+The mail-sender service obtains short-lived access tokens using the stored refresh token. This is
+ordinary runtime behavior after local unlocking and does not require operator action per message
+or token refresh. Access tokens remain in process memory and concurrent sends share one bounded
+refresh operation.
 
 ### Reauthorization
 
 If Google revokes the refresh token, the dedicated account changes, or the credential becomes
 unusable, the operator runs `reauthorize`. Reauthorization replaces the Gmail installation
 credential without changing PLE Accounts or Authenticated Sessions.
+
+For a forgotten local passphrase, reauthorize with Google and encrypt the replacement credential
+under a new passphrase. Recovery requires no old passphrase or database changes. Restart and
+unlock the sender after replacement; failed reauthorization preserves the previous encrypted file.
 
 Google documents several ways a refresh token may stop working, including revocation, long
 inactivity, account password changes, token-count limits, and provider policy. The operator runs
@@ -380,9 +458,9 @@ inactivity, account password changes, token-count limits, and provider policy. T
 
 ### Credential replacement
 
-Credential writes use a private temporary file in the destination directory, flush the complete
-candidate, validate it, and atomically rename it into place. A partial file never becomes the active
-credential.
+Credential writes encrypt in memory, use a private ciphertext-only temporary file in the
+destination directory, flush and validate the complete candidate, and atomically rename it into
+place. A partial file never becomes the active credential, and plaintext is never staged on disk.
 
 ### Removal
 
@@ -393,13 +471,13 @@ operational steps.
 ## Runtime behavior
 
 At startup, the Gmail backend validates enough local configuration to determine whether it can
-operate. A selected Gmail backend with a missing, unreadable, unsafe, or malformed credential fails
-clearly instead of advertising email authentication as available.
+operate. A selected Gmail backend with a missing, unreadable, unsafe, malformed, or locked
+credential fails clearly instead of advertising email authentication as available.
 
 Runtime sending:
 
-1. Receives the provider-neutral delivery request.
-2. Obtains or refreshes a short-lived Google access token as needed.
+1. Authenticates the private caller and validates the selected message kind and its values.
+2. Applies independent sending limits, then obtains or refreshes a short-lived Google access token.
 3. Constructs one RFC 5322 plain-text message with typed headers.
 4. Base64url-encodes the message into the Gmail API `raw` field.
 5. Submits it through `users.messages.send`.
@@ -443,6 +521,12 @@ the installation's Gmail capacity.
 
 Rate limits never deactivate an Account or permanently lock out a Student. The public response
 remains non-enumerating when a hidden email-specific limit applies.
+
+The mail-sender service also enforces installation-wide and per-recipient sending limits outside
+PostgreSQL. It applies these limits to every allowed sender request, including cover messages and
+operator tests. A compromised database cannot raise or reset that budget. A valid request format
+alone does not authorize unlimited sending. Limits accommodate a 50-Student class sharing a campus
+network; this design introduces no general mail queue or bulk-mail workflow.
 
 The operator checks Google's current
 [Gmail sending limits](https://support.google.com/mail/answer/22839) and
@@ -526,14 +610,28 @@ Security depends on:
 - requesting only the required Google authorization;
 - validating the exact authorized sender and granted scopes;
 - protecting the host credential file;
-- limiting runtime access to the API Gmail adapter;
+- limiting runtime credential access to the dedicated mail-sender service;
+- authenticating private callers and rendering only supported message templates;
+- enforcing sending limits independently of PostgreSQL;
 - fixing trusted Google endpoints in code;
 - excluding secrets from logs, exports, database state, and browser responses;
 - making reauthorization straightforward; and
 - revoking Google authorization when the backend is retired.
 
-Compromise of the PLE host can expose a credential available to the PLE process. The initial design
-does not claim to solve host compromise through an application-specific encryption layer.
+The intended protection depends on which component is compromised:
+
+| Compromised component | Protection and remaining exposure |
+| --- | --- |
+| Database dump or PostgreSQL container alone | Contains no Gmail token, service caller credential, or secret mount; cannot directly call the sender. Database writes may still change Account or recipient data used by normal PLE workflows. |
+| PLE API | Cannot directly read Gmail credentials, but can submit supported requests within the sender's independently enforced limits. |
+| Mail-sender process | Can use the Google credential and see messages it handles; send-only OAuth scope limits Google authority. |
+| Host or Podman administrator | Can access or control the running sender and its secrets; container isolation does not cover this compromise. |
+
+Strict formatting protects parsing and message construction. It does not establish that an address
+read from a compromised database is legitimate, restore Account integrity, or stop an authorized
+caller from attempting abusive requests. Credential isolation and application authorization remain
+separate responsibilities. Encryption at rest does not prevent a compromised running mail-sender
+from using its credential.
 
 Email is not a high-assurance authenticator under current NIST and ASVS guidance. PLE accepts that
 risk for the required teaching workflow, limits authentication to configured institutional
@@ -549,10 +647,11 @@ Recovery remains short enough to perform without application surgery:
 1. Confirm the dedicated Gmail account is accessible.
 2. Confirm the Google Cloud Gmail API configuration remains valid.
 3. Run the Gmail reauthorization command.
-4. Complete Google authorization.
-5. Run the remote verification command.
-6. Send a test message to a university address.
-7. Resume email authentication.
+4. Complete Google authorization and encrypt the credential with a local passphrase.
+5. Restart and unlock the mail-sender.
+6. Run the remote verification command.
+7. Send a test message to a university address.
+8. Resume email authentication.
 ```
 
 No Account migration, database edit, session redesign, or Student action is required.
@@ -563,7 +662,9 @@ The Gmail credential is installation configuration rather than educational data.
 
 Deployment documentation states whether private installation credentials are included in encrypted,
 access-controlled host backups. If they are backed up, the backup receives the same sensitivity as
-the original credential. If they are not backed up, Gmail reauthorization is the recovery method.
+the original credential and contains only the encrypted file, never the passphrase or derived key.
+Restore requires the local passphrase. If the credential is not backed up, or the passphrase is
+forgotten, Gmail reauthorization is the recovery method.
 
 PostgreSQL backups do not contain Gmail credentials. Losing the Gmail credential disables new email
 delivery but does not lose PLE Accounts, Course state, or Student Work.
@@ -591,8 +692,10 @@ The Gmail backend is ready for an installation when:
 
 1. A deployment operator can authorize a dedicated Gmail sender using documented PLE operator
    tooling.
-2. The resulting OAuth credential is stored outside the repository with host-only access.
-3. PLE can restart and continue sending without interactive Google authorization.
+2. The resulting OAuth credential is encrypted outside the repository with a mode-0700 directory
+   and mode-0600 file, using the same credential format on macOS and Debian.
+3. After sender restart, the operator unlocks with the local passphrase and sending resumes
+   without interactive Google authorization. API restarts leave a running sender unlocked.
 4. The backend requests only `gmail.send` plus the OIDC identity claims needed to verify the
    configured sender.
 5. An operator can inspect local and remote backend status without exposing credential values.
@@ -610,13 +713,32 @@ The Gmail backend is ready for an installation when:
 13. Existing Authenticated Sessions and unrelated PLE capabilities remain available during a Gmail
     outage.
 14. The design permits a later provider to replace Gmail without redesigning PLE authentication.
+15. Only the mail-sender container receives runtime Gmail credentials. Images, PostgreSQL, the PLE
+    API, workers, and other containers contain no Google token or mount of its storage.
+16. Unauthorized private callers, unsupported messages, malformed requests, and requests beyond
+    the sender's independent limits fail before Google submission.
+17. Wrong passphrases, cancelled unlocking, and modified encrypted files preserve the stored
+    credential and leave sending unavailable. Image builds require no unlock or OAuth secrets.
+18. Demo resets preserve the external encrypted file. Backup restoration with the passphrase and
+    Google reauthorization after passphrase loss both restore sending without database changes.
 
 ## Verification evidence
 
-Permanent offline tests cover strict configuration parsing, private-file validation, secret
+Implementation tests must cover strict configuration parsing, private-file validation, secret
 redaction, OAuth validation, typed message construction, fixed endpoints, timeout and retry
 behavior, non-enumerating responses, rate limits, browser binding, single consumption, and session
 issuance.
+
+Credential checks must cover encryption round trips, wrong passphrases, tamper rejection, atomic
+replacement, redaction, and the same file format on macOS and Debian. Connected startup checks
+must verify the hidden prompt, protected host-to-Podman handoff, sender-restart locking, API-restart
+continuity, preservation across demo resets, encrypted backups, and passphrase-loss recovery.
+These checks remain required implementation evidence, not results established by this document.
+
+Connected container checks must prove that the API and database cannot read the sender's secret,
+the database cannot directly submit mail, unauthorized callers and invalid request shapes are
+rejected, and database changes cannot disable sender-owned limits. These checks verify isolation
+and bounded sending; they do not establish safety after a host or mail-sender compromise.
 
 A deterministic fake Email Delivery Backend may exercise the complete browser flow. That evidence
 does not claim Gmail delivery.
@@ -637,6 +759,7 @@ This specification applies the following ASVS controls:
 | 3.3.1-3.3.4, 6.3.1-6.3.8, 6.6.2-6.6.3 | Host-only browser credentials, non-enumeration, challenge binding, expiry, rate limits, and replay resistance |
 | 8.2.1-8.2.3, 8.3.1 | Gmail delivery grants no PLE identity or authorization |
 | 9.1.1-9.1.3, 10.5.1-10.5.4 | Fixed-issuer OAuth validation and minimum-scope backend tokens |
+| 11.2.1, 11.3.3-11.3.4, 13.3.1-13.3.2 | Maintained authenticated encryption, fresh nonces, separate manual unlock, runtime-only secret access, and credential-free builds |
 | 11.4.1-11.4.3, 11.5.1 | Approved hashes, keyed rate-limit identifiers, and operating-system randomness |
 | 12.3.1-12.3.2, 13.2.1-13.2.6 | Authenticated TLS, fixed external systems, timeouts, bounded concurrency, and controlled retries |
 | 14.2.1-14.2.7, 16.1.1, 16.2.1-16.5.4 | Least-authority secret storage, process isolation, redacted audit events, and secure failure behavior |
